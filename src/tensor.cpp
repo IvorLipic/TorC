@@ -102,6 +102,131 @@ bool Tensor::operator==(const Tensor& other) const {
     return true;
 }
 
+float Tensor::sum() const {
+    float total = 0.0f;
+    for (int i = 0; i < numel(); ++i)
+        total += storage_[i];
+    return total;
+}
+
+float Tensor::mean() const {
+    if (numel() == 0)
+        throw ShapeError("Cannot compute mean of empty tensor");
+    return sum() / numel();
+}
+
+float Tensor::max() const {
+    if (numel() == 0)
+        throw ShapeError("Cannot compute max of empty tensor");
+    float m = storage_[0];
+    for (int i = 1; i < numel(); ++i)
+        if (storage_[i] > m) m = storage_[i];
+    return m;
+}
+
+float Tensor::min() const {
+    if (numel() == 0)
+        throw ShapeError("Cannot compute min of empty tensor");
+    float m = storage_[0];
+    for (int i = 1; i < numel(); ++i)
+        if (storage_[i] < m) m = storage_[i];
+    return m;
+}
+
+Tensor Tensor::sum(int axis) const {
+    if (axis < 0 || axis >= (int)shape_.size())
+        throw ShapeError("Invalid axis " + std::to_string(axis) +
+                         " for tensor with shape " + shape_to_string(shape_));
+    if (numel() == 0)
+        throw ShapeError("Cannot compute sum of empty tensor");
+
+    std::vector<int> out_shape = shape_;
+    out_shape.erase(out_shape.begin() + axis);
+    Tensor out(out_shape);
+
+    int outer_stride = shape_product(std::vector<int>(shape_.begin() + axis + 1, shape_.end()));
+    int inner_stride = shape_product(std::vector<int>(shape_.begin(), shape_.begin() + axis));
+    int axis_size = shape_[axis];
+
+    for (int outer = 0; outer < inner_stride; ++outer) {
+        for (int a = 0; a < axis_size; ++a) {
+            for (int j = 0; j < outer_stride; ++j) {
+                int in_idx = outer * axis_size * outer_stride + a * outer_stride + j;
+                int out_idx = outer * outer_stride + j;
+                out.storage_[out_idx] += storage_[in_idx];
+            }
+        }
+    }
+    return out;
+}
+
+Tensor Tensor::mean(int axis) const {
+    Tensor s = sum(axis);
+    for (int i = 0; i < s.numel(); ++i)
+        s.storage_[i] /= shape_[axis];
+    return s;
+}
+
+Tensor Tensor::max(int axis) const {
+    if (axis < 0 || axis >= (int)shape_.size())
+        throw ShapeError("Invalid axis " + std::to_string(axis) +
+                         " for tensor with shape " + shape_to_string(shape_));
+    if (numel() == 0)
+        throw ShapeError("Cannot compute max of empty tensor");
+
+    std::vector<int> out_shape = shape_;
+    out_shape.erase(out_shape.begin() + axis);
+    Tensor out(out_shape);
+
+    int outer_stride = shape_product(std::vector<int>(shape_.begin() + axis + 1, shape_.end()));
+    int inner_stride = shape_product(std::vector<int>(shape_.begin(), shape_.begin() + axis));
+    int axis_size = shape_[axis];
+
+    for (int outer = 0; outer < inner_stride; ++outer) {
+        for (int j = 0; j < outer_stride; ++j) {
+            int out_idx = outer * outer_stride + j;
+            int first_in_idx = outer * axis_size * outer_stride + j;
+            out.storage_[out_idx] = storage_[first_in_idx];
+            for (int a = 1; a < axis_size; ++a) {
+                int in_idx = outer * axis_size * outer_stride + a * outer_stride + j;
+                if (storage_[in_idx] > out.storage_[out_idx])
+                    out.storage_[out_idx] = storage_[in_idx];
+            }
+        }
+    }
+    return out;
+}
+
+Tensor Tensor::min(int axis) const {
+    if (axis < 0 || axis >= (int)shape_.size())
+        throw ShapeError("Invalid axis " + std::to_string(axis) +
+                         " for tensor with shape " + shape_to_string(shape_));
+    if (numel() == 0)
+        throw ShapeError("Cannot compute min of empty tensor");
+
+    std::vector<int> out_shape = shape_;
+    out_shape.erase(out_shape.begin() + axis);
+    Tensor out(out_shape);
+
+    int outer_stride = shape_product(std::vector<int>(shape_.begin() + axis + 1, shape_.end()));
+    int inner_stride = shape_product(std::vector<int>(shape_.begin(), shape_.begin() + axis));
+    int axis_size = shape_[axis];
+
+    for (int outer = 0; outer < inner_stride; ++outer) {
+        for (int j = 0; j < outer_stride; ++j) {
+            int out_idx = outer * outer_stride + j;
+            int first_in_idx = outer * axis_size * outer_stride + j;
+            out.storage_[out_idx] = storage_[first_in_idx];
+            for (int a = 1; a < axis_size; ++a) {
+                int in_idx = outer * axis_size * outer_stride + a * outer_stride + j;
+                if (storage_[in_idx] < out.storage_[out_idx])
+                    out.storage_[out_idx] = storage_[in_idx];
+            }
+        }
+    }
+    return out;
+}
+
 std::ostream& operator<<(std::ostream& os, const Tensor& t) {
     os << "Tensor(shape=" << shape_to_string(t.shape()) << ", data=[";
     for (int i = 0; i < t.numel(); ++i) {

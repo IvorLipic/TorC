@@ -73,17 +73,17 @@ ctest --test-dir build --output-on-failure   # runs TorcTests
 - `operator-()` — unary negation (elementwise)
 - `operator==` — value + shape equality comparison
 - `operator<<` (via `include/torc/utils.hpp`) — pretty-prints shape and data
-
-There is **no** unary negation (`operator-()`) yet, despite some earlier notes implying
-otherwise — check `tensor.hpp` before assuming an op exists.
+- `sum()` / `mean()` / `max()` / `min()` — whole-tensor return `float`; axis-wise overloads
+  (`int axis`) return `Tensor` with reduced shape
 
 `src/main.cpp` demonstrates constructing two rank-1 tensors and running the elementwise ops.
 
 `tests/test_tensor.cpp` covers: zero-filled construction, initializer-list construction
 (matching and mismatched sizes), shape accessors, mutable/const `data()` access,
 `add`/`sub`/`mul`/`div` correctness, shape-mismatch throws for all four ops, scalar overloads,
-`operator==`, `operator<<` output, custom exception types (`ShapeError`), and a multi-dim
-(`{2,2}`) elementwise case.
+`operator==`, `operator<<` output, custom exception types (`ShapeError`), a multi-dim
+(`{2,2}`) elementwise case, unary negation, and reductions (`sum`/`mean`/`max`/`min`
+whole-tensor and axis-wise).
 
 That's the entire surface area today. Everything else (reductions, matmul,
 reshaping, broadcasting, autograd, nn layers, optimizers, data loading, device support) does

@@ -210,3 +210,132 @@ TEST(TensorNegation, MultiDim) {
     EXPECT_FLOAT_EQ(c.data()[3], 4.0f);
     EXPECT_TRUE((-a).shape() == a.shape());
 }
+
+TEST(TensorReductions, WholeTensorSum) {
+    Tensor t({1.0f, 2.0f, 3.0f, 4.0f}, {2, 2});
+    EXPECT_FLOAT_EQ(t.sum(), 10.0f);
+}
+
+TEST(TensorReductions, WholeTensorMean) {
+    Tensor t({1.0f, 2.0f, 3.0f, 4.0f}, {2, 2});
+    EXPECT_FLOAT_EQ(t.mean(), 2.5f);
+}
+
+TEST(TensorReductions, WholeTensorMax) {
+    Tensor t({1.0f, 2.0f, 3.0f, 4.0f}, {2, 2});
+    EXPECT_FLOAT_EQ(t.max(), 4.0f);
+}
+
+TEST(TensorReductions, WholeTensorMin) {
+    Tensor t({1.0f, 2.0f, 3.0f, 4.0f}, {2, 2});
+    EXPECT_FLOAT_EQ(t.min(), 1.0f);
+}
+
+TEST(TensorReductions, WholeTensorNegativeValues) {
+    Tensor t({-1.0f, -2.0f, 3.0f}, {3});
+    EXPECT_FLOAT_EQ(t.sum(), 0.0f);
+    EXPECT_FLOAT_EQ(t.mean(), 0.0f);
+    EXPECT_FLOAT_EQ(t.max(), 3.0f);
+    EXPECT_FLOAT_EQ(t.min(), -2.0f);
+}
+
+TEST(TensorReductions, WholeTensorSingleElement) {
+    Tensor t({42.0f}, {1});
+    EXPECT_FLOAT_EQ(t.sum(), 42.0f);
+    EXPECT_FLOAT_EQ(t.mean(), 42.0f);
+    EXPECT_FLOAT_EQ(t.max(), 42.0f);
+    EXPECT_FLOAT_EQ(t.min(), 42.0f);
+}
+
+TEST(TensorReductions, WholeTensorMaxMinEmptyThrows) {
+    Tensor t(std::vector<int>{0});
+    EXPECT_THROW(t.max(), torc::ShapeError);
+    EXPECT_THROW(t.min(), torc::ShapeError);
+}
+
+TEST(TensorReductions, AxisSum) {
+    Tensor t({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, {2, 3});
+    Tensor c = t.sum(0);
+    EXPECT_EQ(c.shape(), std::vector<int>({3}));
+    EXPECT_FLOAT_EQ(c.data()[0], 5.0f);
+    EXPECT_FLOAT_EQ(c.data()[1], 7.0f);
+    EXPECT_FLOAT_EQ(c.data()[2], 9.0f);
+}
+
+TEST(TensorReductions, AxisSumLastDim) {
+    Tensor t({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, {2, 3});
+    Tensor c = t.sum(1);
+    EXPECT_EQ(c.shape(), std::vector<int>({2}));
+    EXPECT_FLOAT_EQ(c.data()[0], 6.0f);
+    EXPECT_FLOAT_EQ(c.data()[1], 15.0f);
+}
+
+TEST(TensorReductions, AxisMean) {
+    Tensor t({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, {2, 3});
+    Tensor c = t.mean(0);
+    EXPECT_EQ(c.shape(), std::vector<int>({3}));
+    EXPECT_FLOAT_EQ(c.data()[0], 2.5f);
+    EXPECT_FLOAT_EQ(c.data()[1], 3.5f);
+    EXPECT_FLOAT_EQ(c.data()[2], 4.5f);
+}
+
+TEST(TensorReductions, AxisMeanLastDim) {
+    Tensor t({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, {2, 3});
+    Tensor c = t.mean(1);
+    EXPECT_EQ(c.shape(), std::vector<int>({2}));
+    EXPECT_FLOAT_EQ(c.data()[0], 2.0f);
+    EXPECT_FLOAT_EQ(c.data()[1], 5.0f);
+}
+
+TEST(TensorReductions, AxisMax) {
+    Tensor t({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, {2, 3});
+    Tensor c = t.max(0);
+    EXPECT_EQ(c.shape(), std::vector<int>({3}));
+    EXPECT_FLOAT_EQ(c.data()[0], 4.0f);
+    EXPECT_FLOAT_EQ(c.data()[1], 5.0f);
+    EXPECT_FLOAT_EQ(c.data()[2], 6.0f);
+}
+
+TEST(TensorReductions, AxisMin) {
+    Tensor t({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, {2, 3});
+    Tensor c = t.min(0);
+    EXPECT_EQ(c.shape(), std::vector<int>({3}));
+    EXPECT_FLOAT_EQ(c.data()[0], 1.0f);
+    EXPECT_FLOAT_EQ(c.data()[1], 2.0f);
+    EXPECT_FLOAT_EQ(c.data()[2], 3.0f);
+}
+
+TEST(TensorReductions, AxisMaxMinLastDim) {
+    Tensor t({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, {2, 3});
+    EXPECT_EQ(t.max(1).shape(), std::vector<int>({2}));
+    EXPECT_FLOAT_EQ(t.max(1).data()[0], 3.0f);
+    EXPECT_FLOAT_EQ(t.max(1).data()[1], 6.0f);
+    EXPECT_EQ(t.min(1).shape(), std::vector<int>({2}));
+    EXPECT_FLOAT_EQ(t.min(1).data()[0], 1.0f);
+    EXPECT_FLOAT_EQ(t.min(1).data()[1], 4.0f);
+}
+
+TEST(TensorReductions, AxisHigherDim) {
+    Tensor t({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f, 10.0f, 11.0f, 12.0f}, {2, 2, 3});
+    Tensor c = t.sum(2);
+    EXPECT_EQ(c.shape(), std::vector<int>({2, 2}));
+    EXPECT_FLOAT_EQ(c.data()[0], 6.0f);
+    EXPECT_FLOAT_EQ(c.data()[1], 15.0f);
+    EXPECT_FLOAT_EQ(c.data()[2], 24.0f);
+    EXPECT_FLOAT_EQ(c.data()[3], 33.0f);
+}
+
+TEST(TensorReductions, AxisInvalidThrows) {
+    Tensor t({1.0f, 2.0f, 3.0f}, {3});
+    EXPECT_THROW(t.sum(-1), torc::ShapeError);
+    EXPECT_THROW(t.sum(3), torc::ShapeError);
+    EXPECT_THROW(t.mean(-1), torc::ShapeError);
+    EXPECT_THROW(t.max(3), torc::ShapeError);
+    EXPECT_THROW(t.min(3), torc::ShapeError);
+}
+
+TEST(TensorReductions, AxisEmptyThrows) {
+    Tensor t(std::vector<int>{0});
+    EXPECT_THROW(t.sum(0), torc::ShapeError);
+    EXPECT_THROW(t.mean(0), torc::ShapeError);
+}

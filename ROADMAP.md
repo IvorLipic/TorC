@@ -31,7 +31,7 @@ see [AGENTS.md](AGENTS.md).
 - [x] Unary negation (`operator-()`)
 - [x] Scalar ops (`Tensor + float`, etc.)
 - [x] `operator==`, `operator<<` (pretty-printing) for debugging/tests
-- [ ] Reductions: `sum()`, `mean()`, `max()`, `min()` (whole-tensor first, axis-wise later)
+- [x] Reductions: `sum()`, `mean()`, `max()`, `min()` (whole-tensor first, axis-wise later)
 - [ ] `reshape()` / `view()` — no-copy where possible
 - [ ] Copy vs. move semantics review (rule of 5, or confirm defaults are sufficient)
 

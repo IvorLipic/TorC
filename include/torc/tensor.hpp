@@ -34,6 +34,17 @@ public:
     // comparison
     bool operator==(const Tensor& other) const;
 
+    // reductions: whole-tensor return float, axis-wise return Tensor
+    float sum() const;
+    float mean() const;
+    float max() const;
+    float min() const;
+
+    Tensor sum(int axis) const;
+    Tensor mean(int axis) const;
+    Tensor max(int axis) const;
+    Tensor min(int axis) const;
+
 private:
     std::vector<int> shape_;
     std::vector<float> storage_;  // naive: always float32
