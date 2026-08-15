@@ -36,10 +36,10 @@ see [AGENTS.md](AGENTS.md).
 - [x] Copy vs. move semantics review (rule of 5, or confirm defaults are sufficient)
 
 ## Milestone 2 — Shape flexibility
-- [ ] NumPy-style broadcasting for elementwise ops
-- [ ] Multi-dimensional indexing helper (`operator()(i, j, ...)`)
-- [ ] `transpose()` / axis permutation
-- [ ] Slicing (basic contiguous-range slices)
+- [x] NumPy-style broadcasting for elementwise ops
+- [x] Multi-dimensional indexing helper (`operator()(i, j, ...)`)
+- [x] `transpose()` / axis permutation
+- [x] Slicing (basic contiguous-range slices)
 
 ## Milestone 3 — Linear algebra
 - [ ] `matmul()` for 2D tensors (naive triple loop first, correctness over speed)

@@ -5,7 +5,7 @@ A minimal, from-scratch C++ tensor library. Naive `float32`-only storage with el
 ## Features
 
 - `torc::Tensor` with explicit-shape construction and initializer-list construction
-- Elementwise `add`, `sub`, `mul`, `div` (identical-shape only, no broadcasting yet)
+- Elementwise `add`, `sub`, `mul`, `div` with NumPy-style broadcasting
 - Scalar overloads for all four elementwise ops
 - Unary negation (`operator-()`)
 - `operator==` for value + shape equality
@@ -14,6 +14,9 @@ A minimal, from-scratch C++ tensor library. Naive `float32`-only storage with el
 - Shape inspection and element count
 - Reductions: `sum()`, `mean()`, `max()`, `min()` (whole-tensor and axis-wise)
 - `reshape()` / `view()` for changing shape without copying data
+- Multi-dimensional indexing (`operator()(i, j, ...)`)
+- `transpose()` for permuting dimensions
+- Slicing (`slice()`) for contiguous-range sub-tensors
 
 ## Requirements
 

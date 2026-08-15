@@ -405,3 +405,195 @@ TEST(TensorCopy, IndependentCopies) {
     EXPECT_FLOAT_EQ(a.data()[0], 1.0f);
     EXPECT_FLOAT_EQ(b.data()[0], 99.0f);
 }
+
+TEST(TensorBroadcasting, IdenticalShape) {
+    Tensor a({1.0f, 2.0f, 3.0f}, {3});
+    Tensor b({4.0f, 5.0f, 6.0f}, {3});
+    Tensor c = a.add(b);
+    EXPECT_EQ(c.shape(), std::vector<int>({3}));
+    EXPECT_FLOAT_EQ(c.data()[0], 5.0f);
+    EXPECT_FLOAT_EQ(c.data()[1], 7.0f);
+    EXPECT_FLOAT_EQ(c.data()[2], 9.0f);
+}
+
+TEST(TensorBroadcasting, DimOneExpansion) {
+    Tensor a({1.0f, 2.0f, 3.0f, 4.0f}, {2, 2});
+    Tensor b({10.0f, 20.0f}, {2, 1});
+    Tensor c = a.add(b);
+    EXPECT_EQ(c.shape(), std::vector<int>({2, 2}));
+    EXPECT_FLOAT_EQ(c.data()[0], 11.0f);
+    EXPECT_FLOAT_EQ(c.data()[1], 12.0f);
+    EXPECT_FLOAT_EQ(c.data()[2], 23.0f);
+    EXPECT_FLOAT_EQ(c.data()[3], 24.0f);
+}
+
+TEST(TensorBroadcasting, MultiDimBroadcast) {
+    Tensor a({1.0f, 2.0f, 3.0f, 4.0f}, {2, 2});
+    Tensor b({10.0f, 20.0f}, {1, 2});
+    Tensor c = a.add(b);
+    EXPECT_EQ(c.shape(), std::vector<int>({2, 2}));
+    EXPECT_FLOAT_EQ(c.data()[0], 11.0f);
+    EXPECT_FLOAT_EQ(c.data()[1], 22.0f);
+    EXPECT_FLOAT_EQ(c.data()[2], 13.0f);
+    EXPECT_FLOAT_EQ(c.data()[3], 24.0f);
+}
+
+TEST(TensorBroadcasting, HigherRankBroadcast) {
+    Tensor a({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, {2, 3});
+    Tensor b({10.0f, 20.0f, 30.0f}, {1, 3});
+    Tensor c = a.add(b);
+    EXPECT_EQ(c.shape(), std::vector<int>({2, 3}));
+    EXPECT_FLOAT_EQ(c.data()[0], 11.0f);
+    EXPECT_FLOAT_EQ(c.data()[1], 22.0f);
+    EXPECT_FLOAT_EQ(c.data()[2], 33.0f);
+    EXPECT_FLOAT_EQ(c.data()[3], 14.0f);
+    EXPECT_FLOAT_EQ(c.data()[4], 25.0f);
+    EXPECT_FLOAT_EQ(c.data()[5], 36.0f);
+}
+
+TEST(TensorBroadcasting, IncompatibleShapesThrow) {
+    Tensor a({1.0f, 2.0f}, {2});
+    Tensor b({1.0f, 2.0f, 3.0f}, {3});
+    EXPECT_THROW(a.add(b), torc::ShapeError);
+    EXPECT_THROW(a.sub(b), torc::ShapeError);
+    EXPECT_THROW(a.mul(b), torc::ShapeError);
+    EXPECT_THROW(a.div(b), torc::ShapeError);
+}
+
+TEST(TensorBroadcasting, AllOpsBroadcast) {
+    Tensor a({1.0f, 2.0f, 3.0f}, {3});
+    Tensor b({10.0f, 20.0f, 30.0f}, {3, 1});
+    EXPECT_EQ(a.add(b).shape(), std::vector<int>({3, 3}));
+    EXPECT_EQ(a.sub(b).shape(), std::vector<int>({3, 3}));
+    EXPECT_EQ(a.mul(b).shape(), std::vector<int>({3, 3}));
+    EXPECT_EQ(a.div(b).shape(), std::vector<int>({3, 3}));
+    EXPECT_FLOAT_EQ(a.add(b).data()[0], 11.0f);
+    EXPECT_FLOAT_EQ(a.sub(b).data()[1], -8.0f);
+    EXPECT_FLOAT_EQ(a.mul(b).data()[2], 30.0f);
+    EXPECT_FLOAT_EQ(a.div(b).data()[3], 0.05f);
+}
+
+TEST(TensorIndexing, ReadWrite) {
+    Tensor t({1.0f, 2.0f, 3.0f, 4.0f}, {2, 2});
+    EXPECT_FLOAT_EQ(t(0, 0), 1.0f);
+    EXPECT_FLOAT_EQ(t(1, 1), 4.0f);
+    t(0, 1) = 99.0f;
+    EXPECT_FLOAT_EQ(t.data()[1], 99.0f);
+}
+
+TEST(TensorIndexing, OutOfBoundsThrow) {
+    Tensor t({2, 2});
+    EXPECT_THROW(t(2, 0), torc::ShapeError);
+    EXPECT_THROW(t(0, 2), torc::ShapeError);
+    EXPECT_THROW(t(-1, 0), torc::ShapeError);
+}
+
+TEST(TensorIndexing, WrongRankThrow) {
+    Tensor t({2, 2});
+    EXPECT_THROW(t(0), torc::ShapeError);
+    EXPECT_THROW(t(0, 0, 0), torc::ShapeError);
+}
+
+TEST(TensorIndexing, MultiDim) {
+    Tensor t({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, {2, 3});
+    EXPECT_FLOAT_EQ(t(0, 2), 3.0f);
+    EXPECT_FLOAT_EQ(t(1, 0), 4.0f);
+}
+
+TEST(TensorIndexing, ConstAccess) {
+    const Tensor t({1.0f, 2.0f, 3.0f, 4.0f}, {2, 2});
+    EXPECT_FLOAT_EQ(t(1, 0), 3.0f);
+}
+
+TEST(TensorTranspose, Default2D) {
+    Tensor t({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, {2, 3});
+    Tensor c = t.transpose({});
+    EXPECT_EQ(c.shape(), std::vector<int>({3, 2}));
+    EXPECT_FLOAT_EQ(c.data()[0], 1.0f);
+    EXPECT_FLOAT_EQ(c.data()[1], 4.0f);
+    EXPECT_FLOAT_EQ(c.data()[2], 2.0f);
+    EXPECT_FLOAT_EQ(c.data()[3], 5.0f);
+    EXPECT_FLOAT_EQ(c.data()[4], 3.0f);
+    EXPECT_FLOAT_EQ(c.data()[5], 6.0f);
+}
+
+TEST(TensorTranspose, Default3D) {
+    Tensor t({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f, 10.0f, 11.0f, 12.0f}, {2, 2, 3});
+    Tensor c = t.transpose({});
+    EXPECT_EQ(c.shape(), std::vector<int>({3, 2, 2}));
+    EXPECT_FLOAT_EQ(c.data()[0], 1.0f);
+    EXPECT_FLOAT_EQ(c.data()[1], 7.0f);
+    EXPECT_FLOAT_EQ(c.data()[2], 4.0f);
+}
+
+TEST(TensorTranspose, CustomAxes) {
+    Tensor t({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f, 10.0f, 11.0f, 12.0f}, {2, 2, 3});
+    Tensor c = t.transpose({0, 2, 1});
+    EXPECT_EQ(c.shape(), std::vector<int>({2, 3, 2}));
+}
+
+TEST(TensorTranspose, InvalidAxesThrow) {
+    Tensor t({2, 3});
+    EXPECT_THROW(t.transpose({0}), torc::ShapeError);
+    EXPECT_THROW(t.transpose({0, 0}), torc::ShapeError);
+    EXPECT_THROW(t.transpose({0, 2}), torc::ShapeError);
+}
+
+TEST(TensorTranspose, PreservesValues) {
+    Tensor t({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, {2, 3});
+    Tensor c = t.transpose({});
+    EXPECT_TRUE(c.shape() == std::vector<int>({3, 2}));
+    for (int i = 0; i < t.numel(); ++i)
+        EXPECT_FLOAT_EQ(c.sum(), t.sum());
+}
+
+TEST(TensorSlice, FirstDimSlice) {
+    Tensor t({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, {2, 3});
+    Tensor s = t.slice({Tensor::Slice{0, 1}, Tensor::Slice{0, 3}});
+    EXPECT_EQ(s.shape(), std::vector<int>({1, 3}));
+    EXPECT_FLOAT_EQ(s.data()[0], 1.0f);
+    EXPECT_FLOAT_EQ(s.data()[1], 2.0f);
+    EXPECT_FLOAT_EQ(s.data()[2], 3.0f);
+}
+
+TEST(TensorSlice, LastDimSlice) {
+    Tensor t({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, {2, 3});
+    Tensor s = t.slice({Tensor::Slice{0, 2}, Tensor::Slice{1, 2}});
+    EXPECT_EQ(s.shape(), std::vector<int>({2, 1}));
+    EXPECT_FLOAT_EQ(s.data()[0], 2.0f);
+    EXPECT_FLOAT_EQ(s.data()[1], 5.0f);
+}
+
+TEST(TensorSlice, InnerDimSlice) {
+    Tensor t({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, {2, 3});
+    Tensor s = t.slice({Tensor::Slice{0, 2}, Tensor::Slice{0, 2}});
+    EXPECT_EQ(s.shape(), std::vector<int>({2, 2}));
+    EXPECT_FLOAT_EQ(s.data()[0], 1.0f);
+    EXPECT_FLOAT_EQ(s.data()[1], 2.0f);
+    EXPECT_FLOAT_EQ(s.data()[2], 4.0f);
+    EXPECT_FLOAT_EQ(s.data()[3], 5.0f);
+}
+
+TEST(TensorSlice, CombinedSlice) {
+    Tensor t({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f, 10.0f, 11.0f, 12.0f}, {2, 2, 3});
+    Tensor s = t.slice({Tensor::Slice{0, 2}, Tensor::Slice{1, 2}, Tensor::Slice{0, 2}});
+    EXPECT_EQ(s.shape(), std::vector<int>({2, 1, 2}));
+    EXPECT_FLOAT_EQ(s.data()[0], 4.0f);
+    EXPECT_FLOAT_EQ(s.data()[1], 5.0f);
+    EXPECT_FLOAT_EQ(s.data()[2], 10.0f);
+    EXPECT_FLOAT_EQ(s.data()[3], 11.0f);
+}
+
+TEST(TensorSlice, OutOfRangeThrow) {
+    Tensor t({2, 3});
+    EXPECT_THROW(t.slice({Tensor::Slice{0, 3}, Tensor::Slice{0, 3}}), torc::ShapeError);
+    EXPECT_THROW(t.slice({Tensor::Slice{0, 2}, Tensor::Slice{-1, 2}}), torc::ShapeError);
+    EXPECT_THROW(t.slice({Tensor::Slice{1, 0}, Tensor::Slice{0, 2}}), torc::ShapeError);
+}
+
+TEST(TensorSlice, WrongRankThrow) {
+    Tensor t({2, 3});
+    EXPECT_THROW(t.slice({Tensor::Slice{0, 1}}), torc::ShapeError);
+    EXPECT_THROW(t.slice({Tensor::Slice{0, 2}, Tensor::Slice{0, 2}, Tensor::Slice{0, 2}}), torc::ShapeError);
+}
+

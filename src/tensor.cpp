@@ -22,41 +22,119 @@ int Tensor::numel() const {
     return shape_product(shape_);
 }
 
-void Tensor::check_same_shape(const Tensor& other) const {
-    if (shape_ != other.shape_)
-        throw ShapeError("Shape mismatch: " + shape_to_string(shape_) +
-                         " vs " + shape_to_string(other.shape_));
+int Tensor::flat_index(const std::vector<int>& indices) const {
+    int idx = 0;
+    for (size_t i = 0; i < shape_.size(); ++i) {
+        idx = idx * shape_[i] + indices[i];
+    }
+    return idx;
 }
 
 Tensor Tensor::add(const Tensor& other) const {
-    check_same_shape(other);
-    Tensor out(shape_);
-    for (int i = 0; i < numel(); ++i)
-        out.storage_[i] = storage_[i] + other.storage_[i];
+    auto out_shape = broadcast_shape(shape_, other.shape_);
+    Tensor out(out_shape);
+    for (int i = 0; i < out.numel(); ++i) {
+        std::vector<int> out_indices(out_shape.size());
+        int tmp = i;
+        for (int d = (int)out_shape.size() - 1; d >= 0; --d) {
+            out_indices[d] = tmp % out_shape[d];
+            tmp /= out_shape[d];
+        }
+        int a_rank = shape_.size();
+        int b_rank = other.shape_.size();
+        int a_offset = (int)out_shape.size() - a_rank;
+        int b_offset = (int)out_shape.size() - b_rank;
+        int a_idx = 0;
+        for (int d = 0; d < a_rank; ++d) {
+            a_idx = a_idx * shape_[d] + (shape_[d] == 1 ? 0 : out_indices[d + a_offset]);
+        }
+        int b_idx = 0;
+        for (int d = 0; d < b_rank; ++d) {
+            b_idx = b_idx * other.shape_[d] + (other.shape_[d] == 1 ? 0 : out_indices[d + b_offset]);
+        }
+        out.storage_[i] = storage_[a_idx] + other.storage_[b_idx];
+    }
     return out;
 }
 
 Tensor Tensor::sub(const Tensor& other) const {
-    check_same_shape(other);
-    Tensor out(shape_);
-    for (int i = 0; i < numel(); ++i)
-        out.storage_[i] = storage_[i] - other.storage_[i];
+    auto out_shape = broadcast_shape(shape_, other.shape_);
+    Tensor out(out_shape);
+    for (int i = 0; i < out.numel(); ++i) {
+        std::vector<int> out_indices(out_shape.size());
+        int tmp = i;
+        for (int d = (int)out_shape.size() - 1; d >= 0; --d) {
+            out_indices[d] = tmp % out_shape[d];
+            tmp /= out_shape[d];
+        }
+        int a_rank = shape_.size();
+        int b_rank = other.shape_.size();
+        int a_offset = (int)out_shape.size() - a_rank;
+        int b_offset = (int)out_shape.size() - b_rank;
+        int a_idx = 0;
+        for (int d = 0; d < a_rank; ++d) {
+            a_idx = a_idx * shape_[d] + (shape_[d] == 1 ? 0 : out_indices[d + a_offset]);
+        }
+        int b_idx = 0;
+        for (int d = 0; d < b_rank; ++d) {
+            b_idx = b_idx * other.shape_[d] + (other.shape_[d] == 1 ? 0 : out_indices[d + b_offset]);
+        }
+        out.storage_[i] = storage_[a_idx] - other.storage_[b_idx];
+    }
     return out;
 }
 
 Tensor Tensor::mul(const Tensor& other) const {
-    check_same_shape(other);
-    Tensor out(shape_);
-    for (int i = 0; i < numel(); ++i)
-        out.storage_[i] = storage_[i] * other.storage_[i];
+    auto out_shape = broadcast_shape(shape_, other.shape_);
+    Tensor out(out_shape);
+    for (int i = 0; i < out.numel(); ++i) {
+        std::vector<int> out_indices(out_shape.size());
+        int tmp = i;
+        for (int d = (int)out_shape.size() - 1; d >= 0; --d) {
+            out_indices[d] = tmp % out_shape[d];
+            tmp /= out_shape[d];
+        }
+        int a_rank = shape_.size();
+        int b_rank = other.shape_.size();
+        int a_offset = (int)out_shape.size() - a_rank;
+        int b_offset = (int)out_shape.size() - b_rank;
+        int a_idx = 0;
+        for (int d = 0; d < a_rank; ++d) {
+            a_idx = a_idx * shape_[d] + (shape_[d] == 1 ? 0 : out_indices[d + a_offset]);
+        }
+        int b_idx = 0;
+        for (int d = 0; d < b_rank; ++d) {
+            b_idx = b_idx * other.shape_[d] + (other.shape_[d] == 1 ? 0 : out_indices[d + b_offset]);
+        }
+        out.storage_[i] = storage_[a_idx] * other.storage_[b_idx];
+    }
     return out;
 }
 
 Tensor Tensor::div(const Tensor& other) const {
-    check_same_shape(other);
-    Tensor out(shape_);
-    for (int i = 0; i < numel(); ++i)
-        out.storage_[i] = storage_[i] / other.storage_[i];
+    auto out_shape = broadcast_shape(shape_, other.shape_);
+    Tensor out(out_shape);
+    for (int i = 0; i < out.numel(); ++i) {
+        std::vector<int> out_indices(out_shape.size());
+        int tmp = i;
+        for (int d = (int)out_shape.size() - 1; d >= 0; --d) {
+            out_indices[d] = tmp % out_shape[d];
+            tmp /= out_shape[d];
+        }
+        int a_rank = shape_.size();
+        int b_rank = other.shape_.size();
+        int a_offset = (int)out_shape.size() - a_rank;
+        int b_offset = (int)out_shape.size() - b_rank;
+        int a_idx = 0;
+        for (int d = 0; d < a_rank; ++d) {
+            a_idx = a_idx * shape_[d] + (shape_[d] == 1 ? 0 : out_indices[d + a_offset]);
+        }
+        int b_idx = 0;
+        for (int d = 0; d < b_rank; ++d) {
+            b_idx = b_idx * other.shape_[d] + (other.shape_[d] == 1 ? 0 : out_indices[d + b_offset]);
+        }
+        out.storage_[i] = storage_[a_idx] / other.storage_[b_idx];
+    }
     return out;
 }
 
@@ -100,6 +178,68 @@ bool Tensor::operator==(const Tensor& other) const {
     for (int i = 0; i < numel(); ++i)
         if (storage_[i] != other.storage_[i]) return false;
     return true;
+}
+
+Tensor Tensor::transpose(std::vector<int> axes) const {
+    int rank = shape_.size();
+    if (axes.empty()) {
+        axes.resize(rank);
+        for (int i = 0; i < rank; ++i) axes[i] = rank - 1 - i;
+    }
+    if ((int)axes.size() != rank)
+        throw ShapeError("Transpose axes size " + std::to_string(axes.size()) + " does not match rank " + std::to_string(rank));
+    std::vector<bool> seen(rank, false);
+    for (int i = 0; i < rank; ++i) {
+        if (axes[i] < 0 || axes[i] >= rank)
+            throw ShapeError("Transpose axis " + std::to_string(axes[i]) + " out of bounds for rank " + std::to_string(rank));
+        if (seen[axes[i]])
+            throw ShapeError("Duplicate transpose axis " + std::to_string(axes[i]));
+        seen[axes[i]] = true;
+    }
+
+    std::vector<int> new_shape(rank);
+    for (int i = 0; i < rank; ++i) new_shape[i] = shape_[axes[i]];
+    Tensor out(std::move(new_shape));
+
+    std::vector<int> out_indices(rank, 0);
+    for (int out_flat = 0; out_flat < out.numel(); ++out_flat) {
+        std::vector<int> in_indices(rank);
+        for (int i = 0; i < rank; ++i) in_indices[axes[i]] = out_indices[i];
+        out.storage_[out_flat] = storage_[flat_index(in_indices)];
+        for (int i = rank - 1; i >= 0; --i) {
+            ++out_indices[i];
+            if (out_indices[i] < out.shape()[i]) break;
+            out_indices[i] = 0;
+        }
+    }
+    return out;
+}
+
+Tensor Tensor::slice(const std::vector<Slice>& slices) const {
+    int rank = shape_.size();
+    if ((int)slices.size() != rank)
+        throw ShapeError("Slice count " + std::to_string(slices.size()) + " does not match rank " + std::to_string(rank));
+    std::vector<int> out_shape(rank);
+    std::vector<int> offsets(rank);
+    for (int i = 0; i < rank; ++i) {
+        if (slices[i].start < 0 || slices[i].end > shape_[i] || slices[i].start >= slices[i].end)
+            throw ShapeError("Invalid slice at dim " + std::to_string(i) + ": [" + std::to_string(slices[i].start) + ", " + std::to_string(slices[i].end) + ")");
+        out_shape[i] = slices[i].end - slices[i].start;
+        offsets[i] = slices[i].start;
+    }
+    Tensor out(std::move(out_shape));
+    std::vector<int> out_indices(rank, 0);
+    for (int out_flat = 0; out_flat < out.numel(); ++out_flat) {
+        std::vector<int> in_indices(rank);
+        for (int i = 0; i < rank; ++i) in_indices[i] = offsets[i] + out_indices[i];
+        out.storage_[out_flat] = storage_[flat_index(in_indices)];
+        for (int i = rank - 1; i >= 0; --i) {
+            ++out_indices[i];
+            if (out_indices[i] < out.shape()[i]) break;
+            out_indices[i] = 0;
+        }
+    }
+    return out;
 }
 
 float Tensor::sum() const {

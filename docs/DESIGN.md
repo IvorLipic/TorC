@@ -16,11 +16,15 @@ storage (`Tensor<T>`) only if multi-precision becomes an actual need — don't a
 speculatively, since it touches every op signature.
 
 ### Shape / broadcasting semantics
-**No broadcasting for now.** All elementwise ops require identical shapes and share one
-`check_same_shape()` guard. NumPy-style broadcasting is deferred to Milestone 2, at which
-point the shape-check signature generalizes to a `broadcast_shape()` helper. Doing this
-before autograd matters, because broadcasting changes what a gradient's "sum over broadcast
-dims" step needs to look like.
+Elementwise ops use NumPy-style broadcasting via the `broadcast_shape()` helper in
+`utils.hpp`. Shapes are aligned from the right; dimensions are compatible if they are equal
+or one of them is `1`. The result shape is the maximum along each dimension. This was
+implemented in Milestone 2 before autograd, because broadcasting changes what a gradient's
+"sum over broadcast dims" step needs to look like.
+
+Storage is always row-major and contiguous. `reshape()` copies the shape vector and moves
+storage; `view()` delegates to `reshape()`. There is no stride metadata yet, so `transpose()`
+and `slice()` explicitly reorder/copy into new contiguous buffers.
 
 ### Memory ownership
 `storage_` is an owned `std::vector<float>` per `Tensor`, copied fresh on every elementwise or

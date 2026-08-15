@@ -34,5 +34,22 @@ int main() {
     std::cout << "n.reshape({4}) = " << n.reshape({4}) << "\n";
     std::cout << "n.view({1, 4}) = " << n.view({1, 4}) << "\n";
 
+    Tensor p({1.0f, 2.0f, 3.0f, 4.0f}, {2, 2});
+    std::cout << "\np: " << p << "\n";
+    std::cout << "p(0, 0) = " << p(0, 0) << "\n";
+    p(1, 1) = 99.0f;
+    std::cout << "p(1, 1) = " << p(1, 1) << "\n";
+
+    Tensor q({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, {2, 3});
+    std::cout << "\nq: " << q << "\n";
+    std::cout << "q.transpose({}) = " << q.transpose({}) << "\n";
+    std::cout << "q.slice({0,2}, {0,2}) = " << q.slice({Tensor::Slice{0, 2}, Tensor::Slice{0, 2}}) << "\n";
+
+    Tensor x({1.0f, 2.0f, 3.0f}, {3});
+    Tensor y({10.0f, 20.0f, 30.0f}, {3, 1});
+    std::cout << "\nx: " << x << "\n";
+    std::cout << "y: " << y << "\n";
+    std::cout << "x + y = " << x.add(y) << "\n";
+
     return 0;
 }

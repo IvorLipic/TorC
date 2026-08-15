@@ -67,12 +67,15 @@ ctest --test-dir build --output-on-failure   # runs TorcTests
 - `data()` / `const data()` — raw pointer access to underlying `std::vector<float> storage_`
 - `shape()` — returns `const std::vector<int>&`
 - `numel()` — product of shape dims (via `shape_product()`), recomputed each call (not cached)
-- `add(other)`, `sub(other)`, `mul(other)`, `div(other)` — elementwise tensor-tensor,
-  require identical shape, throw `ShapeError` on mismatch
+- `add(other)`, `sub(other)`, `mul(other)`, `div(other)` — elementwise tensor-tensor with
+  NumPy-style broadcasting; throws `ShapeError` if shapes are incompatible
 - `add(scalar)`, `sub(scalar)`, `mul(scalar)`, `div(scalar)` — scalar overloads
 - `operator-()` — unary negation (elementwise)
 - `operator==` — value + shape equality comparison
 - `operator<<` (via `include/torc/utils.hpp`) — pretty-prints shape and data
+- `operator()(int, int, ...)` — multi-dimensional indexing with bounds checking
+- `transpose(std::vector<int> axes)` — permute dimensions; default reverses axes
+- `slice(std::vector<Slice>)` — basic contiguous-range slicing
 - `sum()` / `mean()` / `max()` / `min()` — whole-tensor return `float`; axis-wise overloads
   (`int axis`) return `Tensor` with reduced shape
 - `reshape()` / `view()` — change shape without copying data (moves flat `std::vector` storage)
@@ -87,11 +90,13 @@ ctest --test-dir build --output-on-failure   # runs TorcTests
 `add`/`sub`/`mul`/`div` correctness, shape-mismatch throws for all four ops, scalar overloads,
 `operator==`, `operator<<` output, custom exception types (`ShapeError`), a multi-dim
 (`{2,2}`) elementwise case, unary negation, and reductions (`sum`/`mean`/`max`/`min`
-whole-tensor and axis-wise).
+whole-tensor and axis-wise), broadcasting (identical, dim-1, multi-dim, incompatible throws),
+multi-dimensional indexing (`operator()`, bounds/rank checks, read/write), `transpose`
+(default and custom axes, invalid throws), and `slice` (first/last/inner dim, combined,
+out-of-range throws).
 
-That's the entire surface area today. Everything else (reductions, matmul,
-reshaping, broadcasting, autograd, nn layers, optimizers, data loading, device support) does
-not exist yet — see ROADMAP.md.
+That's the entire surface area today. Everything else (matmul, autograd, nn layers, optimizers,
+data loading, device support) does not exist yet — see ROADMAP.md.
 
 ---
 
@@ -99,8 +104,8 @@ not exist yet — see ROADMAP.md.
 
 - **Single dtype**: `float32` only, hardcoded. Don't introduce a `dtype` enum or templated
   storage without an explicit design decision in `docs/DESIGN.md`.
-- **No broadcasting**: elementwise ops require identical shapes, enforced by the shared
-  `check_same_shape()` guard. Don't add ad-hoc shape coercion to individual ops.
+- **Broadcasting**: elementwise ops use NumPy-style broadcasting via `broadcast_shape()`.
+  Follow the existing pattern — don't add ad-hoc shape coercion to individual ops.
 - **Error handling**: throw `ShapeError` (or a new `TorcError` subclass) for library errors,
   never a bare `std::runtime_error`. `ShapeError` derives from `TorcError` derives from
   `std::runtime_error`, so existing `catch (std::runtime_error&)` sites keep working.
