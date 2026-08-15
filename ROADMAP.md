@@ -37,7 +37,7 @@ see [AGENTS.md](AGENTS.md).
 
 ## Milestone 2 — Shape flexibility
 - [x] NumPy-style broadcasting for elementwise ops
-- [x] Multi-dimensional indexing helper (`operator()(i, j, ...)`)
+- [x] Multi-dimensional indexing helper (`operator[](i, j, ...)`)
 - [x] `transpose()` / axis permutation
 - [x] Slicing (basic contiguous-range slices)
 

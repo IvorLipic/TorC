@@ -475,34 +475,34 @@ TEST(TensorBroadcasting, AllOpsBroadcast) {
 
 TEST(TensorIndexing, ReadWrite) {
     Tensor t({1.0f, 2.0f, 3.0f, 4.0f}, {2, 2});
-    EXPECT_FLOAT_EQ(t(0, 0), 1.0f);
-    EXPECT_FLOAT_EQ(t(1, 1), 4.0f);
-    t(0, 1) = 99.0f;
+    EXPECT_FLOAT_EQ(static_cast<float>(t[0, 0]), 1.0f);
+    EXPECT_FLOAT_EQ(static_cast<float>(t[1, 1]), 4.0f);
+    t[0, 1] = 99.0f;
     EXPECT_FLOAT_EQ(t.data()[1], 99.0f);
 }
 
 TEST(TensorIndexing, OutOfBoundsThrow) {
     Tensor t({2, 2});
-    EXPECT_THROW(t(2, 0), torc::ShapeError);
-    EXPECT_THROW(t(0, 2), torc::ShapeError);
-    EXPECT_THROW(t(-1, 0), torc::ShapeError);
+    EXPECT_THROW(static_cast<void>(t[2, 0]), torc::ShapeError);
+    EXPECT_THROW(static_cast<void>(t[0, 2]), torc::ShapeError);
+    EXPECT_THROW(static_cast<void>(t[-1, 0]), torc::ShapeError);
 }
 
 TEST(TensorIndexing, WrongRankThrow) {
     Tensor t({2, 2});
-    EXPECT_THROW(t(0), torc::ShapeError);
-    EXPECT_THROW(t(0, 0, 0), torc::ShapeError);
+    EXPECT_THROW(static_cast<void>(t[0]), torc::ShapeError);
+    EXPECT_THROW(static_cast<void>(t[0, 0, 0]), torc::ShapeError);
 }
 
 TEST(TensorIndexing, MultiDim) {
     Tensor t({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, {2, 3});
-    EXPECT_FLOAT_EQ(t(0, 2), 3.0f);
-    EXPECT_FLOAT_EQ(t(1, 0), 4.0f);
+    EXPECT_FLOAT_EQ(static_cast<float>(t[0, 2]), 3.0f);
+    EXPECT_FLOAT_EQ(static_cast<float>(t[1, 0]), 4.0f);
 }
 
 TEST(TensorIndexing, ConstAccess) {
     const Tensor t({1.0f, 2.0f, 3.0f, 4.0f}, {2, 2});
-    EXPECT_FLOAT_EQ(t(1, 0), 3.0f);
+    EXPECT_FLOAT_EQ(static_cast<float>(t[1, 0]), 3.0f);
 }
 
 TEST(TensorTranspose, Default2D) {

@@ -14,7 +14,7 @@ A minimal, from-scratch C++ tensor library. Naive `float32`-only storage with el
 - Shape inspection and element count
 - Reductions: `sum()`, `mean()`, `max()`, `min()` (whole-tensor and axis-wise)
 - `reshape()` / `view()` for changing shape without copying data
-- Multi-dimensional indexing (`operator()(i, j, ...)`)
+- Multi-dimensional indexing (`operator[](i, j, ...)`)
 - `transpose()` for permuting dimensions
 - Slicing (`slice()`) for contiguous-range sub-tensors
 

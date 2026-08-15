@@ -73,7 +73,7 @@ ctest --test-dir build --output-on-failure   # runs TorcTests
 - `operator-()` — unary negation (elementwise)
 - `operator==` — value + shape equality comparison
 - `operator<<` (via `include/torc/utils.hpp`) — pretty-prints shape and data
-- `operator()(int, int, ...)` — multi-dimensional indexing with bounds checking
+- `operator[](int, int, ...)` — multi-dimensional indexing with bounds checking
 - `transpose(std::vector<int> axes)` — permute dimensions; default reverses axes
 - `slice(std::vector<Slice>)` — basic contiguous-range slicing
 - `sum()` / `mean()` / `max()` / `min()` — whole-tensor return `float`; axis-wise overloads
@@ -91,7 +91,7 @@ ctest --test-dir build --output-on-failure   # runs TorcTests
 `operator==`, `operator<<` output, custom exception types (`ShapeError`), a multi-dim
 (`{2,2}`) elementwise case, unary negation, and reductions (`sum`/`mean`/`max`/`min`
 whole-tensor and axis-wise), broadcasting (identical, dim-1, multi-dim, incompatible throws),
-multi-dimensional indexing (`operator()`, bounds/rank checks, read/write), `transpose`
+multi-dimensional indexing (`operator[]`, bounds/rank checks, read/write), `transpose`
 (default and custom axes, invalid throws), and `slice` (first/last/inner dim, combined,
 out-of-range throws).
 
