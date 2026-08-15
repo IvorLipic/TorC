@@ -15,6 +15,7 @@ int main() {
     std::cout << "a / b = " << a.div(b) << "\n";
     std::cout << "a + 10 = " << a.add(10.0f) << "\n";
     std::cout << "a * 2  = " << a.mul(2.0f) << "\n";
+    std::cout << "-a    = " << -a << "\n";
 
     return 0;
 }

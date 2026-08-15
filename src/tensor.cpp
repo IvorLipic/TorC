@@ -88,6 +88,13 @@ Tensor Tensor::div(float scalar) const {
     return out;
 }
 
+Tensor Tensor::operator-() const {
+    Tensor out(shape_);
+    for (int i = 0; i < numel(); ++i)
+        out.storage_[i] = -storage_[i];
+    return out;
+}
+
 bool Tensor::operator==(const Tensor& other) const {
     if (shape_ != other.shape_) return false;
     for (int i = 0; i < numel(); ++i)

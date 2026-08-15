@@ -174,3 +174,39 @@ TEST(TensorErrors, ShapeErrorDerivesFromTorcError) {
         }
     }, torc::ShapeError);
 }
+
+TEST(TensorNegation, NegatesValues) {
+    Tensor a({1.0f, -2.0f, 3.0f}, {3});
+    Tensor c = -a;
+    EXPECT_FLOAT_EQ(c.data()[0], -1.0f);
+    EXPECT_FLOAT_EQ(c.data()[1], 2.0f);
+    EXPECT_FLOAT_EQ(c.data()[2], -3.0f);
+}
+
+TEST(TensorNegation, PreservesShape) {
+    Tensor a({1.0f, 2.0f, 3.0f, 4.0f}, {2, 2});
+    Tensor c = -a;
+    const auto& s = c.shape();
+    ASSERT_EQ(s.size(), 2);
+    EXPECT_EQ(s[0], 2);
+    EXPECT_EQ(s[1], 2);
+    EXPECT_EQ(c.numel(), a.numel());
+}
+
+TEST(TensorNegation, DoubleNegation) {
+    Tensor a({1.0f, -2.0f, 3.0f}, {3});
+    Tensor c = -(-a);
+    EXPECT_TRUE(c == a);
+    Tensor b({-1.0f, 2.0f, -3.0f}, {3});
+    EXPECT_TRUE((-a) == b);
+}
+
+TEST(TensorNegation, MultiDim) {
+    Tensor a({1.0f, -2.0f, 3.0f, -4.0f}, {2, 2});
+    Tensor c = -a;
+    EXPECT_FLOAT_EQ(c.data()[0], -1.0f);
+    EXPECT_FLOAT_EQ(c.data()[1], 2.0f);
+    EXPECT_FLOAT_EQ(c.data()[2], -3.0f);
+    EXPECT_FLOAT_EQ(c.data()[3], 4.0f);
+    EXPECT_TRUE((-a).shape() == a.shape());
+}

@@ -5,7 +5,11 @@ A minimal, from-scratch C++ tensor library. Naive `float32`-only storage with el
 ## Features
 
 - `torc::Tensor` with explicit-shape construction and initializer-list construction
-- Elementwise `add` and `mul` (identical-shape only, no broadcasting yet)
+- Elementwise `add`, `sub`, `mul`, `div` (identical-shape only, no broadcasting yet)
+- Scalar overloads for all four elementwise ops
+- Unary negation (`operator-()`)
+- `operator==` for value + shape equality
+- Pretty-printing (`operator<<`) for shape and data
 - Raw pointer data access
 - Shape inspection and element count
 

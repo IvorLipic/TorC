@@ -28,6 +28,9 @@ public:
     Tensor mul(float scalar) const;
     Tensor div(float scalar) const;
 
+    // unary negation
+    Tensor operator-() const;
+
     // comparison
     bool operator==(const Tensor& other) const;
 
