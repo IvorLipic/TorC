@@ -75,6 +75,10 @@ ctest --test-dir build --output-on-failure   # runs TorcTests
 - `operator<<` (via `include/torc/utils.hpp`) — pretty-prints shape and data
 - `sum()` / `mean()` / `max()` / `min()` — whole-tensor return `float`; axis-wise overloads
   (`int axis`) return `Tensor` with reduced shape
+- `reshape()` / `view()` — change shape without copying data (moves flat `std::vector` storage)
+- Rule of 5 is explicitly defaulted (copy/move ctor/assign + destructor), since the class only
+  contains `std::vector` members; declared for clarity and to prevent accidental deletion if
+  members change later.
 
 `src/main.cpp` demonstrates constructing two rank-1 tensors and running the elementwise ops.
 

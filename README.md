@@ -12,6 +12,8 @@ A minimal, from-scratch C++ tensor library. Naive `float32`-only storage with el
 - Pretty-printing (`operator<<`) for shape and data
 - Raw pointer data access
 - Shape inspection and element count
+- Reductions: `sum()`, `mean()`, `max()`, `min()` (whole-tensor and axis-wise)
+- `reshape()` / `view()` for changing shape without copying data
 
 ## Requirements
 

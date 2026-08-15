@@ -29,5 +29,10 @@ int main() {
     std::cout << "m.max(1) = " << m.max(1) << "\n";
     std::cout << "m.min(0) = " << m.min(0) << "\n";
 
+    Tensor n({1.0f, 2.0f, 3.0f, 4.0f}, {2, 2});
+    std::cout << "\nn: " << n << "\n";
+    std::cout << "n.reshape({4}) = " << n.reshape({4}) << "\n";
+    std::cout << "n.view({1, 4}) = " << n.view({1, 4}) << "\n";
+
     return 0;
 }

@@ -227,6 +227,21 @@ Tensor Tensor::min(int axis) const {
     return out;
 }
 
+Tensor Tensor::reshape(std::vector<int> new_shape) const {
+    if (shape_product(new_shape) != numel())
+        throw ShapeError("Cannot reshape tensor of shape " + shape_to_string(shape_) +
+                         " with " + std::to_string(numel()) + " elements into shape " +
+                         shape_to_string(new_shape) + " with " +
+                         std::to_string(shape_product(new_shape)) + " elements");
+    Tensor out(std::move(new_shape));
+    out.storage_ = storage_;
+    return out;
+}
+
+Tensor Tensor::view(std::vector<int> new_shape) const {
+    return reshape(std::move(new_shape));
+}
+
 std::ostream& operator<<(std::ostream& os, const Tensor& t) {
     os << "Tensor(shape=" << shape_to_string(t.shape()) << ", data=[";
     for (int i = 0; i < t.numel(); ++i) {

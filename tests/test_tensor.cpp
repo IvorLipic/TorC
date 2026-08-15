@@ -339,3 +339,69 @@ TEST(TensorReductions, AxisEmptyThrows) {
     EXPECT_THROW(t.sum(0), torc::ShapeError);
     EXPECT_THROW(t.mean(0), torc::ShapeError);
 }
+
+TEST(TensorReshape, ValidReshape) {
+    Tensor t({1.0f, 2.0f, 3.0f, 4.0f}, {2, 2});
+    Tensor r = t.reshape({4});
+    EXPECT_EQ(r.shape(), std::vector<int>({4}));
+    EXPECT_EQ(r.numel(), 4);
+    EXPECT_FLOAT_EQ(r.data()[0], 1.0f);
+    EXPECT_FLOAT_EQ(r.data()[1], 2.0f);
+    EXPECT_FLOAT_EQ(r.data()[2], 3.0f);
+    EXPECT_FLOAT_EQ(r.data()[3], 4.0f);
+}
+
+TEST(TensorReshape, PreservesDataOrder) {
+    Tensor t({1.0f, 2.0f, 3.0f, 4.0f}, {2, 2});
+    Tensor r = t.reshape({1, 4});
+    EXPECT_EQ(r.shape(), std::vector<int>({1, 4}));
+    EXPECT_FLOAT_EQ(r.data()[0], 1.0f);
+    EXPECT_FLOAT_EQ(r.data()[1], 2.0f);
+    EXPECT_FLOAT_EQ(r.data()[2], 3.0f);
+    EXPECT_FLOAT_EQ(r.data()[3], 4.0f);
+}
+
+TEST(TensorReshape, MismatchThrows) {
+    Tensor t({1.0f, 2.0f, 3.0f}, {3});
+    EXPECT_THROW(t.reshape({2, 2}), torc::ShapeError);
+}
+
+TEST(TensorReshape, SameShape) {
+    Tensor t({1.0f, 2.0f}, {2});
+    Tensor r = t.reshape({2});
+    EXPECT_TRUE(r == t);
+}
+
+TEST(TensorView, DelegatesToReshape) {
+    Tensor t({1.0f, 2.0f, 3.0f, 4.0f}, {2, 2});
+    Tensor r = t.view({4});
+    Tensor s = t.reshape({4});
+    EXPECT_TRUE(r == s);
+}
+
+TEST(TensorMove, MoveConstructible) {
+    Tensor a({1.0f, 2.0f, 3.0f}, {3});
+    Tensor b = std::move(a);
+    EXPECT_EQ(b.shape(), std::vector<int>({3}));
+    EXPECT_FLOAT_EQ(b.data()[0], 1.0f);
+    EXPECT_FLOAT_EQ(b.data()[1], 2.0f);
+    EXPECT_FLOAT_EQ(b.data()[2], 3.0f);
+}
+
+TEST(TensorMove, MoveAssignable) {
+    Tensor a({1.0f, 2.0f, 3.0f}, {3});
+    Tensor b({0.0f}, {1});
+    b = std::move(a);
+    EXPECT_EQ(b.shape(), std::vector<int>({3}));
+    EXPECT_FLOAT_EQ(b.data()[0], 1.0f);
+    EXPECT_FLOAT_EQ(b.data()[1], 2.0f);
+    EXPECT_FLOAT_EQ(b.data()[2], 3.0f);
+}
+
+TEST(TensorCopy, IndependentCopies) {
+    Tensor a({1.0f, 2.0f, 3.0f}, {3});
+    Tensor b = a;
+    b.data()[0] = 99.0f;
+    EXPECT_FLOAT_EQ(a.data()[0], 1.0f);
+    EXPECT_FLOAT_EQ(b.data()[0], 99.0f);
+}

@@ -23,9 +23,10 @@ before autograd matters, because broadcasting changes what a gradient's "sum ove
 dims" step needs to look like.
 
 ### Memory ownership
-`storage_` is an owned `std::vector<float>` per `Tensor`, copied fresh on every op
-(`Tensor out(shape_)` allocates new storage each call). Fine for a naive reference
-implementation. **This will need to change for autograd** — see below.
+`storage_` is an owned `std::vector<float>` per `Tensor`, copied fresh on every elementwise or
+reduction op. Shape-changing ops (`reshape`/`view`) move `storage_` instead of copying, so they
+are O(1) with respect to data size. Fine for a naive reference implementation. **This will need
+to change for autograd** — see below.
 
 ### Error handling convention
 `TorcError` (base, derives `std::runtime_error`) and `ShapeError` (shape mismatches) live in

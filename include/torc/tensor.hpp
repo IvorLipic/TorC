@@ -34,6 +34,17 @@ public:
     // comparison
     bool operator==(const Tensor& other) const;
 
+    // rule of five: std::vector members handle everything; defaulted for clarity
+    Tensor(const Tensor&) = default;
+    Tensor(Tensor&&) = default;
+    Tensor& operator=(const Tensor&) = default;
+    Tensor& operator=(Tensor&&) = default;
+    ~Tensor() = default;
+
+    // reshape / view — no-copy where possible (moves flat storage)
+    Tensor reshape(std::vector<int> new_shape) const;
+    Tensor view(std::vector<int> new_shape) const;
+
     // reductions: whole-tensor return float, axis-wise return Tensor
     float sum() const;
     float mean() const;

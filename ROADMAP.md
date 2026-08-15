@@ -32,8 +32,8 @@ see [AGENTS.md](AGENTS.md).
 - [x] Scalar ops (`Tensor + float`, etc.)
 - [x] `operator==`, `operator<<` (pretty-printing) for debugging/tests
 - [x] Reductions: `sum()`, `mean()`, `max()`, `min()` (whole-tensor first, axis-wise later)
-- [ ] `reshape()` / `view()` — no-copy where possible
-- [ ] Copy vs. move semantics review (rule of 5, or confirm defaults are sufficient)
+- [x] `reshape()` / `view()` — no-copy where possible
+- [x] Copy vs. move semantics review (rule of 5, or confirm defaults are sufficient)
 
 ## Milestone 2 — Shape flexibility
 - [ ] NumPy-style broadcasting for elementwise ops
