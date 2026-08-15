@@ -21,7 +21,7 @@ A minimal, from-scratch C++ tensor library. Naive `float32`-only storage with el
 ## Requirements
 
 - CMake 3.16+
-- A C++17 compiler (GCC, Clang, or MSVC)
+- A C++23 compiler (GCC, Clang, or MSVC)
 - Git (for fetching GoogleTest during the build)
 
 ## Build

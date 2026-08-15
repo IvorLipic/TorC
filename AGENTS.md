@@ -41,7 +41,7 @@ Three build targets:
 - **`torc_tests`** — GoogleTest executable (`tests/test_tensor.cpp`), links `torc`,
   registered via `enable_testing()` / `add_test(NAME TorcTests ...)`.
 
-C++17. GoogleTest (`v1.14.0`) is pulled in for tests via `FetchContent`; no other external
+C++23. GoogleTest (`v1.14.0`) is pulled in for tests via `FetchContent`; no other external
 dependencies.
 
 ---
