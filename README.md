@@ -53,4 +53,4 @@ torc/
 
 ## License
 
-[Choose a license and add it here]
+Distributed under the MIT License. See [LICENSE](LICENSE) for details.

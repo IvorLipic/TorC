@@ -1,5 +1,8 @@
 #include <gtest/gtest.h>
 #include "torc/tensor.hpp"
+#include "torc/utils.hpp"
+#include <sstream>
+#include <string>
 
 using torc::Tensor;
 
@@ -19,7 +22,7 @@ TEST(TensorConstruction, InitializerListWithMatchingShape) {
 }
 
 TEST(TensorConstruction, InitializerListSizeMismatchThrows) {
-    EXPECT_THROW(Tensor({1.0f, 2.0f}, {3}), std::runtime_error);
+    EXPECT_THROW(Tensor({1.0f, 2.0f}, {3}), torc::ShapeError);
 }
 
 TEST(TensorConstruction, ShapeIsAccessible) {
@@ -49,6 +52,15 @@ TEST(TensorOps, AddIdenticalShape) {
     EXPECT_FLOAT_EQ(c.data()[2], 9.0f);
 }
 
+TEST(TensorOps, SubIdenticalShape) {
+    Tensor a({10.0f, 20.0f, 30.0f}, {3});
+    Tensor b({1.0f, 2.0f, 3.0f}, {3});
+    Tensor c = a.sub(b);
+    EXPECT_FLOAT_EQ(c.data()[0], 9.0f);
+    EXPECT_FLOAT_EQ(c.data()[1], 18.0f);
+    EXPECT_FLOAT_EQ(c.data()[2], 27.0f);
+}
+
 TEST(TensorOps, MulIdenticalShape) {
     Tensor a({1.0f, 2.0f, 3.0f}, {3});
     Tensor b({4.0f, 5.0f, 6.0f}, {3});
@@ -58,16 +70,37 @@ TEST(TensorOps, MulIdenticalShape) {
     EXPECT_FLOAT_EQ(c.data()[2], 18.0f);
 }
 
+TEST(TensorOps, DivIdenticalShape) {
+    Tensor a({10.0f, 20.0f, 30.0f}, {3});
+    Tensor b({2.0f, 4.0f, 5.0f}, {3});
+    Tensor c = a.div(b);
+    EXPECT_FLOAT_EQ(c.data()[0], 5.0f);
+    EXPECT_FLOAT_EQ(c.data()[1], 5.0f);
+    EXPECT_FLOAT_EQ(c.data()[2], 6.0f);
+}
+
 TEST(TensorOps, AddShapeMismatchThrows) {
     Tensor a({1.0f, 2.0f}, {2});
     Tensor b({1.0f, 2.0f, 3.0f}, {3});
-    EXPECT_THROW(a.add(b), std::runtime_error);
+    EXPECT_THROW(a.add(b), torc::ShapeError);
+}
+
+TEST(TensorOps, SubShapeMismatchThrows) {
+    Tensor a({1.0f, 2.0f}, {2});
+    Tensor b({1.0f, 2.0f, 3.0f}, {3});
+    EXPECT_THROW(a.sub(b), torc::ShapeError);
 }
 
 TEST(TensorOps, MulShapeMismatchThrows) {
     Tensor a({1.0f, 2.0f}, {2});
     Tensor b({1.0f, 2.0f, 3.0f}, {3});
-    EXPECT_THROW(a.mul(b), std::runtime_error);
+    EXPECT_THROW(a.mul(b), torc::ShapeError);
+}
+
+TEST(TensorOps, DivShapeMismatchThrows) {
+    Tensor a({1.0f, 2.0f}, {2});
+    Tensor b({1.0f, 2.0f, 3.0f}, {3});
+    EXPECT_THROW(a.div(b), torc::ShapeError);
 }
 
 TEST(TensorOps, MultiDimElementwise) {
@@ -76,4 +109,68 @@ TEST(TensorOps, MultiDimElementwise) {
     Tensor c = a.add(b);
     EXPECT_FLOAT_EQ(c.data()[0], 11.0f);
     EXPECT_FLOAT_EQ(c.data()[3], 44.0f);
+}
+
+TEST(TensorScalarOps, AddScalar) {
+    Tensor a({1.0f, 2.0f, 3.0f}, {3});
+    Tensor c = a.add(10.0f);
+    EXPECT_FLOAT_EQ(c.data()[0], 11.0f);
+    EXPECT_FLOAT_EQ(c.data()[1], 12.0f);
+    EXPECT_FLOAT_EQ(c.data()[2], 13.0f);
+}
+
+TEST(TensorScalarOps, SubScalar) {
+    Tensor a({10.0f, 20.0f, 30.0f}, {3});
+    Tensor c = a.sub(5.0f);
+    EXPECT_FLOAT_EQ(c.data()[0], 5.0f);
+    EXPECT_FLOAT_EQ(c.data()[1], 15.0f);
+    EXPECT_FLOAT_EQ(c.data()[2], 25.0f);
+}
+
+TEST(TensorScalarOps, MulScalar) {
+    Tensor a({1.0f, 2.0f, 3.0f}, {3});
+    Tensor c = a.mul(3.0f);
+    EXPECT_FLOAT_EQ(c.data()[0], 3.0f);
+    EXPECT_FLOAT_EQ(c.data()[1], 6.0f);
+    EXPECT_FLOAT_EQ(c.data()[2], 9.0f);
+}
+
+TEST(TensorScalarOps, DivScalar) {
+    Tensor a({10.0f, 20.0f, 30.0f}, {3});
+    Tensor c = a.div(2.0f);
+    EXPECT_FLOAT_EQ(c.data()[0], 5.0f);
+    EXPECT_FLOAT_EQ(c.data()[1], 10.0f);
+    EXPECT_FLOAT_EQ(c.data()[2], 15.0f);
+}
+
+TEST(TensorComparison, OperatorEqual) {
+    Tensor a({1.0f, 2.0f, 3.0f}, {3});
+    Tensor b({1.0f, 2.0f, 3.0f}, {3});
+    Tensor c({1.0f, 2.0f, 4.0f}, {3});
+    EXPECT_TRUE(a == b);
+    EXPECT_FALSE(a == c);
+}
+
+TEST(TensorComparison, OperatorEqualDifferentShape) {
+    Tensor a({1.0f, 2.0f}, {2});
+    Tensor b({1.0f, 2.0f}, {1, 2});
+    EXPECT_FALSE(a == b);
+}
+
+TEST(TensorPrinting, OstreamOutput) {
+    Tensor t({1.0f, 2.0f, 3.0f}, {3});
+    std::ostringstream oss;
+    oss << t;
+    EXPECT_EQ(oss.str(), "Tensor(shape=(3), data=[1, 2, 3])");
+}
+
+TEST(TensorErrors, ShapeErrorDerivesFromTorcError) {
+    EXPECT_THROW({
+        try {
+            Tensor({1.0f, 2.0f}, {3});
+        } catch (const torc::ShapeError& e) {
+            EXPECT_TRUE(std::string(e.what()).find("does not match") != std::string::npos);
+            throw;
+        }
+    }, torc::ShapeError);
 }

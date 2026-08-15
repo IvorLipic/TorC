@@ -1,8 +1,19 @@
 #pragma once
 #include <vector>
 #include <string>
+#include <stdexcept>
 
 namespace torc {
+
+class TorcError : public std::runtime_error {
+public:
+    explicit TorcError(const std::string& msg) : std::runtime_error(msg) {}
+};
+
+class ShapeError : public TorcError {
+public:
+    explicit ShapeError(const std::string& msg) : TorcError(msg) {}
+};
 
 inline int shape_product(const std::vector<int>& shape) {
     int total = 1;
