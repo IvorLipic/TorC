@@ -21,21 +21,22 @@ target_link_libraries(torc_demo PRIVATE torc)
 # =============================
 enable_testing()
 
-# =============================
-# Unit tests
-# =============================
-enable_testing()
+include(FetchContent)
+FetchContent_Declare(
+    googletest
+    GIT_REPOSITORY https://github.com/google/googletest.git
+    GIT_TAG v1.14.0
+)
+FetchContent_MakeAvailable(googletest)
 
 add_executable(torc_tests
     tests/test_tensor.cpp
-    src/tensor.cpp
 )
 
 target_include_directories(torc_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/include
-        
 )
 
-target_link_libraries(torc_tests PRIVATE torc)
+target_link_libraries(torc_tests PRIVATE torc GTest::gtest_main)
 add_test(NAME TorcTests COMMAND torc_tests)
