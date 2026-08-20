@@ -8,8 +8,9 @@ see [AGENTS.md](AGENTS.md).
 
 ## Immediate next steps
 
-1. Pick reductions API shape (`sum()`/`mean()`/`max()`/`min()` whole-tensor first) and land
-   it with tests.
+1. Land the basic BLAS backend behind a CMake flag (`TORC_USE_BLAS`) as the final Milestone 3
+   item — sequenced *after* the naive `matmul` is proven correct by tests (see `docs/DESIGN.md`).
+   Document the build path; expect it to be validated only where a BLAS/CBLAS is installed.
 2. Start the Milestone 4 design conversation (tape vs. expression-tree for autograd) in
    `docs/DESIGN.md` *before* writing `Variable`/`Function` code — this is the biggest
    architectural fork in the project so far.
@@ -42,8 +43,8 @@ see [AGENTS.md](AGENTS.md).
 - [x] Slicing (basic contiguous-range slices)
 
 ## Milestone 3 — Linear algebra
-- [ ] `matmul()` for 2D tensors (naive triple loop first, correctness over speed)
-- [ ] Batched matmul for higher-rank tensors
+- [x] `matmul()` for 2D tensors (naive triple loop first, correctness over speed)
+- [x] Batched matmul for higher-rank tensors
 - [ ] Basic BLAS backend option (behind a CMake flag) once naive matmul is correct
 
 ## Milestone 4 — Autograd

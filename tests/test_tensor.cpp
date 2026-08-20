@@ -3,6 +3,7 @@
 #include "torc/utils.hpp"
 #include <sstream>
 #include <string>
+#include <cstdio>
 
 using torc::Tensor;
 
@@ -595,5 +596,181 @@ TEST(TensorSlice, WrongRankThrow) {
     Tensor t({2, 3});
     EXPECT_THROW(t.slice({Tensor::Slice{0, 1}}), torc::ShapeError);
     EXPECT_THROW(t.slice({Tensor::Slice{0, 2}, Tensor::Slice{0, 2}, Tensor::Slice{0, 2}}), torc::ShapeError);
+}
+
+TEST(TensorMatmul, Square2D) {
+    Tensor a({1.0f, 2.0f, 3.0f, 4.0f}, {2, 2});
+    Tensor b({5.0f, 6.0f, 7.0f, 8.0f}, {2, 2});
+    Tensor c = a.matmul(b);
+    EXPECT_EQ(c.shape(), std::vector<int>({2, 2}));
+    EXPECT_FLOAT_EQ(c.data()[0], 19.0f);
+    EXPECT_FLOAT_EQ(c.data()[1], 22.0f);
+    EXPECT_FLOAT_EQ(c.data()[2], 43.0f);
+    EXPECT_FLOAT_EQ(c.data()[3], 50.0f);
+}
+
+TEST(TensorMatmul, NonSquare2D) {
+    Tensor a({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, {2, 3});
+    Tensor b({7.0f, 8.0f, 9.0f, 10.0f, 11.0f, 12.0f}, {3, 2});
+    Tensor c = a.matmul(b);
+    EXPECT_EQ(c.shape(), std::vector<int>({2, 2}));
+    EXPECT_FLOAT_EQ(c.data()[0], 58.0f);
+    EXPECT_FLOAT_EQ(c.data()[1], 64.0f);
+    EXPECT_FLOAT_EQ(c.data()[2], 139.0f);
+    EXPECT_FLOAT_EQ(c.data()[3], 154.0f);
+}
+
+TEST(TensorMatmul, IdentityLeftAndRight) {
+    Tensor a({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, {2, 3});
+    Tensor il({1.0f, 0.0f, 0.0f, 1.0f}, {2, 2});
+    Tensor ir({1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f}, {3, 3});
+    EXPECT_TRUE(il.matmul(a) == a);
+    EXPECT_TRUE(a.matmul(ir) == a);
+}
+
+TEST(TensorMatmul, OutputShapeOnly) {
+    Tensor a({4, 3});
+    Tensor b({3, 5});
+    EXPECT_EQ(a.matmul(b).shape(), std::vector<int>({4, 5}));
+}
+
+TEST(TensorMatmul, InnerDimensionMismatchThrows) {
+    Tensor a({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, {2, 3});
+    Tensor b({1.0f, 2.0f, 3.0f, 4.0f}, {2, 2});
+    EXPECT_THROW(a.matmul(b), torc::ShapeError);
+}
+
+TEST(TensorMatmul, RankOneThrows) {
+    Tensor a({1.0f, 2.0f, 3.0f}, {3});
+    Tensor b({1.0f, 2.0f}, {2, 1});
+    Tensor c({1.0f, 2.0f, 3.0f, 4.0f}, {2, 2});
+    EXPECT_THROW(a.matmul(b), torc::ShapeError);
+    EXPECT_THROW(b.matmul(a), torc::ShapeError);
+    EXPECT_THROW(a.matmul(c), torc::ShapeError);
+    EXPECT_THROW(c.matmul(a), torc::ShapeError);
+}
+
+TEST(TensorMatmul, MismatchMessageNamesBothShapes) {
+    Tensor a({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, {2, 3});
+    Tensor b({1.0f, 2.0f, 3.0f, 4.0f}, {2, 2});
+    try {
+        a.matmul(b);
+        FAIL() << "expected ShapeError";
+    } catch (const torc::ShapeError& e) {
+        std::string msg(e.what());
+        EXPECT_TRUE(msg.find("(2, 3)") != std::string::npos);
+        EXPECT_TRUE(msg.find("(2, 2)") != std::string::npos);
+    }
+}
+
+TEST(TensorMatmul, TransposeProperty) {
+    Tensor a({1.0f, 2.0f, 3.0f, 4.0f}, {2, 2});
+    Tensor b({5.0f, 6.0f, 7.0f, 8.0f}, {2, 2});
+    Tensor lhs = a.matmul(b).transpose({});
+    Tensor rhs = b.transpose({}).matmul(a.transpose({}));
+    ASSERT_EQ(lhs.numel(), rhs.numel());
+    for (int i = 0; i < lhs.numel(); ++i)
+        EXPECT_NEAR(lhs.data()[i], rhs.data()[i], 1e-5f);
+}
+
+TEST(TensorMatmul, DistributiveProperty) {
+    Tensor a({1.0f, 2.0f, 3.0f, 4.0f}, {2, 2});
+    Tensor b({5.0f, 6.0f, 7.0f, 8.0f}, {2, 2});
+    Tensor c({9.0f, 10.0f, 11.0f, 12.0f}, {2, 2});
+    Tensor lhs = a.matmul(b.add(c));
+    Tensor rhs = a.matmul(b).add(a.matmul(c));
+    ASSERT_EQ(lhs.numel(), rhs.numel());
+    for (int i = 0; i < lhs.numel(); ++i)
+        EXPECT_NEAR(lhs.data()[i], rhs.data()[i], 1e-5f);
+}
+
+TEST(TensorMatmul, TransposeOperandInterop) {
+    Tensor a({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, {2, 3});
+    Tensor c = a.transpose({}).matmul(a);
+    EXPECT_EQ(c.shape(), std::vector<int>({3, 3}));
+    EXPECT_FLOAT_EQ(c.data()[0], 1.0f * 1.0f + 4.0f * 4.0f);
+    EXPECT_FLOAT_EQ(c.data()[1], 1.0f * 2.0f + 4.0f * 5.0f);
+}
+
+TEST(TensorMatmulBatched, DistinctPerBatch) {
+    Tensor a({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f, 10.0f, 11.0f, 12.0f}, {2, 2, 3});
+    Tensor b({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f, 10.0f, 11.0f, 12.0f}, {2, 3, 2});
+    Tensor c = a.matmul(b);
+    EXPECT_EQ(c.shape(), std::vector<int>({2, 2, 2}));
+    // batch 0: [[1,2,3],[4,5,6]] @ [[1,2],[3,4],[5,6]]
+    EXPECT_FLOAT_EQ(c.data()[0], 22.0f);
+    EXPECT_FLOAT_EQ(c.data()[1], 28.0f);
+    EXPECT_FLOAT_EQ(c.data()[2], 49.0f);
+    EXPECT_FLOAT_EQ(c.data()[3], 64.0f);
+    // batch 1: [[7,8,9],[10,11,12]] @ [[7,8],[9,10],[11,12]]
+    EXPECT_FLOAT_EQ(c.data()[4], 220.0f);
+    EXPECT_FLOAT_EQ(c.data()[5], 244.0f);
+    EXPECT_FLOAT_EQ(c.data()[6], 301.0f);
+    EXPECT_FLOAT_EQ(c.data()[7], 334.0f);
+}
+
+TEST(TensorMatmulBatched, BroadcastRankPromotion) {
+    Tensor a({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f, 10.0f, 11.0f, 12.0f}, {2, 2, 3});
+    Tensor b({7.0f, 8.0f, 9.0f, 10.0f, 11.0f, 12.0f}, {3, 2});
+    Tensor c = a.matmul(b);
+    EXPECT_EQ(c.shape(), std::vector<int>({2, 2, 2}));
+    Tensor flat = a.matmul(b.reshape({1, 3, 2}));
+    EXPECT_TRUE(c == flat);
+}
+
+TEST(TensorMatmulBatched, BroadcastSizeOne) {
+    // a: (2,1,2,3) -> batch (2,1), each a matrix is (2,3)
+    Tensor a({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f, 10.0f, 11.0f, 12.0f}, {2, 1, 2, 3});
+    // b: (1,3,3,2) -> batch (1,3), each b matrix is (3,2)
+    Tensor b({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f,
+                7.0f, 8.0f, 9.0f, 10.0f, 11.0f, 12.0f,
+                13.0f, 14.0f, 15.0f, 16.0f, 17.0f, 18.0f}, {1, 3, 3, 2});
+    Tensor c = a.matmul(b);
+    EXPECT_EQ(c.shape(), std::vector<int>({2, 3, 2, 2}));
+
+    // With batch broadcasting, result block (bi,bj) = a_block[bi] @ b_block[bj] (independent).
+    // block (0,0): a0=[[1,2,3],[4,5,6]] @ b0=[[1,2],[3,4],[5,6]] = [[22,28],[49,64]]
+    EXPECT_FLOAT_EQ(c.data()[0], 22.0f);
+    EXPECT_FLOAT_EQ(c.data()[1], 28.0f);
+    EXPECT_FLOAT_EQ(c.data()[2], 49.0f);
+    EXPECT_FLOAT_EQ(c.data()[3], 64.0f);
+    // block (0,1): a0 @ b1=[[7,8],[9,10],[11,12]] = [[58,64],[139,154]]
+    EXPECT_FLOAT_EQ(c.data()[4], 58.0f);
+    EXPECT_FLOAT_EQ(c.data()[5], 64.0f);
+    EXPECT_FLOAT_EQ(c.data()[6], 139.0f);
+    EXPECT_FLOAT_EQ(c.data()[7], 154.0f);
+    // block (1,2): a1=[[7,8,9],[10,11,12]] @ b2=[[13,14],[15,16],[17,18]] = [[364,388],[499,532]]
+    EXPECT_FLOAT_EQ(c.data()[20], 364.0f);
+    EXPECT_FLOAT_EQ(c.data()[21], 388.0f);
+    EXPECT_FLOAT_EQ(c.data()[22], 499.0f);
+    EXPECT_FLOAT_EQ(c.data()[23], 532.0f);
+}
+
+TEST(TensorMatmulBatched, IncompatibleBatchThrows) {
+    Tensor a({1.0f, 2.0f, 3.0f, 4.0f}, {2, 2, 1});
+    Tensor b({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, {3, 1, 2});
+    try {
+        a.matmul(b);
+        FAIL() << "expected ShapeError";
+    } catch (const torc::ShapeError& e) {
+        std::string msg(e.what());
+        EXPECT_TRUE(msg.find("(2, 2, 1)") != std::string::npos);
+        EXPECT_TRUE(msg.find("(3, 1, 2)") != std::string::npos);
+    }
+}
+
+TEST(TensorMatmul, ZeroSizeDimensions) {
+    Tensor a({2, 0});
+    Tensor b({0, 3});
+    Tensor c = a.matmul(b);
+    EXPECT_EQ(c.shape(), std::vector<int>({2, 3}));
+    for (int i = 0; i < c.numel(); ++i)
+        EXPECT_FLOAT_EQ(c.data()[i], 0.0f);
+
+    Tensor p({0, 3});
+    Tensor q({3, 4});
+    Tensor r = p.matmul(q);
+    EXPECT_EQ(r.shape(), std::vector<int>({0, 4}));
+    EXPECT_EQ(r.numel(), 0);
 }
 

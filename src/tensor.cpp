@@ -122,6 +122,76 @@ Tensor Tensor::operator-() const {
     return out;
 }
 
+Tensor Tensor::matmul(const Tensor& other) const {
+    int r = (int)shape_.size();
+    int r2 = (int)other.shape_.size();
+    if (r < 2)
+        throw ShapeError(std::format("matmul requires rank >= 2 operands, got {} and {}",
+                                     shape_to_string(shape_), shape_to_string(other.shape_)));
+    if (r2 < 2)
+        throw ShapeError(std::format("matmul requires rank >= 2 operands, rank {}, got {} and {}",
+                                     r2, shape_to_string(shape_), shape_to_string(other.shape_)));
+
+    int m = shape_[r - 2], k = shape_[r - 1];
+    int k2 = other.shape_[r2 - 2], n = other.shape_[r2 - 1];
+    if (k != k2)
+        throw ShapeError(std::format("matmul inner dimensions must match, got {} and {}",
+                                     shape_to_string(shape_), shape_to_string(other.shape_)));
+
+    std::vector<int> batch;
+    try {
+        batch = broadcast_shape(std::span(shape_).subspan(0, r - 2),
+                                std::span(other.shape_).subspan(0, r2 - 2));
+    } catch (const ShapeError& e) {
+        throw ShapeError(std::format("matmul batch dimensions cannot broadcast for shapes {} and {}: {}",
+                                     shape_to_string(shape_), shape_to_string(other.shape_),
+                                     e.what()));
+    }
+
+    std::vector<int> out_shape = batch;
+    out_shape.push_back(m);
+    out_shape.push_back(n);
+    Tensor out(std::move(out_shape));
+
+    int a_batch = shape_product(std::span(shape_).subspan(0, r - 2));
+    int b_batch = shape_product(std::span(other.shape_).subspan(0, r2 - 2));
+    int out_batch = shape_product(batch);
+    int batch_rank = (int)batch.size();
+
+    std::vector<int> batch_idx(batch_rank, 0);
+    for (int b = 0; b < out_batch; ++b) {
+        int a_off = 0, b_off = 0;
+        if (r > 2) {
+            for (int d = 0; d < (int)batch.size(); ++d) {
+                int dim_a = (d < batch_rank - (r - 2)) ? 1 : shape_[d - (batch_rank - (r - 2))];
+                int idx_a = dim_a == 1 ? 0 : batch_idx[d];
+                a_off = a_off * dim_a + idx_a;
+            }
+            a_off *= m * k;
+        }
+        if (r2 > 2) {
+            for (int d = 0; d < (int)batch.size(); ++d) {
+                int dim_b = (d < batch_rank - (r2 - 2)) ? 1 : other.shape_[d - (batch_rank - (r2 - 2))];
+                int idx_b = dim_b == 1 ? 0 : batch_idx[d];
+                b_off = b_off * dim_b + idx_b;
+            }
+            b_off *= k * n;
+        }
+        int out_off = b * m * n;
+
+        for (int i = 0; i < m; ++i) {
+            for (int j = 0; j < n; ++j) {
+                float acc = 0.0f;
+                for (int p = 0; p < k; ++p)
+                    acc += storage_[a_off + i * k + p] * other.storage_[b_off + p * n + j];
+                out.storage_[out_off + i * n + j] = acc;
+            }
+        }
+        advance_indices(batch_idx, batch);
+    }
+    return out;
+}
+
 Tensor Tensor::transpose(std::vector<int> axes) const {
     int rank = (int)shape_.size();
     if (axes.empty()) {

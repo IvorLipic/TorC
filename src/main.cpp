@@ -51,5 +51,17 @@ int main() {
     std::cout << "y: " << y << "\n";
     std::cout << "x + y = " << x.add(y) << "\n";
 
+    Tensor u({1.0f, 2.0f, 3.0f, 4.0f}, {2, 2});
+    Tensor v({5.0f, 6.0f, 7.0f, 8.0f}, {2, 2});
+    std::cout << "\nu: " << u << "\n";
+    std::cout << "v: " << v << "\n";
+    std::cout << "u.matmul(v) = " << u.matmul(v) << "\n";
+
+    Tensor w({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, {2, 3});
+    Tensor z({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, {3, 2});
+    std::cout << "\nw: " << w << "\n";
+    std::cout << "z: " << z << "\n";
+    std::cout << "w.matmul(z) = " << w.matmul(z) << "\n";
+
     return 0;
 }

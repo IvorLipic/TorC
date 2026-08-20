@@ -17,6 +17,7 @@ A minimal, from-scratch C++ tensor library. Naive `float32`-only storage with el
 - Multi-dimensional indexing (`operator[](i, j, ...)`)
 - `transpose()` for permuting dimensions
 - Slicing (`slice()`) for contiguous-range sub-tensors
+- `matmul()` for 2D and batched matrix multiplication with batch broadcasting
 
 ## Requirements
 

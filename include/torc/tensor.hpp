@@ -47,6 +47,8 @@ public:
         return self.storage_[self.flat_index(idx)];
     }
 
+    [[nodiscard]] Tensor matmul(const Tensor& other) const;
+
     [[nodiscard]] Tensor transpose(std::vector<int> axes) const;
 
     struct Slice { int start; int end; };

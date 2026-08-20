@@ -76,6 +76,9 @@ ctest --test-dir build --output-on-failure   # runs TorcTests
 - `operator[](int, int, ...)` — multi-dimensional indexing with bounds checking
 - `transpose(std::vector<int> axes)` — permute dimensions; default reverses axes
 - `slice(std::vector<Slice>)` — basic contiguous-range slicing
+- `matmul(other)` — matrix multiplication; handles 2D and batched (higher-rank) tensors with
+  NumPy-style broadcasting of leading batch dims; operands must be rank >= 2, throws `ShapeError`
+  on rank < 2, inner-dimension mismatch, or incompatible batch dims
 - `sum()` / `mean()` / `max()` / `min()` — whole-tensor return `float`; axis-wise overloads
   (`int axis`) return `Tensor` with reduced shape
 - `reshape()` / `view()` — change shape without copying data (moves flat `std::vector` storage)
@@ -92,10 +95,12 @@ ctest --test-dir build --output-on-failure   # runs TorcTests
 (`{2,2}`) elementwise case, unary negation, and reductions (`sum`/`mean`/`max`/`min`
 whole-tensor and axis-wise), broadcasting (identical, dim-1, multi-dim, incompatible throws),
 multi-dimensional indexing (`operator[]`, bounds/rank checks, read/write), `transpose`
-(default and custom axes, invalid throws), and `slice` (first/last/inner dim, combined,
-out-of-range throws).
+(default and custom axes, invalid throws), `slice` (first/last/inner dim, combined,
+out-of-range throws), and `matmul` (2D correctness, identity, inner-dim/rank mismatch throws,
+transpose/associative properties, batched with distinct matrices, batch broadcasting via rank
+promotion and size-1 dims, incompatible batch throws, and zero-size dimensions).
 
-That's the entire surface area today. Everything else (matmul, autograd, nn layers, optimizers,
+That's the entire surface area today. Everything else (autograd, nn layers, optimizers,
 data loading, device support) does not exist yet — see ROADMAP.md.
 
 ---

@@ -32,6 +32,35 @@ reduction op. Shape-changing ops (`reshape`/`view`) move `storage_` instead of c
 are O(1) with respect to data size. Fine for a naive reference implementation. **This will need
 to change for autograd** — see below.
 
+### Linear algebra — `matmul` (Milestone 3)
+
+`Tensor::matmul(const Tensor&)` is the first non-elementwise op. Decisions, recorded here so
+they are not re-litigated:
+
+- **Operand rank >= 2 required.** A `ShapeError` is thrown for rank 0/1 operands. This is
+  deliberately *forward-compatible*: allowing 1D promotion later only *widens* accepted input, so
+  it cannot break existing callers, and the shape checks stay the same. Milestone 5's `nn::Linear`
+  only ever needs rank >= 2, so 1D/dot-product support is not an early need.
+- **Batch broadcasting reuses `broadcast_shape()`.** The last two dims are the matrix (contracted
+  on the second of `self` and first of `other`); everything before them is the batch prefix and is
+  broadcast with the same helper already used for elementwise ops. This honors the AGENTS.md rule
+  against ad-hoc per-op shape coercion. Batch-broadcast failures are caught and re-thrown with the
+  **full operand shapes** in the message, since `broadcast_shape()` would otherwise only print the
+  prefix subspans.
+- **Zero-size dimensions are allowed and defined as zeros.** `(2,0) @ (0,3)` yields a `(2,3)` of
+  zeros; `(0,3) @ (3,4)` yields an empty `(0,4)`. The contraction is an empty sum, so the loops
+  already produce the right answer — no special-casing, and it matches shapes that are legal at
+  construction.
+- **Naive triple-loop, `float` accumulator.** Identity: `m * n * k` with `acc` of type `float`.
+  Loop order is `i, j, k`. Optimizing to `i, k, j` (better cache locality) or adding SIMD/threads
+  is explicitly deferred to Milestone 6 and must be benchmark-gated. The `float` (not `double`)
+  accumulator keeps parity with a future `sgemm`-based BLAS backend tight.
+
+**Deferred to a separate plan:** the basic BLAS backend behind a CMake flag (the last Milestone 3
+item). It is intentionally sequenced *after* this naive implementation is proven correct by tests,
+per the roadmap. When it lands it owns the first real backend seam (likely a `src/matmul.cpp`
+split and a `TORC_USE_BLAS` option), not this milestone.
+
 ### Error handling convention
 `TorcError` (base, derives `std::runtime_error`) and `ShapeError` (shape mismatches) live in
 `utils.hpp`. All error sites use `ShapeError`; existing `catch (std::runtime_error&)` still
