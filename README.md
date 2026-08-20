@@ -18,19 +18,43 @@ A minimal, from-scratch C++ tensor library. Naive `float32`-only storage with el
 - `transpose()` for permuting dimensions
 - Slicing (`slice()`) for contiguous-range sub-tensors
 - `matmul()` for 2D and batched matrix multiplication with batch broadcasting
+- Optional CBLAS-backed `matmul` for performance (via `TORC_USE_BLAS`)
 
 ## Requirements
 
 - CMake 3.16+
 - A C++23 compiler (GCC, Clang, or MSVC)
 - Git (for fetching GoogleTest during the build)
+- **Optional**: CBLAS library (OpenBLAS, Intel MKL, or Accelerate on macOS) for accelerated `matmul`
 
 ## Build
+
+### Default (naive matmul)
 
 ```bash
 cmake -S . -B build
 cmake --build build
 ```
+
+### With CBLAS backend (accelerated matmul)
+
+```bash
+# Install a BLAS library first:
+#   Ubuntu/Debian: sudo apt install libopenblas-dev
+#   Fedora:        sudo dnf install openblas-devel
+#   macOS:         brew install openblas  (or use Accelerate.framework)
+#   Windows:       Install OpenBLAS or Intel MKL, ensure it's in library path
+
+cmake -S . -B build_blas -DTORC_USE_BLAS=ON
+cmake --build build_blas
+```
+
+Supported BLAS providers (auto-detected):
+- **OpenBLAS** (cross-platform, `find_package(OpenBLAS)`)
+- **Intel MKL** (via `find_package(BLAS)` when MKL is in path)
+- **Accelerate.framework** (macOS only, automatic fallback)
+
+When `TORC_USE_BLAS=ON`, the library requires `cblas_sgemm` (CBLAS C interface). If no CBLAS is found, CMake will fail with a clear error message.
 
 ## Run the demo
 
@@ -56,6 +80,7 @@ torc/
 │   └── utils.hpp
 ├── src/
 │   ├── tensor.cpp
+│   ├── matmul_blas.cpp   # CBLAS matmul (when TORC_USE_BLAS=ON)
 │   └── main.cpp
 └── tests/
     └── test_tensor.cpp

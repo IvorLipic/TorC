@@ -79,3 +79,5 @@ build
 
 .kilo
 .vscode
+
+build_blas
