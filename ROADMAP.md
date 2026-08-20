@@ -48,7 +48,7 @@ see [AGENTS.md](AGENTS.md).
 - [x] Basic BLAS backend option (behind a CMake flag) once naive matmul is correct
 
 ## Milestone 4 — Autograd
-- [ ] Decide on graph representation (tape-based vs. expression-tree) — see `docs/DESIGN.md`
+- [x] Decide on graph representation (tape-based vs. expression-tree) — see `docs/DESIGN.md`
 - [ ] `Variable` wrapping `Tensor` + grad + backward closure
 - [ ] `requires_grad` flag + `backward()` for the ops already implemented
 - [ ] Gradient checking tests (numerical vs. analytical) added alongside each op
