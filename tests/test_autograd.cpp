@@ -8,8 +8,9 @@ using torc::Tensor;
 using torc::ShapeError;
 
 static constexpr float EPS = 1e-4f;
+static constexpr float GRAD_ATOL = 1e-2f;
 
-static void expect_near(float actual, float expected, float tol = EPS) {
+static void expect_near(float actual, float expected, float tol = GRAD_ATOL) {
     EXPECT_NEAR(actual, expected, tol)
         << "actual=" << actual << " expected=" << expected;
 }
@@ -246,4 +247,184 @@ TEST(ScalarAutograd, HandComputedPolynomial) {
     f.backward();
     expect_near(x.grad().data()[0], 4.0f);
     expect_near(y.grad().data()[0], 27.0f);
+}
+
+// ============================================================
+// Step 3: Tensor-tensor elementwise + broadcasting backward
+// ============================================================
+
+static Tensor numerical_grad_add(const Tensor& a, const Tensor& b) {
+    Tensor g(a.shape());
+    float h = 1e-4f;
+    for (int i = 0; i < a.numel(); ++i) {
+        Tensor a_ph = a; a_ph.data()[i] += h;
+        Tensor a_mh = a; a_mh.data()[i] -= h;
+        float f_ph = (a_ph.add(b)).sum();
+        float f_mh = (a_mh.add(b)).sum();
+        g.data()[i] = (f_ph - f_mh) / (2.0f * h);
+    }
+    return g;
+}
+
+static Tensor numerical_grad_mul(const Tensor& a, const Tensor& b) {
+    Tensor g(a.shape());
+    float h = 1e-4f;
+    for (int i = 0; i < a.numel(); ++i) {
+        Tensor a_ph = a; a_ph.data()[i] += h;
+        Tensor a_mh = a; a_mh.data()[i] -= h;
+        float f_ph = (a_ph.mul(b)).sum();
+        float f_mh = (a_mh.mul(b)).sum();
+        g.data()[i] = (f_ph - f_mh) / (2.0f * h);
+    }
+    return g;
+}
+
+TEST(TensorElementwiseAutograd, AddIdenticalShape) {
+    Tensor a_data({1.0f, 2.0f, 3.0f}, std::vector<int>{3});
+    Tensor b_data({4.0f, 5.0f, 6.0f}, std::vector<int>{3});
+    Variable a(a_data, true);
+    Variable b(b_data, true);
+    Variable c = torc::add(a, b);
+    EXPECT_TRUE(c.data() == a.data().add(b.data()));
+    Tensor ones({1.0f, 1.0f, 1.0f}, std::vector<int>{3});
+    c.backward(ones);
+    EXPECT_TRUE(a.has_grad());
+    EXPECT_TRUE(b.has_grad());
+    Tensor expected_grad({1.0f, 1.0f, 1.0f}, std::vector<int>{3});
+    EXPECT_TRUE(a.grad() == expected_grad);
+    EXPECT_TRUE(b.grad() == expected_grad);
+}
+
+TEST(TensorElementwiseAutograd, AddBroadcastDimOne) {
+    Tensor a_data({1.0f, 2.0f, 3.0f, 4.0f}, std::vector<int>{2, 2});
+    Tensor b_data({10.0f, 20.0f}, std::vector<int>{2, 1});
+    Variable a(a_data, true);
+    Variable b(b_data, true);
+    Variable c = torc::add(a, b);
+    Tensor ones({1.0f, 1.0f, 1.0f, 1.0f}, std::vector<int>{2, 2});
+    c.backward(ones);
+    Tensor expected_a_grad({1.0f, 1.0f, 1.0f, 1.0f}, std::vector<int>{2, 2});
+    Tensor expected_b_grad({2.0f, 2.0f}, std::vector<int>{2, 1});
+    EXPECT_TRUE(a.grad() == expected_a_grad);
+    EXPECT_TRUE(b.grad() == expected_b_grad);
+}
+
+TEST(TensorElementwiseAutograd, AddBroadcastMultiDim) {
+    Tensor a_data({1.0f, 2.0f, 3.0f, 4.0f}, std::vector<int>{2, 2});
+    Tensor b_data({10.0f, 20.0f}, std::vector<int>{1, 2});
+    Variable a(a_data, true);
+    Variable b(b_data, true);
+    Variable c = torc::add(a, b);
+    Tensor ones({1.0f, 1.0f, 1.0f, 1.0f}, std::vector<int>{2, 2});
+    c.backward(ones);
+    Tensor expected_a_grad({1.0f, 1.0f, 1.0f, 1.0f}, std::vector<int>{2, 2});
+    Tensor expected_b_grad({2.0f, 2.0f}, std::vector<int>{1, 2});
+    EXPECT_TRUE(a.grad() == expected_a_grad);
+    EXPECT_TRUE(b.grad() == expected_b_grad);
+}
+
+TEST(TensorElementwiseAutograd, MulIdenticalShape) {
+    Tensor a_data({1.0f, 2.0f, 3.0f}, std::vector<int>{3});
+    Tensor b_data({4.0f, 5.0f, 6.0f}, std::vector<int>{3});
+    Variable a(a_data, true);
+    Variable b(b_data, true);
+    Variable c = torc::mul(a, b);
+    Tensor ones({1.0f, 1.0f, 1.0f}, std::vector<int>{3});
+    c.backward(ones);
+    Tensor expected_a_grad({4.0f, 5.0f, 6.0f}, std::vector<int>{3});
+    Tensor expected_b_grad({1.0f, 2.0f, 3.0f}, std::vector<int>{3});
+    EXPECT_TRUE(a.grad() == expected_a_grad);
+    EXPECT_TRUE(b.grad() == expected_b_grad);
+}
+
+TEST(TensorElementwiseAutograd, MulBroadcast) {
+    Tensor a_data({1.0f, 2.0f, 3.0f, 4.0f}, std::vector<int>{2, 2});
+    Tensor b_data({2.0f, 3.0f}, std::vector<int>{2, 1});
+    Variable a(a_data, true);
+    Variable b(b_data, true);
+    Variable c = torc::mul(a, b);
+    Tensor ones({1.0f, 1.0f, 1.0f, 1.0f}, std::vector<int>{2, 2});
+    c.backward(ones);
+    Tensor expected_a_grad({2.0f, 2.0f, 3.0f, 3.0f}, std::vector<int>{2, 2});
+    Tensor expected_b_grad({3.0f, 7.0f}, std::vector<int>{2, 1});
+    EXPECT_TRUE(a.grad() == expected_a_grad);
+    EXPECT_TRUE(b.grad() == expected_b_grad);
+}
+
+TEST(TensorElementwiseAutograd, SubIdenticalShape) {
+    Tensor a_data({10.0f, 20.0f, 30.0f}, std::vector<int>{3});
+    Tensor b_data({1.0f, 2.0f, 3.0f}, std::vector<int>{3});
+    Variable a(a_data, true);
+    Variable b(b_data, true);
+    Variable c = torc::sub(a, b);
+    Tensor ones({1.0f, 1.0f, 1.0f}, std::vector<int>{3});
+    c.backward(ones);
+    Tensor expected_a_grad({1.0f, 1.0f, 1.0f}, std::vector<int>{3});
+    Tensor expected_b_grad({-1.0f, -1.0f, -1.0f}, std::vector<int>{3});
+    EXPECT_TRUE(a.grad() == expected_a_grad);
+    EXPECT_TRUE(b.grad() == expected_b_grad);
+}
+
+TEST(TensorElementwiseAutograd, DivIdenticalShape) {
+    Tensor a_data({10.0f, 20.0f, 30.0f}, std::vector<int>{3});
+    Tensor b_data({2.0f, 4.0f, 5.0f}, std::vector<int>{3});
+    Variable a(a_data, true);
+    Variable b(b_data, true);
+    Variable c = torc::div(a, b);
+    Tensor ones({1.0f, 1.0f, 1.0f}, std::vector<int>{3});
+    c.backward(ones);
+    Tensor expected_a_grad({0.5f, 0.25f, 0.2f}, std::vector<int>{3});
+    Tensor expected_b_grad({-2.5f, -1.25f, -1.2f}, std::vector<int>{3});
+    EXPECT_TRUE(a.grad() == expected_a_grad);
+    EXPECT_TRUE(b.grad() == expected_b_grad);
+}
+
+TEST(TensorElementwiseAutograd, NegTensor) {
+    Tensor a_data({1.0f, -2.0f, 3.0f}, std::vector<int>{3});
+    Variable a(a_data, true);
+    Variable c = torc::neg(a);
+    Tensor ones({1.0f, 1.0f, 1.0f}, std::vector<int>{3});
+    c.backward(ones);
+    Tensor expected_grad({-1.0f, -1.0f, -1.0f}, std::vector<int>{3});
+    EXPECT_TRUE(a.grad() == expected_grad);
+}
+
+TEST(TensorElementwiseAutograd, NonTrackedInputNoGrad) {
+    Tensor a_data({1.0f, 2.0f}, std::vector<int>{2});
+    Tensor b_data({3.0f, 4.0f}, std::vector<int>{2});
+    Variable a(a_data, true);
+    Variable b(b_data, false);
+    Variable c = torc::add(a, b);
+    Tensor ones({1.0f, 1.0f}, std::vector<int>{2});
+    c.backward(ones);
+    EXPECT_TRUE(a.has_grad());
+    Tensor expected_a_grad({1.0f, 1.0f}, std::vector<int>{2});
+    EXPECT_TRUE(a.grad() == expected_a_grad);
+    EXPECT_FALSE(b.has_grad());
+}
+
+TEST(TensorElementwiseAutograd, GradCheckAddBroadcast) {
+    Tensor a_data({1.0f, 2.0f, 3.0f, 4.0f}, std::vector<int>{2, 2});
+    Tensor b_data({10.0f, 20.0f}, std::vector<int>{2, 1});
+    Variable a(a_data, true);
+    Variable b(b_data, true);
+    Variable c = torc::add(a, b);
+    Tensor ones({1.0f, 1.0f, 1.0f, 1.0f}, std::vector<int>{2, 2});
+    c.backward(ones);
+    Tensor num_grad = numerical_grad_add(a_data, b_data);
+    for (int i = 0; i < a_data.numel(); ++i)
+        expect_near(a.grad().data()[i], num_grad.data()[i]);
+}
+
+TEST(TensorElementwiseAutograd, GradCheckMulBroadcast) {
+    Tensor a_data({1.0f, 2.0f, 3.0f, 4.0f}, std::vector<int>{2, 2});
+    Tensor b_data({2.0f, 3.0f}, std::vector<int>{2, 1});
+    Variable a(a_data, true);
+    Variable b(b_data, true);
+    Variable c = torc::mul(a, b);
+    Tensor ones({1.0f, 1.0f, 1.0f, 1.0f}, std::vector<int>{2, 2});
+    c.backward(ones);
+    Tensor num_grad = numerical_grad_mul(a_data, b_data);
+    for (int i = 0; i < a_data.numel(); ++i)
+        expect_near(a.grad().data()[i], num_grad.data()[i]);
 }

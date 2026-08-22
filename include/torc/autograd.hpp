@@ -16,6 +16,8 @@ struct TapeEntry {
     std::function<void(const Tensor& grad_output, std::vector<Tensor>& input_grads)> backward;
 };
 
+Tensor reduce_sum_to_shape(const Tensor& grad, const std::vector<int>& target_shape);
+
 class Variable {
 public:
     Tensor data_;
@@ -133,10 +135,13 @@ private:
                 for (size_t i = 0; i < entry.inputs.size(); ++i) {
                     Variable* input = entry.inputs[i];
                     if (input->requires_grad_) {
-                        input->accumulate_grad(input_grads[i]);
-                        auto insert_result = grad_map.emplace(input, input_grads[i]);
+                        Tensor input_grad = input_grads[i];
+                        if (input_grad.shape() != input->data_.shape())
+                            input_grad = reduce_sum_to_shape(input_grad, input->data_.shape());
+                        input->accumulate_grad(input_grad);
+                        auto insert_result = grad_map.emplace(input, input_grad);
                         if (!insert_result.second) {
-                            insert_result.first->second = input_grads[i];
+                            insert_result.first->second = input_grad;
                         }
                     }
                 }
@@ -158,5 +163,13 @@ Variable sub_scalar(const Variable& a, const Variable& b);
 Variable mul_scalar(const Variable& a, const Variable& b);
 Variable div_scalar(const Variable& a, const Variable& b);
 Variable neg_scalar(const Variable& a);
+
+Tensor reduce_sum_to_shape(const Tensor& grad, const std::vector<int>& target_shape);
+
+Variable add(const Variable& a, const Variable& b);
+Variable sub(const Variable& a, const Variable& b);
+Variable mul(const Variable& a, const Variable& b);
+Variable div(const Variable& a, const Variable& b);
+Variable neg(const Variable& a);
 
 } // namespace torc

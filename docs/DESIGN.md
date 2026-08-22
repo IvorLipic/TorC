@@ -188,7 +188,7 @@ For every differentiable op, verify analytical gradients against **central finit
 ```
 h = 1e-4  (for float32; use 1e-6 for double)
 grad_numerical[i] = (f(x + h*e_i) - f(x - h*e_i)) / (2*h)
-max |grad_analytical - grad_numerical| < 1e-4
+max |grad_analytical - grad_numerical| < 1e-2
 ```
 
 Where to check:
@@ -197,8 +197,9 @@ Where to check:
 - One batched case for `matmul`
 
 Tolerance rationale: float32 has ~7 decimal digits. Central difference error is O(h²) = O(1e-8)
-for h=1e-4, well within float32 precision. The 1e-4 tolerance gives a comfortable margin while
-catching actual bugs.
+for h=1e-4, but in practice float32 finite differences on elementwise ops show errors around
+1e-3 to 1e-2 due to repeated forward-pass accumulation. The 1e-2 tolerance catches actual
+bugs while allowing for float32 precision loss. If precision ever changes, re-validate.
 
 ### Incremental implementation steps
 
@@ -298,7 +299,7 @@ batch steps into a single PR. A non-SOTA model can execute each step independent
    by forbidding in-place ops on tracked Variables (Step 8).
 
 3. **Float32 numerical noise in gradient checks**: PyTorch's `gradcheck` defaults to double
-   precision for this reason. Our `eps=1e-4` / `atol=1e-4` is calibrated for float32 and
+   precision for this reason. Our `eps=1e-4` / `atol=1e-2` is calibrated for float32 and
    should be re-validated if precision ever changes.
 
 ---

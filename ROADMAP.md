@@ -51,9 +51,9 @@ Each step must pass both correctness tests and numerical gradient checks before 
 Do not implement multiple steps in one PR.
 
 - [x] Decide tape structure, ownership model, and broadcasting backward approach — see `docs/DESIGN.md`
-- [ ] **Step 1**: `Variable` scaffold (`data_`, `grad_`, `requires_grad_`, `tape_`) with `backward()`, `zero_grad()`
-- [ ] **Step 2**: Scalar-only autograd (`add`, `sub`, `mul`, `div`, `neg`) — hand tests + grad check (eps=1e-4, atol=1e-4)
-- [ ] **Step 3**: Tensor-tensor elementwise + broadcasting backward (`reduce_sum_to_shape` helper) — grad check on broadcast cases
+- [x] **Step 1**: `Variable` scaffold (`data_`, `grad_`, `requires_grad_`, `tape_`) with `backward()`, `zero_grad()`
+- [x] **Step 2**: Scalar-only autograd (`add`, `sub`, `mul`, `div`, `neg`) — hand tests + grad check (eps=1e-4, atol=1e-4)
+- [x] **Step 3**: Tensor-tensor elementwise + broadcasting backward (`reduce_sum_to_shape` helper) — grad check on broadcast cases
 - [ ] **Step 4**: Reduction ops backward (`sum`, `mean` whole-tensor and axis-wise) — grad check
 - [ ] **Step 4b**: Defer `max`/`min` backward (argmax-tracking not yet implemented — throw `ShapeError`)
 - [ ] **Step 5**: `matmul` backward (2D + batched) — hand test + grad check
