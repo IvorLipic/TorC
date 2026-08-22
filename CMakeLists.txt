@@ -34,6 +34,7 @@ endif()
 
 add_library(torc
     src/tensor.cpp
+    src/autograd.cpp
 )
 
 if(TORC_USE_BLAS)
@@ -65,6 +66,7 @@ FetchContent_MakeAvailable(googletest)
 
 add_executable(torc_tests
     tests/test_tensor.cpp
+    tests/test_autograd.cpp
 )
 
 target_include_directories(torc_tests

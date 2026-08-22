@@ -8,12 +8,10 @@ see [AGENTS.md](AGENTS.md).
 
 ## Immediate next steps
 
-1. Land the basic BLAS backend behind a CMake flag (`TORC_USE_BLAS`) as the final Milestone 3
-   item — sequenced *after* the naive `matmul` is proven correct by tests (see `docs/DESIGN.md`).
-   Document the build path; expect it to be validated only where a BLAS/CBLAS is installed.
-2. Start the Milestone 4 design conversation (tape vs. expression-tree for autograd) in
-   `docs/DESIGN.md` *before* writing `Variable`/`Function` code — this is the biggest
-   architectural fork in the project so far.
+1. Implement Milestone 4 Step 1 (`Variable` scaffold) — this is the foundation for everything
+   that follows. See the incremental step list in the Milestone 4 section below.
+2. Each subsequent step must pass gradient checks (central finite difference, eps=1e-4,
+   atol=1e-4) before the next step begins.
 
 ---
 
@@ -47,12 +45,23 @@ see [AGENTS.md](AGENTS.md).
 - [x] Batched matmul for higher-rank tensors
 - [x] Basic BLAS backend option (behind a CMake flag) once naive matmul is correct
 
-## Milestone 4 — Autograd
-- [x] Decide on graph representation (tape-based vs. expression-tree) — see `docs/DESIGN.md`
-- [ ] `Variable` wrapping `Tensor` + grad + backward closure
-- [ ] `requires_grad` flag + `backward()` for the ops already implemented
-- [ ] Gradient checking tests (numerical vs. analytical) added alongside each op
-- [ ] Restructure `include/torc/` and `src/` per the future-layout plan in `docs/DESIGN.md`
+## Milestone 4 — Autograd (incremental, tested each step)
+
+Each step must pass both correctness tests and numerical gradient checks before proceeding.
+Do not implement multiple steps in one PR.
+
+- [x] Decide tape structure, ownership model, and broadcasting backward approach — see `docs/DESIGN.md`
+- [ ] **Step 1**: `Variable` scaffold (`data_`, `grad_`, `requires_grad_`, `tape_`) with `backward()`, `zero_grad()`
+- [ ] **Step 2**: Scalar-only autograd (`add`, `sub`, `mul`, `div`, `neg`) — hand tests + grad check (eps=1e-4, atol=1e-4)
+- [ ] **Step 3**: Tensor-tensor elementwise + broadcasting backward (`reduce_sum_to_shape` helper) — grad check on broadcast cases
+- [ ] **Step 4**: Reduction ops backward (`sum`, `mean` whole-tensor and axis-wise) — grad check
+- [ ] **Step 4b**: Defer `max`/`min` backward (argmax-tracking not yet implemented — throw `ShapeError`)
+- [ ] **Step 5**: `matmul` backward (2D + batched) — hand test + grad check
+- [ ] **Step 6**: View ops backward (`transpose`, `reshape`/`view`, `slice`) — grad check
+- [ ] **Step 7**: `detach()` and `no_grad()` / `set_grad_enabled(bool)` context
+- [ ] **Step 8**: In-place ops forbidden for `requires_grad` Variables (throw `TorcError`)
+- [ ] **Step 9**: `max`/`min` backward with argmax tracking — grad check
+- [ ] **Step 10**: Restructure to `include/torc/autograd.hpp`, `src/autograd.cpp`, `tests/test_autograd.cpp`
 
 ## Milestone 5 — nn / optim / data (basic ML)
 - [ ] `nn::Module` base class + `Linear`, common activations (ReLU, Sigmoid, Softmax)
