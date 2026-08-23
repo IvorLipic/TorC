@@ -678,4 +678,25 @@ Variable softmax(const Variable& a) {
     return out;
 }
 
+Variable log(const Variable& a) {
+    bool needs_grad = a.requires_grad_;
+    Tensor out_data = a.data_.log();
+    Variable out(std::move(out_data), needs_grad);
+
+    if (needs_grad) {
+        TapeEntry entry;
+        entry.inputs = { const_cast<Variable*>(&a) };
+
+        Tensor a_data = a.data();
+        entry.backward = [a_data](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
+            input_grads[0] = Tensor(grad_output.shape());
+            for (int i = 0; i < grad_output.numel(); ++i) {
+                input_grads[0].data()[i] = grad_output.data()[i] / a_data.data()[i];
+            }
+        };
+        out.tape_.push_back(std::move(entry));
+    }
+    return out;
+}
+
 } // namespace torc

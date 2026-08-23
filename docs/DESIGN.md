@@ -479,6 +479,25 @@ PR. *(Check ROADMAP.md for actual checkbox state — not duplicated here.)*
 - **Test**: forward correctness for each activation, backward correctness for ReLU and Sigmoid
   (hand-computed), and numerical gradient check for Softmax (central differences, `h=1e-4`)
 
+**Step 5.5 — Loss functions**
+- `nn::MSELoss` and `nn::CrossEntropyLoss` implemented as standalone classes in
+  `include/torc/nn/losses.hpp` / `src/nn/losses.cpp` rather than inheriting `Module`
+- **Why not inherit `Module`**: losses take *two* inputs (`input`, `target`), not one, so they
+  cannot satisfy `Module::forward(const Variable& x)`. They are lightweight callables with
+  `forward(input, target)` and `operator()(input, target)` instead.
+- `MSELoss`: `mean((input - target)^2)`. Backward = `2 * (input - target) / n` to `input`,
+  negated to `target`.
+- `CrossEntropyLoss`: per-row softmax + log-softmax + negative log-likelihood. The loss
+  averages over the batch. Backward = `(softmax - one_hot(target)) / batch_size` per row.
+  **Important**: `Tensor::softmax()` is whole-tensor (flattened), so `CrossEntropyLoss`
+  implements its own per-row softmax locally via `row_softmax()` — this is intentional until
+  per-axis softmax is promoted to a `Tensor` primitive.
+- **New Tensor primitive**: `Tensor::log()` (elementwise, using `std::ranges::transform`) added
+  alongside `exp()` as a basic unary op.
+- **New autograd free function**: `torc::log(const Variable&)` added in `src/autograd.cpp`.
+- **Test**: forward hand-computed values for both losses, backward chain-rule check for MSE,
+  and numerical gradient check for CrossEntropyLoss (central differences, `h=1e-4`)
+
 ### Optimizer design
 
 Optimizers are deliberately separated from `Module`. They operate on the flat
@@ -546,7 +565,8 @@ torc/
 │       ├── nn.hpp           # Module base + Sequential           [Milestone 5.2 — landed]
 │       ├── nn/
 │       │   ├── linear.hpp   # nn::Linear                          [Milestone 5.3]
-│       │   └── activations.hpp # nn::ReLU, nn::Sigmoid, etc.     [Milestone 5.4]
+│       │   ├── activations.hpp # nn::ReLU, nn::Sigmoid, etc.     [Milestone 5.4]
+│       │   └── losses.hpp   # nn::MSELoss, nn::CrossEntropyLoss   [Milestone 5.5]
 │       ├── optim.hpp        # SGD, Adam, AdamW                    [Milestone 5]
 │       └── data.hpp         # Dataset, DataLoader                 [Milestone 5]
 ├── src/
@@ -555,7 +575,8 @@ torc/
 │   ├── nn.cpp                                                   [Milestone 5.2 — landed]
 │   ├── nn/
 │   │   ├── linear.cpp                                            [Milestone 5.3]
-│   │   └── activations.cpp                                       [Milestone 5.4]
+│   │   ├── activations.cpp                                       [Milestone 5.4]
+│   │   └── losses.cpp                                             [Milestone 5.5]
 │   ├── optim.cpp                                                 [Milestone 5]
 │   └── matmul_blas.cpp                                           [Milestone 3 — landed]
 ├── examples/                # demo binaries move out of src/, main.cpp retired

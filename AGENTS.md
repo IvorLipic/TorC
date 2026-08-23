@@ -36,7 +36,8 @@ torc/
 │       ├── nn.hpp              # nn::Module base + nn::Sequential container
 │       └── nn/
 │           ├── linear.hpp      # nn::Linear declaration
-│           └── activations.hpp # nn::ReLU, nn::Sigmoid, nn::Softmax declarations
+│           ├── activations.hpp # nn::ReLU, nn::Sigmoid, nn::Softmax declarations
+│           └── losses.hpp      # nn::MSELoss, nn::CrossEntropyLoss declarations
 ├── src/
 │   ├── tensor.cpp              # Tensor implementation
 │   ├── autograd.cpp            # Variable op implementations (backward closures)
@@ -44,6 +45,7 @@ torc/
 │   ├── nn/
 │   │   ├── linear.cpp          # nn::Linear forward
 │   │   └── activations.cpp     # activation forward functions
+│   │   └── losses.cpp          # loss function forward/backward
 │   ├── matmul_blas.cpp         # CBLAS-backed matmul, compiled only when TORC_USE_BLAS=ON
 │   └── main.cpp                # demo executable
 └── tests/
@@ -54,8 +56,8 @@ torc/
 
 Three build targets:
 - **`torc`** — library built from `src/tensor.cpp`, `src/autograd.cpp`, `src/nn.cpp`,
-  `src/nn/linear.cpp`, `src/nn/activations.cpp` (plus `src/matmul_blas.cpp` when configured
-  with `-DTORC_USE_BLAS=ON`).
+  `src/nn/linear.cpp`, `src/nn/activations.cpp`, `src/nn/losses.cpp`
+  (plus `src/matmul_blas.cpp` when configured with `-DTORC_USE_BLAS=ON`).
 - **`torc_demo`** — executable (`src/main.cpp`) linked against `torc`.
 - **`torc_tests`** — GoogleTest executable (`tests/test_tensor.cpp` +
   `tests/test_autograd.cpp` + `tests/test_nn.cpp`), links `torc`, registered via `enable_testing()` /
@@ -106,9 +108,10 @@ See `README.md` for the full Tensor feature list. Key highlights:
   `torc::add(a, b)`, `torc::mul_scalar(a, b)`, not `a.add(b)`. Follow this pattern for any new
   op; do not add op methods onto `Variable` itself
 - **Milestone 5 in progress**: `nn::Module` base class and `nn::Sequential` container (Step 5.2),
-  `nn::Linear` (Step 5.3), Module forward-lifetime fix (Step 5.3a), and activation functions
-  (`nn::ReLU`, `nn::Sigmoid`, `nn::Softmax`, Step 5.4) are implemented; losses, optimizers,
-  and data loaders are not yet implemented — see ROADMAP.md for exact status
+  `nn::Linear` (Step 5.3), Module forward-lifetime fix (Step 5.3a), activation functions
+  (`nn::ReLU`, `nn::Sigmoid`, `nn::Softmax`, Step 5.4), and loss functions (`nn::MSELoss`,
+  `nn::CrossEntropyLoss`, Step 5.5) are implemented; optimizers and data loaders are not yet
+  implemented — see ROADMAP.md for exact status
 - **Lifetime constraint (unenforced by the type system):** `TapeEntry.inputs` holds raw,
   non-owning `Variable*` pointers into the actual input `Variable`s, not copies. Every
   `Variable` participating in a graph must outlive `backward()` on any of that graph's
@@ -125,8 +128,9 @@ each with gradient checks against central finite differences where applicable. S
   registration, and `parameters()` collection. `forward()` must keep intermediates alive in
   `forward_cache_` so backward is safe.
 - `nn::Sequential` chains `Module`s in order; `forward(x)` passes input through each module.
-- Tests cover parameter registration, forward/backward for `nn::Linear`, and activation modules
-  (`ReLU`, `Sigmoid`, `Softmax`) with gradient checks.
+- Tests cover parameter registration, forward/backward for `nn::Linear`, activation modules
+  (`ReLU`, `Sigmoid`, `Softmax`) with gradient checks, and loss functions (`MSELoss`,
+  `CrossEntropyLoss`) with forward correctness and numerical gradient checks.
 - For full API details and design rationale, see `docs/DESIGN.md`'s Milestone 5 section.
 
 ---

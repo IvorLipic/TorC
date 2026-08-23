@@ -2,6 +2,7 @@
 #include "torc/nn.hpp"
 #include "torc/nn/linear.hpp"
 #include "torc/nn/activations.hpp"
+#include "torc/nn/losses.hpp"
 #include <string>
 #include <utility>
 
@@ -13,6 +14,8 @@ using torc::nn::Linear;
 using torc::nn::ReLU;
 using torc::nn::Sigmoid;
 using torc::nn::Softmax;
+using torc::nn::MSELoss;
+using torc::nn::CrossEntropyLoss;
 
 static constexpr float EPS = 1e-4f;
 static constexpr float GRAD_ATOL = 1e-2f;
@@ -349,5 +352,81 @@ TEST(Softmax, BackwardMatchesNumericalGradient) {
         
         float numerical_grad = (loss_plus - loss_minus) / (2.0f * h);
         expect_near(input.grad().data()[i], numerical_grad);
+    }
+}
+
+TEST(MSELoss, ForwardMatchesHandComputed) {
+    MSELoss loss_fn;
+    Tensor input_data({1.0f, 2.0f, 3.0f}, std::vector<int>{3});
+    Tensor target_data({1.5f, 2.5f, 3.5f}, std::vector<int>{3});
+    Variable input(input_data, false);
+    Variable target(target_data, false);
+    
+    Variable loss = loss_fn(input, target);
+    
+    // diff = [-0.5, -0.5, -0.5], squared = [0.25, 0.25, 0.25], mean = 0.25
+    EXPECT_FLOAT_EQ(loss.data().data()[0], 0.25f);
+}
+
+TEST(MSELoss, BackwardMatchesChainRule) {
+    MSELoss loss_fn;
+    Tensor input_data({1.0f, 2.0f, 3.0f}, std::vector<int>{3});
+    Tensor target_data({1.5f, 2.5f, 3.5f}, std::vector<int>{3});
+    Variable input(input_data, true);
+    Variable target(target_data, false);
+    
+    Variable loss = loss_fn(input, target);
+    loss.backward();
+    
+    ASSERT_TRUE(input.has_grad());
+    // grad = 2 * (input - target) / 3 = 2 * [-0.5, -0.5, -0.5] / 3 = [-1/3, -1/3, -1/3]
+    expect_near(input.grad().data()[0], -1.0f / 3.0f);
+    expect_near(input.grad().data()[1], -1.0f / 3.0f);
+    expect_near(input.grad().data()[2], -1.0f / 3.0f);
+}
+
+TEST(CrossEntropyLoss, ForwardMatchesHandComputed) {
+    CrossEntropyLoss loss_fn;
+    // 2 samples, 3 classes
+    Tensor logits_data({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, std::vector<int>{2, 3});
+    Tensor targets_data({2.0f, 0.0f}, std::vector<int>{2});
+    Variable logits(logits_data, false);
+    Variable targets(targets_data, false);
+    
+    Variable loss = loss_fn(logits, targets);
+    
+    // softmax([1,2,3]) = [0.0900, 0.2447, 0.6652], log = [-2.4079, -1.4065, -0.4079]
+    // softmax([4,5,6]) = [0.0900, 0.2447, 0.6652], log = [-2.4079, -1.4065, -0.4079]
+    // loss = -((-0.4079) + (-2.4079)) / 2 ≈ 1.4076
+    expect_near(loss.data().data()[0], 1.4076f, 2e-3f);
+}
+
+TEST(CrossEntropyLoss, BackwardMatchesNumericalGradient) {
+    CrossEntropyLoss loss_fn;
+    Tensor logits_data({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, std::vector<int>{2, 3});
+    Tensor targets_data({2.0f, 0.0f}, std::vector<int>{2});
+    Variable logits(logits_data, true);
+    Variable targets(targets_data, false);
+    
+    Variable loss = loss_fn(logits, targets);
+    loss.backward();
+    
+    ASSERT_TRUE(logits.has_grad());
+    float h = 1e-4f;
+    for (int i = 0; i < 2; ++i) {
+        for (int j = 0; j < 3; ++j) {
+            Tensor x_plus = logits_data;
+            x_plus.data()[i * 3 + j] += h;
+            Variable out_plus = loss_fn(Variable(x_plus, false), targets);
+            float loss_plus = out_plus.data().data()[0];
+            
+            Tensor x_minus = logits_data;
+            x_minus.data()[i * 3 + j] -= h;
+            Variable out_minus = loss_fn(Variable(x_minus, false), targets);
+            float loss_minus = out_minus.data().data()[0];
+            
+            float numerical_grad = (loss_plus - loss_minus) / (2.0f * h);
+            expect_near(logits.grad().data()[i * 3 + j], numerical_grad);
+        }
     }
 }

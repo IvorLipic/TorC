@@ -345,6 +345,12 @@ Tensor Tensor::softmax() const {
     return out;
 }
 
+Tensor Tensor::log() const {
+    Tensor out(shape_);
+    std::ranges::transform(storage_, out.storage_.begin(), [](float x) { return std::log(x); });
+    return out;
+}
+
 std::ostream& operator<<(std::ostream& os, const Tensor& t) {
     os << std::format("Tensor(shape={}, data=[", shape_to_string(t.shape()));
     for (int i = 0; i < t.numel(); ++i) {

@@ -80,7 +80,9 @@ Each step must pass tests before proceeding.
       `emplace_back` so their addresses are stable for tape-entry raw pointers.
 - [x] **Step 5.4**: Activation functions — `nn::ReLU`, `nn::Sigmoid`, `nn::Softmax` (each as a
       `Module` with differentiable forward, gradient checks included)
-- [ ] **Step 5.5**: Loss functions — `nn::MSELoss`, `nn::CrossEntropyLoss`
+- [x] **Step 5.5**: Loss functions — `nn::MSELoss`, `nn::CrossEntropyLoss` (implemented as
+      standalone classes in `nn/losses.hpp` / `nn/losses.cpp` with `forward(input, target)`
+      signature and custom backward closures)
 - [ ] **Step 5.6**: Optimizer — `optim::SGD` with momentum
 - [ ] **Step 5.7**: Optimizer — `optim::Adam`
 - [ ] **Step 5.8**: Optimizer — `optim::AdamW`
