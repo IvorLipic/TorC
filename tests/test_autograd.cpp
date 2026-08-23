@@ -607,3 +607,177 @@ TEST(ReductionAutograd, GradCheckMeanAxis1) {
     for (int i = 0; i < a_data.numel(); ++i)
         expect_near(a.grad().data()[i], num_grad.data()[i]);
 }
+
+// ============================================================
+// Step 4b: Defer max/min backward (throw ShapeError)
+// ============================================================
+
+TEST(ReductionAutograd, MaxBackwardThrows) {
+    Tensor a_data({1.0f, 3.0f, 2.0f}, std::vector<int>{3});
+    Variable a(a_data, true);
+    Variable c = torc::max(a);
+    EXPECT_THROW(c.backward(), ShapeError);
+}
+
+TEST(ReductionAutograd, MinBackwardThrows) {
+    Tensor a_data({1.0f, 3.0f, 2.0f}, std::vector<int>{3});
+    Variable a(a_data, true);
+    Variable c = torc::min(a);
+    EXPECT_THROW(c.backward(), ShapeError);
+}
+
+// ============================================================
+// Step 5: matmul backward (2D + batched, batch-broadcast)
+// ============================================================
+
+static Tensor numerical_grad_matmul_a(const Tensor& a, const Tensor& b) {
+    Tensor g(a.shape());
+    float h = 1e-3f;
+    for (int i = 0; i < a.numel(); ++i) {
+        Tensor a_ph = a; a_ph.data()[i] += h;
+        Tensor a_mh = a; a_mh.data()[i] -= h;
+        Tensor c_ph = a_ph.matmul(b);
+        Tensor c_mh = a_mh.matmul(b);
+        float f_ph = 0, f_mh = 0;
+        for (int j = 0; j < c_ph.numel(); ++j) {
+            f_ph += c_ph.data()[j];
+            f_mh += c_mh.data()[j];
+        }
+        g.data()[i] = (f_ph - f_mh) / (2.0f * h);
+    }
+    return g;
+}
+
+static Tensor numerical_grad_matmul_b(const Tensor& a, const Tensor& b) {
+    Tensor g(b.shape());
+    float h = 1e-3f;
+    for (int i = 0; i < b.numel(); ++i) {
+        Tensor b_ph = b; b_ph.data()[i] += h;
+        Tensor b_mh = b; b_mh.data()[i] -= h;
+        Tensor c_ph = a.matmul(b_ph);
+        Tensor c_mh = a.matmul(b_mh);
+        float f_ph = 0, f_mh = 0;
+        for (int j = 0; j < c_ph.numel(); ++j) {
+            f_ph += c_ph.data()[j];
+            f_mh += c_mh.data()[j];
+        }
+        g.data()[i] = (f_ph - f_mh) / (2.0f * h);
+    }
+    return g;
+}
+
+static Tensor numerical_grad_matmul_a_batched(const Tensor& a, const Tensor& b, const Tensor& grad_output) {
+    Tensor g(a.shape());
+    float h = 1e-2f;
+    for (int i = 0; i < a.numel(); ++i) {
+        Tensor a_ph = a; a_ph.data()[i] += h;
+        Tensor a_mh = a; a_mh.data()[i] -= h;
+        Tensor c_ph = a_ph.matmul(b);
+        Tensor c_mh = a_mh.matmul(b);
+        float f_ph = 0, f_mh = 0;
+        for (int j = 0; j < c_ph.numel(); ++j) {
+            f_ph += grad_output.data()[j] * c_ph.data()[j];
+            f_mh += grad_output.data()[j] * c_mh.data()[j];
+        }
+        g.data()[i] = (f_ph - f_mh) / (2.0f * h);
+    }
+    return g;
+}
+
+static Tensor numerical_grad_matmul_b_batched(const Tensor& a, const Tensor& b, const Tensor& grad_output) {
+    Tensor g(b.shape());
+    float h = 1e-2f;
+    for (int i = 0; i < b.numel(); ++i) {
+        Tensor b_ph = b; b_ph.data()[i] += h;
+        Tensor b_mh = b; b_mh.data()[i] -= h;
+        Tensor c_ph = a.matmul(b_ph);
+        Tensor c_mh = a.matmul(b_mh);
+        float f_ph = 0, f_mh = 0;
+        for (int j = 0; j < c_ph.numel(); ++j) {
+            f_ph += grad_output.data()[j] * c_ph.data()[j];
+            f_mh += grad_output.data()[j] * c_mh.data()[j];
+        }
+        g.data()[i] = (f_ph - f_mh) / (2.0f * h);
+    }
+    return g;
+}
+
+TEST(MatmulAutograd, Matmul2DBackward) {
+    Tensor a_data({1.0f, 2.0f, 3.0f, 4.0f}, std::vector<int>{2, 2});
+    Tensor b_data({5.0f, 6.0f, 7.0f, 8.0f}, std::vector<int>{2, 2});
+    Variable a(a_data, true);
+    Variable b(b_data, true);
+    Variable c = torc::matmul(a, b);
+    Tensor expected_c({19.0f, 22.0f, 43.0f, 50.0f}, std::vector<int>{2, 2});
+    EXPECT_TRUE(c.data() == expected_c);
+    Tensor grad({1.0f, 2.0f, 3.0f, 4.0f}, std::vector<int>{2, 2});
+    c.backward(grad);
+    Tensor expected_da({17.0f, 23.0f, 39.0f, 53.0f}, std::vector<int>{2, 2});
+    Tensor expected_db({10.0f, 14.0f, 14.0f, 20.0f}, std::vector<int>{2, 2});
+    EXPECT_TRUE(a.grad() == expected_da);
+    EXPECT_TRUE(b.grad() == expected_db);
+}
+
+TEST(MatmulAutograd, Matmul2DGradCheck) {
+    Tensor a_data({1.0f, 2.0f, 3.0f, 4.0f}, std::vector<int>{2, 2});
+    Tensor b_data({5.0f, 6.0f, 7.0f, 8.0f}, std::vector<int>{2, 2});
+    Variable a(a_data, true);
+    Variable b(b_data, true);
+    Variable c = torc::matmul(a, b);
+    Tensor ones({1.0f, 1.0f, 1.0f, 1.0f}, std::vector<int>{2, 2});
+    c.backward(ones);
+    Tensor num_grad_a = numerical_grad_matmul_a(a_data, b_data);
+    Tensor num_grad_b = numerical_grad_matmul_b(a_data, b_data);
+    for (int i = 0; i < a_data.numel(); ++i)
+        expect_near(a.grad().data()[i], num_grad_a.data()[i]);
+    for (int i = 0; i < b_data.numel(); ++i)
+        expect_near(b.grad().data()[i], num_grad_b.data()[i]);
+}
+
+TEST(MatmulAutograd, MatmulBatchedBackward) {
+    Tensor a_data({1.0f, 2.0f, 3.0f, 4.0f}, std::vector<int>{2, 1, 2});
+    Tensor b_data({1.0f, 2.0f, 3.0f, 4.0f}, std::vector<int>{1, 2, 2});
+    Variable a(a_data, true);
+    Variable b(b_data, true);
+    Variable c = torc::matmul(a, b);
+    Tensor expected_c({7.0f, 10.0f, 15.0f, 22.0f}, std::vector<int>{2, 1, 2});
+    EXPECT_TRUE(c.data() == expected_c);
+    Tensor grad({1.0f, 2.0f, 3.0f, 4.0f}, std::vector<int>{2, 1, 2});
+    c.backward(grad);
+    Tensor expected_da({5.0f, 11.0f, 11.0f, 25.0f}, std::vector<int>{2, 1, 2});
+    Tensor expected_db({10.0f, 14.0f, 14.0f, 20.0f}, std::vector<int>{1, 2, 2});
+    EXPECT_TRUE(a.grad() == expected_da);
+    EXPECT_TRUE(b.grad() == expected_db);
+}
+
+TEST(MatmulAutograd, MatmulBatchBroadcastBackward) {
+    Tensor a_data({1.0f, 2.0f, 3.0f, 4.0f}, std::vector<int>{1, 2, 2});
+    Tensor b_data({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f}, std::vector<int>{2, 2, 2});
+    Variable a(a_data, true);
+    Variable b(b_data, true);
+    Variable c = torc::matmul(a, b);
+    Tensor expected_c({7.0f, 10.0f, 15.0f, 22.0f, 19.0f, 22.0f, 43.0f, 50.0f}, std::vector<int>{2, 2, 2});
+    EXPECT_TRUE(c.data() == expected_c);
+    Tensor grad({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f}, std::vector<int>{2, 2, 2});
+    c.backward(grad);
+    Tensor expected_da({66.0f, 94.0f, 94.0f, 138.0f}, std::vector<int>{1, 2, 2});
+    Tensor expected_db({10.0f, 14.0f, 14.0f, 20.0f, 26.0f, 30.0f, 38.0f, 44.0f}, std::vector<int>{2, 2, 2});
+    EXPECT_TRUE(a.grad() == expected_da);
+    EXPECT_TRUE(b.grad() == expected_db);
+}
+
+TEST(MatmulAutograd, MatmulBatchedGradCheck) {
+    Tensor a_data({1.0f, 2.0f, 3.0f, 4.0f}, std::vector<int>{2, 1, 2});
+    Tensor b_data({1.0f, 2.0f, 3.0f, 4.0f}, std::vector<int>{1, 2, 2});
+    Variable a(a_data, true);
+    Variable b(b_data, true);
+    Variable c = torc::matmul(a, b);
+    Tensor grad({1.0f, 2.0f, 3.0f, 4.0f}, std::vector<int>{2, 1, 2});
+    c.backward(grad);
+    Tensor num_grad_a = numerical_grad_matmul_a_batched(a_data, b_data, grad);
+    Tensor num_grad_b = numerical_grad_matmul_b_batched(a_data, b_data, grad);
+    for (int i = 0; i < a_data.numel(); ++i)
+        expect_near(a.grad().data()[i], num_grad_a.data()[i]);
+    for (int i = 0; i < b_data.numel(); ++i)
+        expect_near(b.grad().data()[i], num_grad_b.data()[i]);
+}

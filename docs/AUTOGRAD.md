@@ -224,11 +224,11 @@ input_grads[1] = grad_output * x
 dz/dx = grad_output @ y.T    (m×n @ n×k = m×k)
 dz/dy = x.T @ grad_output    (k×m @ m×n = k×n)
 ```
-This is the plain 2D case only. `Tensor::matmul` already supports batch broadcasting
-(Milestone 3), so a batched `matmul`'s backward additionally needs to sum gradients over any
-broadcast *batch* dimensions — the same idea as `reduce_sum_to_shape` but applied to the
-leading batch dims rather than the whole tensor. This isn't implemented yet (Step 5); don't
-assume the 2D formulas above generalize for free.
+This generalizes to batched matmul: the 2D formulas are applied per-batch, then any broadcast
+*batch* dimensions are summed out via `reduce_sum_to_shape` on each input's gradient before
+accumulation. The implementation uses `swap_last_two_axes` to transpose the last two dimensions
+of `a`/`b`, then calls the existing `Tensor::matmul`, and finally applies `reduce_sum_to_shape`
+centrally in `backward_with_grad` — same pattern as elementwise ops.
 
 ### Sum reduction: z = x.sum(axis=0)  (x: m×n to z: n,)
 ```

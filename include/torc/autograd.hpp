@@ -175,5 +175,8 @@ Variable sum(const Variable& a);
 Variable sum(const Variable& a, int axis);
 Variable mean(const Variable& a);
 Variable mean(const Variable& a, int axis);
+Variable max(const Variable& a);
+Variable min(const Variable& a);
+Variable matmul(const Variable& a, const Variable& b);
 
 } // namespace torc

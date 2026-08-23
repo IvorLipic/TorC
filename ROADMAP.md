@@ -9,9 +9,7 @@ see [AGENTS.md](AGENTS.md).
 
 ## Immediate next steps
 
-1. Implement Milestone 4 **Step 5** (`matmul` backward, 2D + batched, **including batch-broadcast cases** — these
-   need their own reduce-over-batch-dims handling, not a direct reuse of
-   `reduce_sum_to_shape`). Steps 1–4 are done; see the incremental step list in the Milestone 4 section
+1. Implement Milestone 4 **Step 6** (view ops backward — `transpose`, `reshape`/`view`, `slice`). Steps 1–5 are done; see the incremental step list in the Milestone 4 section
    below.
 2. Each subsequent step must pass gradient checks (central finite difference, eps=1e-4,
    atol=1e-2 — see `docs/DESIGN.md`'s "Gradient checking" section for why atol is 1e-2, not
@@ -54,9 +52,9 @@ Do not implement multiple steps in one PR.
 - [x] **Step 3**: Tensor-tensor elementwise + broadcasting backward (`reduce_sum_to_shape`
       helper, applied centrally in `backward_with_grad`) — grad check on broadcast cases
 - [x] **Step 4**: Reduction ops backward (`sum`, `mean` whole-tensor and axis-wise) — grad check
-- [ ] **Step 4b**: Defer `max`/`min` backward (argmax-tracking not yet implemented — throw
+- [x] **Step 4b**: Defer `max`/`min` backward (argmax-tracking not yet implemented — throw
       `ShapeError`)
-- [ ] **Step 5**: `matmul` backward (2D + batched, **including batch-broadcast cases** — these
+- [x] **Step 5**: `matmul` backward (2D + batched, **including batch-broadcast cases** — these
       need their own reduce-over-batch-dims handling, not a direct reuse of
       `reduce_sum_to_shape`) — hand test + grad check
 - [ ] **Step 6**: View ops backward (`transpose` — true inverse permutation, not re-applying

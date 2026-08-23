@@ -317,4 +317,72 @@ Variable mean(const Variable& a, int axis) {
     return out;
 }
 
+Variable max(const Variable& a) {
+    bool needs_grad = a.requires_grad_;
+    float out_val = a.data_.max();
+    Variable out(out_val, needs_grad);
+
+    if (needs_grad) {
+        TapeEntry entry;
+        entry.inputs = { const_cast<Variable*>(&a) };
+        entry.backward = [](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
+            throw ShapeError("max backward not yet implemented: argmax tracking is required");
+        };
+        out.tape_.push_back(std::move(entry));
+    }
+
+    return out;
+}
+
+Variable min(const Variable& a) {
+    bool needs_grad = a.requires_grad_;
+    float out_val = a.data_.min();
+    Variable out(out_val, needs_grad);
+
+    if (needs_grad) {
+        TapeEntry entry;
+        entry.inputs = { const_cast<Variable*>(&a) };
+        entry.backward = [](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
+            throw ShapeError("min backward not yet implemented: argmax tracking is required");
+        };
+        out.tape_.push_back(std::move(entry));
+    }
+
+    return out;
+}
+
+Tensor swap_last_two_axes(const Tensor& t) {
+    int r = (int)t.shape().size();
+    if (r < 2) return t;
+    std::vector<int> axes(r);
+    for (int i = 0; i < r; ++i) axes[i] = i;
+    std::swap(axes[r - 2], axes[r - 1]);
+    return t.transpose(std::move(axes));
+}
+
+Variable matmul(const Variable& a, const Variable& b) {
+    bool needs_grad = a.requires_grad_ || b.requires_grad_;
+    Tensor out_data = a.data_.matmul(b.data_);
+    Variable out(std::move(out_data), needs_grad);
+
+    if (needs_grad) {
+        TapeEntry entry;
+        entry.inputs = { const_cast<Variable*>(&a), const_cast<Variable*>(&b) };
+        Tensor a_data = a.data();
+        Tensor b_data = b.data();
+        entry.backward = [a_data, b_data](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
+            Tensor bt = swap_last_two_axes(b_data);
+            Tensor da_raw = grad_output.matmul(bt);
+            input_grads[0] = reduce_sum_to_shape(da_raw, a_data.shape());
+
+            Tensor at = swap_last_two_axes(a_data);
+            Tensor db_raw = at.matmul(grad_output);
+            input_grads[1] = reduce_sum_to_shape(db_raw, b_data.shape());
+        };
+        out.tape_.push_back(std::move(entry));
+    }
+
+    return out;
+}
+
 } // namespace torc
