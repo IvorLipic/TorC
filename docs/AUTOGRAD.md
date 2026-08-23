@@ -317,6 +317,37 @@ draft of this doc suggested, is tighter than the current tests actually run at.
 
 ---
 
+## Detaching and Disabling Gradients
+
+### `detach()`
+
+```cpp
+Variable d = c.detach();   // new Variable, same data, requires_grad=false, empty tape
+```
+
+`detach()` returns a new `Variable` sharing `c`'s data but with `requires_grad=false` and an
+empty tape. Backward on `d` is a no-op, and gradients do not flow back through `d` into `c`'s
+ancestors. This matches PyTorch's `Tensor.detach()`.
+
+### `set_grad_enabled(bool)` / `grad_enabled()`
+
+```cpp
+Variable::set_grad_enabled(false);
+Variable c = torc::add(a, b);   // c.requires_grad() == false, tape is empty
+Variable::set_grad_enabled(true);
+```
+
+A global flag checked by every op at the start of forward. When disabled, ops still compute
+their forward output, but they return plain `Variable`s with `requires_grad=false` and empty
+tapes — no `TapeEntry` is recorded. Defaults to `true`. This is useful for inference sections
+of a training loop without manually detaching each intermediate.
+
+**Note**: `set_grad_enabled(false)` does *not* change the `requires_grad` flag on existing
+`Variable`s. Inputs keep their original `requires_grad` value; only the *new* outputs produced
+while disabled are non-tracked.
+
+---
+
 ## Extending with New Operations
 
 Ops are **free functions in `namespace torc`**, declared in `autograd.hpp` and defined in

@@ -26,6 +26,8 @@ public:
     bool has_grad_;
     std::vector<TapeEntry> tape_;
 
+    static bool g_grad_enabled;
+
     explicit Variable(Tensor data, bool requires_grad)
         : data_(std::move(data)),
           grad_(std::vector<int>{}),
@@ -45,6 +47,14 @@ public:
     [[nodiscard]] bool requires_grad() const { return requires_grad_; }
     [[nodiscard]] bool has_grad() const { return has_grad_; }
     [[nodiscard]] const Tensor& grad() const { return grad_; }
+
+    [[nodiscard]] Variable detach() const {
+        Variable out(data_, false);
+        return out;
+    }
+
+    [[nodiscard]] static bool grad_enabled() { return g_grad_enabled; }
+    static void set_grad_enabled(bool enabled) { g_grad_enabled = enabled; }
 
     void backward() {
         if (!requires_grad_) return;

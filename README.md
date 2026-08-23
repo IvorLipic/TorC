@@ -41,10 +41,10 @@ operations and a tape-based autograd system, built on CMake with GoogleTest-base
   `neg_scalar`), tensor-tensor elementwise ops with broadcasting backward (`add`, `sub`,
   `mul`, `div`, `neg`), reduction ops backward (`sum`, `mean`, whole-tensor and axis-wise),
   `max`/`min` backward deferred (throw `ShapeError`), `matmul` backward (2D + batched,
-  including batch-broadcast cases), and view-op backward (`transpose`, `reshape`/`view`,
-  `slice`) — each with gradient checks against central finite differences
-- Not yet implemented: `detach()`/`no_grad()`, in-place-op guarding — see
-  [ROADMAP.md](ROADMAP.md) for exact status
+  including batch-broadcast cases), view-op backward (`transpose`, `reshape`/`view`,
+  `slice`), and `detach()`/`no_grad()` / `set_grad_enabled(bool)` — each with gradient checks
+  against central finite differences
+- Not yet implemented: in-place-op guarding — see [ROADMAP.md](ROADMAP.md) for exact status
 - **Known constraint:** the tape holds raw, non-owning pointers to the `Variable`s in a graph.
   Every `Variable` participating in a graph must outlive `backward()` on any of that graph's
   outputs — not just the final loss `Variable`. Not enforced by the compiler; see

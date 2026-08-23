@@ -9,8 +9,9 @@ see [AGENTS.md](AGENTS.md).
 
 ## Immediate next steps
 
-1. Implement Milestone 4 **Step 7** (`detach()` and `no_grad()` / `set_grad_enabled(bool)` context). Steps 1–6 are done; see the incremental step list in the Milestone 4 section
-   below.
+1. Implement Milestone 4 **Step 8** (in-place ops forbidden for `requires_grad` Variables — throw
+   `TorcError`; needs a new guarded in-place API first). Steps 1–7 are done; see the
+   incremental step list in the Milestone 4 section below.
 2. Each subsequent step must pass gradient checks (central finite difference, eps=1e-4,
    atol=1e-2 — see `docs/DESIGN.md`'s "Gradient checking" section for why atol is 1e-2, not
    1e-4) before the next step begins.
@@ -59,7 +60,7 @@ Do not implement multiple steps in one PR.
       `reduce_sum_to_shape`) — hand test + grad check
 - [x] **Step 6**: View ops backward (`transpose` — true inverse permutation, not re-applying
       `axes`; `reshape`/`view`; `slice` — zero-fill-and-scatter into original shape) — grad check
-- [ ] **Step 7**: `detach()` and `no_grad()` / `set_grad_enabled(bool)` context
+- [x] **Step 7**: `detach()` and `no_grad()` / `set_grad_enabled(bool)` context
 - [ ] **Step 8**: In-place ops forbidden for `requires_grad` Variables (throw `TorcError`) —
       needs a new guarded in-place API first, since direct `data()`/`operator[]` mutation
       can't be intercepted as-is

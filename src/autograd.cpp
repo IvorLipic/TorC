@@ -4,6 +4,8 @@
 
 namespace torc {
 
+bool Variable::g_grad_enabled = true;
+
 Tensor reduce_sum_to_shape(const Tensor& grad, const std::vector<int>& target_shape) {
     Tensor result = grad;
     int g_rank = (int)result.shape().size();
@@ -39,7 +41,7 @@ Tensor expand_grad_along_axis(const Tensor& grad_output, int axis, int axis_size
 }
 
 Variable add(const Variable& a, const Variable& b) {
-    bool needs_grad = a.requires_grad_ || b.requires_grad_;
+    bool needs_grad = (a.requires_grad_ || b.requires_grad_) && Variable::grad_enabled();
     Tensor out = a.data_.add(b.data_);
     Variable vout(std::move(out), needs_grad);
 
@@ -57,7 +59,7 @@ Variable add(const Variable& a, const Variable& b) {
 }
 
 Variable sub(const Variable& a, const Variable& b) {
-    bool needs_grad = a.requires_grad_ || b.requires_grad_;
+    bool needs_grad = (a.requires_grad_ || b.requires_grad_) && Variable::grad_enabled();
     Tensor out = a.data_.sub(b.data_);
     Variable vout(std::move(out), needs_grad);
 
@@ -75,7 +77,7 @@ Variable sub(const Variable& a, const Variable& b) {
 }
 
 Variable mul(const Variable& a, const Variable& b) {
-    bool needs_grad = a.requires_grad_ || b.requires_grad_;
+    bool needs_grad = (a.requires_grad_ || b.requires_grad_) && Variable::grad_enabled();
     Tensor out = a.data_.mul(b.data_);
     Variable vout(std::move(out), needs_grad);
 
@@ -95,7 +97,7 @@ Variable mul(const Variable& a, const Variable& b) {
 }
 
 Variable div(const Variable& a, const Variable& b) {
-    bool needs_grad = a.requires_grad_ || b.requires_grad_;
+    bool needs_grad = (a.requires_grad_ || b.requires_grad_) && Variable::grad_enabled();
     Tensor out = a.data_.div(b.data_);
     Variable vout(std::move(out), needs_grad);
 
@@ -116,7 +118,7 @@ Variable div(const Variable& a, const Variable& b) {
 }
 
 Variable neg(const Variable& a) {
-    bool needs_grad = a.requires_grad_;
+    bool needs_grad = a.requires_grad_ && Variable::grad_enabled();
     Tensor out = a.data_.operator-();
     Variable vout(std::move(out), needs_grad);
 
@@ -133,7 +135,7 @@ Variable neg(const Variable& a) {
 }
 
 Variable add_scalar(const Variable& a, const Variable& b) {
-    bool needs_grad = a.requires_grad_ || b.requires_grad_;
+    bool needs_grad = (a.requires_grad_ || b.requires_grad_) && Variable::grad_enabled();
     float av = a.data_.data()[0];
     float bv = b.data_.data()[0];
     Variable out(av + bv, needs_grad);
@@ -152,7 +154,7 @@ Variable add_scalar(const Variable& a, const Variable& b) {
 }
 
 Variable sub_scalar(const Variable& a, const Variable& b) {
-    bool needs_grad = a.requires_grad_ || b.requires_grad_;
+    bool needs_grad = (a.requires_grad_ || b.requires_grad_) && Variable::grad_enabled();
     float av = a.data_.data()[0];
     float bv = b.data_.data()[0];
     Variable out(av - bv, needs_grad);
@@ -172,7 +174,7 @@ Variable sub_scalar(const Variable& a, const Variable& b) {
 }
 
 Variable mul_scalar(const Variable& a, const Variable& b) {
-    bool needs_grad = a.requires_grad_ || b.requires_grad_;
+    bool needs_grad = (a.requires_grad_ || b.requires_grad_) && Variable::grad_enabled();
     float av = a.data_.data()[0];
     float bv = b.data_.data()[0];
     Variable out(av * bv, needs_grad);
@@ -193,7 +195,7 @@ Variable mul_scalar(const Variable& a, const Variable& b) {
 }
 
 Variable div_scalar(const Variable& a, const Variable& b) {
-    bool needs_grad = a.requires_grad_ || b.requires_grad_;
+    bool needs_grad = (a.requires_grad_ || b.requires_grad_) && Variable::grad_enabled();
     float av = a.data_.data()[0];
     float bv = b.data_.data()[0];
     Variable out(av / bv, needs_grad);
@@ -214,7 +216,7 @@ Variable div_scalar(const Variable& a, const Variable& b) {
 }
 
 Variable neg_scalar(const Variable& a) {
-    bool needs_grad = a.requires_grad_;
+    bool needs_grad = a.requires_grad_ && Variable::grad_enabled();
     float av = a.data_.data()[0];
     Variable out(-av, needs_grad);
 
@@ -232,7 +234,7 @@ Variable neg_scalar(const Variable& a) {
 }
 
 Variable sum(const Variable& a) {
-    bool needs_grad = a.requires_grad_;
+    bool needs_grad = a.requires_grad_ && Variable::grad_enabled();
     float out_val = a.data_.sum();
     Variable out(out_val, needs_grad);
 
@@ -254,7 +256,7 @@ Variable sum(const Variable& a) {
 }
 
 Variable sum(const Variable& a, int axis) {
-    bool needs_grad = a.requires_grad_;
+    bool needs_grad = a.requires_grad_ && Variable::grad_enabled();
     Tensor out_data = a.data_.sum(axis);
     Variable out(std::move(out_data), needs_grad);
 
@@ -273,7 +275,7 @@ Variable sum(const Variable& a, int axis) {
 }
 
 Variable mean(const Variable& a) {
-    bool needs_grad = a.requires_grad_;
+    bool needs_grad = a.requires_grad_ && Variable::grad_enabled();
     float out_val = a.data_.mean();
     Variable out(out_val, needs_grad);
 
@@ -295,7 +297,7 @@ Variable mean(const Variable& a) {
 }
 
 Variable mean(const Variable& a, int axis) {
-    bool needs_grad = a.requires_grad_;
+    bool needs_grad = a.requires_grad_ && Variable::grad_enabled();
     Tensor out_data = a.data_.mean(axis);
     Variable out(std::move(out_data), needs_grad);
 
@@ -318,7 +320,7 @@ Variable mean(const Variable& a, int axis) {
 }
 
 Variable max(const Variable& a) {
-    bool needs_grad = a.requires_grad_;
+    bool needs_grad = a.requires_grad_ && Variable::grad_enabled();
     float out_val = a.data_.max();
     Variable out(out_val, needs_grad);
 
@@ -335,7 +337,7 @@ Variable max(const Variable& a) {
 }
 
 Variable min(const Variable& a) {
-    bool needs_grad = a.requires_grad_;
+    bool needs_grad = a.requires_grad_ && Variable::grad_enabled();
     float out_val = a.data_.min();
     Variable out(out_val, needs_grad);
 
@@ -361,7 +363,7 @@ Tensor swap_last_two_axes(const Tensor& t) {
 }
 
 Variable matmul(const Variable& a, const Variable& b) {
-    bool needs_grad = a.requires_grad_ || b.requires_grad_;
+    bool needs_grad = (a.requires_grad_ || b.requires_grad_) && Variable::grad_enabled();
     Tensor out_data = a.data_.matmul(b.data_);
     Variable out(std::move(out_data), needs_grad);
 
@@ -386,7 +388,7 @@ Variable matmul(const Variable& a, const Variable& b) {
 }
 
 Variable transpose(const Variable& a) {
-    bool needs_grad = a.requires_grad_;
+    bool needs_grad = a.requires_grad_ && Variable::grad_enabled();
     std::vector<int> axes;
     int rank = (int)a.data_.shape().size();
     axes.resize(rank);
@@ -395,7 +397,7 @@ Variable transpose(const Variable& a) {
 }
 
 Variable transpose(const Variable& a, std::vector<int> axes) {
-    bool needs_grad = a.requires_grad_;
+    bool needs_grad = a.requires_grad_ && Variable::grad_enabled();
     Tensor out_data = a.data_.transpose(axes);
     Variable out(std::move(out_data), needs_grad);
 
@@ -416,7 +418,7 @@ Variable transpose(const Variable& a, std::vector<int> axes) {
 }
 
 Variable reshape(const Variable& a, std::vector<int> new_shape) {
-    bool needs_grad = a.requires_grad_;
+    bool needs_grad = a.requires_grad_ && Variable::grad_enabled();
     Tensor out_data = a.data_.reshape(std::move(new_shape));
     Variable out(std::move(out_data), needs_grad);
 
@@ -435,7 +437,7 @@ Variable reshape(const Variable& a, std::vector<int> new_shape) {
 }
 
 Variable slice(const Variable& a, std::vector<std::pair<int, int>> slices) {
-    bool needs_grad = a.requires_grad_;
+    bool needs_grad = a.requires_grad_ && Variable::grad_enabled();
     std::vector<Tensor::Slice> tensor_slices;
     tensor_slices.reserve(slices.size());
     for (auto& p : slices) tensor_slices.push_back({p.first, p.second});

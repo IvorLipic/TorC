@@ -925,3 +925,68 @@ TEST(ViewAutograd, GradCheckSlice) {
     for (int i = 0; i < a_data.numel(); ++i)
         expect_near(a.grad().data()[i], num_grad.data()[i]);
 }
+
+// ============================================================
+// Step 7: detach() and no_grad() / set_grad_enabled(bool)
+// ============================================================
+
+TEST(DetachNoGradAutograd, DetachBreaksGraph) {
+    Tensor a_data({1.0f, 2.0f}, std::vector<int>{2});
+    Tensor b_data({3.0f, 4.0f}, std::vector<int>{2});
+    Variable a(a_data, true);
+    Variable b(b_data, true);
+    Variable c = torc::add(a, b);
+    Variable d = c.detach();
+    EXPECT_TRUE(d.requires_grad() == false);
+    EXPECT_TRUE(d.tape_.empty());
+    Tensor grad({1.0f, 1.0f}, std::vector<int>{2});
+    d.backward(grad);
+    EXPECT_FALSE(a.has_grad());
+    EXPECT_FALSE(b.has_grad());
+}
+
+TEST(DetachNoGradAutograd, DetachPreservesData) {
+    Tensor a_data({1.0f, 2.0f, 3.0f}, std::vector<int>{3});
+    Variable a(a_data, true);
+    Variable d = a.detach();
+    EXPECT_TRUE(d.data() == a_data);
+}
+
+TEST(DetachNoGradAutograd, SetGradEnabledFalseDisablesTape) {
+    Tensor a_data({1.0f, 2.0f}, std::vector<int>{2});
+    Tensor b_data({3.0f, 4.0f}, std::vector<int>{2});
+    Variable a(a_data, true);
+    Variable b(b_data, true);
+    Variable::set_grad_enabled(false);
+    Variable c = torc::add(a, b);
+    EXPECT_TRUE(c.requires_grad() == false);
+    EXPECT_TRUE(c.tape_.empty());
+    Variable::set_grad_enabled(true);
+}
+
+TEST(DetachNoGradAutograd, SetGradEnabledTrueRestoresTape) {
+    Tensor a_data({1.0f, 2.0f}, std::vector<int>{2});
+    Variable a(a_data, true);
+    Variable::set_grad_enabled(true);
+    Variable c = torc::neg(a);
+    EXPECT_TRUE(c.requires_grad() == true);
+    EXPECT_FALSE(c.tape_.empty());
+}
+
+TEST(DetachNoGradAutograd, GradEnabledDefaultsToTrue) {
+    EXPECT_TRUE(Variable::grad_enabled());
+}
+
+TEST(DetachNoGradAutograd, NoGradScopePreservesTrackingOnInputs) {
+    Tensor a_data({1.0f, 2.0f}, std::vector<int>{2});
+    Tensor b_data({3.0f, 4.0f}, std::vector<int>{2});
+    Variable a(a_data, true);
+    Variable b(b_data, true);
+    Variable::set_grad_enabled(false);
+    Variable c = torc::add(a, b);
+    Variable::set_grad_enabled(true);
+    EXPECT_TRUE(a.requires_grad());
+    EXPECT_TRUE(b.requires_grad());
+    EXPECT_FALSE(c.requires_grad());
+}
+

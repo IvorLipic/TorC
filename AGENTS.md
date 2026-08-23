@@ -132,13 +132,13 @@ promotion and size-1 dims, incompatible batch throws, and zero-size dimensions).
   `neg_scalar` (Step 2), tensor-tensor `add`/`sub`/`mul`/`div`/`neg` with broadcasting
   (Step 3), reduction ops backward (`sum`/`mean`, whole-tensor and axis-wise) with grad
   checks (Step 4), `max`/`min` backward deferred (throw `ShapeError`, Step 4b), `matmul`
-  backward (2D + batched with batch-broadcast cases, Step 5), and view-op backward
-  (`transpose`, `reshape`/`view`, `slice`, Step 6). Broadcasting
-  reduction (`reduce_sum_to_shape`) is applied **centrally** in
-  `Variable::backward_with_grad`, not inside individual backward closures — don't duplicate it
-  in a new op's closure
-- **Not yet implemented**: `detach()`/`no_grad()`, in-place-op guarding — see ROADMAP.md's
-  Milestone 4 for exact step status
+  backward (2D + batched with batch-broadcast cases, Step 5), view-op backward
+  (`transpose`, `reshape`/`view`, `slice`, Step 6), and `detach()`/`no_grad()` /
+  `set_grad_enabled(bool)` (Step 7). Broadcasting reduction (`reduce_sum_to_shape`) is
+  applied **centrally** in `Variable::backward_with_grad`, not inside individual backward
+  closures — don't duplicate it in a new op's closure
+- **Not yet implemented**: in-place-op guarding — see ROADMAP.md's Milestone 4 for exact
+  step status
 - **Lifetime constraint (unenforced by the type system):** `TapeEntry.inputs` holds raw,
   non-owning `Variable*` pointers into the actual input `Variable`s, not copies. Every
   `Variable` participating in a graph must outlive `backward()` on any of that graph's
