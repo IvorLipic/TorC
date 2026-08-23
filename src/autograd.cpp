@@ -327,8 +327,20 @@ Variable max(const Variable& a) {
     if (needs_grad) {
         TapeEntry entry;
         entry.inputs = { const_cast<Variable*>(&a) };
-        entry.backward = [](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
-            throw ShapeError("max backward not yet implemented: argmax tracking is required");
+        Tensor a_data = a.data();
+        entry.backward = [a_data](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
+            float g = grad_output.data()[0];
+            Tensor result(a_data.shape());
+            int max_idx = 0;
+            float max_val = a_data.data()[0];
+            for (int i = 1; i < a_data.numel(); ++i) {
+                if (a_data.data()[i] > max_val) {
+                    max_val = a_data.data()[i];
+                    max_idx = i;
+                }
+            }
+            result.data()[max_idx] = g;
+            input_grads[0] = result;
         };
         out.tape_.push_back(std::move(entry));
     }
@@ -344,8 +356,94 @@ Variable min(const Variable& a) {
     if (needs_grad) {
         TapeEntry entry;
         entry.inputs = { const_cast<Variable*>(&a) };
-        entry.backward = [](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
-            throw ShapeError("min backward not yet implemented: argmax tracking is required");
+        Tensor a_data = a.data();
+        entry.backward = [a_data](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
+            float g = grad_output.data()[0];
+            Tensor result(a_data.shape());
+            int min_idx = 0;
+            float min_val = a_data.data()[0];
+            for (int i = 1; i < a_data.numel(); ++i) {
+                if (a_data.data()[i] < min_val) {
+                    min_val = a_data.data()[i];
+                    min_idx = i;
+                }
+            }
+            result.data()[min_idx] = g;
+            input_grads[0] = result;
+        };
+        out.tape_.push_back(std::move(entry));
+    }
+
+    return out;
+}
+
+Variable max(const Variable& a, int axis) {
+    bool needs_grad = a.requires_grad_ && Variable::grad_enabled();
+    Tensor out_data = a.data_.max(axis);
+    Variable out(std::move(out_data), needs_grad);
+
+    if (needs_grad) {
+        TapeEntry entry;
+        entry.inputs = { const_cast<Variable*>(&a) };
+        Tensor a_data = a.data();
+        int axis_size = a_data.shape()[axis];
+        int outer_stride = shape_product(std::span<const int>(a_data.shape()).subspan(axis + 1));
+        int inner_stride = shape_product(std::span<const int>(a_data.shape()).subspan(0, axis));
+        entry.backward = [a_data, axis, axis_size, outer_stride, inner_stride](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
+            Tensor result(a_data.shape());
+            for (int outer = 0; outer < inner_stride; ++outer) {
+                for (int j = 0; j < outer_stride; ++j) {
+                    int out_idx = outer * outer_stride + j;
+                    int base = outer * axis_size * outer_stride + j;
+                    int argmax = 0;
+                    float max_val = a_data.data()[base];
+                    for (int a = 1; a < axis_size; ++a) {
+                        if (a_data.data()[base + a * outer_stride] > max_val) {
+                            max_val = a_data.data()[base + a * outer_stride];
+                            argmax = a;
+                        }
+                    }
+                    result.data()[base + argmax * outer_stride] = grad_output.data()[out_idx];
+                }
+            }
+            input_grads[0] = result;
+        };
+        out.tape_.push_back(std::move(entry));
+    }
+
+    return out;
+}
+
+Variable min(const Variable& a, int axis) {
+    bool needs_grad = a.requires_grad_ && Variable::grad_enabled();
+    Tensor out_data = a.data_.min(axis);
+    Variable out(std::move(out_data), needs_grad);
+
+    if (needs_grad) {
+        TapeEntry entry;
+        entry.inputs = { const_cast<Variable*>(&a) };
+        Tensor a_data = a.data();
+        int axis_size = a_data.shape()[axis];
+        int outer_stride = shape_product(std::span<const int>(a_data.shape()).subspan(axis + 1));
+        int inner_stride = shape_product(std::span<const int>(a_data.shape()).subspan(0, axis));
+        entry.backward = [a_data, axis, axis_size, outer_stride, inner_stride](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
+            Tensor result(a_data.shape());
+            for (int outer = 0; outer < inner_stride; ++outer) {
+                for (int j = 0; j < outer_stride; ++j) {
+                    int out_idx = outer * outer_stride + j;
+                    int base = outer * axis_size * outer_stride + j;
+                    int argmin = 0;
+                    float min_val = a_data.data()[base];
+                    for (int a = 1; a < axis_size; ++a) {
+                        if (a_data.data()[base + a * outer_stride] < min_val) {
+                            min_val = a_data.data()[base + a * outer_stride];
+                            argmin = a;
+                        }
+                    }
+                    result.data()[base + argmin * outer_stride] = grad_output.data()[out_idx];
+                }
+            }
+            input_grads[0] = result;
         };
         out.tape_.push_back(std::move(entry));
     }

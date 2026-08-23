@@ -177,12 +177,23 @@ inserts or removes a size-1 dimension, their backward (and forward, if ever need
 likely be expressed directly via the existing `reshape()`/`view()` rather than new `Tensor`
 primitives — revisit only if a standalone forward API turns out to be needed elsewhere.
 
-### Non-differentiable ops — defer, don't fake
+### Non-differentiable ops — implemented with argmax tracking
 
-`max()` / `min()` (with or without axis) require **argmax tracking** during forward to
-scatter gradients correctly in backward. Do not implement a "gradient goes to the max
-element" rule without storing the argmax indices. Defer to a dedicated step (Step 9) after
-the core is proven correct.
+`max()` / `min()` (with or without axis) now compute their backward by scanning the input
+tensor data inside the backward closure to find argmax/argmin indices, then scattering
+`grad_output` to those positions. Ties are broken by first-occurrence, matching
+`std::ranges::max` / `std::ranges::min` used in the forward pass. No argmax indices are
+stored on the Variable itself; the scan happens during backward.
+
+**Step 9 — `max`/`min` backward with argmax tracking**
+- Whole-tensor `max`/`min`: scan all elements, scatter scalar `grad_output` to the argmax/argmin
+- Axis-wise `max(axis)` / `min(axis)`: scan per-output-element along the reduced axis using
+  the same stride math as `Tensor::reduce_axis`, scatter `grad_output` values to the
+  argmax/argmin positions
+- **Test**: hand-computed correctness tests for whole-tensor and axis-wise variants, plus
+  gradient checks on a `{2,3}` tensor with `max(0)` and `max(1)` (one-sided forward
+  difference, since `max`/`min` are piecewise-linear and central difference gives 0.5 at the
+  kink)
 
 ### Scalar vs. non-scalar backward
 
@@ -297,9 +308,14 @@ batch steps into a single PR. *(Check ROADMAP.md for actual checkbox state — n
 - **Test**: verify `Variable::fill()` throws `TorcError` on a tracked Variable and succeeds on an untracked one; verify `Tensor::fill()` always works.
 
 **Step 9 — `max`/`min` backward with argmax tracking**
-- Forward: store `argmax` indices (per-axis or global) on the Variable
-- Backward: scatter gradient to the max positions only
-- **Test**: gradient check on a `{2,3}` tensor with `max(0)` and `max(1)`
+- Whole-tensor `max`/`min`: scan all elements, scatter scalar `grad_output` to the argmax/argmin
+- Axis-wise `max(axis)` / `min(axis)`: scan per-output-element along the reduced axis using
+  the same stride math as `Tensor::reduce_axis`, scatter `grad_output` values to the
+  argmax/argmin positions
+- **Test**: hand-computed correctness tests for whole-tensor and axis-wise variants, plus
+  gradient checks on a `{2,3}` tensor with `max(0)` and `max(1)` (one-sided forward
+  difference, since `max`/`min` are piecewise-linear and central difference gives 0.5 at the
+  kink)
 
 **Step 10 — Project layout restructure**
 - `include/torc/autograd.hpp`, `src/autograd.cpp`, `tests/test_autograd.cpp`, wired into

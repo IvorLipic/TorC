@@ -261,6 +261,17 @@ values into the sliced region. This is implemented with inline odometer-style in
 incrementing over `grad_output.shape()`, computing the corresponding flat index in the
 original tensor from the stored slice offsets.
 
+### Max/Min: z = x.max() / x.min()
+```
+dz/dx = zero_fill(x.shape); dz/dx[argmax] = grad_output
+dz/dx = zero_fill(x.shape); dz/dx[argmin] = grad_output
+```
+Forward computes the max/min value only; the backward closure finds the argmax/argmin by
+scanning `x.data()` and scatters `grad_output` to that position. For axis-wise reductions
+(`max(axis)` / `min(axis)`), the scan is per-output-element along the reduced axis, matching
+the iteration order of `Tensor::reduce_axis`. In both cases ties are broken by first-occurrence,
+matching `std::ranges::max` / `std::ranges::min` used in the forward pass.
+
 ---
 
 ## requires_grad Semantics

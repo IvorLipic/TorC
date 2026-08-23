@@ -610,21 +610,119 @@ TEST(ReductionAutograd, GradCheckMeanAxis1) {
 }
 
 // ============================================================
-// Step 4b: Defer max/min backward (throw ShapeError)
+// Step 9: max/min backward with argmax tracking
 // ============================================================
 
-TEST(ReductionAutograd, MaxBackwardThrows) {
+static Tensor numerical_grad_max(const Tensor& a, int axis) {
+    Tensor g(a.shape());
+    float h = 1e-4f;
+    for (int i = 0; i < a.numel(); ++i) {
+        Tensor a_ph = a; a_ph.data()[i] += h;
+        float f_ph = axis < 0 ? a_ph.max() : a_ph.max(axis).sum();
+        float f = axis < 0 ? a.max() : a.max(axis).sum();
+        g.data()[i] = (f_ph - f) / h;
+    }
+    return g;
+}
+
+static Tensor numerical_grad_min(const Tensor& a, int axis) {
+    Tensor g(a.shape());
+    float h = 1e-4f;
+    for (int i = 0; i < a.numel(); ++i) {
+        Tensor a_ph = a; a_ph.data()[i] += h;
+        float f_ph = axis < 0 ? a_ph.min() : a_ph.min(axis).sum();
+        float f = axis < 0 ? a.min() : a.min(axis).sum();
+        g.data()[i] = (f_ph - f) / h;
+    }
+    return g;
+}
+
+TEST(MaxMinAutograd, MaxWholeTensorBackward) {
     Tensor a_data({1.0f, 3.0f, 2.0f}, std::vector<int>{3});
     Variable a(a_data, true);
     Variable c = torc::max(a);
-    EXPECT_THROW(c.backward(), ShapeError);
+    EXPECT_FLOAT_EQ(c.data().data()[0], 3.0f);
+    Tensor grad({2.0f}, std::vector<int>{1});
+    c.backward(grad);
+    Tensor expected({0.0f, 2.0f, 0.0f}, std::vector<int>{3});
+    EXPECT_TRUE(a.grad() == expected);
 }
 
-TEST(ReductionAutograd, MinBackwardThrows) {
+TEST(MaxMinAutograd, MinWholeTensorBackward) {
     Tensor a_data({1.0f, 3.0f, 2.0f}, std::vector<int>{3});
     Variable a(a_data, true);
     Variable c = torc::min(a);
-    EXPECT_THROW(c.backward(), ShapeError);
+    EXPECT_FLOAT_EQ(c.data().data()[0], 1.0f);
+    Tensor grad({2.0f}, std::vector<int>{1});
+    c.backward(grad);
+    Tensor expected({2.0f, 0.0f, 0.0f}, std::vector<int>{3});
+    EXPECT_TRUE(a.grad() == expected);
+}
+
+TEST(MaxMinAutograd, MaxAxis0Backward) {
+    Tensor a_data({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, std::vector<int>{2, 3});
+    Variable a(a_data, true);
+    Variable c = torc::max(a, 0);
+    EXPECT_TRUE(c.data() == Tensor({4.0f, 5.0f, 6.0f}, std::vector<int>{3}));
+    Tensor grad({1.0f, 2.0f, 3.0f}, std::vector<int>{3});
+    c.backward(grad);
+    Tensor expected({0.0f, 0.0f, 0.0f, 1.0f, 2.0f, 3.0f}, std::vector<int>{2, 3});
+    EXPECT_TRUE(a.grad() == expected);
+}
+
+TEST(MaxMinAutograd, MaxAxis1Backward) {
+    Tensor a_data({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, std::vector<int>{2, 3});
+    Variable a(a_data, true);
+    Variable c = torc::max(a, 1);
+    EXPECT_TRUE(c.data() == Tensor({3.0f, 6.0f}, std::vector<int>{2}));
+    Tensor grad({1.0f, 2.0f}, std::vector<int>{2});
+    c.backward(grad);
+    Tensor expected({0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 2.0f}, std::vector<int>{2, 3});
+    EXPECT_TRUE(a.grad() == expected);
+}
+
+TEST(MaxMinAutograd, MinAxis0Backward) {
+    Tensor a_data({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, std::vector<int>{2, 3});
+    Variable a(a_data, true);
+    Variable c = torc::min(a, 0);
+    EXPECT_TRUE(c.data() == Tensor({1.0f, 2.0f, 3.0f}, std::vector<int>{3}));
+    Tensor grad({1.0f, 2.0f, 3.0f}, std::vector<int>{3});
+    c.backward(grad);
+    Tensor expected({1.0f, 2.0f, 3.0f, 0.0f, 0.0f, 0.0f}, std::vector<int>{2, 3});
+    EXPECT_TRUE(a.grad() == expected);
+}
+
+TEST(MaxMinAutograd, MinAxis1Backward) {
+    Tensor a_data({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, std::vector<int>{2, 3});
+    Variable a(a_data, true);
+    Variable c = torc::min(a, 1);
+    EXPECT_TRUE(c.data() == Tensor({1.0f, 4.0f}, std::vector<int>{2}));
+    Tensor grad({1.0f, 2.0f}, std::vector<int>{2});
+    c.backward(grad);
+    Tensor expected({1.0f, 0.0f, 0.0f, 2.0f, 0.0f, 0.0f}, std::vector<int>{2, 3});
+    EXPECT_TRUE(a.grad() == expected);
+}
+
+TEST(MaxMinAutograd, GradCheckMaxAxis0) {
+    Tensor a_data({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, std::vector<int>{2, 3});
+    Variable a(a_data, true);
+    Variable c = torc::max(a, 0);
+    Tensor ones({1.0f, 1.0f, 1.0f}, std::vector<int>{3});
+    c.backward(ones);
+    Tensor num_grad = numerical_grad_max(a_data, 0);
+    for (int i = 0; i < a_data.numel(); ++i)
+        expect_near(a.grad().data()[i], num_grad.data()[i]);
+}
+
+TEST(MaxMinAutograd, GradCheckMaxAxis1) {
+    Tensor a_data({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, std::vector<int>{2, 3});
+    Variable a(a_data, true);
+    Variable c = torc::max(a, 1);
+    Tensor ones({1.0f, 1.0f}, std::vector<int>{2});
+    c.backward(ones);
+    Tensor num_grad = numerical_grad_max(a_data, 1);
+    for (int i = 0; i < a_data.numel(); ++i)
+        expect_near(a.grad().data()[i], num_grad.data()[i]);
 }
 
 // ============================================================
