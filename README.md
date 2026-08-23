@@ -46,12 +46,28 @@ operations and a tape-based autograd system, built on CMake with GoogleTest-base
   `reshape`/`view`, `slice`), `detach()`/`no_grad()` / `set_grad_enabled(bool)`, and
   guarded in-place ops (`Tensor::fill` / `Variable::fill` throws `TorcError` on tracked
   Variables) — each with gradient checks against central finite differences where applicable
-- Not yet implemented: Milestone 5 (`nn`/`optim`/`data`) — see [ROADMAP.md](ROADMAP.md)
-  for exact status
+- **Milestone 5 in progress**: `nn::Module` base class and `nn::Sequential` container (Step 5.2)
+  are implemented; `nn::Linear`, activations, losses, optimizers, and data loaders are not yet
+  implemented — see [ROADMAP.md](ROADMAP.md) for exact status
 - **Known constraint:** the tape holds raw, non-owning pointers to the `Variable`s in a graph.
   Every `Variable` participating in a graph must outlive `backward()` on any of that graph's
   outputs — not just the final loss `Variable`. Not enforced by the compiler; see
   `docs/DESIGN.md`.
+
+### `torc::nn::Module` and `torc::nn::Sequential`
+- `nn::Module` is a lightweight base class for neural network modules, following the PyTorch
+  pattern. It provides:
+  - `virtual Variable forward(const Variable& x) const = 0`
+  - `Variable operator()(const Variable& x) const` — calls `forward(x)`
+  - `register_parameter(name, param)` — stores a named `Variable` in an internal map
+  - `named_parameters()` — returns the map of registered parameters
+  - `parameters()` — returns a flat `std::vector<Variable>` of all registered parameters
+- `nn::Sequential` is a container that chains `Module`s in order. It inherits from `Module` and:
+  - `add(std::unique_ptr<Module>)` appends a module
+  - `forward(x)` passes input through each module sequentially
+  - `parameters()` recursively collects parameters from all child modules
+- Subclass `Module` and implement `forward()` to create custom layers; use `Sequential` to
+  compose them.
 
 ## Requirements
 
@@ -103,8 +119,9 @@ ctest --test-dir build --output-on-failure
 ```
 
 Tests use [GoogleTest](https://github.com/google/googletest), fetched automatically via CMake
-`FetchContent`. The `TorcTests` target covers both `tests/test_tensor.cpp` (Tensor) and
-`tests/test_autograd.cpp` (Variable / autograd).
+`FetchContent`. The `TorcTests` target covers `tests/test_tensor.cpp` (Tensor),
+`tests/test_autograd.cpp` (Variable / autograd), and `tests/test_nn.cpp` (`nn::Module` /
+`nn::Sequential`).
 
 ## Project layout
 
@@ -122,7 +139,8 @@ torc/
 ├── include/torc/
 │   ├── tensor.hpp
 │   ├── utils.hpp
-│   └── autograd.hpp
+│   ├── autograd.hpp
+│   └── nn.hpp
 ├── src/
 │   ├── tensor.cpp
 │   ├── autograd.cpp
@@ -130,7 +148,8 @@ torc/
 │   └── main.cpp
 └── tests/
     ├── test_tensor.cpp
-    └── test_autograd.cpp
+    ├── test_autograd.cpp
+    └── test_nn.cpp
 ```
 
 ## License

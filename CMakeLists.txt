@@ -73,6 +73,7 @@ FetchContent_MakeAvailable(googletest)
 add_executable(torc_tests
     tests/test_tensor.cpp
     tests/test_autograd.cpp
+    tests/test_nn.cpp
 )
 
 target_include_directories(torc_tests

@@ -67,9 +67,9 @@ Do not implement multiple steps in one PR.
 
 Each step must pass tests before proceeding.
 
-- [ ] **Step 5.1**: `Tensor::exp()` — elementwise unary transcendental op; needed before any
+- [x] **Step 5.1**: `Tensor::exp()` — elementwise unary transcendental op; needed before any
       activation that uses it (Sigmoid, Softmax)
-- [ ] **Step 5.2**: `nn::Module` base class — parameter storage, `forward()` hook, and
+- [x] **Step 5.2**: `nn::Module` base class — parameter storage, `forward()` hook, and
       `torch::nn::Sequential`-style container
 - [ ] **Step 5.3**: `nn::Linear` — `Linear(in, out)` with weight/bias parameters and a forward
       that does `x @ W.T + b`

@@ -32,7 +32,8 @@ torc/
 │   └── torc/
 │       ├── tensor.hpp          # Tensor class declaration
 │       ├── utils.hpp           # shape_product / shape_to_string / error types, used by Tensor
-│       └── autograd.hpp        # Variable class + free-function ops (add, mul, ...)
+│       ├── autograd.hpp        # Variable class + free-function ops (add, mul, ...)
+│       └── nn.hpp              # nn::Module base + nn::Sequential container
 ├── src/
 │   ├── tensor.cpp              # Tensor implementation
 │   ├── autograd.cpp            # Variable op implementations (backward closures)
@@ -40,7 +41,8 @@ torc/
 │   └── main.cpp                # demo executable
 └── tests/
     ├── test_tensor.cpp         # GoogleTest suite for Tensor
-    └── test_autograd.cpp       # GoogleTest suite for Variable / autograd
+    ├── test_autograd.cpp       # GoogleTest suite for Variable / autograd
+    └── test_nn.cpp             # GoogleTest suite for nn::Module / nn::Sequential
 ```
 
 Three build targets:
@@ -48,7 +50,7 @@ Three build targets:
   `src/matmul_blas.cpp` when configured with `-DTORC_USE_BLAS=ON`).
 - **`torc_demo`** — executable (`src/main.cpp`) linked against `torc`.
 - **`torc_tests`** — GoogleTest executable (`tests/test_tensor.cpp` +
-  `tests/test_autograd.cpp`), links `torc`, registered via `enable_testing()` /
+  `tests/test_autograd.cpp` + `tests/test_nn.cpp`), links `torc`, registered via `enable_testing()` /
   `add_test(NAME TorcTests ...)`.
 
 C++23. GoogleTest (`v1.14.0`) is pulled in for tests via `FetchContent`; the only other
@@ -139,8 +141,9 @@ promotion and size-1 dims, incompatible batch throws, and zero-size dimensions).
   reduction (`reduce_sum_to_shape`) is applied **centrally** in
   `Variable::backward_with_grad`, not inside individual backward closures — don't duplicate it
   in a new op's closure
-- **Not yet implemented**: Milestone 5 (`nn`/`optim`/`data`) — see ROADMAP.md for exact
-  status
+- **Milestone 5 in progress**: `nn::Module` base class and `nn::Sequential` container (Step 5.2)
+  are implemented; `nn::Linear`, activations, losses, optimizers, and data loaders are not yet
+  implemented — see ROADMAP.md for exact status
 - **Lifetime constraint (unenforced by the type system):** `TapeEntry.inputs` holds raw,
   non-owning `Variable*` pointers into the actual input `Variable`s, not copies. Every
   `Variable` participating in a graph must outlive `backward()` on any of that graph's
@@ -155,8 +158,26 @@ computed polynomial checks), and tensor-tensor elementwise autograd (identical-s
 broadcast cases for `add`/`sub`/`mul`/`div`/`neg`, non-tracked-input handling, and numerical
 gradient checks against central finite differences for the broadcast cases).
 
-Everything else — `nn` layers, optimizers, data loading, device support — does not exist yet.
-See ROADMAP.md.
+Everything else — `nn::Linear`, activations, losses, optimizers, data loading, device support —
+does not exist yet. See ROADMAP.md.
+
+### `torc::nn::Module` and `torc::nn::Sequential` (see `include/torc/nn.hpp`)
+
+- `nn::Module` is a lightweight base class for neural network modules, following the PyTorch
+  pattern. It provides:
+  - `virtual Variable forward(const Variable& x) const = 0`
+  - `Variable operator()(const Variable& x) const` — calls `forward(x)`
+  - `register_parameter(name, param)` — stores a named `Variable` in an internal map
+  - `named_parameters()` — returns the map of registered parameters
+  - `parameters()` — returns a flat `std::vector<Variable>` of all registered parameters
+- `nn::Sequential` is a container that chains `Module`s in order. It inherits from `Module` and:
+  - `add(std::unique_ptr<Module>)` appends a module
+  - `forward(x)` passes input through each module sequentially
+  - `parameters()` recursively collects parameters from all child modules
+- Subclass `Module` and implement `forward()` to create custom layers; use `Sequential` to
+  compose them.
+- `tests/test_nn.cpp` covers: `Module` parameter registration and forward, `Sequential` chaining
+  and parameter collection, empty sequential pass-through, and combined own + child parameters.
 
 ---
 

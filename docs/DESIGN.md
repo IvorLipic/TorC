@@ -164,7 +164,7 @@ closure would be redundant with, not a substitute for, the centralized step.
 **Test requirement**: every broadcast case must be verified with both a correctness test and
 a gradient check. A missing unbroadcast is the most common autograd bug.
 
-### View ops backward — trivial but must be implemented
+### View ops backward — implemented (Step 6)
 
 | Op | Forward | Backward rule |
 |---|---|---|
@@ -317,12 +317,6 @@ batch steps into a single PR. *(Check ROADMAP.md for actual checkbox state — n
   difference, since `max`/`min` are piecewise-linear and central difference gives 0.5 at the
   kink)
 
-**Step 10 — Project layout restructure**
-- `include/torc/autograd.hpp`, `src/autograd.cpp`, `tests/test_autograd.cpp`, wired into
-  `CMakeLists.txt`
-- **Already landed** — done alongside Step 1 rather than deferred to the end; kept here only
-  for historical scoping reference.
-
 ### Constraints to enforce from Day 1
 
 1. **No in-place modification** of Variables that require grad, outside the (not-yet-built)
@@ -350,7 +344,45 @@ batch steps into a single PR. *(Check ROADMAP.md for actual checkbox state — n
 3. **Float32 numerical noise in gradient checks**: PyTorch's `gradcheck` defaults to double
    precision for this reason. This project's `eps=1e-4` / `atol=1e-2` (see "Gradient
    checking" above) is calibrated for float32 against observed noise, not derived purely from
-   truncation-error theory, and should be re-validated if precision ever changes.
+    truncation-error theory, and should be re-validated if precision ever changes.
+
+---
+
+## Milestone 5 — nn / optim / data (basic ML)
+
+> **Status note:** live checklist state (what's actually done) lives in ROADMAP.md's
+> Milestone 5 section — treat that as the single source of truth. This section explains the
+> *why* behind the design and isn't updated per-step, so step numbers below describe scope,
+> not completion.
+
+### Incremental implementation steps
+
+**Step 5.1 — `Tensor::exp()`**
+- Elementwise unary transcendental op using `std::ranges::transform` + `std::exp`
+- Added `<cmath>` to `src/tensor.cpp` and `tests/test_tensor.cpp`
+- **Test**: basic values, shape preservation, negative values
+
+**Step 5.2 — `nn::Module` base class + `nn::Sequential` container**
+- `nn::Module` is a lightweight base class with:
+  - `virtual Variable forward(const Variable& x) const = 0`
+  - `Variable operator()(const Variable& x) const` — calls `forward(x)`
+  - `register_parameter(name, param)` — stores named `Variable` in `unordered_map`
+  - `named_parameters()` — returns the map (const and non-const overloads)
+  - `parameters()` — flattens to `std::vector<Variable>`
+- `nn::Sequential` inherits `Module` and:
+  - `add(std::unique_ptr<Module>)` appends a module
+  - `forward(x)` chains modules sequentially
+  - `parameters()` recursively collects from own map + all child modules
+- Design decisions:
+  - Ops remain **free functions** in `namespace torc`; `Module::forward` composes them
+  - `Sequential` owns children via `std::unique_ptr<Module>`; no named submodule registry
+    yet (PyTorch's `add_module` is not implemented — revisit if state-dict serialization
+    needs it)
+  - `parameters()` returns `std::vector<Variable>` by value; this copies all parameters,
+    which is fine for Milestone 5's small models but should switch to `vector<Variable&>`
+    or `span` if optimizer patterns require it later
+- **Test**: parameter registration, forward correctness, `Sequential` chaining, empty
+  sequential pass-through, own + child parameter collection
 
 ---
 
@@ -377,18 +409,13 @@ torc/
 │       ├── tensor.hpp
 │       ├── utils.hpp
 │       ├── autograd.hpp     # Variable, TapeEntry, backward()    [Milestone 4 — landed]
-│       ├── nn.hpp           # Module base + Linear, activations  [Milestone 5]
+│       ├── nn.hpp           # Module base + Sequential           [Milestone 5.2 — landed]
 │       ├── optim.hpp        # SGD, Adam                          [Milestone 5]
 │       └── data.hpp         # Dataset, DataLoader                [Milestone 5]
 ├── src/
 │   ├── tensor.cpp
 │   ├── autograd.cpp                                              [Milestone 4 — landed]
-│   ├── matmul_blas.cpp                                           [Milestone 3 — landed]
-│   ├── nn/
-│   │   ├── linear.cpp                                            [Milestone 5]
-│   │   └── activations.cpp                                       [Milestone 5]
-│   ├── optim.cpp                                                 [Milestone 5]
-│   └── data.cpp                                                  [Milestone 5]
+│   └── matmul_blas.cpp                                           [Milestone 3 — landed]
 ├── examples/                # demo binaries move out of src/, main.cpp retired
 │   ├── basic_ops.cpp        # today's main.cpp, relocated
 │   ├── linear_regression.cpp                                     [Milestone 5]
@@ -396,8 +423,7 @@ torc/
 └── tests/
     ├── test_tensor.cpp
     ├── test_autograd.cpp                                         [Milestone 4 — landed]
-    ├── test_nn.cpp                                                [Milestone 5]
-    └── test_optim.cpp                                             [Milestone 5]
+    └── test_nn.cpp                                                [Milestone 5.2 — landed]
 ```
 
 Rationale for the specific moves:
