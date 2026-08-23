@@ -395,7 +395,7 @@ Ops are **free functions in `namespace torc`**, declared in `autograd.hpp` and d
 | Pitfall | Solution |
 |---------|----------|
 | Forgetting `reduce_sum_to_shape` for broadcast ops | It's applied centrally in `backward_with_grad` — don't add a second call inside your op's closure, and don't forget the input actually needs it accounted for by the time your closure returns a shape-correct-or-broadcastable grad |
-| In-place modification of `Variable::data()` | Don't do it — breaks gradient computation (and there's no guard against it yet, see ROADMAP.md Step 8) |
+| In-place modification of `Variable::data()` | Don't do it — breaks gradient computation. Use the guarded API (`Variable::fill`) instead; direct `data()`/`operator[]` writes remain unguarded and are the user's responsibility |
 | Double `backward()` without `zero_grad()` | Expected accumulation; call `zero_grad()` each step |
 | `backward()` on non-scalar | Call `.sum().backward()` or pass an explicit `grad_output` |
 | Recursive backward on deep graphs | The backward *walk* uses topological sort (not recursion) — but `build_topo()` itself is still a recursive DFS today, so very deep graphs can still overflow the stack during topo-sort construction, just not during backward execution |

@@ -301,6 +301,10 @@ Tensor Tensor::sum(int axis) const { return reduce_axis(axis, std::plus<>{}); }
 Tensor Tensor::max(int axis) const { return reduce_axis(axis, [](float a, float b) { return std::max(a, b); }); }
 Tensor Tensor::min(int axis) const { return reduce_axis(axis, [](float a, float b) { return std::min(a, b); }); }
 
+void Tensor::fill(float val) {
+    std::ranges::fill(storage_, val);
+}
+
 Tensor Tensor::mean(int axis) const {
     Tensor s = sum(axis);
     std::ranges::transform(s.storage_, s.storage_.begin(),

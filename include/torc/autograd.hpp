@@ -53,6 +53,12 @@ public:
         return out;
     }
 
+    void fill(float val) {
+        if (requires_grad_)
+            throw TorcError("in-place operation forbidden on a Variable that requires grad");
+        data_.fill(val);
+    }
+
     [[nodiscard]] static bool grad_enabled() { return g_grad_enabled; }
     static void set_grad_enabled(bool enabled) { g_grad_enabled = enabled; }
 

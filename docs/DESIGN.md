@@ -292,12 +292,9 @@ batch steps into a single PR. *(Check ROADMAP.md for actual checkbox state — n
 - **Test**: verify `detach()` breaks graph, gradient doesn't flow back through detached path
 
 **Step 8 — In-place ops: forbid for `requires_grad` Variables**
-- There is currently no guarded in-place mutation API on `Tensor` — only direct writes
-  through the raw pointer from `data()` and the non-const `operator[]`, neither of which can
-  be feasibly intercepted. This step needs to first decide what "in-place op" means in this
-  API (a new guarded in-place method set that checks and throws) before it can be
-  implemented as originally scoped.
-- **Test**: verify in-place write through the new guarded API throws on a tracked Variable
+- Added a guarded in-place API: `Tensor::fill(float)` performs the actual mutation; `Variable::fill(float)` checks `requires_grad_` and throws `TorcError` if the Variable is tracked, otherwise delegates to `data_.fill()`. This is the first guarded in-place entry point in the API.
+- Direct writes through `data()` and non-const `operator[]` remain available but unguarded — they bypass the check and are the user's responsibility.
+- **Test**: verify `Variable::fill()` throws `TorcError` on a tracked Variable and succeeds on an untracked one; verify `Tensor::fill()` always works.
 
 **Step 9 — `max`/`min` backward with argmax tracking**
 - Forward: store `argmax` indices (per-axis or global) on the Variable

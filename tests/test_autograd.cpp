@@ -6,6 +6,7 @@
 using torc::Variable;
 using torc::Tensor;
 using torc::ShapeError;
+using torc::TorcError;
 
 static constexpr float EPS = 1e-4f;
 static constexpr float GRAD_ATOL = 1e-2f;
@@ -988,5 +989,30 @@ TEST(DetachNoGradAutograd, NoGradScopePreservesTrackingOnInputs) {
     EXPECT_TRUE(a.requires_grad());
     EXPECT_TRUE(b.requires_grad());
     EXPECT_FALSE(c.requires_grad());
+}
+
+// ============================================================
+// Step 8: In-place ops forbidden for requires_grad Variables
+// ============================================================
+
+TEST(InPlaceGuardAutograd, FillOnTrackedVariableThrows) {
+    Tensor a_data({1.0f, 2.0f, 3.0f}, std::vector<int>{3});
+    Variable a(a_data, true);
+    EXPECT_THROW(a.fill(0.0f), TorcError);
+}
+
+TEST(InPlaceGuardAutograd, FillOnUntrackedVariableSucceeds) {
+    Tensor a_data({1.0f, 2.0f, 3.0f}, std::vector<int>{3});
+    Variable a(a_data, false);
+    EXPECT_NO_THROW(a.fill(0.0f));
+    Tensor expected({0.0f, 0.0f, 0.0f}, std::vector<int>{3});
+    EXPECT_TRUE(a.data() == expected);
+}
+
+TEST(InPlaceGuardAutograd, TensorFillIsAlwaysAllowed) {
+    Tensor a_data({1.0f, 2.0f, 3.0f}, std::vector<int>{3});
+    a_data.fill(5.0f);
+    Tensor expected({5.0f, 5.0f, 5.0f}, std::vector<int>{3});
+    EXPECT_TRUE(a_data == expected);
 }
 

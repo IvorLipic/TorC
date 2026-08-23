@@ -72,6 +72,8 @@ public:
     [[nodiscard]] Tensor mean(int axis) const;
     [[nodiscard]] Tensor max(int axis) const;
     [[nodiscard]] Tensor min(int axis) const;
+
+    void fill(float val);
 private:
     std::vector<int> shape_;
     std::vector<float> storage_;
