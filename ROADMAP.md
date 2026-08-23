@@ -18,16 +18,6 @@ see [AGENTS.md](AGENTS.md).
 
 ---
 
-## Milestone 0 — Hygiene
-- [x] Dedupe the `enable_testing()` block in `CMakeLists.txt`
-- [x] Fix `torc_tests` to link `torc` only, not recompile `tensor.cpp`
-- [x] Pick and wire in a test framework (GoogleTest via `FetchContent`)
-- [x] Add a top-level `README.md` (quickstart, build instructions)
-- [x] Add `.gitignore` and `LICENSE` (MIT)
-- [x] Fix stale license reference in `README.md`
-- [x] Decide fate of `utils.hpp` helpers — integrated into `tensor.cpp`
-- [x] Split `AGENTS.md` into `AGENTS.md` / `ROADMAP.md` / `docs/DESIGN.md`
-
 ## Milestone 1 — Core tensor op completeness
 - [x] `sub`, `div`
 - [x] Unary negation (`operator-()`)
@@ -62,9 +52,6 @@ Do not implement multiple steps in one PR.
       check (eps=1e-4, atol=1e-2)
 - [x] **Step 3**: Tensor-tensor elementwise + broadcasting backward (`reduce_sum_to_shape`
       helper, applied centrally in `backward_with_grad`) — grad check on broadcast cases
-- [x] **Step 10**: Restructure to `include/torc/autograd.hpp`, `src/autograd.cpp`,
-      `tests/test_autograd.cpp` — completed alongside Step 1 rather than deferred; listed
-      last only for historical scoping, see `docs/DESIGN.md`
 - [ ] **Step 4**: Reduction ops backward (`sum`, `mean` whole-tensor and axis-wise) — grad check
 - [ ] **Step 4b**: Defer `max`/`min` backward (argmax-tracking not yet implemented — throw
       `ShapeError`)

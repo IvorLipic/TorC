@@ -357,7 +357,7 @@ Ops are **free functions in `namespace torc`**, declared in `autograd.hpp` and d
 | Forgetting `reduce_sum_to_shape` for broadcast ops | It's applied centrally in `backward_with_grad` — don't add a second call inside your op's closure, and don't forget the input actually needs it accounted for by the time your closure returns a shape-correct-or-broadcastable grad |
 | In-place modification of `Variable::data()` | Don't do it — breaks gradient computation (and there's no guard against it yet, see ROADMAP.md Step 8) |
 | Double `backward()` without `zero_grad()` | Expected accumulation; call `zero_grad()` each step |
-| `backward()` on non-scalar | Call `.sum().backward()` (once `sum` backward exists — Step 4) or pass an explicit `grad_output` |
+| `backward()` on non-scalar | Call `.sum().backward()` or pass an explicit `grad_output` |
 | Recursive backward on deep graphs | The backward *walk* uses topological sort (not recursion) — but `build_topo()` itself is still a recursive DFS today, so very deep graphs can still overflow the stack during topo-sort construction, just not during backward execution |
 | Circular references with `shared_ptr` | Not applicable — `Variable` owns data directly; tape entries hold raw, non-owning pointers instead. That trades the cycle risk for a *lifetime* risk: every `Variable` in a graph must outlive `backward()` on any of its descendants (see `docs/DESIGN.md`) |
 | Assuming `Tensor` is default-constructible (e.g. `std::vector<Tensor> v(n)`) | It isn't — `Tensor` has no default constructor. Construct placeholders with an explicit shape, e.g. `Tensor(std::vector<int>{1})`, as `backward_with_grad` does |

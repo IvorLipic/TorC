@@ -22,6 +22,22 @@ Tensor reduce_sum_to_shape(const Tensor& grad, const std::vector<int>& target_sh
     return result;
 }
 
+Tensor expand_grad_along_axis(const Tensor& grad_output, int axis, int axis_size, const std::vector<int>& input_shape) {
+    Tensor result(input_shape);
+    int outer_stride = shape_product(std::span<const int>(input_shape).subspan(axis + 1));
+    int inner_stride = shape_product(std::span<const int>(input_shape).subspan(0, axis));
+    for (int outer = 0; outer < inner_stride; ++outer) {
+        for (int j = 0; j < outer_stride; ++j) {
+            int out_idx = outer * outer_stride + j;
+            float val = grad_output.data()[out_idx];
+            int base = outer * axis_size * outer_stride + j;
+            for (int a = 0; a < axis_size; ++a)
+                result.data()[base + a * outer_stride] = val;
+        }
+    }
+    return result;
+}
+
 Variable add(const Variable& a, const Variable& b) {
     bool needs_grad = a.requires_grad_ || b.requires_grad_;
     Tensor out = a.data_.add(b.data_);
@@ -208,6 +224,92 @@ Variable neg_scalar(const Variable& a) {
         entry.backward = [](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
             input_grads[0] = Tensor(std::vector<int>{1});
             input_grads[0].data()[0] = -grad_output.data()[0];  // dz/da = -1
+        };
+        out.tape_.push_back(std::move(entry));
+    }
+
+    return out;
+}
+
+Variable sum(const Variable& a) {
+    bool needs_grad = a.requires_grad_;
+    float out_val = a.data_.sum();
+    Variable out(out_val, needs_grad);
+
+    if (needs_grad) {
+        TapeEntry entry;
+        entry.inputs = { const_cast<Variable*>(&a) };
+        Tensor a_data = a.data();
+        entry.backward = [a_data](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
+            float g = grad_output.data()[0];
+            Tensor result(a_data.shape());
+            for (int i = 0; i < result.numel(); ++i)
+                result.data()[i] = g;
+            input_grads[0] = result;
+        };
+        out.tape_.push_back(std::move(entry));
+    }
+
+    return out;
+}
+
+Variable sum(const Variable& a, int axis) {
+    bool needs_grad = a.requires_grad_;
+    Tensor out_data = a.data_.sum(axis);
+    Variable out(std::move(out_data), needs_grad);
+
+    if (needs_grad) {
+        TapeEntry entry;
+        entry.inputs = { const_cast<Variable*>(&a) };
+        Tensor a_data = a.data();
+        int axis_size = a.data_.shape()[axis];
+        entry.backward = [a_data, axis, axis_size](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
+            input_grads[0] = expand_grad_along_axis(grad_output, axis, axis_size, a_data.shape());
+        };
+        out.tape_.push_back(std::move(entry));
+    }
+
+    return out;
+}
+
+Variable mean(const Variable& a) {
+    bool needs_grad = a.requires_grad_;
+    float out_val = a.data_.mean();
+    Variable out(out_val, needs_grad);
+
+    if (needs_grad) {
+        TapeEntry entry;
+        entry.inputs = { const_cast<Variable*>(&a) };
+        Tensor a_data = a.data();
+        entry.backward = [a_data](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
+            float g = grad_output.data()[0] / a_data.numel();
+            Tensor result(a_data.shape());
+            for (int i = 0; i < result.numel(); ++i)
+                result.data()[i] = g;
+            input_grads[0] = result;
+        };
+        out.tape_.push_back(std::move(entry));
+    }
+
+    return out;
+}
+
+Variable mean(const Variable& a, int axis) {
+    bool needs_grad = a.requires_grad_;
+    Tensor out_data = a.data_.mean(axis);
+    Variable out(std::move(out_data), needs_grad);
+
+    if (needs_grad) {
+        TapeEntry entry;
+        entry.inputs = { const_cast<Variable*>(&a) };
+        Tensor a_data = a.data();
+        int axis_size = a.data_.shape()[axis];
+        entry.backward = [a_data, axis, axis_size](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
+            Tensor scaled_grad(grad_output.shape());
+            float scale = 1.0f / axis_size;
+            for (int i = 0; i < grad_output.numel(); ++i)
+                scaled_grad.data()[i] = grad_output.data()[i] * scale;
+            input_grads[0] = expand_grad_along_axis(scaled_grad, axis, axis_size, a_data.shape());
         };
         out.tape_.push_back(std::move(entry));
     }

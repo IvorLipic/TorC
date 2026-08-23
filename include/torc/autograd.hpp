@@ -171,5 +171,9 @@ Variable sub(const Variable& a, const Variable& b);
 Variable mul(const Variable& a, const Variable& b);
 Variable div(const Variable& a, const Variable& b);
 Variable neg(const Variable& a);
+Variable sum(const Variable& a);
+Variable sum(const Variable& a, int axis);
+Variable mean(const Variable& a);
+Variable mean(const Variable& a, int axis);
 
 } // namespace torc

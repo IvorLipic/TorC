@@ -428,3 +428,182 @@ TEST(TensorElementwiseAutograd, GradCheckMulBroadcast) {
     for (int i = 0; i < a_data.numel(); ++i)
         expect_near(a.grad().data()[i], num_grad.data()[i]);
 }
+
+// ============================================================
+// Step 4: Reduction ops backward (sum / mean)
+// ============================================================
+
+static Tensor numerical_grad_sum(const Tensor& a, int axis) {
+    Tensor g(a.shape());
+    float h = 1e-4f;
+    for (int i = 0; i < a.numel(); ++i) {
+        Tensor a_ph = a; a_ph.data()[i] += h;
+        Tensor a_mh = a; a_mh.data()[i] -= h;
+        float f_ph = axis < 0 ? a_ph.sum() : a_ph.sum(axis).sum();
+        float f_mh = axis < 0 ? a_mh.sum() : a_mh.sum(axis).sum();
+        g.data()[i] = (f_ph - f_mh) / (2.0f * h);
+    }
+    return g;
+}
+
+static Tensor numerical_grad_mean(const Tensor& a, int axis) {
+    Tensor g(a.shape());
+    float h = 1e-4f;
+    for (int i = 0; i < a.numel(); ++i) {
+        Tensor a_ph = a; a_ph.data()[i] += h;
+        Tensor a_mh = a; a_mh.data()[i] -= h;
+        float f_ph = axis < 0 ? a_ph.mean() : a_ph.mean(axis).sum();
+        float f_mh = axis < 0 ? a_mh.mean() : a_mh.mean(axis).sum();
+        g.data()[i] = (f_ph - f_mh) / (2.0f * h);
+    }
+    return g;
+}
+
+TEST(ReductionAutograd, SumWholeTensorBackward) {
+    Tensor a_data({1.0f, 2.0f, 3.0f}, std::vector<int>{3});
+    Variable a(a_data, true);
+    Variable c = torc::sum(a);
+    EXPECT_FLOAT_EQ(c.data().data()[0], 6.0f);
+    Tensor grad({2.0f}, std::vector<int>{1});
+    c.backward(grad);
+    Tensor expected({2.0f, 2.0f, 2.0f}, std::vector<int>{3});
+    EXPECT_TRUE(a.grad() == expected);
+}
+
+TEST(ReductionAutograd, SumAxis0Backward) {
+    Tensor a_data({1.0f, 2.0f, 3.0f, 4.0f}, std::vector<int>{2, 2});
+    Variable a(a_data, true);
+    Variable c = torc::sum(a, 0);
+    EXPECT_TRUE(c.data() == Tensor({4.0f, 6.0f}, std::vector<int>{2}));
+    Tensor grad({1.0f, 2.0f}, std::vector<int>{2});
+    c.backward(grad);
+    Tensor expected({1.0f, 2.0f, 1.0f, 2.0f}, std::vector<int>{2, 2});
+    EXPECT_TRUE(a.grad() == expected);
+}
+
+TEST(ReductionAutograd, SumAxis1Backward) {
+    Tensor a_data({1.0f, 2.0f, 3.0f, 4.0f}, std::vector<int>{2, 2});
+    Variable a(a_data, true);
+    Variable c = torc::sum(a, 1);
+    EXPECT_TRUE(c.data() == Tensor({3.0f, 7.0f}, std::vector<int>{2}));
+    Tensor grad({1.0f, 2.0f}, std::vector<int>{2});
+    c.backward(grad);
+    Tensor expected({1.0f, 1.0f, 2.0f, 2.0f}, std::vector<int>{2, 2});
+    EXPECT_TRUE(a.grad() == expected);
+}
+
+TEST(ReductionAutograd, SumAxis1Backward3D) {
+    Tensor a_data({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, std::vector<int>{2, 3, 1});
+    Variable a(a_data, true);
+    Variable c = torc::sum(a, 1);
+    EXPECT_TRUE(c.data() == Tensor({6.0f, 15.0f}, std::vector<int>{2, 1}));
+    Tensor grad({1.0f, 2.0f}, std::vector<int>{2, 1});
+    c.backward(grad);
+    Tensor expected({1.0f, 1.0f, 1.0f, 2.0f, 2.0f, 2.0f}, std::vector<int>{2, 3, 1});
+    EXPECT_TRUE(a.grad() == expected);
+}
+
+TEST(ReductionAutograd, MeanWholeTensorBackward) {
+    Tensor a_data({1.0f, 2.0f, 3.0f}, std::vector<int>{3});
+    Variable a(a_data, true);
+    Variable c = torc::mean(a);
+    EXPECT_FLOAT_EQ(c.data().data()[0], 2.0f);
+    Tensor grad({2.0f}, std::vector<int>{1});
+    c.backward(grad);
+    Tensor expected({2.0f/3.0f, 2.0f/3.0f, 2.0f/3.0f}, std::vector<int>{3});
+    EXPECT_TRUE(a.grad() == expected);
+}
+
+TEST(ReductionAutograd, MeanAxis0Backward) {
+    Tensor a_data({1.0f, 2.0f, 3.0f, 4.0f}, std::vector<int>{2, 2});
+    Variable a(a_data, true);
+    Variable c = torc::mean(a, 0);
+    EXPECT_TRUE(c.data() == Tensor({2.0f, 3.0f}, std::vector<int>{2}));
+    Tensor grad({1.0f, 2.0f}, std::vector<int>{2});
+    c.backward(grad);
+    Tensor expected({0.5f, 1.0f, 0.5f, 1.0f}, std::vector<int>{2, 2});
+    EXPECT_TRUE(a.grad() == expected);
+}
+
+TEST(ReductionAutograd, MeanAxis1Backward) {
+    Tensor a_data({1.0f, 2.0f, 3.0f, 4.0f}, std::vector<int>{2, 2});
+    Variable a(a_data, true);
+    Variable c = torc::mean(a, 1);
+    EXPECT_TRUE(c.data() == Tensor({1.5f, 3.5f}, std::vector<int>{2}));
+    Tensor grad({1.0f, 2.0f}, std::vector<int>{2});
+    c.backward(grad);
+    Tensor expected({0.5f, 0.5f, 1.0f, 1.0f}, std::vector<int>{2, 2});
+    EXPECT_TRUE(a.grad() == expected);
+}
+
+TEST(ReductionAutograd, SumBackwardNonTrackedNoGrad) {
+    Tensor a_data({1.0f, 2.0f, 3.0f}, std::vector<int>{3});
+    Variable a(a_data, false);
+    Variable c = torc::sum(a);
+    EXPECT_FALSE(c.requires_grad());
+    EXPECT_TRUE(c.tape_.empty());
+}
+
+TEST(ReductionAutograd, GradCheckSumWholeTensor) {
+    Tensor a_data({1.0f, 2.0f, 3.0f}, std::vector<int>{3});
+    Variable a(a_data, true);
+    Variable c = torc::sum(a);
+    c.backward();
+    Tensor num_grad = numerical_grad_sum(a_data, -1);
+    for (int i = 0; i < a_data.numel(); ++i)
+        expect_near(a.grad().data()[i], num_grad.data()[i]);
+}
+
+TEST(ReductionAutograd, GradCheckSumAxis0) {
+    Tensor a_data({1.0f, 2.0f, 3.0f, 4.0f}, std::vector<int>{2, 2});
+    Variable a(a_data, true);
+    Variable c = torc::sum(a, 0);
+    Tensor ones({1.0f, 1.0f}, std::vector<int>{2});
+    c.backward(ones);
+    Tensor num_grad = numerical_grad_sum(a_data, 0);
+    for (int i = 0; i < a_data.numel(); ++i)
+        expect_near(a.grad().data()[i], num_grad.data()[i]);
+}
+
+TEST(ReductionAutograd, GradCheckSumAxis1) {
+    Tensor a_data({1.0f, 2.0f, 3.0f, 4.0f}, std::vector<int>{2, 2});
+    Variable a(a_data, true);
+    Variable c = torc::sum(a, 1);
+    Tensor ones({1.0f, 1.0f}, std::vector<int>{2});
+    c.backward(ones);
+    Tensor num_grad = numerical_grad_sum(a_data, 1);
+    for (int i = 0; i < a_data.numel(); ++i)
+        expect_near(a.grad().data()[i], num_grad.data()[i]);
+}
+
+TEST(ReductionAutograd, GradCheckMeanWholeTensor) {
+    Tensor a_data({1.0f, 2.0f, 3.0f}, std::vector<int>{3});
+    Variable a(a_data, true);
+    Variable c = torc::mean(a);
+    c.backward();
+    Tensor num_grad = numerical_grad_mean(a_data, -1);
+    for (int i = 0; i < a_data.numel(); ++i)
+        expect_near(a.grad().data()[i], num_grad.data()[i]);
+}
+
+TEST(ReductionAutograd, GradCheckMeanAxis0) {
+    Tensor a_data({1.0f, 2.0f, 3.0f, 4.0f}, std::vector<int>{2, 2});
+    Variable a(a_data, true);
+    Variable c = torc::mean(a, 0);
+    Tensor ones({1.0f, 1.0f}, std::vector<int>{2});
+    c.backward(ones);
+    Tensor num_grad = numerical_grad_mean(a_data, 0);
+    for (int i = 0; i < a_data.numel(); ++i)
+        expect_near(a.grad().data()[i], num_grad.data()[i]);
+}
+
+TEST(ReductionAutograd, GradCheckMeanAxis1) {
+    Tensor a_data({1.0f, 2.0f, 3.0f, 4.0f}, std::vector<int>{2, 2});
+    Variable a(a_data, true);
+    Variable c = torc::mean(a, 1);
+    Tensor ones({1.0f, 1.0f}, std::vector<int>{2});
+    c.backward(ones);
+    Tensor num_grad = numerical_grad_mean(a_data, 1);
+    for (int i = 0; i < a_data.numel(); ++i)
+        expect_near(a.grad().data()[i], num_grad.data()[i]);
+}
