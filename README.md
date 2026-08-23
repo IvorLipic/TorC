@@ -121,35 +121,6 @@ Tests use [GoogleTest](https://github.com/google/googletest), fetched automatica
 `tests/test_autograd.cpp` (Variable / autograd), and `tests/test_nn.cpp` (`nn::Module` /
 `nn::Sequential`).
 
-## Project layout (NOTE TO AI: update this according to DESIGN.md!!)
-
-```
-torc/
-├── CMakeLists.txt
-├── LICENSE
-├── README.md
-├── AGENTS.md
-├── ROADMAP.md
-├── .gitignore
-├── docs/
-│   ├── DESIGN.md
-│   └── AUTOGRAD.md
-├── include/torc/
-│   ├── tensor.hpp
-│   ├── utils.hpp
-│   ├── autograd.hpp
-│   └── nn.hpp
-├── src/
-│   ├── tensor.cpp
-│   ├── autograd.cpp
-│   ├── matmul_blas.cpp   # CBLAS matmul (when TORC_USE_BLAS=ON)
-│   └── main.cpp
-└── tests/
-    ├── test_tensor.cpp
-    ├── test_autograd.cpp
-    └── test_nn.cpp
-```
-
 ## License
 
 Distributed under the MIT License. See [LICENSE](LICENSE) for details.
