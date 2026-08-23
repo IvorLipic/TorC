@@ -38,11 +38,13 @@ operations and a tape-based autograd system, built on CMake with GoogleTest-base
   [docs/AUTOGRAD.md](docs/AUTOGRAD.md) for the full algorithm and why
 - Ops are free functions (`torc::add(a, b)`, etc.), never `Variable` methods
 - Implemented so far: scalar ops (`add_scalar`, `sub_scalar`, `mul_scalar`, `div_scalar`,
-  `neg_scalar`) and tensor-tensor elementwise ops with broadcasting backward (`add`, `sub`,
-  `mul`, `div`, `neg`), each with gradient checks against central finite differences
-- Not yet implemented: reduction backward, `matmul` backward, view-op backward
-  (`transpose`/`reshape`/`slice`), `detach()`/`no_grad()`, in-place-op guarding — see
-  [ROADMAP.md](ROADMAP.md) for exact status
+  `neg_scalar`), tensor-tensor elementwise ops with broadcasting backward (`add`, `sub`,
+  `mul`, `div`, `neg`), reduction ops backward (`sum`, `mean`, whole-tensor and axis-wise),
+  `max`/`min` backward deferred (throw `ShapeError`), and `matmul` backward (2D + batched,
+  including batch-broadcast cases) — each with gradient checks against central finite
+  differences
+- Not yet implemented: view-op backward (`transpose`/`reshape`/`slice`), `detach()`/`no_grad()`,
+  in-place-op guarding — see [ROADMAP.md](ROADMAP.md) for exact status
 - **Known constraint:** the tape holds raw, non-owning pointers to the `Variable`s in a graph.
   Every `Variable` participating in a graph must outlive `backward()` on any of that graph's
   outputs — not just the final loss `Variable`. Not enforced by the compiler; see
