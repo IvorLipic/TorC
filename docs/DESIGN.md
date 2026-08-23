@@ -426,6 +426,45 @@ PR. *(Check ROADMAP.md for actual checkbox state — not duplicated here.)*
 - **Test**: parameter registration, forward correctness, `Sequential` chaining, empty
   sequential pass-through, own + child parameter collection
 
+### Optimizer design
+
+Optimizers are deliberately separated from `Module`. They operate on the flat
+`std::vector<Variable>` returned by `Module::parameters()` and mutate `param.data()` in-place
+based on `param.grad()`. This matches PyTorch's separation of `nn.Module` and `torch.optim`.
+
+- **API shape**: each optimizer class (`optim::SGD`, `optim::Adam`, `optim::AdamW`) exposes:
+  - `optim::SGD(std::vector<Variable>& params, float lr)` — takes references, not copies,
+    because `step()` must mutate the original `data_` tensors
+  - `void step()` — reads `param.grad()` and updates `param.data()` in-place
+  - `void zero_grad()` — not owned by the optimizer in PyTorch; in torc we'll provide it on
+    the optimizer or require manual `zero_grad()` on parameters before each step
+- **Why references matter**: `Module::parameters()` currently returns `vector<Variable>` by value.
+  Once optimizers need mutable access, this must change to `vector<Variable&>` or the optimizer
+  must accept the module and call `parameters()` itself. The current copy-by-value design is
+  acceptable for Step 5.2 but must be revisited before Step 5.6.
+- **Gradient accumulation**: optimizers assume `grad_` is already populated by `backward()` and
+  that `zero_grad()` was called at the start of the training step. No internal accumulation
+  logic lives in the optimizer.
+
+### Data loader design
+
+Data loading is the thinnest possible wrapper around a dataset, matching PyTorch's
+`torch.utils.data.DataLoader` pattern but without the multiprocessing complexity.
+
+- **`data::Dataset`** is an abstract base class with:
+  - `virtual size_t len() const = 0`
+  - `virtual std::pair<Tensor, Tensor> get(size_t idx) const = 0` — returns `(x, y)` as
+    `Tensor`s, not `Variable`s. The training loop wraps them in `Variable`s if `requires_grad`
+    is needed.
+- **`data::DataLoader`** takes a `Dataset` and produces batches:
+  - `DataLoader(const Dataset& ds, size_t batch_size, bool shuffle = false)`
+  - `std::vector<std::pair<Tensor, Tensor>> next_batch()` — returns a batch of `(x, y)` pairs
+    as `Tensor`s; user is responsible for stacking/reshaping into a batched `Tensor`
+- **No collation / padding yet.** Every dataset sample must have the same shape; `DataLoader`
+  does not handle ragged inputs. This keeps the first implementation minimal and deferrable.
+- **Synthetic loaders first**: Steps 5.9–5.10 should build a synthetic regression dataset and
+  a small CSV-backed classification dataset before any real-data loading is attempted.
+
 ---
 
 ## Planned future project structure
@@ -452,12 +491,19 @@ torc/
 │       ├── utils.hpp
 │       ├── autograd.hpp     # Variable, TapeEntry, backward()    [Milestone 4 — landed]
 │       ├── nn.hpp           # Module base + Sequential           [Milestone 5.2 — landed]
-│       ├── optim.hpp        # SGD, Adam                          [Milestone 5]
-│       └── data.hpp         # Dataset, DataLoader                [Milestone 5]
+│       ├── nn/
+│       │   ├── linear.hpp   # nn::Linear                          [Milestone 5.3]
+│       │   └── activations.hpp # nn::ReLU, nn::Sigmoid, etc.     [Milestone 5.4]
+│       ├── optim.hpp        # SGD, Adam, AdamW                    [Milestone 5]
+│       └── data.hpp         # Dataset, DataLoader                 [Milestone 5]
 ├── src/
 │   ├── tensor.cpp
 │   ├── autograd.cpp                                              [Milestone 4 — landed]
 │   ├── nn.cpp                                                   [Milestone 5.2 — landed]
+│   ├── nn/
+│   │   ├── linear.cpp                                            [Milestone 5.3]
+│   │   └── activations.cpp                                       [Milestone 5.4]
+│   ├── optim.cpp                                                 [Milestone 5]
 │   └── matmul_blas.cpp                                           [Milestone 3 — landed]
 ├── examples/                # demo binaries move out of src/, main.cpp retired
 │   ├── basic_ops.cpp        # today's main.cpp, relocated
@@ -466,7 +512,9 @@ torc/
 └── tests/
     ├── test_tensor.cpp
     ├── test_autograd.cpp                                         [Milestone 4 — landed]
-    └── test_nn.cpp                                                [Milestone 5.2 — landed]
+    ├── test_nn.cpp                                                [Milestone 5.2 — landed]
+    ├── test_optim.cpp                                             [Milestone 5]
+    └── test_data.cpp                                              [Milestone 5]
 ```
 
 Rationale for the specific moves:
@@ -474,6 +522,9 @@ Rationale for the specific moves:
 - **`nn/` as a subdirectory, not a single file, once it has ≥2 layer types.** A single
   `nn.cpp` is fine for `Linear` alone but won't stay readable once activations, losses, and
   more layers land in the same milestone.
+- **`nn.hpp` splits into `nn/` sub-headers** (`linear.hpp`, `activations.hpp`) once those
+  modules exist, keeping each header focused. The top-level `nn.hpp` remains the public entry
+  point and re-exports the sub-headers or just the base `Module`/`Sequential` types.
 - **`examples/` instead of a single `main.cpp`.** AGENTS.md already says `main.cpp` should
   stay a thin demo, not a dumping ground — once there are two real end-to-end examples
   (linear regression, MLP classification) that stops being true of a single file. Multiple
@@ -482,6 +533,10 @@ Rationale for the specific moves:
   one synthetic or small CSV-backed implementation is enough to unblock the Milestone 5
   end-to-end examples. Don't build a general data pipeline before there's a second dataset
   that needs one.
+- **`optim.hpp`/`optim.cpp` mirror PyTorch's `torch.optim` split.** Optimizers take mutable
+  references to `Variable` parameters and update `data_` in-place; they do not own parameters
+  and do not track graph state. This keeps the optimizer implementation independent from
+  `nn::Module` and avoids circular dependencies.
 - **`CMakeLists.txt` will need `add_subdirectory` or explicit source lists per target** once
   `nn/` exists as a folder, plus `BUILD_EXAMPLES`/`BUILD_TESTS` options if the example count
   grows enough that not everyone wants to compile all of them by default.
