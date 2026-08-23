@@ -76,19 +76,21 @@ Each step must pass tests before proceeding.
 - [ ] **Step 5.4**: Activation functions — `nn::ReLU`, `nn::Sigmoid`, `nn::Softmax` (each as a
       `Module` with differentiable forward)
 - [ ] **Step 5.5**: Loss functions — `nn::MSELoss`, `nn::CrossEntropyLoss`
-- [ ] **Step 5.6**: Optimizers — `optim::SGD` with momentum, then `optim::Adam`
-- [ ] **Step 5.7**: `data::Dataset` base + `data::DataLoader` (batching, shuffling)
-- [ ] **Step 5.8**: Toy dataset loaders — synthetic regression dataset, then a small CSV-backed
+- [ ] **Step 5.6**: Optimizer — `optim::SGD` with momentum
+- [ ] **Step 5.7**: Optimizer — `optim::Adam`
+- [ ] **Step 5.8**: Optimizer — `optim::AdamW`
+- [ ] **Step 5.9**: `data::Dataset` base + `data::DataLoader` (batching, shuffling)
+- [ ] **Step 5.10**: Toy dataset loaders — synthetic regression dataset, then a small CSV-backed
       classification dataset
-- [ ] **Step 5.9**: End-to-end example — linear regression on a synthetic dataset
-- [ ] **Step 5.10**: End-to-end example — small MLP on a toy classification dataset (e.g.
+- [ ] **Step 5.11**: End-to-end example — linear regression on a synthetic dataset
+- [ ] **Step 5.12**: End-to-end example — small MLP on a toy classification dataset (e.g.
       MNIST-subset or synthetic blobs)
-- [ ] **Step 5.11**: `nn::LayerNorm` — per-row variance (`mean(x^2) - mean(x)^2`) using
+- [ ] **Step 5.13**: `nn::LayerNorm` — per-row variance (`mean(x^2) - mean(x)^2`) using
       existing `mul`/`mean(axis)`; test on `{batch, features}` tensors
-- [ ] **Step 5.12**: Embedding lookup / gather-by-index — `Tensor::slice()` is contiguous-range
+- [ ] **Step 5.14**: Embedding lookup / gather-by-index — `Tensor::slice()` is contiguous-range
       only today, so this needs either an arbitrary-index gather primitive or a one-hot +
       `matmul` workaround
-- [ ] **Step 5.13**: End-to-end example — minimal transformer block (multi-head self-attention +
+- [ ] **Step 5.15**: End-to-end example — minimal transformer block (multi-head self-attention +
       feed-forward) on a toy sequence task; depends on `exp`, LayerNorm, embedding-lookup,
       Softmax, `matmul`, and broadcasting all being in place
 
