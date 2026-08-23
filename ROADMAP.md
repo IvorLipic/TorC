@@ -9,8 +9,9 @@ see [AGENTS.md](AGENTS.md).
 
 ## Immediate next steps
 
-1. Implement Milestone 4 **Step 4** (reduction ops backward — `sum`/`mean`, whole-tensor and
-   axis-wise). Steps 1–3 are done; see the incremental step list in the Milestone 4 section
+1. Implement Milestone 4 **Step 5** (`matmul` backward, 2D + batched, **including batch-broadcast cases** — these
+   need their own reduce-over-batch-dims handling, not a direct reuse of
+   `reduce_sum_to_shape`). Steps 1–4 are done; see the incremental step list in the Milestone 4 section
    below.
 2. Each subsequent step must pass gradient checks (central finite difference, eps=1e-4,
    atol=1e-2 — see `docs/DESIGN.md`'s "Gradient checking" section for why atol is 1e-2, not
@@ -52,7 +53,7 @@ Do not implement multiple steps in one PR.
       check (eps=1e-4, atol=1e-2)
 - [x] **Step 3**: Tensor-tensor elementwise + broadcasting backward (`reduce_sum_to_shape`
       helper, applied centrally in `backward_with_grad`) — grad check on broadcast cases
-- [ ] **Step 4**: Reduction ops backward (`sum`, `mean` whole-tensor and axis-wise) — grad check
+- [x] **Step 4**: Reduction ops backward (`sum`, `mean` whole-tensor and axis-wise) — grad check
 - [ ] **Step 4b**: Defer `max`/`min` backward (argmax-tracking not yet implemented — throw
       `ShapeError`)
 - [ ] **Step 5**: `matmul` backward (2D + batched, **including batch-broadcast cases** — these
