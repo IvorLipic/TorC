@@ -78,8 +78,8 @@ Each step must pass tests before proceeding.
       `Module` owns a `mutable std::list<Variable> forward_cache_`; `operator()()` clears it
       before calling `forward()`, and each module's `forward()` appends intermediates via
       `emplace_back` so their addresses are stable for tape-entry raw pointers.
-- [ ] **Step 5.4**: Activation functions — `nn::ReLU`, `nn::Sigmoid`, `nn::Softmax` (each as a
-      `Module` with differentiable forward)
+- [x] **Step 5.4**: Activation functions — `nn::ReLU`, `nn::Sigmoid`, `nn::Softmax` (each as a
+      `Module` with differentiable forward, gradient checks included)
 - [ ] **Step 5.5**: Loss functions — `nn::MSELoss`, `nn::CrossEntropyLoss`
 - [ ] **Step 5.6**: Optimizer — `optim::SGD` with momentum
 - [ ] **Step 5.7**: Optimizer — `optim::Adam`

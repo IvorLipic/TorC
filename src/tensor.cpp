@@ -331,6 +331,20 @@ Tensor Tensor::reshape(std::vector<int> new_shape) const {
 
 Tensor Tensor::view(std::vector<int> new_shape) const { return reshape(std::move(new_shape)); }
 
+Tensor Tensor::softmax() const {
+    Tensor out(shape_);
+    float max_val = *std::ranges::max_element(storage_);
+    std::vector<float> exp_vals(numel());
+    for (int i = 0; i < numel(); ++i) {
+        exp_vals[i] = std::exp(storage_[i] - max_val);
+    }
+    float sum_exp = std::accumulate(exp_vals.begin(), exp_vals.end(), 0.0f);
+    for (int i = 0; i < numel(); ++i) {
+        out.storage_[i] = exp_vals[i] / sum_exp;
+    }
+    return out;
+}
+
 std::ostream& operator<<(std::ostream& os, const Tensor& t) {
     os << std::format("Tensor(shape={}, data=[", shape_to_string(t.shape()));
     for (int i = 0; i < t.numel(); ++i) {

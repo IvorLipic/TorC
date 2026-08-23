@@ -1,6 +1,7 @@
 // autograd.cpp
 #include "torc/autograd.hpp"
 #include <algorithm>
+#include <cmath>
 
 namespace torc {
 
@@ -578,6 +579,102 @@ Variable slice(const Variable& a, std::vector<std::pair<int, int>> slices) {
         out.tape_.push_back(std::move(entry));
     }
 
+    return out;
+}
+
+Variable exp(const Variable& a) {
+    bool needs_grad = a.requires_grad_;
+    Tensor out_data = a.data_.exp();
+    Variable out(std::move(out_data), needs_grad);
+
+    if (needs_grad) {
+        TapeEntry entry;
+        entry.inputs = { const_cast<Variable*>(&a) };
+
+        Tensor a_data = a.data();
+        entry.backward = [a_data](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
+            input_grads[0] = grad_output.mul(a_data.exp());
+        };
+        out.tape_.push_back(std::move(entry));
+    }
+    return out;
+}
+
+Variable relu(const Variable& a) {
+    bool needs_grad = a.requires_grad_;
+    Tensor out_data(a.data_.shape());
+    for (int i = 0; i < a.data_.numel(); ++i) {
+        out_data.data()[i] = a.data_.data()[i] > 0.0f ? a.data_.data()[i] : 0.0f;
+    }
+    Variable out(std::move(out_data), needs_grad);
+
+    if (needs_grad) {
+        TapeEntry entry;
+        entry.inputs = { const_cast<Variable*>(&a) };
+
+        Tensor a_data = a.data();
+        entry.backward = [a_data](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
+            input_grads[0] = Tensor(grad_output.shape());
+            for (int i = 0; i < grad_output.numel(); ++i) {
+                input_grads[0].data()[i] = a_data.data()[i] > 0.0f ? grad_output.data()[i] : 0.0f;
+            }
+        };
+        out.tape_.push_back(std::move(entry));
+    }
+    return out;
+}
+
+Variable sigmoid(const Variable& a) {
+    bool needs_grad = a.requires_grad_;
+    Tensor out_data(a.data_.shape());
+    for (int i = 0; i < a.data_.numel(); ++i) {
+        float x = a.data_.data()[i];
+        out_data.data()[i] = 1.0f / (1.0f + std::exp(-x));
+    }
+    Variable out(std::move(out_data), needs_grad);
+
+    if (needs_grad) {
+        TapeEntry entry;
+        entry.inputs = { const_cast<Variable*>(&a) };
+
+        Tensor a_data = a.data();
+        Tensor sig_data = out.data();
+        entry.backward = [a_data, sig_data](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
+            input_grads[0] = Tensor(grad_output.shape());
+            for (int i = 0; i < grad_output.numel(); ++i) {
+                float s = sig_data.data()[i];
+                input_grads[0].data()[i] = grad_output.data()[i] * s * (1.0f - s);
+            }
+        };
+        out.tape_.push_back(std::move(entry));
+    }
+    return out;
+}
+
+Variable softmax(const Variable& a) {
+    bool needs_grad = a.requires_grad_;
+    Tensor out_data = a.data_.softmax();
+    Variable out(std::move(out_data), needs_grad);
+
+    if (needs_grad) {
+        TapeEntry entry;
+        entry.inputs = { const_cast<Variable*>(&a) };
+
+        Tensor a_data = a.data();
+        Tensor soft_data = out.data();
+        entry.backward = [a_data, soft_data](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
+            input_grads[0] = Tensor(grad_output.shape());
+            for (int i = 0; i < grad_output.numel(); ++i) {
+                float s = soft_data.data()[i];
+                float grad_sum = 0.0f;
+                for (int j = 0; j < grad_output.numel(); ++j) {
+                    grad_sum += grad_output.data()[j] * soft_data.data()[j];
+                }
+                input_grads[0].data()[i] = s * (grad_output.data()[i] - grad_sum);
+            }
+        };
+        out.tape_.push_back(std::move(entry));
+    }
     return out;
 }
 

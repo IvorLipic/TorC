@@ -43,6 +43,7 @@ add_library(torc
     src/autograd.cpp
     src/nn.cpp
     src/nn/linear.cpp
+    src/nn/activations.cpp
 )
 
 if(TORC_USE_BLAS)

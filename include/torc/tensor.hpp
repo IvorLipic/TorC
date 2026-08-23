@@ -35,7 +35,6 @@ public:
     [[nodiscard]] Tensor div(float scalar) const;
 
     [[nodiscard]] Tensor operator-() const;
-    [[nodiscard]] Tensor exp() const;
 
     bool operator==(const Tensor& other) const = default;
 
@@ -73,6 +72,9 @@ public:
     [[nodiscard]] Tensor mean(int axis) const;
     [[nodiscard]] Tensor max(int axis) const;
     [[nodiscard]] Tensor min(int axis) const;
+
+    [[nodiscard]] Tensor exp() const;
+    [[nodiscard]] Tensor softmax() const;
 
     void fill(float val);
 private:

@@ -33,21 +33,29 @@ torc/
 │       ├── tensor.hpp          # Tensor class declaration
 │       ├── utils.hpp           # shape_product / shape_to_string / error types, used by Tensor
 │       ├── autograd.hpp        # Variable class + free-function ops (add, mul, ...)
-│       └── nn.hpp              # nn::Module base + nn::Sequential container
+│       ├── nn.hpp              # nn::Module base + nn::Sequential container
+│       └── nn/
+│           ├── linear.hpp      # nn::Linear declaration
+│           └── activations.hpp # nn::ReLU, nn::Sigmoid, nn::Softmax declarations
 ├── src/
 │   ├── tensor.cpp              # Tensor implementation
 │   ├── autograd.cpp            # Variable op implementations (backward closures)
+│   ├── nn.cpp                  # Module / Sequential method definitions
+│   ├── nn/
+│   │   ├── linear.cpp          # nn::Linear forward
+│   │   └── activations.cpp     # activation forward functions
 │   ├── matmul_blas.cpp         # CBLAS-backed matmul, compiled only when TORC_USE_BLAS=ON
 │   └── main.cpp                # demo executable
 └── tests/
     ├── test_tensor.cpp         # GoogleTest suite for Tensor
     ├── test_autograd.cpp       # GoogleTest suite for Variable / autograd
-    └── test_nn.cpp             # GoogleTest suite for nn::Module / nn::Sequential
+    └── test_nn.cpp             # GoogleTest suite for nn::Module / nn::Sequential / activations
 ```
 
 Three build targets:
-- **`torc`** — library built from `src/tensor.cpp` and `src/autograd.cpp` (plus
-  `src/matmul_blas.cpp` when configured with `-DTORC_USE_BLAS=ON`).
+- **`torc`** — library built from `src/tensor.cpp`, `src/autograd.cpp`, `src/nn.cpp`,
+  `src/nn/linear.cpp`, `src/nn/activations.cpp` (plus `src/matmul_blas.cpp` when configured
+  with `-DTORC_USE_BLAS=ON`).
 - **`torc_demo`** — executable (`src/main.cpp`) linked against `torc`.
 - **`torc_tests`** — GoogleTest executable (`tests/test_tensor.cpp` +
   `tests/test_autograd.cpp` + `tests/test_nn.cpp`), links `torc`, registered via `enable_testing()` /
@@ -77,47 +85,14 @@ For the optional BLAS-backed `matmul`, see README.md's "With CBLAS backend" sect
 
 ### `torc::Tensor` (see `include/torc/tensor.hpp`, `src/tensor.cpp`)
 
-- Construct from an explicit shape (zero-filled): `Tensor(std::vector<int> shape)`
-- Construct from a flat initializer list + shape, with a size-mismatch check that throws
-  `ShapeError`
-- `data()` / `const data()` — raw pointer access to underlying `std::vector<float> storage_`
-- `shape()` — returns `const std::vector<int>&`
-- `numel()` — product of shape dims (via `shape_product()`), recomputed each call (not cached)
-- `add(other)`, `sub(other)`, `mul(other)`, `div(other)` — elementwise tensor-tensor with
-  NumPy-style broadcasting; throws `ShapeError` if shapes are incompatible
-- `add(scalar)`, `sub(scalar)`, `mul(scalar)`, `div(scalar)` — scalar overloads
-- `operator-()` — unary negation (elementwise)
-- `operator==` — value + shape equality comparison
-- `operator<<` (via `include/torc/utils.hpp`) — pretty-prints shape and data
-- `operator[](int, int, ...)` — multi-dimensional indexing with bounds checking
-- `transpose(std::vector<int> axes)` — permute dimensions; default reverses axes
-- `slice(std::vector<Slice>)` — basic contiguous-range slicing (no arbitrary-index gather yet)
-- `matmul(other)` — matrix multiplication; handles 2D and batched (higher-rank) tensors with
-  NumPy-style broadcasting of leading batch dims; operands must be rank >= 2, throws `ShapeError`
-  on rank < 2, inner-dimension mismatch, or incompatible batch dims. Naive triple-loop by
-  default; CBLAS-backed (`cblas_sgemm` per batch element) when built with `-DTORC_USE_BLAS=ON`
-- `sum()` / `mean()` / `max()` / `min()` — whole-tensor return `float`; axis-wise overloads
-  (`int axis`) return `Tensor` with reduced shape. No `keepdim` option, no variance/std yet
-- `reshape()` / `view()` — change shape without copying data (moves flat `std::vector` storage)
-- Elementwise unary transcendental op `exp` is now available; more (`log`, etc.) can be added as
-  needed for Milestone 5 activations
-- Rule of 5 is explicitly defaulted (copy/move ctor/assign + destructor), since the class only
-  contains `std::vector` members; declared for clarity and to prevent accidental deletion if
-  members change later.
+See `README.md` for the full Tensor feature list. Key highlights:
+- Explicit-shape and initializer-list construction
+- Elementwise `add`/`sub`/`mul`/`div` with NumPy-style broadcasting and scalar overloads
+- Reductions: `sum()`, `mean()`, `max()`, `min()` (whole-tensor and axis-wise)
+- `matmul()` for 2D and batched matrix multiplication with batch broadcasting
+- `transpose()`, `slice()`, `reshape()`/`view()`, `exp()`, `softmax()`
 
-`src/main.cpp` demonstrates constructing two rank-1 tensors and running the elementwise ops.
-
-`tests/test_tensor.cpp` covers: zero-filled construction, initializer-list construction
-(matching and mismatched sizes), shape accessors, mutable/const `data()` access,
-`add`/`sub`/`mul`/`div` correctness, shape-mismatch throws for all four ops, scalar overloads,
-`operator==`, `operator<<` output, custom exception types (`ShapeError`), a multi-dim
-(`{2,2}`) elementwise case, unary negation, `exp`, and reductions (`sum`/`mean`/`max`/`min`
-whole-tensor and axis-wise), broadcasting (identical, dim-1, multi-dim, incompatible throws),
-multi-dimensional indexing (`operator[]`, bounds/rank checks, read/write), `transpose`
-(default and custom axes, invalid throws), `slice` (first/last/inner dim, combined,
-out-of-range throws), and `matmul` (2D correctness, identity, inner-dim/rank mismatch throws,
-transpose/associative properties, batched with distinct matrices, batch broadcasting via rank
-promotion and size-1 dims, incompatible batch throws, and zero-size dimensions).
+`tests/test_tensor.cpp` covers all of the above plus broadcasting, indexing, and error cases.
 
 ### `torc::Variable` (see `include/torc/autograd.hpp`, `src/autograd.cpp`) — Milestone 4, in progress
 
@@ -130,54 +105,29 @@ promotion and size-1 dims, incompatible batch throws, and zero-size dimensions).
 - Ops are **free functions in `namespace torc`**, not `Variable` methods — e.g.
   `torc::add(a, b)`, `torc::mul_scalar(a, b)`, not `a.add(b)`. Follow this pattern for any new
   op; do not add op methods onto `Variable` itself
-- Implemented so far: scalar-only `add_scalar`/`sub_scalar`/`mul_scalar`/`div_scalar`/
-  `neg_scalar` (Step 2), tensor-tensor `add`/`sub`/`mul`/`div`/`neg` with broadcasting
-  (Step 3), reduction ops backward (`sum`/`mean`, whole-tensor and axis-wise) with grad
-  checks (Step 4), `max`/`min` backward with argmax tracking (whole-tensor and axis-wise,
-  Step 9), `matmul` backward (2D + batched with batch-broadcast cases, Step 5), view-op
-  backward (`transpose`, `reshape`/`view`, `slice`, Step 6), `detach()`/`no_grad()` /
-  `set_grad_enabled(bool)` (Step 7), and guarded in-place ops (`Tensor::fill`,
-  `Variable::fill` throws `TorcError` on tracked Variables, Step 8). Broadcasting
-  reduction (`reduce_sum_to_shape`) is applied **centrally** in
-  `Variable::backward_with_grad`, not inside individual backward closures — don't duplicate it
-  in a new op's closure
-- **Milestone 5 in progress**: `nn::Module` base class and `nn::Sequential` container (Step 5.2)
-  are implemented; `nn::Linear`, activations, losses, optimizers, and data loaders are not yet
-  implemented — see ROADMAP.md for exact status
+- **Milestone 5 in progress**: `nn::Module` base class and `nn::Sequential` container (Step 5.2),
+  `nn::Linear` (Step 5.3), Module forward-lifetime fix (Step 5.3a), and activation functions
+  (`nn::ReLU`, `nn::Sigmoid`, `nn::Softmax`, Step 5.4) are implemented; losses, optimizers,
+  and data loaders are not yet implemented — see ROADMAP.md for exact status
 - **Lifetime constraint (unenforced by the type system):** `TapeEntry.inputs` holds raw,
   non-owning `Variable*` pointers into the actual input `Variable`s, not copies. Every
   `Variable` participating in a graph must outlive `backward()` on any of that graph's
   outputs — not just the final loss Variable. See §5 and `docs/DESIGN.md`.
 
-`tests/test_autograd.cpp` covers: `Variable` scaffold (construction from `Tensor`/scalar,
-`requires_grad`/`has_grad` flags, `zero_grad`, `backward()` no-op when untracked, non-scalar
-`backward()` throws, `grad_output` shape-mismatch throws, empty-tape backward), scalar autograd
-(`add`/`sub`/`mul`/`div`/`neg` hand-computed gradients, chained ops, gradient accumulation and
-`zero_grad` reset, non-tracked inputs get no grad, tape is consumed after `backward()`, hand-
-computed polynomial checks), and tensor-tensor elementwise autograd (identical-shape and
-broadcast cases for `add`/`sub`/`mul`/`div`/`neg`, non-tracked-input handling, and numerical
-gradient checks against central finite differences for the broadcast cases).
+`tests/test_autograd.cpp` covers: `Variable` scaffold, scalar and tensor-tensor autograd,
+broadcast backward, reductions, view ops, `detach()`/`no_grad()`, and guarded in-place ops —
+each with gradient checks against central finite differences where applicable. See
+`README.md` for the full feature list.
 
-Everything else — `nn::Linear`, activations, losses, optimizers, data loading, device support —
-does not exist yet. See ROADMAP.md.
+### `torc::nn::Module` and `torc::nn::Sequential`
 
-### `torc::nn::Module` and `torc::nn::Sequential` (see `include/torc/nn.hpp`)
-
-- `nn::Module` is a lightweight base class for neural network modules, following the PyTorch
-  pattern. It provides:
-  - `virtual Variable forward(const Variable& x) const = 0`
-  - `Variable operator()(const Variable& x) const` — calls `forward(x)`
-  - `register_parameter(name, param)` — stores a named `Variable` in an internal map
-  - `named_parameters()` — returns the map of registered parameters
-  - `parameters()` — returns a flat `std::vector<Variable>` of all registered parameters
-- `nn::Sequential` is a container that chains `Module`s in order. It inherits from `Module` and:
-  - `add(std::unique_ptr<Module>)` appends a module
-  - `forward(x)` passes input through each module sequentially
-  - `parameters()` recursively collects parameters from all child modules
-- Subclass `Module` and implement `forward()` to create custom layers; use `Sequential` to
-  compose them.
-- `tests/test_nn.cpp` covers: `Module` parameter registration and forward, `Sequential` chaining
-  and parameter collection, empty sequential pass-through, and combined own + child parameters.
+- `nn::Module` is a lightweight base class with `forward()`, `operator()()`, parameter
+  registration, and `parameters()` collection. `forward()` must keep intermediates alive in
+  `forward_cache_` so backward is safe.
+- `nn::Sequential` chains `Module`s in order; `forward(x)` passes input through each module.
+- Tests cover parameter registration, forward/backward for `nn::Linear`, and activation modules
+  (`ReLU`, `Sigmoid`, `Softmax`) with gradient checks.
+- For full API details and design rationale, see `docs/DESIGN.md`'s Milestone 5 section.
 
 ---
 

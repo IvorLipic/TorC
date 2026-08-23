@@ -200,5 +200,9 @@ Variable transpose(const Variable& a);
 Variable transpose(const Variable& a, std::vector<int> axes);
 Variable reshape(const Variable& a, std::vector<int> new_shape);
 Variable slice(const Variable& a, std::vector<std::pair<int, int>> slices);
+Variable exp(const Variable& a);
+Variable relu(const Variable& a);
+Variable sigmoid(const Variable& a);
+Variable softmax(const Variable& a);
 
 } // namespace torc

@@ -461,6 +461,24 @@ PR. *(Check ROADMAP.md for actual checkbox state — not duplicated here.)*
 - **Test**: `Linear` gradient checks for unbatched and batched input pass; `Sequential` with
   multiple layers also works because each child's cache keeps its own intermediates alive.
 
+**Step 5.4 — Activation functions**
+- `nn::ReLU`, `nn::Sigmoid`, `nn::Softmax` — each is a `Module` with a parameterless
+  `forward()` that delegates to the corresponding free function in `namespace torc`
+- Free functions added in `src/autograd.cpp`: `torc::relu`, `torc::sigmoid`, `torc::softmax`,
+  plus `torc::exp` (needed by sigmoid and softmax internally)
+- `Tensor::exp()` and `Tensor::softmax()` added to `include/torc/tensor.hpp` / `src/tensor.cpp`
+  as elementwise / whole-tensor primitives
+- Backward rules:
+  - **ReLU**: `dL/dx = dL/dy * (x > 0 ? 1 : 0)` — mask from forward pass
+  - **Sigmoid**: `dL/dx = dL/dy * sigmoid(x) * (1 - sigmoid(x))` — uses captured forward output
+  - **Softmax**: `dL/dx = y * (dL/dy - sum(dL/dy * y))` — uses captured forward output
+- **Design note**: `Softmax` is currently whole-tensor (flattened). Per-axis softmax can be
+  added later if needed for classification heads; the backward implementation is written so
+  it operates over the full flattened tensor, which is correct for the 1D case and a
+  reasonable MVP for higher-rank inputs.
+- **Test**: forward correctness for each activation, backward correctness for ReLU and Sigmoid
+  (hand-computed), and numerical gradient check for Softmax (central differences, `h=1e-4`)
+
 ### Optimizer design
 
 Optimizers are deliberately separated from `Module`. They operate on the flat

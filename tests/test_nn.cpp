@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include "torc/nn.hpp"
 #include "torc/nn/linear.hpp"
+#include "torc/nn/activations.hpp"
 #include <string>
 #include <utility>
 
@@ -9,6 +10,9 @@ using torc::Tensor;
 using torc::nn::Module;
 using torc::nn::Sequential;
 using torc::nn::Linear;
+using torc::nn::ReLU;
+using torc::nn::Sigmoid;
+using torc::nn::Softmax;
 
 static constexpr float EPS = 1e-4f;
 static constexpr float GRAD_ATOL = 1e-2f;
@@ -242,4 +246,108 @@ TEST(Linear, GradCheckWithBatchedInput) {
     expect_near(b_grad.data()[0], 2.0f);
     expect_near(b_grad.data()[1], 2.0f);
     expect_near(b_grad.data()[2], 2.0f);
+}
+
+TEST(ReLU, ForwardPassesPositiveAndZeroesNegative) {
+    ReLU relu;
+    Tensor input_data({-1.0f, 0.0f, 2.0f, -3.0f}, std::vector<int>{2, 2});
+    Variable input(input_data, false);
+    
+    Variable output = relu(input);
+    
+    std::vector<int> expected_shape{2, 2};
+    ASSERT_EQ(output.data().shape(), expected_shape);
+    EXPECT_FLOAT_EQ(output.data().data()[0], 0.0f);
+    EXPECT_FLOAT_EQ(output.data().data()[1], 0.0f);
+    EXPECT_FLOAT_EQ(output.data().data()[2], 2.0f);
+    EXPECT_FLOAT_EQ(output.data().data()[3], 0.0f);
+}
+
+TEST(ReLU, BackwardPassesGradientOnlyThroughPositive) {
+    ReLU relu;
+    Tensor input_data({-1.0f, 0.0f, 2.0f, -3.0f}, std::vector<int>{2, 2});
+    Variable input(input_data, true);
+    
+    Variable output = relu(input);
+    Variable loss = torc::sum(output);
+    loss.backward();
+    
+    ASSERT_TRUE(input.has_grad());
+    EXPECT_FLOAT_EQ(input.grad().data()[0], 0.0f);
+    EXPECT_FLOAT_EQ(input.grad().data()[1], 0.0f);
+    EXPECT_FLOAT_EQ(input.grad().data()[2], 1.0f);
+    EXPECT_FLOAT_EQ(input.grad().data()[3], 0.0f);
+}
+
+TEST(Sigmoid, ForwardMatchesHandComputed) {
+    Sigmoid sigmoid;
+    Tensor input_data({0.0f, 1.0f, -1.0f}, std::vector<int>{3});
+    Variable input(input_data, false);
+    
+    Variable output = sigmoid(input);
+    
+    std::vector<int> expected_shape{3};
+    ASSERT_EQ(output.data().shape(), expected_shape);
+    expect_near(output.data().data()[0], 0.5f, 1e-5f);
+    expect_near(output.data().data()[1], 0.7310586f, 1e-5f);
+    expect_near(output.data().data()[2], 0.2689414f, 1e-5f);
+}
+
+TEST(Sigmoid, BackwardMatchesChainRule) {
+    Sigmoid sigmoid;
+    Tensor input_data({0.0f}, std::vector<int>{1});
+    Variable input(input_data, true);
+    
+    Variable output = sigmoid(input);
+    Variable loss = torc::sum(output);
+    loss.backward();
+    
+    ASSERT_TRUE(input.has_grad());
+    float s = 0.5f;
+    expect_near(input.grad().data()[0], s * (1.0f - s), 1e-5f);
+}
+
+TEST(Softmax, ForwardProducesValidProbabilities) {
+    Softmax softmax;
+    Tensor input_data({1.0f, 2.0f, 3.0f}, std::vector<int>{3});
+    Variable input(input_data, false);
+    
+    Variable output = softmax(input);
+    
+    std::vector<int> expected_shape{3};
+    ASSERT_EQ(output.data().shape(), expected_shape);
+    float sum = 0.0f;
+    for (int i = 0; i < 3; ++i) sum += output.data().data()[i];
+    expect_near(sum, 1.0f, 1e-5f);
+    
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_GT(output.data().data()[i], 0.0f);
+    }
+}
+
+TEST(Softmax, BackwardMatchesNumericalGradient) {
+    Softmax softmax;
+    Tensor input_data({1.0f, 2.0f, 3.0f}, std::vector<int>{3});
+    Variable input(input_data, true);
+    
+    Variable output = softmax(input);
+    Variable loss = torc::sum(output);
+    loss.backward();
+    
+    ASSERT_TRUE(input.has_grad());
+    float h = 1e-4f;
+    for (int i = 0; i < 3; ++i) {
+        Tensor x_plus = input_data;
+        x_plus.data()[i] += h;
+        Variable out_plus = softmax(Variable(x_plus, false));
+        float loss_plus = torc::sum(out_plus).data().data()[0];
+        
+        Tensor x_minus = input_data;
+        x_minus.data()[i] -= h;
+        Variable out_minus = softmax(Variable(x_minus, false));
+        float loss_minus = torc::sum(out_minus).data().data()[0];
+        
+        float numerical_grad = (loss_plus - loss_minus) / (2.0f * h);
+        expect_near(input.grad().data()[i], numerical_grad);
+    }
 }
