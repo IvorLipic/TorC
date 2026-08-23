@@ -4,6 +4,7 @@
 #include <sstream>
 #include <string>
 #include <cstdio>
+#include <cmath>
 
 using torc::Tensor;
 
@@ -210,6 +211,28 @@ TEST(TensorNegation, MultiDim) {
     EXPECT_FLOAT_EQ(c.data()[2], -3.0f);
     EXPECT_FLOAT_EQ(c.data()[3], 4.0f);
     EXPECT_TRUE((-a).shape() == a.shape());
+}
+
+TEST(TensorExp, BasicValues) {
+    Tensor a({0.0f, 1.0f, 2.0f}, {3});
+    Tensor c = a.exp();
+    EXPECT_FLOAT_EQ(c.data()[0], 1.0f);
+    EXPECT_FLOAT_EQ(c.data()[1], std::exp(1.0f));
+    EXPECT_FLOAT_EQ(c.data()[2], std::exp(2.0f));
+}
+
+TEST(TensorExp, PreservesShape) {
+    Tensor a({0.0f, 1.0f, 2.0f, 3.0f}, {2, 2});
+    Tensor c = a.exp();
+    EXPECT_TRUE(c.shape() == a.shape());
+}
+
+TEST(TensorExp, NegativeValues) {
+    Tensor a({-1.0f, 0.0f, 1.0f}, {3});
+    Tensor c = a.exp();
+    EXPECT_FLOAT_EQ(c.data()[0], std::exp(-1.0f));
+    EXPECT_FLOAT_EQ(c.data()[1], 1.0f);
+    EXPECT_FLOAT_EQ(c.data()[2], std::exp(1.0f));
 }
 
 TEST(TensorReductions, WholeTensorSum) {

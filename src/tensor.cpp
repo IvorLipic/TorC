@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <numeric>
 #include <functional>
+#include <cmath>
 
 namespace torc {
 
@@ -119,6 +120,12 @@ Tensor Tensor::div(float scalar) const {
 Tensor Tensor::operator-() const {
     Tensor out(shape_);
     std::ranges::transform(storage_, out.storage_.begin(), std::negate<>{});
+    return out;
+}
+
+Tensor Tensor::exp() const {
+    Tensor out(shape_);
+    std::ranges::transform(storage_, out.storage_.begin(), [](float x) { return std::exp(x); });
     return out;
 }
 

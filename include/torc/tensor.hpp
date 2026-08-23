@@ -35,6 +35,7 @@ public:
     [[nodiscard]] Tensor div(float scalar) const;
 
     [[nodiscard]] Tensor operator-() const;
+    [[nodiscard]] Tensor exp() const;
 
     bool operator==(const Tensor& other) const = default;
 

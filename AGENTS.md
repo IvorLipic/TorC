@@ -97,8 +97,8 @@ For the optional BLAS-backed `matmul`, see README.md's "With CBLAS backend" sect
 - `sum()` / `mean()` / `max()` / `min()` — whole-tensor return `float`; axis-wise overloads
   (`int axis`) return `Tensor` with reduced shape. No `keepdim` option, no variance/std yet
 - `reshape()` / `view()` — change shape without copying data (moves flat `std::vector` storage)
-- No elementwise unary transcendental ops yet (`exp`, `log`, etc.) — needed before Milestone 5
-  activations (Sigmoid, Softmax) can land, see ROADMAP.md
+- Elementwise unary transcendental op `exp` is now available; more (`log`, etc.) can be added as
+  needed for Milestone 5 activations
 - Rule of 5 is explicitly defaulted (copy/move ctor/assign + destructor), since the class only
   contains `std::vector` members; declared for clarity and to prevent accidental deletion if
   members change later.
@@ -109,7 +109,7 @@ For the optional BLAS-backed `matmul`, see README.md's "With CBLAS backend" sect
 (matching and mismatched sizes), shape accessors, mutable/const `data()` access,
 `add`/`sub`/`mul`/`div` correctness, shape-mismatch throws for all four ops, scalar overloads,
 `operator==`, `operator<<` output, custom exception types (`ShapeError`), a multi-dim
-(`{2,2}`) elementwise case, unary negation, and reductions (`sum`/`mean`/`max`/`min`
+(`{2,2}`) elementwise case, unary negation, `exp`, and reductions (`sum`/`mean`/`max`/`min`
 whole-tensor and axis-wise), broadcasting (identical, dim-1, multi-dim, incompatible throws),
 multi-dimensional indexing (`operator[]`, bounds/rank checks, read/write), `transpose`
 (default and custom axes, invalid throws), `slice` (first/last/inner dim, combined,

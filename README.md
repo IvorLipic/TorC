@@ -17,6 +17,7 @@ operations and a tape-based autograd system, built on CMake with GoogleTest-base
 - Elementwise `add`, `sub`, `mul`, `div` with NumPy-style broadcasting
 - Scalar overloads for all four elementwise ops
 - Unary negation (`operator-()`)
+- Elementwise exponential (`exp()`)
 - `operator==` for value + shape equality
 - Pretty-printing (`operator<<`) for shape and data
 - Raw pointer data access
