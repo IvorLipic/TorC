@@ -63,26 +63,34 @@ Do not implement multiple steps in one PR.
       new guarded in-place API (`Tensor::fill`, `Variable::fill`) added; direct `data()`/`operator[]`
       mutation remains unguarded
 - [x] **Step 9**: `max`/`min` backward with argmax tracking — grad check
-
 ## Milestone 5 — nn / optim / data (basic ML)
-- [ ] `nn::Module` base class + `Linear`, common activations (ReLU, Sigmoid, Softmax)
-  - Needs elementwise `exp` on `Tensor` first — no unary transcendental op exists today
-    (only `add`/`sub`/`mul`/`div`/`neg`, reductions, and `matmul`); Softmax and Sigmoid both
-    depend on it
-- [ ] Loss functions (MSE, cross-entropy)
-- [ ] `optim::SGD`, `optim::Adam`
-- [ ] `data::Dataset` / `data::DataLoader` abstractions
-- [ ] A toy dataset loader (start with a synthetic or small CSV dataset)
-- [ ] End-to-end example: linear regression on a synthetic dataset
-- [ ] End-to-end example: small MLP on a toy classification dataset (e.g. MNIST-subset)
-- [ ] LayerNorm — needs per-row variance, which doesn't exist yet either (only
-      `sum`/`mean`/`max`/`min`); can be derived as `mean(x^2) - mean(x)^2` once `mul` and
-      `mean(axis)` are available, which they already are
-- [ ] Embedding lookup / gather-by-index — `Tensor::slice()` is contiguous-range only today,
-      no arbitrary-index gather
-- [ ] End-to-end example: minimal transformer block (multi-head self-attention + feed-forward)
-      on a toy sequence task — depends on the `exp`, LayerNorm, and embedding-lookup items
-      above, plus `Softmax`/`matmul`/broadcasting already in place
+
+Each step must pass tests before proceeding.
+
+- [ ] **Step 5.1**: `Tensor::exp()` — elementwise unary transcendental op; needed before any
+      activation that uses it (Sigmoid, Softmax)
+- [ ] **Step 5.2**: `nn::Module` base class — parameter storage, `forward()` hook, and
+      `torch::nn::Sequential`-style container
+- [ ] **Step 5.3**: `nn::Linear` — `Linear(in, out)` with weight/bias parameters and a forward
+      that does `x @ W.T + b`
+- [ ] **Step 5.4**: Activation functions — `nn::ReLU`, `nn::Sigmoid`, `nn::Softmax` (each as a
+      `Module` with differentiable forward)
+- [ ] **Step 5.5**: Loss functions — `nn::MSELoss`, `nn::CrossEntropyLoss`
+- [ ] **Step 5.6**: Optimizers — `optim::SGD` with momentum, then `optim::Adam`
+- [ ] **Step 5.7**: `data::Dataset` base + `data::DataLoader` (batching, shuffling)
+- [ ] **Step 5.8**: Toy dataset loaders — synthetic regression dataset, then a small CSV-backed
+      classification dataset
+- [ ] **Step 5.9**: End-to-end example — linear regression on a synthetic dataset
+- [ ] **Step 5.10**: End-to-end example — small MLP on a toy classification dataset (e.g.
+      MNIST-subset or synthetic blobs)
+- [ ] **Step 5.11**: `nn::LayerNorm` — per-row variance (`mean(x^2) - mean(x)^2`) using
+      existing `mul`/`mean(axis)`; test on `{batch, features}` tensors
+- [ ] **Step 5.12**: Embedding lookup / gather-by-index — `Tensor::slice()` is contiguous-range
+      only today, so this needs either an arbitrary-index gather primitive or a one-hot +
+      `matmul` workaround
+- [ ] **Step 5.13**: End-to-end example — minimal transformer block (multi-head self-attention +
+      feed-forward) on a toy sequence task; depends on `exp`, LayerNorm, embedding-lookup,
+      Softmax, `matmul`, and broadcasting all being in place
 
 ## Milestone 6 — Performance & ergonomics
 - [ ] Cache `numel()` at construction/reshape instead of recomputing
