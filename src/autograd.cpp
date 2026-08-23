@@ -385,4 +385,100 @@ Variable matmul(const Variable& a, const Variable& b) {
     return out;
 }
 
+Variable transpose(const Variable& a) {
+    bool needs_grad = a.requires_grad_;
+    std::vector<int> axes;
+    int rank = (int)a.data_.shape().size();
+    axes.resize(rank);
+    for (int i = 0; i < rank; ++i) axes[i] = rank - 1 - i;
+    return transpose(a, std::move(axes));
+}
+
+Variable transpose(const Variable& a, std::vector<int> axes) {
+    bool needs_grad = a.requires_grad_;
+    Tensor out_data = a.data_.transpose(axes);
+    Variable out(std::move(out_data), needs_grad);
+
+    if (needs_grad) {
+        TapeEntry entry;
+        entry.inputs = { const_cast<Variable*>(&a) };
+        Tensor a_data = a.data();
+        std::vector<int> inv_axes(axes.begin(), axes.end());
+        std::vector<int> new_inv(axes.size());
+        for (int i = 0; i < (int)axes.size(); ++i) new_inv[inv_axes[i]] = i;
+        entry.backward = [a_data, new_inv](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
+            input_grads[0] = grad_output.transpose(new_inv);
+        };
+        out.tape_.push_back(std::move(entry));
+    }
+
+    return out;
+}
+
+Variable reshape(const Variable& a, std::vector<int> new_shape) {
+    bool needs_grad = a.requires_grad_;
+    Tensor out_data = a.data_.reshape(std::move(new_shape));
+    Variable out(std::move(out_data), needs_grad);
+
+    if (needs_grad) {
+        TapeEntry entry;
+        entry.inputs = { const_cast<Variable*>(&a) };
+        Tensor a_data = a.data();
+        std::vector<int> original_shape = a_data.shape();
+        entry.backward = [original_shape](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
+            input_grads[0] = grad_output.reshape(original_shape);
+        };
+        out.tape_.push_back(std::move(entry));
+    }
+
+    return out;
+}
+
+Variable slice(const Variable& a, std::vector<std::pair<int, int>> slices) {
+    bool needs_grad = a.requires_grad_;
+    std::vector<Tensor::Slice> tensor_slices;
+    tensor_slices.reserve(slices.size());
+    for (auto& p : slices) tensor_slices.push_back({p.first, p.second});
+    Tensor out_data = a.data_.slice(std::move(tensor_slices));
+    Variable out(std::move(out_data), needs_grad);
+
+    if (needs_grad) {
+        TapeEntry entry;
+        entry.inputs = { const_cast<Variable*>(&a) };
+        Tensor a_data = a.data();
+        std::vector<std::pair<int, int>> stored_slices = std::move(slices);
+        entry.backward = [a_data, stored_slices](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
+            Tensor result(a_data.shape());
+            std::vector<int> offsets;
+            offsets.reserve(stored_slices.size());
+            for (auto& p : stored_slices) offsets.push_back(p.first);
+
+            int rank = (int)a_data.shape().size();
+            std::vector<int> out_indices(rank, 0);
+            std::vector<int> strides(rank);
+            if (rank > 0) {
+                strides[rank - 1] = 1;
+                for (int i = rank - 2; i >= 0; --i)
+                    strides[i] = strides[i + 1] * grad_output.shape()[i + 1];
+            }
+
+            for (int out_flat = 0; out_flat < grad_output.numel(); ++out_flat) {
+                int in_flat = 0;
+                for (int i = 0; i < rank; ++i)
+                    in_flat += (offsets[i] + out_indices[i]) * strides[i];
+                result.data()[in_flat] = grad_output.data()[out_flat];
+
+                for (int i = rank - 1; i >= 0; --i) {
+                    if (++out_indices[i] < grad_output.shape()[i]) break;
+                    out_indices[i] = 0;
+                }
+            }
+            input_grads[0] = result;
+        };
+        out.tape_.push_back(std::move(entry));
+    }
+
+    return out;
+}
+
 } // namespace torc

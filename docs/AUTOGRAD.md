@@ -239,18 +239,27 @@ dz/dx = broadcast(grad_output, x.shape)  // repeat grad_output m times
 ```
 dz/dx = grad_output.transpose(inverse_of(axes))
 ```
-`grad_output.transpose(axes)` (re-applying the *same* axes) is only correct for the default
-full-reversal case or other true involutions. A general permutation (e.g. `{1, 2, 0}` on a
-rank-3 tensor) needs its actual inverse permutation computed — don't assume self-inverse.
+The inverse permutation is computed explicitly — don't re-apply the same `axes` unless it's
+a true involution (e.g. the default full-reversal case on even-rank tensors, or `{1,0}` on
+rank-2). A general permutation like `{2,0,1}` on rank-3 needs its actual inverse `{1,2,0}`.
 
-### Reshape/View: z = x.reshape(...)
+### Reshape/View: z = x.reshape(new_shape)
 ```
-dz/dx = grad_output.reshape(x.shape)
+dz/dx = grad_output.reshape(original_shape)
 ```
 Note this is **not** metadata-only / zero-cost: `Tensor::reshape()` does
 `out.storage_ = storage_;` on a `const` `this`, which is a real copy of the underlying
 `std::vector<float>`, not a move. Backward correctness is unaffected either way, but don't
 describe this (here or elsewhere) as a free operation — it isn't.
+
+### Slice: z = x.slice(slices)
+```
+dz/dx = zero_fill(x.shape); dz/dx[offset + slice_indices] = grad_output
+```
+The backward closure zero-fills a tensor of the original shape, then scatters `grad_output`
+values into the sliced region. This is implemented with inline odometer-style index
+incrementing over `grad_output.shape()`, computing the corresponding flat index in the
+original tensor from the stored slice offsets.
 
 ---
 

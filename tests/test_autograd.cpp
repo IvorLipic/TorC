@@ -781,3 +781,147 @@ TEST(MatmulAutograd, MatmulBatchedGradCheck) {
     for (int i = 0; i < b_data.numel(); ++i)
         expect_near(b.grad().data()[i], num_grad_b.data()[i]);
 }
+
+// ============================================================
+// Step 6: View ops backward (transpose, reshape/view, slice)
+// ============================================================
+
+static Tensor numerical_grad_transpose(const Tensor& a, const std::vector<int>& axes) {
+    Tensor g(a.shape());
+    float h = 1e-4f;
+    for (int i = 0; i < a.numel(); ++i) {
+        Tensor a_ph = a; a_ph.data()[i] += h;
+        Tensor a_mh = a; a_mh.data()[i] -= h;
+        float f_ph = a_ph.transpose(axes).sum();
+        float f_mh = a_mh.transpose(axes).sum();
+        g.data()[i] = (f_ph - f_mh) / (2.0f * h);
+    }
+    return g;
+}
+
+static Tensor numerical_grad_reshape(const Tensor& a, const std::vector<int>& new_shape) {
+    Tensor g(a.shape());
+    float h = 1e-4f;
+    for (int i = 0; i < a.numel(); ++i) {
+        Tensor a_ph = a; a_ph.data()[i] += h;
+        Tensor a_mh = a; a_mh.data()[i] -= h;
+        float f_ph = a_ph.reshape(new_shape).sum();
+        float f_mh = a_mh.reshape(new_shape).sum();
+        g.data()[i] = (f_ph - f_mh) / (2.0f * h);
+    }
+    return g;
+}
+
+static Tensor numerical_grad_slice(const Tensor& a, const std::vector<std::pair<int, int>>& slices) {
+    Tensor g(a.shape());
+    float h = 1e-4f;
+    for (int i = 0; i < a.numel(); ++i) {
+        Tensor a_ph = a; a_ph.data()[i] += h;
+        Tensor a_mh = a; a_mh.data()[i] -= h;
+        std::vector<Tensor::Slice> ts;
+        for (auto& p : slices) ts.push_back({p.first, p.second});
+        float f_ph = a_ph.slice(ts).sum();
+        float f_mh = a_mh.slice(ts).sum();
+        g.data()[i] = (f_ph - f_mh) / (2.0f * h);
+    }
+    return g;
+}
+
+TEST(ViewAutograd, TransposeDefaultBackward) {
+    Tensor a_data({1.0f, 2.0f, 3.0f, 4.0f}, std::vector<int>{2, 2});
+    Variable a(a_data, true);
+    Variable c = torc::transpose(a);
+    EXPECT_TRUE(c.data() == Tensor({1.0f, 3.0f, 2.0f, 4.0f}, std::vector<int>{2, 2}));
+    Tensor grad({1.0f, 2.0f, 3.0f, 4.0f}, std::vector<int>{2, 2});
+    c.backward(grad);
+    Tensor expected({1.0f, 3.0f, 2.0f, 4.0f}, std::vector<int>{2, 2});
+    EXPECT_TRUE(a.grad() == expected);
+}
+
+TEST(ViewAutograd, TransposeCustomAxesBackward) {
+    Tensor a_data({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, std::vector<int>{2, 3, 1});
+    Variable a(a_data, true);
+    std::vector<int> axes = {2, 0, 1};
+    Variable c = torc::transpose(a, axes);
+    EXPECT_TRUE(c.data() == a.data_.transpose(axes));
+    Tensor grad({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, std::vector<int>{1, 2, 3});
+    c.backward(grad);
+    std::vector<int> inv(3);
+    for (int i = 0; i < 3; ++i) inv[axes[i]] = i;
+    Tensor expected = grad.transpose(inv);
+    EXPECT_TRUE(a.grad() == expected);
+}
+
+TEST(ViewAutograd, Transpose3DBackward) {
+    Tensor a_data({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, std::vector<int>{2, 3, 1});
+    Variable a(a_data, true);
+    std::vector<int> axes = {1, 2, 0};
+    Variable c = torc::transpose(a, axes);
+    Tensor expected_c({1.0f, 4.0f, 2.0f, 5.0f, 3.0f, 6.0f}, std::vector<int>{3, 1, 2});
+    EXPECT_TRUE(c.data() == expected_c);
+    Tensor grad({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, std::vector<int>{3, 1, 2});
+    c.backward(grad);
+    std::vector<int> inv(3);
+    for (int i = 0; i < 3; ++i) inv[axes[i]] = i;
+    Tensor expected_grad = grad.transpose(inv);
+    EXPECT_TRUE(a.grad() == expected_grad);
+}
+
+TEST(ViewAutograd, ReshapeBackward) {
+    Tensor a_data({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, std::vector<int>{2, 3});
+    Variable a(a_data, true);
+    Variable c = torc::reshape(a, std::vector<int>{3, 2});
+    Tensor expected_c({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, std::vector<int>{3, 2});
+    EXPECT_TRUE(c.data() == expected_c);
+    Tensor grad({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, std::vector<int>{3, 2});
+    c.backward(grad);
+    Tensor expected_grad({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, std::vector<int>{2, 3});
+    EXPECT_TRUE(a.grad() == expected_grad);
+}
+
+TEST(ViewAutograd, SliceBackward) {
+    Tensor a_data({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, std::vector<int>{2, 3});
+    Variable a(a_data, true);
+    std::vector<std::pair<int, int>> slices = {{0, 1}, {1, 3}};
+    Variable c = torc::slice(a, slices);
+    Tensor expected_c({2.0f, 3.0f}, std::vector<int>{1, 2});
+    EXPECT_TRUE(c.data() == expected_c);
+    Tensor grad({2.0f, 3.0f}, std::vector<int>{1, 2});
+    c.backward(grad);
+    Tensor expected_grad({0.0f, 2.0f, 3.0f, 0.0f, 0.0f, 0.0f}, std::vector<int>{2, 3});
+    EXPECT_TRUE(a.grad() == expected_grad);
+}
+
+TEST(ViewAutograd, GradCheckTransposeDefault) {
+    Tensor a_data({1.0f, 2.0f, 3.0f, 4.0f}, std::vector<int>{2, 2});
+    Variable a(a_data, true);
+    Variable c = torc::transpose(a);
+    Tensor ones({1.0f, 1.0f, 1.0f, 1.0f}, std::vector<int>{2, 2});
+    c.backward(ones);
+    Tensor num_grad = numerical_grad_transpose(a_data, {1, 0});
+    for (int i = 0; i < a_data.numel(); ++i)
+        expect_near(a.grad().data()[i], num_grad.data()[i]);
+}
+
+TEST(ViewAutograd, GradCheckReshape) {
+    Tensor a_data({1.0f, 2.0f, 3.0f, 4.0f}, std::vector<int>{4});
+    Variable a(a_data, true);
+    Variable c = torc::reshape(a, std::vector<int>{2, 2});
+    Tensor ones({1.0f, 1.0f, 1.0f, 1.0f}, std::vector<int>{2, 2});
+    c.backward(ones);
+    Tensor num_grad = numerical_grad_reshape(a_data, std::vector<int>{2, 2});
+    for (int i = 0; i < a_data.numel(); ++i)
+        expect_near(a.grad().data()[i], num_grad.data()[i]);
+}
+
+TEST(ViewAutograd, GradCheckSlice) {
+    Tensor a_data({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, std::vector<int>{2, 3});
+    Variable a(a_data, true);
+    std::vector<std::pair<int, int>> slices = {{0, 1}, {1, 3}};
+    Variable c = torc::slice(a, slices);
+    Tensor ones({1.0f, 1.0f}, std::vector<int>{1, 2});
+    c.backward(ones);
+    Tensor num_grad = numerical_grad_slice(a_data, slices);
+    for (int i = 0; i < a_data.numel(); ++i)
+        expect_near(a.grad().data()[i], num_grad.data()[i]);
+}

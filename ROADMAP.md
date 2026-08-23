@@ -9,7 +9,7 @@ see [AGENTS.md](AGENTS.md).
 
 ## Immediate next steps
 
-1. Implement Milestone 4 **Step 6** (view ops backward — `transpose`, `reshape`/`view`, `slice`). Steps 1–5 are done; see the incremental step list in the Milestone 4 section
+1. Implement Milestone 4 **Step 7** (`detach()` and `no_grad()` / `set_grad_enabled(bool)` context). Steps 1–6 are done; see the incremental step list in the Milestone 4 section
    below.
 2. Each subsequent step must pass gradient checks (central finite difference, eps=1e-4,
    atol=1e-2 — see `docs/DESIGN.md`'s "Gradient checking" section for why atol is 1e-2, not
@@ -57,9 +57,8 @@ Do not implement multiple steps in one PR.
 - [x] **Step 5**: `matmul` backward (2D + batched, **including batch-broadcast cases** — these
       need their own reduce-over-batch-dims handling, not a direct reuse of
       `reduce_sum_to_shape`) — hand test + grad check
-- [ ] **Step 6**: View ops backward (`transpose` — true inverse permutation, not re-applying
-      `axes`; `reshape`/`view`; `slice` — needs a new zero-fill-and-scatter `Tensor`
-      primitive that doesn't exist yet) — grad check
+- [x] **Step 6**: View ops backward (`transpose` — true inverse permutation, not re-applying
+      `axes`; `reshape`/`view`; `slice` — zero-fill-and-scatter into original shape) — grad check
 - [ ] **Step 7**: `detach()` and `no_grad()` / `set_grad_enabled(bool)` context
 - [ ] **Step 8**: In-place ops forbidden for `requires_grad` Variables (throw `TorcError`) —
       needs a new guarded in-place API first, since direct `data()`/`operator[]` mutation

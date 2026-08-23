@@ -178,5 +178,9 @@ Variable mean(const Variable& a, int axis);
 Variable max(const Variable& a);
 Variable min(const Variable& a);
 Variable matmul(const Variable& a, const Variable& b);
+Variable transpose(const Variable& a);
+Variable transpose(const Variable& a, std::vector<int> axes);
+Variable reshape(const Variable& a, std::vector<int> new_shape);
+Variable slice(const Variable& a, std::vector<std::pair<int, int>> slices);
 
 } // namespace torc

@@ -170,7 +170,7 @@ a gradient check. A missing unbroadcast is the most common autograd bug.
 |---|---|---|
 | `transpose(axes)` | permutes dims | `grad_input = grad_output.transpose(inverse_of(axes))` — **not** re-applying `axes`; only self-inverse for the default (full-reversal) case or true involutions. A general permutation needs its actual inverse computed. |
 | `reshape(new_shape)` / `view(new_shape)` | copies storage to new shape | `grad_input = grad_output.reshape(original_shape)` |
-| `slice(slices)` | copies a sub-region | zero-fill `grad_input` at the original shape, scatter `grad_output` into the sliced region — **`Tensor` has no scatter-into-region primitive yet; add it as part of Step 6, don't assume it exists.** |
+| `slice(slices)` | copies a sub-region | zero-fill `grad_input` at the original shape, scatter `grad_output` into the sliced region — implemented inline in the backward closure using odometer-style index incrementing over `grad_output.shape()`, no new `Tensor` primitive needed. |
 
 `Tensor` currently has no `unsqueeze`/`squeeze`. Since both are just a `reshape()` that
 inserts or removes a size-1 dimension, their backward (and forward, if ever needed) can
@@ -277,9 +277,12 @@ batch steps into a single PR. *(Check ROADMAP.md for actual checkbox state — n
 
 **Step 6 — View ops backward**
 - `transpose`: permute gradient with the *inverse* permutation (see table above — not simply
-  re-applying `axes`)
+  re-applying `axes`); implemented as a dedicated `transpose(a, axes)` overload that computes
+  the inverse explicitly
 - `reshape`/`view`: reshape gradient back to input shape
-- `slice`: needs a new zero-fill-and-scatter `Tensor` primitive that doesn't exist yet
+- `slice`: zero-fill `grad_input` at the original shape, scatter `grad_output` into the sliced
+  region using inline odometer-style indexing inside the backward closure — no new `Tensor`
+  primitive was needed
 - **Test**: gradient check for each view op, including a non-involutive `transpose` permutation
 
 **Step 7 — `detach()` and `no_grad()` context**
