@@ -355,7 +355,49 @@ batch steps into a single PR. *(Check ROADMAP.md for actual checkbox state — n
 > *why* behind the design and isn't updated per-step, so step numbers below describe scope,
 > not completion.
 
+### Module design decisions
+
+`nn::Module` follows PyTorch's `nn.Module` pattern but is deliberately minimal:
+
+- **`forward()` is the only required override.** Ops are **free functions** in `namespace torc`,
+  not `Variable` methods or `Module` methods. `Module::forward` composes those free functions.
+- **Parameter storage is explicit.** `register_parameter(name, param)` stores a named `Variable`
+  in an `unordered_map`; `parameters()` flattens it to a `vector<Variable>`. There is no
+  `add_module` / named submodule registry yet — `Sequential` owns children via
+  `std::unique_ptr<Module>` and collects their parameters recursively.
+- **`parameters()` returns by value.** This copies all parameters, which is fine for Milestone 5's
+  small models. If optimizer patterns later require it, switch to `vector<Variable&>` or `span`.
+
+### Constraints to enforce
+
+1. **Ops stay free functions.** Do not add op methods to `Variable` or `Module` in Steps 5+ —
+   this is already the established pattern from Milestone 4.
+2. **Backward is centralized.** Broadcasting reduction (`reduce_sum_to_shape`) is applied once,
+   centrally, in `Variable::backward_with_grad`, never inside a module's forward or an op's
+   backward closure.
+3. **`nn::Module` is stateful but not self-contained.** `parameters()` returns copies; there is
+   no `state_dict` / `load_state_dict` yet. Revisit if serialization becomes a need.
+
+### Key risks identified from online sources
+
+1. **Forgetting to register parameters.** PyTorch's `nn.Module` auto-registers `nn.Parameter`
+   attributes set in `__init__`; our `Module` requires explicit `register_parameter()` calls.
+   Missing one means the optimizer never sees that weight. Tests should verify `parameters()`
+   returns exactly what was registered.
+2. **`parameters()` copy cost.** Returning `vector<Variable>` by value copies every parameter
+   tensor. For Milestone 5 this is negligible, but if a model has thousands of parameters and
+   `parameters()` is called every training step, this becomes wasteful. Switch to references
+   before that becomes a bottleneck.
+3. **Free-function ops inside `forward`.** Because `Module::forward` must compose free functions
+   (`torc::mul_scalar`, `torc::add_scalar`, etc.), custom modules need to include
+   `torc/autograd.hpp`. This is an extra header dependency compared to PyTorch, where ops are
+   tensor methods — acceptable for a minimal library, but worth documenting so new contributors
+   don't try to call `x.mul(y)`.
+
 ### Incremental implementation steps
+
+Each step = implement → test → update-docs → build → commit. Do not batch steps into a single
+PR. *(Check ROADMAP.md for actual checkbox state — not duplicated here.)*
 
 **Step 5.1 — `Tensor::exp()`**
 - Elementwise unary transcendental op using `std::ranges::transform` + `std::exp`
@@ -415,6 +457,7 @@ torc/
 ├── src/
 │   ├── tensor.cpp
 │   ├── autograd.cpp                                              [Milestone 4 — landed]
+│   ├── nn.cpp                                                   [Milestone 5.2 — landed]
 │   └── matmul_blas.cpp                                           [Milestone 3 — landed]
 ├── examples/                # demo binaries move out of src/, main.cpp retired
 │   ├── basic_ops.cpp        # today's main.cpp, relocated
