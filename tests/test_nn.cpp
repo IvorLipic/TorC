@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include "torc/nn.hpp"
+#include "torc/nn/linear.hpp"
 #include <string>
 #include <utility>
 
@@ -7,6 +8,15 @@ using torc::Variable;
 using torc::Tensor;
 using torc::nn::Module;
 using torc::nn::Sequential;
+using torc::nn::Linear;
+
+static constexpr float EPS = 1e-4f;
+static constexpr float GRAD_ATOL = 1e-2f;
+
+static void expect_near(float actual, float expected, float tol = GRAD_ATOL) {
+    EXPECT_NEAR(actual, expected, tol)
+        << "actual=" << actual << " expected=" << expected;
+}
 
 class MultiplyModule : public Module {
 public:
@@ -100,4 +110,71 @@ TEST(Sequential, ChainedOpsComposeCorrectly) {
     Variable input(3.0f, false);
     Variable output = seq(input);
     EXPECT_FLOAT_EQ(output.data().data()[0], 7.0f);
+}
+
+TEST(Linear, ConstructionCreatesCorrectShapes) {
+    Linear linear(2, 3);
+    auto params = linear.named_parameters();
+    ASSERT_EQ(params.size(), 2);
+    EXPECT_TRUE(params.contains("weight"));
+    EXPECT_TRUE(params.contains("bias"));
+    
+    const Tensor& weight = params.at("weight").data();
+    const Tensor& bias = params.at("bias").data();
+    
+    std::vector<int> expected_weight_shape{3, 2};
+    EXPECT_EQ(weight.shape(), expected_weight_shape);
+    
+    std::vector<int> expected_bias_shape{3};
+    EXPECT_EQ(bias.shape(), expected_bias_shape);
+}
+
+TEST(Linear, ForwardMatchesHandComputed) {
+    Linear linear(2, 3);
+    
+    // Default weight is 0.01, bias is 0
+    // Input x = [1.0f, 2.0f], shape (1, 2)
+    // x @ W.T() = [1*0.01 + 2*0.01, 1*0.01 + 2*0.01, 1*0.01 + 2*0.01] = [0.03, 0.03, 0.03]
+    // + bias = [0.03, 0.03, 0.03]
+    Tensor input_data({1.0f, 2.0f}, std::vector<int>{1, 2});
+    Variable input(input_data, false);
+    
+    Variable output = linear(input);
+    
+    std::vector<int> expected_output_shape{1, 3};
+    ASSERT_EQ(output.data().shape(), expected_output_shape);
+    EXPECT_FLOAT_EQ(output.data().data()[0], 0.03f);
+    EXPECT_FLOAT_EQ(output.data().data()[1], 0.03f);
+    EXPECT_FLOAT_EQ(output.data().data()[2], 0.03f);
+}
+
+TEST(Linear, ParametersAreTracked) {
+    Linear linear(2, 3);
+    auto params = linear.parameters();
+    ASSERT_EQ(params.size(), 2);
+    for (const auto& p : params) {
+        EXPECT_TRUE(p.requires_grad());
+    }
+}
+
+TEST(Linear, ForwardWithBatchedInput) {
+    Linear linear(2, 3);
+    
+    // Default weight is 0.01, bias is 0
+    // Batch of 2 samples: [[1, 2], [3, 4]]
+    // [[1,2], [3,4]] @ [[0.01, 0.01, 0.01], [0.01, 0.01, 0.01]]
+    // = [[0.03, 0.03, 0.03], [0.07, 0.07, 0.07]]
+    Tensor input_data({1.0f, 2.0f, 3.0f, 4.0f}, std::vector<int>{2, 2});
+    Variable input(input_data, false);
+    
+    Variable output = linear(input);
+    
+    std::vector<int> expected_output_shape{2, 3};
+    ASSERT_EQ(output.data().shape(), expected_output_shape);
+    EXPECT_FLOAT_EQ(output.data().data()[0], 0.03f);
+    EXPECT_FLOAT_EQ(output.data().data()[1], 0.03f);
+    EXPECT_FLOAT_EQ(output.data().data()[2], 0.03f);
+    EXPECT_FLOAT_EQ(output.data().data()[3], 0.07f);
+    EXPECT_FLOAT_EQ(output.data().data()[4], 0.07f);
+    EXPECT_FLOAT_EQ(output.data().data()[5], 0.07f);
 }

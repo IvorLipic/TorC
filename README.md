@@ -32,7 +32,7 @@ operations and a tape-based autograd system, built on CMake with GoogleTest-base
 - `matmul()` for 2D and batched matrix multiplication with batch broadcasting
 - Optional CBLAS-backed `matmul` for performance (via `TORC_USE_BLAS`)
 
-### Autograd (Milestone 4 — in progress)
+### Autograd
 - `torc::Variable`: tape-based autograd wrapping `Tensor`, with `requires_grad`/`has_grad`
   tracking
 - Backward pass via topological sort over the tape (not recursion) — see
@@ -46,15 +46,13 @@ operations and a tape-based autograd system, built on CMake with GoogleTest-base
   `reshape`/`view`, `slice`), `detach()`/`no_grad()` / `set_grad_enabled(bool)`, and
   guarded in-place ops (`Tensor::fill` / `Variable::fill` throws `TorcError` on tracked
   Variables) — each with gradient checks against central finite differences where applicable
-- **Milestone 5 in progress**: `nn::Module` base class and `nn::Sequential` container (Step 5.2)
-  are implemented; `nn::Linear`, activations, losses, optimizers, and data loaders are not yet
-  implemented — see [ROADMAP.md](ROADMAP.md) for exact status
 - **Known constraint:** the tape holds raw, non-owning pointers to the `Variable`s in a graph.
   Every `Variable` participating in a graph must outlive `backward()` on any of that graph's
   outputs — not just the final loss `Variable`. Not enforced by the compiler; see
   `docs/DESIGN.md`.
 
-### `torc::nn::Module` and `torc::nn::Sequential`
+### Milestone 5 - Basic ML (in progress)
+## `torc::nn::Module` and `torc::nn::Sequential`
 - `nn::Module` is a lightweight base class for neural network modules, following the PyTorch
   pattern. It provides:
   - `virtual Variable forward(const Variable& x) const = 0`
@@ -123,7 +121,7 @@ Tests use [GoogleTest](https://github.com/google/googletest), fetched automatica
 `tests/test_autograd.cpp` (Variable / autograd), and `tests/test_nn.cpp` (`nn::Module` /
 `nn::Sequential`).
 
-## Project layout
+## Project layout (NOTE TO AI: update this according to DESIGN.md!!)
 
 ```
 torc/

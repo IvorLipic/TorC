@@ -42,6 +42,7 @@ add_library(torc
     src/tensor.cpp
     src/autograd.cpp
     src/nn.cpp
+    src/nn/linear.cpp
 )
 
 if(TORC_USE_BLAS)

@@ -71,8 +71,13 @@ Each step must pass tests before proceeding.
       activation that uses it (Sigmoid, Softmax)
 - [x] **Step 5.2**: `nn::Module` base class — parameter storage, `forward()` hook, and
       `torch::nn::Sequential`-style container
-- [ ] **Step 5.3**: `nn::Linear` — `Linear(in, out)` with weight/bias parameters and a forward
-      that does `x @ W.T + b`
+- [x] **Step 5.3**: `nn::Linear` — `Linear(in, out)` with weight/bias parameters and a forward
+      that does `x @ W.T + b` (forward tests only; backward deferred until Step 5.3a)
+- [ ] **Step 5.3a**: Fix `Module::forward` / `Module::operator()` API so intermediate `Variable`s
+      created inside `forward()` stay alive until after `backward()` completes on the returned
+      output. This is required before any `Module` can safely support autograd. Options:
+      owned forward cache on `Module`, return a wrapper `Variable` that owns intermediates, or
+      redesign `forward()` to return both output and intermediates.
 - [ ] **Step 5.4**: Activation functions — `nn::ReLU`, `nn::Sigmoid`, `nn::Softmax` (each as a
       `Module` with differentiable forward)
 - [ ] **Step 5.5**: Loss functions — `nn::MSELoss`, `nn::CrossEntropyLoss`
