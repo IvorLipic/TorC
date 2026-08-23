@@ -5,6 +5,7 @@
 #include <string>
 #include <unordered_map>
 #include <memory>
+#include <list>
 
 namespace torc::nn {
 
@@ -15,7 +16,10 @@ public:
     
     virtual Variable forward(const Variable& x) const = 0;
     
-    Variable operator()(const Variable& x) const;
+    Variable operator()(const Variable& x) const {
+        forward_cache_.clear();
+        return forward(x);
+    }
     
     void register_parameter(const std::string& name, Variable param);
     
@@ -26,6 +30,9 @@ public:
     
 private:
     std::unordered_map<std::string, Variable> named_params_;
+    
+protected:
+    mutable std::list<Variable> forward_cache_;
 };
 
 class Sequential : public Module {

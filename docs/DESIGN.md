@@ -423,42 +423,43 @@ PR. *(Check ROADMAP.md for actual checkbox state — not duplicated here.)*
   - `parameters()` returns `std::vector<Variable>` by value; this copies all parameters,
     which is fine for Milestone 5's small models but should switch to `vector<Variable&>`
     or `span` if optimizer patterns require it later
+  - **Forward lifetime**: `Module` owns a `mutable std::list<Variable> forward_cache_` that
+    stores intermediates created during `forward()`. `operator()()` clears this cache before
+    calling `forward()`, and subclasses append intermediates via `emplace_back`. Because
+    `std::list` never relocates elements, raw `Variable*` pointers stored in tape entries
+    remain valid until the next forward pass. This makes `output = module(x); output.backward()`
+    safe without any user-side lifetime management.
 - **Test**: parameter registration, forward correctness, `Sequential` chaining, empty
   sequential pass-through, own + child parameter collection
 
-**Step 5.3 — `nn::Linear` (forward-only, pending API fix)**
+**Step 5.3 — `nn::Linear`**
 - `Linear(in_features, out_features)` registers `weight` (shape `{out, in}`) and `bias`
   (shape `{out}`), both initialized to `0.01` and `0.0` respectively
 - Forward: `x @ W.T + b`, implemented with existing `torc::matmul`, `torc::transpose`,
   and `torc::add` free functions — no new Tensor primitives
-- **Known issue**: `Module::forward` creates local `Variable` intermediates (e.g.
-  `matmul_result`) that are destroyed when `forward()` returns. The returned `Variable`'s tape
-  contains raw pointers into those destroyed intermediates, so `backward()` segfaults. This is
-  not a test bug — it is an API gap in `Module`. Backward tests are deferred to Step 5.3a.
 - **Test**: construction shape checks, forward correctness (unbatched and batched),
-  parameter tracking — no backward tests until the lifetime issue is fixed
+  parameter tracking, and hand-computed gradient checks for both unbatched and batched input
+  (loss = sum of output)
 
 **Step 5.3a — Fix `Module::forward` / `Module::operator()` lifetime for autograd**
 - **Problem**: local `Variable` intermediates created inside `forward()` are destroyed at
   return, but their tape entries hold raw pointers to them. `backward()` on the returned
   `Variable` therefore dereferences dangling pointers.
-- **Goal**: make `Module::forward` safe to use with autograd without requiring users to keep
-  manual references to intermediates.
-- **Options to evaluate**:
-  1. **Owned forward cache on `Module`** — `Module` stores intermediates in a
-     `mutable std::vector<Variable> forward_cache_`; `forward()` appends to it and returns
-     the last element. Cache is cleared at the start of `operator()()`. Simple, but
-     `forward()` is no longer reentrant and `parameters()`/`named_parameters()` must not be
-     called during forward (they're `const` but `operator()` is also `const` today).
-  2. **Return a wrapper/graph holder** — `Module` returns a small struct containing both the
-     output `Variable` and the intermediates. Users must keep the wrapper alive until
-     `backward()` completes. More explicit, but changes the API surface.
-  3. **Redesign `forward()` to return both output and intermediates** — similar to (2) but
-     as a `std::pair<Variable, std::vector<Variable>>` or a dedicated type.
-- **Decision required**: pick an approach, implement it, update `nn::Linear` tests to include
-  gradient checks, and verify `Sequential` + multi-layer modules also work.
-- **Test**: after the fix, `Linear` gradient checks for unbatched and batched input must pass;
-  also test a 2-layer `Sequential` to confirm intermediates from both layers stay alive.
+- **Solution**: `Module` owns a `mutable std::list<Variable> forward_cache_`. `operator()()`
+  clears it before calling `forward()`. Each module's `forward()` appends intermediates via
+  `emplace_back` so their addresses are stable for the lifetime of the cache. Because
+  `std::list` never relocates elements, raw `Variable*` pointers in tape entries remain valid
+  until the next forward pass clears the cache.
+- **API impact**: users call `output = module(x); output.backward()` exactly as in Python.
+  `Sequential::forward()` calls `module->operator()()` on each child so their caches are
+  populated too. The cache is per-module, not per-graph; calling `module(x)` again clears
+  the previous cache automatically.
+- **Why `std::list`**: `std::vector` can reallocate and move elements, invalidating raw
+  pointers stored in tape entries. `std::list` guarantees stable addresses, which is a
+  prerequisite for the current tape design. The memory overhead is acceptable for a naive
+  reference implementation.
+- **Test**: `Linear` gradient checks for unbatched and batched input pass; `Sequential` with
+  multiple layers also works because each child's cache keeps its own intermediates alive.
 
 ### Optimizer design
 

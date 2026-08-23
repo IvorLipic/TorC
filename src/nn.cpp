@@ -3,10 +3,6 @@
 
 namespace torc::nn {
 
-Variable Module::operator()(const Variable& x) const {
-    return forward(x);
-}
-
 void Module::register_parameter(const std::string& name, Variable param) {
     named_params_.emplace(name, std::move(param));
 }
@@ -35,7 +31,7 @@ void Sequential::add(std::unique_ptr<Module> module) {
 Variable Sequential::forward(const Variable& x) const {
     Variable out = x;
     for (const auto& module : modules_) {
-        out = module->forward(out);
+        out = module->operator()(out);
     }
     return out;
 }

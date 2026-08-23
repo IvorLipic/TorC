@@ -178,3 +178,68 @@ TEST(Linear, ForwardWithBatchedInput) {
     EXPECT_FLOAT_EQ(output.data().data()[4], 0.07f);
     EXPECT_FLOAT_EQ(output.data().data()[5], 0.07f);
 }
+
+TEST(Linear, GradCheckForwardAndBackward) {
+    Linear linear(2, 3);
+    
+    // x = [1.0f, 2.0f], shape (1, 2)
+    Tensor x_data({1.0f, 2.0f}, std::vector<int>{1, 2});
+    Variable x(x_data, true);
+    
+    Variable out = linear(x);
+    Variable loss = torc::sum(out);
+    
+    EXPECT_FLOAT_EQ(loss.data().data()[0], 0.09f);
+    
+    loss.backward();
+    
+    const Tensor& W_grad = linear.named_parameters().at("weight").grad();
+    const Tensor& b_grad = linear.named_parameters().at("bias").grad();
+    
+    ASSERT_TRUE(linear.named_parameters().at("weight").has_grad());
+    ASSERT_TRUE(linear.named_parameters().at("bias").has_grad());
+    
+    // dL/dW[j,l] = sum_i x[i,l] = x[0,l] for batch=1
+    expect_near(W_grad.data()[0], 1.0f);
+    expect_near(W_grad.data()[1], 2.0f);
+    expect_near(W_grad.data()[2], 1.0f);
+    expect_near(W_grad.data()[3], 2.0f);
+    expect_near(W_grad.data()[4], 1.0f);
+    expect_near(W_grad.data()[5], 2.0f);
+    
+    // dL/db[j] = 1 for each j
+    expect_near(b_grad.data()[0], 1.0f);
+    expect_near(b_grad.data()[1], 1.0f);
+    expect_near(b_grad.data()[2], 1.0f);
+}
+
+TEST(Linear, GradCheckWithBatchedInput) {
+    Linear linear(2, 3);
+    
+    // Batch of 2: [[1, 2], [3, 4]]
+    Tensor x_data({1.0f, 2.0f, 3.0f, 4.0f}, std::vector<int>{2, 2});
+    Variable x(x_data, true);
+    
+    Variable out = linear(x);
+    Variable loss = torc::sum(out);
+    
+    loss.backward();
+    
+    const Tensor& W_grad = linear.named_parameters().at("weight").grad();
+    const Tensor& b_grad = linear.named_parameters().at("bias").grad();
+    
+    // dL/dW[j,l] = sum_i x[i,l]
+    // sum_i x[i,0] = 1 + 3 = 4
+    // sum_i x[i,1] = 2 + 4 = 6
+    expect_near(W_grad.data()[0], 4.0f);
+    expect_near(W_grad.data()[1], 6.0f);
+    expect_near(W_grad.data()[2], 4.0f);
+    expect_near(W_grad.data()[3], 6.0f);
+    expect_near(W_grad.data()[4], 4.0f);
+    expect_near(W_grad.data()[5], 6.0f);
+    
+    // dL/db[j] = batch_size = 2
+    expect_near(b_grad.data()[0], 2.0f);
+    expect_near(b_grad.data()[1], 2.0f);
+    expect_near(b_grad.data()[2], 2.0f);
+}

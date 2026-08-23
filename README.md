@@ -52,20 +52,11 @@ operations and a tape-based autograd system, built on CMake with GoogleTest-base
   `docs/DESIGN.md`.
 
 ### Milestone 5 - Basic ML (in progress)
-## `torc::nn::Module` and `torc::nn::Sequential`
-- `nn::Module` is a lightweight base class for neural network modules, following the PyTorch
-  pattern. It provides:
-  - `virtual Variable forward(const Variable& x) const = 0`
-  - `Variable operator()(const Variable& x) const` — calls `forward(x)`
-  - `register_parameter(name, param)` — stores a named `Variable` in an internal map
-  - `named_parameters()` — returns the map of registered parameters
-  - `parameters()` — returns a flat `std::vector<Variable>` of all registered parameters
-- `nn::Sequential` is a container that chains `Module`s in order. It inherits from `Module` and:
-  - `add(std::unique_ptr<Module>)` appends a module
-  - `forward(x)` passes input through each module sequentially
-  - `parameters()` recursively collects parameters from all child modules
-- Subclass `Module` and implement `forward()` to create custom layers; use `Sequential` to
-  compose them.
+- `nn::Module` base class with `forward()` hook and parameter registration
+- `nn::Sequential` container for chaining modules
+- `nn::Linear` layer with weight/bias parameters and autograd support
+- Activations, losses, optimizers, and data loaders are not yet implemented — see
+  [ROADMAP.md](ROADMAP.md) for exact status
 
 ## Requirements
 

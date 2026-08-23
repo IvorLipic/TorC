@@ -30,8 +30,16 @@ Variable Linear::forward(const Variable& x) const {
     const Variable& weight = named_parameters().at("weight");
     const Variable& bias = named_parameters().at("bias");
     
-    Variable matmul_result = torc::matmul(x, torc::transpose(weight));
-    return torc::add(matmul_result, bias);
+    forward_cache_.emplace_back(torc::transpose(weight));
+    Variable& w_t = forward_cache_.back();
+    
+    forward_cache_.emplace_back(torc::matmul(x, w_t));
+    Variable& matmul_result = forward_cache_.back();
+    
+    forward_cache_.emplace_back(torc::add(matmul_result, bias));
+    Variable& out = forward_cache_.back();
+    
+    return out;
 }
 
 } // namespace torc::nn
