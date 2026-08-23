@@ -8,11 +8,17 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 option(TORC_USE_BLAS "Use CBLAS for matmul (requires CBLAS library)" OFF)
 
 if(TORC_USE_BLAS)
+    include(CheckLibraryExists)
+
     # Try to find OpenBLAS first (common on Linux), then generic BLAS (may provide CBLAS), then Accelerate on macOS
     find_package(OpenBLAS QUIET)
-    if(NOT OpenBLAS_FOUND)
+    if(OpenBLAS_FOUND)
+        set(BLAS_FOUND TRUE)
+        set(BLAS_LIBRARIES ${OpenBLAS_LIBRARIES})
+    else()
         find_package(BLAS QUIET)
     endif()
+
     if(NOT BLAS_FOUND AND APPLE)
         find_library(ACCELERATE_BLAS Accelerate)
         if(ACCELERATE_BLAS)

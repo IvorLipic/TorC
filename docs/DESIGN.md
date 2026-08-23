@@ -64,12 +64,6 @@ operands). `CMakeLists.txt` auto-detects OpenBLAS, falls back to generic `find_p
 and falls back again to `Accelerate.framework` on macOS; it's meant to fail configure with a
 clear message if none provide `cblas_sgemm`.
 
-> Flagging, not fixing here: the current OpenBLAS branch has a real bug —
-> `find_package(OpenBLAS)` sets `OpenBLAS_FOUND` / `OpenBLAS_LIBRARIES`, not `BLAS_FOUND` /
-> `BLAS_LIBRARIES`, so even a successful OpenBLAS detection falls through to the
-> `FATAL_ERROR` check right after it. Worth its own fix in `CMakeLists.txt` and an entry in
-> AGENTS.md's Known Issues once patched — not a design decision, just don't lose track of it.
-
 ### Error handling convention
 `TorcError` (base, derives `std::runtime_error`) and `ShapeError` (shape mismatches) live in
 `utils.hpp`. All error sites use `ShapeError`; existing `catch (std::runtime_error&)` still

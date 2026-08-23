@@ -1,9 +1,18 @@
 # torc
 
-A minimal, from-scratch C++ tensor library. Naive `float32`-only storage with elementwise operations, built on CMake with GoogleTest-based unit tests.
+A minimal, from-scratch C++ tensor library. Naive `float32`-only storage with elementwise
+operations and a tape-based autograd system, built on CMake with GoogleTest-based unit tests.
+
+## Documentation
+
+- **[AGENTS.md](AGENTS.md)** — orientation: project layout, build targets, conventions, known issues
+- **[ROADMAP.md](ROADMAP.md)** — milestone checklist, what's done and what's next
+- **[docs/DESIGN.md](docs/DESIGN.md)** — architecture decisions and the rationale behind them
+- **[docs/AUTOGRAD.md](docs/AUTOGRAD.md)** — the autograd tape structure and backward algorithm
 
 ## Features
 
+### Tensor
 - `torc::Tensor` with explicit-shape construction and initializer-list construction
 - Elementwise `add`, `sub`, `mul`, `div` with NumPy-style broadcasting
 - Scalar overloads for all four elementwise ops
@@ -13,12 +22,31 @@ A minimal, from-scratch C++ tensor library. Naive `float32`-only storage with el
 - Raw pointer data access
 - Shape inspection and element count
 - Reductions: `sum()`, `mean()`, `max()`, `min()` (whole-tensor and axis-wise)
-- `reshape()` / `view()` for changing shape without copying data
+- `reshape()` / `view()` for changing shape — note this currently copies the underlying
+  storage on every call (not a zero-cost stride trick); see `docs/AUTOGRAD.md`'s Common
+  Pitfalls for why that matters if you're implementing backward for either
 - Multi-dimensional indexing (`operator[](i, j, ...)`)
 - `transpose()` for permuting dimensions
-- Slicing (`slice()`) for contiguous-range sub-tensors
+- Slicing (`slice()`) for contiguous-range sub-tensors (no arbitrary-index gather yet)
 - `matmul()` for 2D and batched matrix multiplication with batch broadcasting
 - Optional CBLAS-backed `matmul` for performance (via `TORC_USE_BLAS`)
+
+### Autograd (Milestone 4 — in progress)
+- `torc::Variable`: tape-based autograd wrapping `Tensor`, with `requires_grad`/`has_grad`
+  tracking
+- Backward pass via topological sort over the tape (not recursion) — see
+  [docs/AUTOGRAD.md](docs/AUTOGRAD.md) for the full algorithm and why
+- Ops are free functions (`torc::add(a, b)`, etc.), never `Variable` methods
+- Implemented so far: scalar ops (`add_scalar`, `sub_scalar`, `mul_scalar`, `div_scalar`,
+  `neg_scalar`) and tensor-tensor elementwise ops with broadcasting backward (`add`, `sub`,
+  `mul`, `div`, `neg`), each with gradient checks against central finite differences
+- Not yet implemented: reduction backward, `matmul` backward, view-op backward
+  (`transpose`/`reshape`/`slice`), `detach()`/`no_grad()`, in-place-op guarding — see
+  [ROADMAP.md](ROADMAP.md) for exact status
+- **Known constraint:** the tape holds raw, non-owning pointers to the `Variable`s in a graph.
+  Every `Variable` participating in a graph must outlive `backward()` on any of that graph's
+  outputs — not just the final loss `Variable`. Not enforced by the compiler; see
+  `docs/DESIGN.md`.
 
 ## Requirements
 
@@ -54,7 +82,8 @@ Supported BLAS providers (auto-detected):
 - **Intel MKL** (via `find_package(BLAS)` when MKL is in path)
 - **Accelerate.framework** (macOS only, automatic fallback)
 
-When `TORC_USE_BLAS=ON`, the library requires `cblas_sgemm` (CBLAS C interface). If no CBLAS is found, CMake will fail with a clear error message.
+When `TORC_USE_BLAS=ON`, the library requires `cblas_sgemm` (CBLAS C interface). If no CBLAS
+is found, CMake fails configure with a clear error message.
 
 ## Run the demo
 
@@ -68,22 +97,35 @@ When `TORC_USE_BLAS=ON`, the library requires `cblas_sgemm` (CBLAS C interface).
 ctest --test-dir build --output-on-failure
 ```
 
-Tests use [GoogleTest](https://github.com/google/googletest), fetched automatically via CMake `FetchContent`.
+Tests use [GoogleTest](https://github.com/google/googletest), fetched automatically via CMake
+`FetchContent`. The `TorcTests` target covers both `tests/test_tensor.cpp` (Tensor) and
+`tests/test_autograd.cpp` (Variable / autograd).
 
 ## Project layout
 
 ```
 torc/
 ├── CMakeLists.txt
+├── LICENSE
+├── README.md
+├── AGENTS.md
+├── ROADMAP.md
+├── .gitignore
+├── docs/
+│   ├── DESIGN.md
+│   └── AUTOGRAD.md
 ├── include/torc/
 │   ├── tensor.hpp
-│   └── utils.hpp
+│   ├── utils.hpp
+│   └── autograd.hpp
 ├── src/
 │   ├── tensor.cpp
+│   ├── autograd.cpp
 │   ├── matmul_blas.cpp   # CBLAS matmul (when TORC_USE_BLAS=ON)
 │   └── main.cpp
 └── tests/
-    └── test_tensor.cpp
+    ├── test_tensor.cpp
+    └── test_autograd.cpp
 ```
 
 ## License

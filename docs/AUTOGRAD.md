@@ -1,6 +1,9 @@
 # torc Autograd — Design Notes (Tape-Based)
 
-*This document explains the autograd system. It mirrors decisions in docs/DESIGN.md.*
+*This document is the source of truth for the tape structure and backward algorithm as
+implemented. `docs/DESIGN.md` covers the broader "why" and defers here for the mechanics —
+if the two ever describe different algorithms again, this file wins for anything about tape
+structure or the backward walk.*
 
 ---
 
@@ -25,11 +28,13 @@ Two main approaches exist for automatic differentiation:
 
 ### Variable
 ```cpp
-Variable x(Tensor({2.0f}), true);  // data=2.0, requires_grad=true
-// x.data()  -> Tensor (forward value)
-// x.grad()  -> Tensor (gradient, same shape as data)
-// x.requires_grad() -> bool
-// x.backward() -> computes gradients
+Variable x(2.0f, true);   // scalar convenience ctor: data=2.0, requires_grad=true
+// x.data()          -> const Tensor&  (forward value)
+// x.grad()           -> const Tensor& (gradient; only meaningful once has_grad() is true)
+// x.requires_grad()   -> bool
+// x.has_grad()         -> bool  (false until backward() has actually accumulated something)
+// x.backward()          -> computes gradients (Variable must be scalar, i.e. numel()==1,
+//                          unless an explicit grad_output is passed to the other overload)
 ```
 
 ### Tape (per-Variable)
@@ -64,42 +69,55 @@ production autograd engines work.
 
 ```cpp
 void Variable::backward_with_grad(const Tensor& upstream_grad) {
-    // 1. Build topological order (DFS post-order)
+    if (tape_.empty()) return;
+
+    // 1. Build topological order (DFS post-order over TapeEntry.inputs)
     std::vector<Variable*> topo = build_topo();
     std::reverse(topo.begin(), topo.end());  // backward order
 
     // 2. Gradient accumulation map
     std::unordered_map<Variable*, Tensor> grad_map;
-    grad_map[this] = upstream_grad;
+    grad_map.emplace(this, upstream_grad);
 
     // 3. Execute backward in topological order
     for (Variable* v : topo) {
         if (v->tape_.empty()) continue;
-        
+
         auto it = grad_map.find(v);
-        if (it == grad_map.end()) continue;  // no gradient for this node
-        
-        const Tensor& grad = it->second;
-        Tensor current_grad = grad;
-        
-        // Walk tape entries in reverse (most recent op first)
+        if (it == grad_map.end()) continue;  // no gradient reached this node
+
+        Tensor current_grad = it->second;
+
+        // Walk this Variable's tape entries in reverse (most recent op first)
         for (auto eit = v->tape_.rbegin(); eit != v->tape_.rend(); ++eit) {
             const TapeEntry& entry = *eit;
-            std::vector<Tensor> input_grads(entry.inputs.size());
+
+            // Tensor has no default constructor, so placeholders need an explicit shape —
+            // std::vector<Tensor> input_grads(n) will NOT compile.
+            std::vector<Tensor> input_grads;
+            input_grads.reserve(entry.inputs.size());
+            for (size_t i = 0; i < entry.inputs.size(); ++i)
+                input_grads.push_back(Tensor(std::vector<int>{1}));
+
             entry.backward(current_grad, input_grads);
-            
-            // Accumulate gradients into input Variables
+
             for (size_t i = 0; i < entry.inputs.size(); ++i) {
-                if (entry.inputs[i]->requires_grad_) {
-                    accumulate_grad(entry.inputs[i], input_grads[i]);
-                    grad_map[entry.inputs[i]] = input_grads[i];
-                }
+                Variable* input = entry.inputs[i];
+                if (!input->requires_grad_) continue;
+
+                // Broadcasting reduction happens HERE, centrally — never inside entry.backward
+                Tensor input_grad = input_grads[i];
+                if (input_grad.shape() != input->data_.shape())
+                    input_grad = reduce_sum_to_shape(input_grad, input->data_.shape());
+
+                input->accumulate_grad(input_grad);
+                grad_map[input] = input_grad;
             }
-            
-            current_grad = input_grads.back();  // pass to next tape entry
+
+            current_grad = input_grads.back();  // pass to next tape entry, if any
         }
     }
-    
+
     tape_.clear();
 }
 ```
@@ -108,7 +126,8 @@ void Variable::backward_with_grad(const Tensor& upstream_grad) {
 - Each Variable is processed exactly once (no double-visiting)
 - Gradients are computed in dependency order (all downstream grads ready before upstream needs them)
 - Shared subgraphs naturally accumulate gradients via `grad_map`
-- Stack usage is O(V) for the DFS, not O(V) nested calls
+- Stack usage for the DFS is a separate concern from the O(V) *iterative* backward walk above —
+  `build_topo()` itself is currently still recursive (see Common Pitfalls)
 
 **Sources:**
 - PyTorch dev mailing list: "Simplified Introduction to PyTorch's Autograd" (zdevito, 2021)
@@ -120,61 +139,74 @@ void Variable::backward_with_grad(const Tensor& upstream_grad) {
 
 ## Forward to Backward Flow
 
-```
-# User code
-x = Variable(Tensor({2.0}), true)
-y = Variable(Tensor({3.0}), true)
-z = x * y          # Forward: 2 * 3 = 6
-z.backward()       # Backward: dz/dx = 3, dz/dy = 2
+```cpp
+// User code
+Variable x(2.0f, true);
+Variable y(3.0f, true);
+Variable z = torc::mul(x, y);   // Forward: 2 * 3 = 6
+z.backward();                    // Backward: dz/dx = 3, dz/dy = 2
 ```
 
-**Forward pass** (x * y):
-1. Tensor::mul computes 6.0
-2. Variable::mul wraps result in new Variable
-3. Creates TapeEntry:
-   - inputs = {&x, &y}
-   - backward = [](grad_out, grads) { grads[0] = grad_out * y; grads[1] = grad_out * x; }
-4. Appends entry to z.tape_
-5. Returns Variable(z=6.0, tape_=[...])
+**Forward pass** (`torc::mul(x, y)`):
+1. `Tensor::mul` computes `6.0`
+2. `torc::mul` (a free function — ops are never `Variable` methods) wraps the result in a new `Variable`
+3. Creates a `TapeEntry`:
+   - `inputs = {&x, &y}` (raw pointers into `x` and `y` themselves)
+   - The backward closure captures **copies** of `x.data()` and `y.data()` (not references to
+     `x`/`y`) and computes `input_grads[0] = grad_output.mul(y_data)`,
+     `input_grads[1] = grad_output.mul(x_data)`
+4. Appends the entry to `z`'s `tape_`
+5. Returns `z` with `data_=6.0`, `tape_=[entry]`
 
-**Backward pass** (z.backward()):
-1. Build topological order: [x, y, z] (post-order DFS)
-2. Reverse: [z, y, x]
-3. Process z: execute tape entry, get grad_x=3, grad_y=2
-4. Accumulate into x.grad_ and y.grad_
-5. Process x and y: empty tapes, no-op
-6. Done
+**Backward pass** (`z.backward()`):
+1. Build topological order: `[x, y, z]` (post-order DFS)
+2. Reverse: `[z, y, x]`
+3. Process `z`: execute its tape entry, get `grad_x=3`, `grad_y=2`
+4. Accumulate into `x`'s and `y`'s `grad_` (`has_grad_` becomes `true` for both)
+5. Process `x` and `y`: both have empty tapes (they're leaves), no-op
+6. Done — `z.tape_` is cleared
 
 ---
 
 ## Broadcasting Gradients (Critical)
 
-**Forward**: x (3,) + y (1,) to z (3,) — y broadcast to (3,)
-**Backward**: grad_out (3,) to x.grad (3,), y.grad (1,) — must **sum** over broadcast dim
+**Forward**: `x (3,) + y (1,)` → `z (3,)` — `y` broadcast to `(3,)`
+**Backward**: `grad_out (3,)` → `x.grad (3,)`, `y.grad (1,)` — must **sum** over the broadcast dim
+
+`Tensor` has no `unsqueeze()` and no keepdim option on `sum(axis)`, so the real
+`reduce_sum_to_shape` (in `src/autograd.cpp`) works around that directly:
 
 ```cpp
-// Helper: sum gradient to match target shape
 Tensor reduce_sum_to_shape(const Tensor& grad, const std::vector<int>& target_shape) {
     Tensor result = grad;
-    // 1. Add leading dims if needed
-    while (result.shape().size() < target_shape.size())
-        result = result.unsqueeze(0);
-    // 2. Sum over dims where target=1 but grad>1
-    for (int i = 0; i < target_shape.size(); ++i) {
-        if (target_shape[i] == 1 && result.shape()[i] > 1)
-            result = result.sum(i, true);  // keepdim
+    int g_rank = (int)result.shape().size();
+    int t_rank = (int)target_shape.size();
+    int offset = g_rank - t_rank;
+
+    // Leading dims that don't exist in target_shape at all: repeated sum(0)
+    for (int i = 0; i < offset; ++i)
+        result = result.sum(0);
+
+    // Interior dims where target_shape[i] == 1 but result still has size > 1:
+    // sum() removes the dim, then reshape() re-inserts it as size 1
+    for (int i = 0; i < t_rank; ++i) {
+        if (target_shape[i] == 1 && result.shape()[i] > 1) {
+            result = result.sum(i);
+            std::vector<int> new_shape = result.shape();
+            new_shape.insert(new_shape.begin() + i, 1);
+            result = result.reshape(new_shape);
+        }
     }
     return result;
 }
-
-// In add_backward:
-for (size_t i = 0; i < inputs.size(); ++i) {
-    Tensor input_grad = local_grads[i];
-    if (inputs[i]->shape_ != output_shape)  // broadcast happened
-        input_grad = reduce_sum_to_shape(input_grad, inputs[i]->shape_);
-    accumulate_grad(inputs[i], input_grad);
-}
 ```
+
+**This is called exactly once per input, centrally, in `Variable::backward_with_grad`** — see
+the backward-algorithm code block above. It is *not* called inside individual ops' backward
+closures. An op's backward closure (e.g. `add`'s) always returns gradients at the *output's*
+shape; it never checks whether broadcasting happened or calls `reduce_sum_to_shape` itself.
+Don't add that call inside a new op's closure — it would be redundant with, not a substitute
+for, the centralized step.
 
 ---
 
@@ -192,31 +224,43 @@ input_grads[1] = grad_output * x
 dz/dx = grad_output @ y.T    (m×n @ n×k = m×k)
 dz/dy = x.T @ grad_output    (k×m @ m×n = k×n)
 ```
+This is the plain 2D case only. `Tensor::matmul` already supports batch broadcasting
+(Milestone 3), so a batched `matmul`'s backward additionally needs to sum gradients over any
+broadcast *batch* dimensions — the same idea as `reduce_sum_to_shape` but applied to the
+leading batch dims rather than the whole tensor. This isn't implemented yet (Step 5); don't
+assume the 2D formulas above generalize for free.
 
 ### Sum reduction: z = x.sum(axis=0)  (x: m×n to z: n,)
 ```
 dz/dx = broadcast(grad_output, x.shape)  // repeat grad_output m times
 ```
 
-### Transpose: z = x.T
+### Transpose: z = x.transpose(axes)
 ```
-dz/dx = grad_output.T  (self-inverse)
+dz/dx = grad_output.transpose(inverse_of(axes))
 ```
+`grad_output.transpose(axes)` (re-applying the *same* axes) is only correct for the default
+full-reversal case or other true involutions. A general permutation (e.g. `{1, 2, 0}` on a
+rank-3 tensor) needs its actual inverse permutation computed — don't assume self-inverse.
 
 ### Reshape/View: z = x.reshape(...)
 ```
-dz/dx = grad_output.reshape(x.shape)  (metadata-only)
+dz/dx = grad_output.reshape(x.shape)
 ```
+Note this is **not** metadata-only / zero-cost: `Tensor::reshape()` does
+`out.storage_ = storage_;` on a `const` `this`, which is a real copy of the underlying
+`std::vector<float>`, not a move. Backward correctness is unaffected either way, but don't
+describe this (here or elsewhere) as a free operation — it isn't.
 
 ---
 
 ## requires_grad Semantics
 
 ```cpp
-Variable a(Tensor({1.0}), true);   // tracked
-Variable b(Tensor({2.0}), false);  // NOT tracked
-Variable c = a + b;                // c.requires_grad = true (a requires it)
-c.backward();                      // a.grad populated, b.grad NOT allocated
+Variable a(1.0f, true);              // tracked
+Variable b(2.0f, false);             // NOT tracked
+Variable c = torc::add(a, b);        // c.requires_grad() == true (a requires it)
+c.backward();                        // a.grad() populated, b.grad() NOT allocated
 ```
 
 - **Default**: `requires_grad = false` (inference-friendly)
@@ -228,12 +272,12 @@ c.backward();                      // a.grad populated, b.grad NOT allocated
 ## Gradient Accumulation
 
 ```cpp
-loss1.backward()  # W.grad += dL1/dW
-loss2.backward()  # W.grad += dL2/dW  (accumulates!)
-W.zero_grad()     # Reset to zero before next step
+loss1.backward();  // W.grad() += dL1/dW
+loss2.backward();  // W.grad() += dL2/dW  (accumulates!)
+W.zero_grad();      // Reset before next step
 ```
 
-Matches PyTorch behavior. Call `zero_grad()` at start of each training step.
+Matches PyTorch behavior. Call `zero_grad()` at the start of each training step.
 
 ---
 
@@ -250,43 +294,59 @@ float numerical_grad = (f(x + h) - f(x - h)) / (2 * h);
 float analytical_grad = x.grad().data()[i];
 
 // Compare
-EXPECT_NEAR(numerical_grad, analytical_grad, 1e-4f);
+EXPECT_NEAR(numerical_grad, analytical_grad, 1e-2f);   // GRAD_ATOL in test_autograd.cpp
 ```
 
-Run with ctest — catches bugs in backward implementations.
+Run with `ctest` — catches bugs in backward implementations.
 
-**Tolerance rationale**: float32 has ~7 decimal digits. Central difference error is O(h²) = O(1e-8)
-for h=1e-4, well within float32 precision. The 1e-4 tolerance gives a comfortable margin while
-catching actual bugs.
+**Tolerance rationale**: float32 has ~7 decimal digits. Central-difference truncation error is
+`O(h²) ≈ O(1e-8)` for `h=1e-4` in exact arithmetic, but in practice float32 finite differences
+on chained/elementwise ops show errors around `1e-3` to `1e-2` from repeated forward-pass
+rounding. The test suite's actual `GRAD_ATOL = 1e-2f` is calibrated against that observed
+noise, not against the theoretical `O(h²)` bound alone — using `1e-4` here, as an earlier
+draft of this doc suggested, is tighter than the current tests actually run at.
 
 ---
 
 ## Extending with New Operations
 
-To add gradient for a new Tensor op:
+Ops are **free functions in `namespace torc`**, declared in `autograd.hpp` and defined in
+`autograd.cpp` — never `Variable` methods. To add gradient support for a new `Tensor` op:
 
-1. **Add Tensor op** (if not exists): `Tensor::my_op()`
-2. **Add Variable wrapper** in `autograd.hpp`:
+1. **Add the `Tensor` op first** (if it doesn't exist): `Tensor::my_op(...) const`
+2. **Declare the free function** in `autograd.hpp`:
    ```cpp
-   Variable my_op() const {
-       Tensor result = data().my_op();
-       if (!requires_grad_) return Variable(result, false);
-       
-       // Create tape entry
-       TapeEntry entry;
-       entry.inputs = { /* input Variable pointers */ };
-       entry.backward = [](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
-           // Compute gradients w.r.t each input
-           // Use reduce_sum_to_shape for broadcasting
-       };
-       
-       Variable out(result, true);
-       out.tape_.push_back(entry);
+   Variable my_op(const Variable& a /*, other args */);
+   ```
+3. **Define it** in `autograd.cpp`, following the existing pattern (see `add`/`mul`/`neg`):
+   ```cpp
+   Variable my_op(const Variable& a) {
+       bool needs_grad = a.requires_grad_;
+       Tensor out_data = a.data_.my_op();
+       Variable out(std::move(out_data), needs_grad);
+
+       if (needs_grad) {
+           TapeEntry entry;
+           // const_cast is needed because Variable& params are const but TapeEntry.inputs
+           // needs non-const pointers to later call accumulate_grad() on them
+           entry.inputs = { const_cast<Variable*>(&a) };
+
+           // Capture whatever the local derivative needs BY VALUE (a copy), the same way
+           // mul()/div() capture a_data/b_data — never capture a reference to `a` itself.
+           Tensor a_data = a.data();
+           entry.backward = [a_data](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
+               input_grads[0] = /* local derivative of my_op, applied to grad_output */;
+               // Return the gradient at the OUTPUT's shape — do not call
+               // reduce_sum_to_shape here, that happens centrally (see "Broadcasting
+               // Gradients" above).
+           };
+           out.tape_.push_back(std::move(entry));
+       }
        return out;
    }
    ```
-3. **Write backward_fn** in `autograd.cpp`
-4. **Add gradient check test** in `test_autograd.cpp`
+4. **Add a gradient check test** in `test_autograd.cpp`, following the existing `GradCheck*`
+   tests (hand-computed example + at least one broadcast case if the op can broadcast).
 
 ---
 
@@ -294,12 +354,14 @@ To add gradient for a new Tensor op:
 
 | Pitfall | Solution |
 |---------|----------|
-| Forgetting reduce_sum_to_shape for broadcast ops | Always use helper when input shapes differ |
-| In-place modification of Variable.data() | Don't do it — breaks gradient computation |
-| Double backward without zero_grad() | Expected accumulation; call zero_grad() each step |
-| backward() on non-scalar | Call .sum().backward() or provide grad_output |
-| Recursive backward on deep graphs | Use topological sort (current implementation does this) |
-| Circular references with shared_ptr | Variable owns data directly; tape entries hold raw pointers |
+| Forgetting `reduce_sum_to_shape` for broadcast ops | It's applied centrally in `backward_with_grad` — don't add a second call inside your op's closure, and don't forget the input actually needs it accounted for by the time your closure returns a shape-correct-or-broadcastable grad |
+| In-place modification of `Variable::data()` | Don't do it — breaks gradient computation (and there's no guard against it yet, see ROADMAP.md Step 8) |
+| Double `backward()` without `zero_grad()` | Expected accumulation; call `zero_grad()` each step |
+| `backward()` on non-scalar | Call `.sum().backward()` (once `sum` backward exists — Step 4) or pass an explicit `grad_output` |
+| Recursive backward on deep graphs | The backward *walk* uses topological sort (not recursion) — but `build_topo()` itself is still a recursive DFS today, so very deep graphs can still overflow the stack during topo-sort construction, just not during backward execution |
+| Circular references with `shared_ptr` | Not applicable — `Variable` owns data directly; tape entries hold raw, non-owning pointers instead. That trades the cycle risk for a *lifetime* risk: every `Variable` in a graph must outlive `backward()` on any of its descendants (see `docs/DESIGN.md`) |
+| Assuming `Tensor` is default-constructible (e.g. `std::vector<Tensor> v(n)`) | It isn't — `Tensor` has no default constructor. Construct placeholders with an explicit shape, e.g. `Tensor(std::vector<int>{1})`, as `backward_with_grad` does |
+| Assuming `reshape()`/`view()` are "metadata-only" or free | They're not — `Tensor::reshape()` copies `storage_` on every call. Correctness is unaffected, but don't rely on this being zero-cost |
 
 ---
 
@@ -311,6 +373,7 @@ To add gradient for a new Tensor op:
 | Higher-order derivatives | Later | Nested tapes (Engine per order) |
 | Graph optimization/compilation | Not planned | Would need expression-tree |
 | Distributed autograd | Not planned | Out of scope |
+| Iterative (non-recursive) `build_topo()` | Whenever deep-graph stack safety actually matters | Explicit stack instead of a recursive `std::function` DFS |
 
 ---
 
