@@ -86,7 +86,7 @@ Each step must pass tests before proceeding.
 - [x] **Step 5.6**: Optimizer — `optim::SGD` with momentum (`optim::SGD` takes
       `std::vector<Variable*>&` and mutates `param->data()` in-place via `step()`; `zero_grad()`
       clears all parameter gradients)
-- [ ] **Step 5.7**: Optimizer — `optim::Adam`
+- [x] **Step 5.7**: Optimizer — `optim::Adam` (with bias correction, `beta1=0.9`, `beta2=0.999`)
 - [ ] **Step 5.8**: Optimizer — `optim::AdamW`
 - [ ] **Step 5.9**: `data::Dataset` base + `data::DataLoader` (batching, shuffling)
 - [ ] **Step 5.10**: Toy dataset loaders — synthetic regression dataset, then a small CSV-backed

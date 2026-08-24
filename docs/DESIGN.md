@@ -531,6 +531,22 @@ based on `param->grad()`. This matches PyTorch's separation of `nn.Module` and `
   by the expected amount; verify momentum accumulates velocity across multiple steps; verify
   `zero_grad()` clears gradients; verify `step()` skips parameters without gradients
 
+**Step 5.7 — `optim::Adam`**
+- `include/torc/optim.hpp` / `src/optim.cpp`
+- Constructor: `Adam(std::vector<Variable*>& params, float lr, float beta1=0.9f, float beta2=0.999f, float eps=1e-8f)`
+- Maintains per-parameter moving averages `m_` and `v_` (initialized to zero), plus a `step_` counter
+- `step()`:
+  - `m = beta1 * m + (1 - beta1) * grad`
+  - `v = beta2 * v + (1 - beta2) * grad^2`
+  - `m_hat = m / (1 - beta1^t)`, `v_hat = v / (1 - beta2^t)` (bias correction)
+  - `param = param - lr * m_hat / (sqrt(v_hat) + eps)`
+- `zero_grad()`: calls `param->zero_grad()` on every tracked parameter
+- **New Tensor primitives needed**: `Tensor::sqrt()` (elementwise, uses `std::sqrt`) added alongside
+  `exp()`/`log()` as a basic unary op. `torc::sqrt(const Variable&)` autograd free function
+  added in `src/autograd.cpp` with backward `grad_input = grad_output / (2 * sqrt(input))`.
+- **Test**: forward + backward on a small `Linear` model, verify `step()` updates params;
+  verify `zero_grad()` clears gradients; verify `step()` skips params without grads
+
 ### Data loader design
 
 Data loading is the thinnest possible wrapper around a dataset, matching PyTorch's
@@ -580,7 +596,7 @@ torc/
 │       │   ├── linear.hpp   # nn::Linear                          [Milestone 5.3]
 │       │   ├── activations.hpp # nn::ReLU, nn::Sigmoid, etc.     [Milestone 5.4]
 │       │   └── losses.hpp   # nn::MSELoss, nn::CrossEntropyLoss   [Milestone 5.5]
-│       ├── optim.hpp        # SGD, Adam, AdamW                    [Milestone 5.6]
+│       ├── optim.hpp        # SGD, Adam, AdamW                    [Milestone 5.6-5.7]
 │       └── data.hpp         # Dataset, DataLoader                 [Milestone 5]
 ├── src/
 │   ├── tensor.cpp
@@ -590,7 +606,7 @@ torc/
 │   │   ├── linear.cpp                                            [Milestone 5.3]
 │   │   ├── activations.cpp                                       [Milestone 5.4]
 │   │   └── losses.cpp                                             [Milestone 5.5]
-│   ├── optim.cpp                                                 [Milestone 5.6]
+│   ├── optim.cpp                                                 [Milestone 5.6-5.7]
 │   └── matmul_blas.cpp                                           [Milestone 3 — landed]
 ├── examples/                # demo binaries move out of src/, main.cpp retired
 │   ├── basic_ops.cpp        # today's main.cpp, relocated

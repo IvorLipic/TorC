@@ -94,7 +94,7 @@ See `README.md` for the full Tensor feature list. Key highlights:
 - Elementwise `add`/`sub`/`mul`/`div` with NumPy-style broadcasting and scalar overloads
 - Reductions: `sum()`, `mean()`, `max()`, `min()` (whole-tensor and axis-wise)
 - `matmul()` for 2D and batched matrix multiplication with batch broadcasting
-- `transpose()`, `slice()`, `reshape()`/`view()`, `exp()`, `softmax()`
+- `transpose()`, `slice()`, `reshape()`/`view()`, `exp()`, `softmax()`, `log()`, `sqrt()`
 
 `tests/test_tensor.cpp` covers all of the above plus broadcasting, indexing, and error cases.
 
@@ -112,8 +112,9 @@ See `README.md` for the full Tensor feature list. Key highlights:
 - **Milestone 5 in progress**: `nn::Module` base class and `nn::Sequential` container (Step 5.2),
   `nn::Linear` (Step 5.3), Module forward-lifetime fix (Step 5.3a), activation functions
   (`nn::ReLU`, `nn::Sigmoid`, `nn::Softmax`, Step 5.4), loss functions (`nn::MSELoss`,
-  `nn::CrossEntropyLoss`, Step 5.5), and optimizer (`optim::SGD`, Step 5.6) are implemented;
-  data loaders are not yet implemented — see ROADMAP.md for exact status
+  `nn::CrossEntropyLoss`, Step 5.5), optimizers (`optim::SGD` with momentum, Step 5.6;
+  `optim::Adam`, Step 5.7) are implemented; data loaders are not yet implemented — see
+  ROADMAP.md for exact status
 - **Lifetime constraint (unenforced by the type system):** `TapeEntry.inputs` holds raw,
   non-owning `Variable*` pointers into the actual input `Variable`s, not copies. Every
   `Variable` participating in a graph must outlive `backward()` on any of that graph's
@@ -132,8 +133,8 @@ each with gradient checks against central finite differences where applicable. S
 - `nn::Sequential` chains `Module`s in order; `forward(x)` passes input through each module.
 - Tests cover parameter registration, forward/backward for `nn::Linear`, activation modules
   (`ReLU`, `Sigmoid`, `Softmax`) with gradient checks, loss functions (`MSELoss`,
-  `CrossEntropyLoss`) with forward correctness and numerical gradient checks, and `optim::SGD`
-  with step/zero_grad behavior.
+  `CrossEntropyLoss`) with forward correctness and numerical gradient checks, and optimizers
+  (`optim::SGD` with momentum, `optim::Adam`) with step/zero_grad behavior.
 - For full API details and design rationale, see `docs/DESIGN.md`'s Milestone 5 section.
 
 ---

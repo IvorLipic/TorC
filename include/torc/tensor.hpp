@@ -76,6 +76,7 @@ public:
     [[nodiscard]] Tensor exp() const;
     [[nodiscard]] Tensor softmax() const;
     [[nodiscard]] Tensor log() const;
+    [[nodiscard]] Tensor sqrt() const;
 
     void fill(float val);
 private:

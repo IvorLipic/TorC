@@ -43,8 +43,9 @@ operations and a tape-based autograd system, built on CMake with GoogleTest-base
   `mul`, `div`, `neg`), reduction ops backward (`sum`, `mean`, whole-tensor and axis-wise),
   `max`/`min` backward with argmax tracking (whole-tensor and axis-wise), `matmul` backward
   (2D + batched, including batch-broadcast cases), view-op backward (`transpose`,
-  `reshape`/`view`, `slice`), `detach()`/`no_grad()` / `set_grad_enabled(bool)`, and
-  guarded in-place ops (`Tensor::fill` / `Variable::fill` throws `TorcError` on tracked
+  `reshape`/`view`, `slice`), `detach()`/`no_grad()` / `set_grad_enabled(bool)`, unary
+  transcendental ops (`exp`, `log`, `sqrt`) with backward and gradient checks, and guarded
+  in-place ops (`Tensor::fill` / `Variable::fill` throws `TorcError` on tracked
   Variables) — each with gradient checks against central finite differences where applicable
 - **Known constraint:** the tape holds raw, non-owning pointers to the `Variable`s in a graph.
   Every `Variable` participating in a graph must outlive `backward()` on any of that graph's
@@ -57,7 +58,7 @@ operations and a tape-based autograd system, built on CMake with GoogleTest-base
 - `nn::Linear` layer with weight/bias parameters and autograd support
 - Activation modules: `nn::ReLU`, `nn::Sigmoid`, `nn::Softmax`
 - Loss functions: `nn::MSELoss`, `nn::CrossEntropyLoss`
-- Optimizer: `optim::SGD` with momentum
+- Optimizers: `optim::SGD` with momentum, `optim::Adam`
 - Data loaders are not yet implemented — see
   [ROADMAP.md](ROADMAP.md) for exact status
 

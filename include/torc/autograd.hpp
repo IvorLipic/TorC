@@ -205,5 +205,6 @@ Variable relu(const Variable& a);
 Variable sigmoid(const Variable& a);
 Variable softmax(const Variable& a);
 Variable log(const Variable& a);
+Variable sqrt(const Variable& a);
 
 } // namespace torc
