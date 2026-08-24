@@ -129,8 +129,6 @@ Tensor Tensor::exp() const {
     return out;
 }
 
-#ifndef TORC_USE_BLAS
-
 Tensor Tensor::matmul(const Tensor& other) const {
     int r = (int)shape_.size();
     int r2 = (int)other.shape_.size();
@@ -201,7 +199,7 @@ Tensor Tensor::matmul(const Tensor& other) const {
     return out;
 }
 
-#endif // TORC_USE_BLAS
+
 
 Tensor Tensor::transpose(std::vector<int> axes) const {
     int rank = (int)shape_.size();

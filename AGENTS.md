@@ -49,7 +49,6 @@ torc/
 │   │   └── losses.cpp          # loss function forward/backward
 │   ├── optim.cpp               # SGD/Adam/AdamW step/zero_grad
 │   ├── data.cpp                # Dataset / DataLoader implementation
-│   ├── matmul_blas.cpp         # CBLAS-backed matmul, compiled only when TORC_USE_BLAS=ON
 │   └── main.cpp                # demo executable
 ├── examples/
 │   ├── linear_regression/
@@ -64,16 +63,14 @@ torc/
 Three build targets:
 - **`torc`** — library built from `src/tensor.cpp`, `src/autograd.cpp`, `src/nn.cpp`,
   `src/nn/linear.cpp`, `src/nn/activations.cpp`, `src/nn/losses.cpp`, `src/optim.cpp`
-  (plus `src/matmul_blas.cpp` when configured with `-DTORC_USE_BLAS=ON`).
 - **`torc_demo`** — executable (`src/main.cpp`) linked against `torc`.
 - **`linear_regression_example`** — executable (`examples/linear_regression/linear_regression.cpp`) linked against `torc`.
 - **`torc_tests`** — GoogleTest executable (`tests/test_tensor.cpp` +
   `tests/test_autograd.cpp` + `tests/test_nn.cpp` + `tests/test_data.cpp`), links `torc`, registered via `enable_testing()` /
   `add_test(NAME TorcTests ...)`.
 
-C++23. GoogleTest (`v1.14.0`) is pulled in for tests via `FetchContent`; the only other
-dependency is an optional CBLAS library (OpenBLAS / MKL / Accelerate), needed only when
-`TORC_USE_BLAS=ON`.
+C++23. GoogleTest (`v1.14.0`) is pulled in for tests via `FetchContent`; there are no other
+dependencies.
 
 ---
 
@@ -85,9 +82,6 @@ cmake --build build
 ctest --test-dir build --output-on-failure   # runs TorcTests (Tensor + Variable suites)
 ./build/torc_demo
 ```
-
-For the optional BLAS-backed `matmul`, see README.md's "With CBLAS backend" section
-(`-DTORC_USE_BLAS=ON`).
 
 ---
 

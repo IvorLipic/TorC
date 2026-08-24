@@ -54,15 +54,7 @@ they are not re-litigated:
 - **Naive triple-loop, `float` accumulator.** Complexity is `m * n * k` with `acc` of type
   `float`. Loop order is `i, j, k` (`k` innermost). Optimizing the loop order for cache
   locality, or adding SIMD/threads, is explicitly deferred to Milestone 6 and must be
-  benchmark-gated. The `float` (not `double`) accumulator keeps parity with the
-  `cblas_sgemm`-based BLAS backend, so naive and BLAS results agree to the same precision.
-
-**BLAS backend — landed, not deferred.** `src/matmul_blas.cpp` provides a `TORC_USE_BLAS`-gated
-replacement for `Tensor::matmul` that calls `cblas_sgemm` per batch element, copying strided
-batch slices into contiguous scratch buffers first (CBLAS expects contiguous row-major
-operands). `CMakeLists.txt` auto-detects OpenBLAS, falls back to generic `find_package(BLAS)`,
-and falls back again to `Accelerate.framework` on macOS; it's meant to fail configure with a
-clear message if none provide `cblas_sgemm`.
+  benchmark-gated.
 
 ### Error handling convention
 `TorcError` (base, derives `std::runtime_error`) and `ShapeError` (shape mismatches) live in

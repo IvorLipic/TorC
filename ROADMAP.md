@@ -34,7 +34,6 @@ see [AGENTS.md](AGENTS.md).
 ## Milestone 3 — Linear algebra
 - [x] `matmul()` for 2D tensors (naive triple loop first, correctness over speed)
 - [x] Batched matmul for higher-rank tensors
-- [x] Basic BLAS backend option (behind a CMake flag) once naive matmul is correct
 
 ## Milestone 4 — Autograd (incremental, tested each step)
 
