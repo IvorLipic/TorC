@@ -91,7 +91,7 @@ Each step must pass tests before proceeding.
 - [x] **Step 5.9**: `data::Dataset` base + `data::DataLoader` (batching, shuffling)
 - [x] **Step 5.10**: Toy dataset loaders — synthetic regression dataset, then a small CSV-backed
       classification dataset
-- [ ] **Step 5.11**: End-to-end example — linear regression on a synthetic dataset
+- [x] **Step 5.11**: End-to-end example — linear regression on a synthetic dataset
 - [ ] **Step 5.12**: End-to-end example — small MLP on a toy classification dataset (e.g.
       MNIST-subset or synthetic blobs)
 - [ ] **Step 5.13**: `nn::LayerNorm` — per-row variance (`mean(x^2) - mean(x)^2`) using

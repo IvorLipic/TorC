@@ -590,6 +590,18 @@ based on `param->grad()`. This matches PyTorch's separation of `nn.Module` and `
   header skipping, custom delimiter, malformed-line error, missing-file error, inconsistent
   columns error
 
+**Step 5.11 — End-to-end linear regression example**
+- `examples/linear_regression/linear_regression.cpp` — trains `nn::Linear(1, 1)` on `data::SyntheticRegression`
+  using `optim::SGD` and `nn::MSELoss`
+- Training loop uses `DataLoader` for batching and shuffling
+- Prints epoch loss and learned parameters to stdout
+- Saves `loss_history.csv` (epoch, loss) and `predictions.csv` (x, y_true, y_pred) for
+  external visualization
+- **Visualization approach**: simplest path is a tiny optional Python helper script
+  (`examples/linear_regression/plot_results.py`) using matplotlib. It reads the two CSVs and produces
+  `loss_curve.png` and `predictions.png`. The C++ binary has zero plotting dependencies;
+  users without Python can open the CSVs in Excel/Google Sheets/LibreOffice Calc.
+
 ### Data loader design
 
 Data loading is the thinnest possible wrapper around a dataset, matching PyTorch's
@@ -613,58 +625,6 @@ Data loading is the thinnest possible wrapper around a dataset, matching PyTorch
   a small CSV-backed classification dataset before any real-data loading is attempted.
 
 ---
-
-## Planned future project structure
-
-The current layout is intentionally flat because there's only a Tensor class plus autograd.
-Once nn/optim/data follow (Milestone 5), flat `src/`/`include/` stops scaling and `main.cpp`
-stops being a reasonable place for examples. Proposed layout, to be adopted incrementally as
-each milestone actually lands (don't scaffold empty directories ahead of the code that fills
-them):
-
-```
-torc/
-├── CMakeLists.txt
-├── LICENSE
-├── README.md
-├── AGENTS.md
-├── ROADMAP.md
-├── docs/
-│   ├── DESIGN.md
-│   └── AUTOGRAD.md
-├── include/
-│   └── torc/
-│       ├── tensor.hpp
-│       ├── utils.hpp
-│       ├── autograd.hpp     # Variable, TapeEntry, backward()    [Milestone 4]
-│       ├── nn.hpp           # Module base + Sequential           [Milestone 5.2]
-│       ├── nn/
-│       │   ├── linear.hpp   # nn::Linear                          [Milestone 5.3]
-│       │   ├── activations.hpp # nn::ReLU, nn::Sigmoid, etc.     [Milestone 5.4]
-│       │   └── losses.hpp   # nn::MSELoss, nn::CrossEntropyLoss   [Milestone 5.5]
-│       ├── optim.hpp        # SGD, Adam, AdamW                    [Milestone 5.6-5.8]
-│       └── data.hpp         # Dataset, DataLoader, SyntheticRegression, CSVDataset [Milestone 5.9-5.10]
-├── src/
-│   ├── tensor.cpp
-│   ├── autograd.cpp                                              [Milestone 4]
-│   ├── nn.cpp                                                   [Milestone 5.2]
-│   ├── nn/
-│   │   ├── linear.cpp                                            [Milestone 5.3]
-│   │   ├── activations.cpp                                       [Milestone 5.4]
-│   │   └── losses.cpp                                             [Milestone 5.5]
-│   ├── optim.cpp                                                 [Milestone 5.6-5.8]
-│   ├── data.cpp                                                  [Milestone 5.9-5.10]
-│   └── matmul_blas.cpp                                           [Milestone 3]
-├── examples/                # demo binaries move out of src/, main.cpp retired
-│   ├── basic_ops.cpp        # today's main.cpp, relocated
-│   ├── linear_regression.cpp                                     [Milestone 5]
-│   └── mlp_classification.cpp                                    [Milestone 5]
-└── tests/
-    ├── test_tensor.cpp
-    ├── test_autograd.cpp                                         [Milestone 4]
-    ├── test_nn.cpp                                                [Milestone 5.2]
-    └── test_data.cpp                                              [Milestone 5.9]
-```
 
 Rationale for the specific moves:
 

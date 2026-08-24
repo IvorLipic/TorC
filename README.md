@@ -60,6 +60,7 @@ operations and a tape-based autograd system, built on CMake with GoogleTest-base
 - Loss functions: `nn::MSELoss`, `nn::CrossEntropyLoss`
 - Optimizers: `optim::SGD` with momentum, `optim::Adam`, `optim::AdamW`
 - Data loaders: `data::TensorDataset`, `data::SyntheticRegression`, `data::CSVDataset`, and `data::DataLoader` with batching and shuffling
+- End-to-end example: linear regression training on synthetic data (`examples/linear_regression/linear_regression.cpp`)
 
 ## Requirements
 
@@ -114,6 +115,26 @@ Tests use [GoogleTest](https://github.com/google/googletest), fetched automatica
 `FetchContent`. The `TorcTests` target covers `tests/test_tensor.cpp` (Tensor),
 `tests/test_autograd.cpp` (Variable / autograd), `tests/test_nn.cpp` (`nn::Module` /
 `nn::Sequential`), and `tests/test_data.cpp` (`data::TensorDataset` / `data::DataLoader`).
+
+## Run the linear regression example
+
+```bash
+./build/linear_regression_example
+```
+
+This trains `nn::Linear` on `SyntheticRegression` for 100 epochs and writes two CSV files
+to `examples/linear_regression/`: `loss_history.csv` and `predictions.csv`.
+
+## Visualize results
+
+The simplest path is the optional Python helper script using matplotlib:
+
+```bash
+python examples/linear_regression/plot_results.py
+```
+
+It reads the CSVs and saves `loss_curve.png` and `predictions.png`. If you don't have
+matplotlib, open the CSVs in Excel, Google Sheets, or LibreOffice Calc instead.
 
 ## License
 

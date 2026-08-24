@@ -63,6 +63,9 @@ target_include_directories(torc
 add_executable(torc_demo src/main.cpp)
 target_link_libraries(torc_demo PRIVATE torc)
 
+add_executable(linear_regression_example examples/linear_regression/linear_regression.cpp)
+target_link_libraries(linear_regression_example PRIVATE torc)
+
 # =============================
 # Unit tests
 # =============================

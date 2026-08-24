@@ -51,6 +51,10 @@ torc/
 │   ├── data.cpp                # Dataset / DataLoader implementation
 │   ├── matmul_blas.cpp         # CBLAS-backed matmul, compiled only when TORC_USE_BLAS=ON
 │   └── main.cpp                # demo executable
+├── examples/
+│   ├── linear_regression/
+│   │   ├── linear_regression.cpp   # end-to-end training script (Step 5.11)
+│   │   └── plot_results.py         # optional matplotlib visualization
 └── tests/
     ├── test_tensor.cpp         # GoogleTest suite for Tensor
     ├── test_autograd.cpp       # GoogleTest suite for Variable / autograd
@@ -62,6 +66,7 @@ Three build targets:
   `src/nn/linear.cpp`, `src/nn/activations.cpp`, `src/nn/losses.cpp`, `src/optim.cpp`
   (plus `src/matmul_blas.cpp` when configured with `-DTORC_USE_BLAS=ON`).
 - **`torc_demo`** — executable (`src/main.cpp`) linked against `torc`.
+- **`linear_regression_example`** — executable (`examples/linear_regression/linear_regression.cpp`) linked against `torc`.
 - **`torc_tests`** — GoogleTest executable (`tests/test_tensor.cpp` +
   `tests/test_autograd.cpp` + `tests/test_nn.cpp` + `tests/test_data.cpp`), links `torc`, registered via `enable_testing()` /
   `add_test(NAME TorcTests ...)`.
@@ -114,9 +119,10 @@ See `README.md` for the full Tensor feature list. Key highlights:
   `nn::Linear` (Step 5.3), Module forward-lifetime fix (Step 5.3a), activation functions
   (`nn::ReLU`, `nn::Sigmoid`, `nn::Softmax`, Step 5.4), loss functions (`nn::MSELoss`,
    `nn::CrossEntropyLoss`, Step 5.5), optimizers (`optim::SGD` with momentum, Step 5.6;
-   `optim::Adam`, Step 5.7; `optim::AdamW`, Step 5.8), and data loaders (`data::Dataset`,
+   `optim::Adam`, Step 5.7; `optim::AdamW`, Step 5.8), data loaders (`data::Dataset`,
    `data::TensorDataset`, `data::SyntheticRegression`, `data::CSVDataset`, `data::DataLoader`,
-   Step 5.9–5.10) are implemented — see ROADMAP.md for exact status
+   Step 5.9–5.10), and an end-to-end linear regression example (`examples/linear_regression/linear_regression.cpp`,
+   Step 5.11) are implemented — see ROADMAP.md for exact status
 - **Lifetime constraint (unenforced by the type system):** `TapeEntry.inputs` holds raw,
   non-owning `Variable*` pointers into the actual input `Variable`s, not copies. Every
   `Variable` participating in a graph must outlive `backward()` on any of that graph's
