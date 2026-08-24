@@ -19,6 +19,7 @@ using torc::nn::MSELoss;
 using torc::nn::CrossEntropyLoss;
 using torc::optim::SGD;
 using torc::optim::Adam;
+using torc::optim::AdamW;
 
 static constexpr float EPS = 1e-4f;
 static constexpr float GRAD_ATOL = 1e-2f;
@@ -548,6 +549,75 @@ TEST(Adam, SkipsParamsWithoutGrad) {
     auto params = linear.parameters();
 
     Adam optimizer(params, 0.1f);
+    optimizer.step();
+
+    const Tensor& W = linear.named_parameters().at("weight").data();
+    EXPECT_FLOAT_EQ(W.data()[0], 0.01f);
+}
+
+TEST(AdamW, StepWithoutWeightDecayBehavesLikeAdam) {
+    Linear linear(2, 3);
+    auto params = linear.parameters();
+
+    Tensor x_data({1.0f, 2.0f}, std::vector<int>{1, 2});
+    Variable x(x_data, true);
+    Variable out = linear(x);
+    Variable loss = torc::sum(out);
+    loss.backward();
+
+    AdamW optimizer(params, 0.1f, 0.0f);
+    optimizer.step();
+
+    const Tensor& W = linear.named_parameters().at("weight").data();
+    const Tensor& b = linear.named_parameters().at("bias").data();
+    expect_near(W.data()[0], 0.01f - 0.1f * 1.0f, 1e-5f);
+    expect_near(b.data()[0], 0.0f - 0.1f * 1.0f, 1e-5f);
+}
+
+TEST(AdamW, StepWithWeightDecayUpdatesParams) {
+    Linear linear(2, 3);
+    auto params = linear.parameters();
+
+    Tensor x_data({1.0f, 2.0f}, std::vector<int>{1, 2});
+    Variable x(x_data, true);
+    Variable out = linear(x);
+    Variable loss = torc::sum(out);
+    loss.backward();
+
+    AdamW optimizer(params, 0.1f, 0.01f);
+    optimizer.step();
+
+    const Tensor& W = linear.named_parameters().at("weight").data();
+    const Tensor& b = linear.named_parameters().at("bias").data();
+    expect_near(W.data()[0], 0.01f * (1.0f - 0.1f * 0.01f) - 0.1f * 1.0f, 1e-5f);
+    expect_near(b.data()[0], 0.0f - 0.1f * 1.0f, 1e-5f);
+}
+
+TEST(AdamW, ZeroGradClearsAllParamGrads) {
+    Linear linear(2, 3);
+    auto params = linear.parameters();
+
+    Tensor x_data({1.0f, 2.0f}, std::vector<int>{1, 2});
+    Variable x(x_data, true);
+    Variable out = linear(x);
+    Variable loss = torc::sum(out);
+    loss.backward();
+
+    ASSERT_TRUE(linear.named_parameters().at("weight").has_grad());
+    ASSERT_TRUE(linear.named_parameters().at("bias").has_grad());
+
+    AdamW optimizer(params, 0.1f, 0.01f);
+    optimizer.zero_grad();
+
+    EXPECT_FALSE(linear.named_parameters().at("weight").has_grad());
+    EXPECT_FALSE(linear.named_parameters().at("bias").has_grad());
+}
+
+TEST(AdamW, SkipsParamsWithoutGrad) {
+    Linear linear(2, 3);
+    auto params = linear.parameters();
+
+    AdamW optimizer(params, 0.1f, 0.01f);
     optimizer.step();
 
     const Tensor& W = linear.named_parameters().at("weight").data();

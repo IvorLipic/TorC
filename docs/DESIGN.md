@@ -547,6 +547,16 @@ based on `param->grad()`. This matches PyTorch's separation of `nn.Module` and `
 - **Test**: forward + backward on a small `Linear` model, verify `step()` updates params;
   verify `zero_grad()` clears gradients; verify `step()` skips params without grads
 
+**Step 5.8 — `optim::AdamW`**
+- `include/torc/optim.hpp` / `src/optim.cpp`
+- Constructor: `AdamW(std::vector<Variable*>& params, float lr, float weight_decay = 0.01f, float beta1 = 0.9f, float beta2 = 0.999f, float eps = 1e-8f)`
+- `step()` applies decoupled weight decay: `param = param - lr * (m_hat / (sqrt(v_hat) + eps) + weight_decay * param)`
+  - Weight decay is added directly to the parameter update rather than being injected into the gradient
+  - This matches PyTorch's `torch.optim.AdamW` behavior
+- Maintains the same `m_`, `v_`, and bias correction state as `Adam`
+- **Test**: forward + backward on a small `Linear` model, verify `step()` with `weight_decay=0.0`
+  matches `Adam` behavior; verify `weight_decay > 0` reduces parameters additionally
+
 ### Data loader design
 
 Data loading is the thinnest possible wrapper around a dataset, matching PyTorch's
@@ -596,7 +606,7 @@ torc/
 │       │   ├── linear.hpp   # nn::Linear                          [Milestone 5.3]
 │       │   ├── activations.hpp # nn::ReLU, nn::Sigmoid, etc.     [Milestone 5.4]
 │       │   └── losses.hpp   # nn::MSELoss, nn::CrossEntropyLoss   [Milestone 5.5]
-│       ├── optim.hpp        # SGD, Adam, AdamW                    [Milestone 5.6-5.7]
+│       ├── optim.hpp        # SGD, Adam, AdamW                    [Milestone 5.6-5.8]
 │       └── data.hpp         # Dataset, DataLoader                 [Milestone 5]
 ├── src/
 │   ├── tensor.cpp

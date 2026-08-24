@@ -113,8 +113,8 @@ See `README.md` for the full Tensor feature list. Key highlights:
   `nn::Linear` (Step 5.3), Module forward-lifetime fix (Step 5.3a), activation functions
   (`nn::ReLU`, `nn::Sigmoid`, `nn::Softmax`, Step 5.4), loss functions (`nn::MSELoss`,
   `nn::CrossEntropyLoss`, Step 5.5), optimizers (`optim::SGD` with momentum, Step 5.6;
-  `optim::Adam`, Step 5.7) are implemented; data loaders are not yet implemented — see
-  ROADMAP.md for exact status
+  `optim::Adam`, Step 5.7; `optim::AdamW`, Step 5.8) are implemented; data loaders are not yet
+  implemented — see ROADMAP.md for exact status
 - **Lifetime constraint (unenforced by the type system):** `TapeEntry.inputs` holds raw,
   non-owning `Variable*` pointers into the actual input `Variable`s, not copies. Every
   `Variable` participating in a graph must outlive `backward()` on any of that graph's
@@ -134,7 +134,7 @@ each with gradient checks against central finite differences where applicable. S
 - Tests cover parameter registration, forward/backward for `nn::Linear`, activation modules
   (`ReLU`, `Sigmoid`, `Softmax`) with gradient checks, loss functions (`MSELoss`,
   `CrossEntropyLoss`) with forward correctness and numerical gradient checks, and optimizers
-  (`optim::SGD` with momentum, `optim::Adam`) with step/zero_grad behavior.
+  (`optim::SGD` with momentum, `optim::Adam`, `optim::AdamW`) with step/zero_grad behavior.
 - For full API details and design rationale, see `docs/DESIGN.md`'s Milestone 5 section.
 
 ---
