@@ -431,6 +431,82 @@ TEST(TensorElementwiseAutograd, GradCheckMulBroadcast) {
 }
 
 // ============================================================
+// Unary transcendental ops backward (sqrt, log)
+// ============================================================
+
+static Tensor numerical_grad_sqrt(const Tensor& a) {
+    Tensor g(a.shape());
+    float h = 1e-4f;
+    for (int i = 0; i < a.numel(); ++i) {
+        Tensor a_ph = a; a_ph.data()[i] += h;
+        Tensor a_mh = a; a_mh.data()[i] -= h;
+        float f_ph = a_ph.sqrt().sum();
+        float f_mh = a_mh.sqrt().sum();
+        g.data()[i] = (f_ph - f_mh) / (2.0f * h);
+    }
+    return g;
+}
+
+static Tensor numerical_grad_log(const Tensor& a) {
+    Tensor g(a.shape());
+    float h = 1e-4f;
+    for (int i = 0; i < a.numel(); ++i) {
+        Tensor a_ph = a; a_ph.data()[i] += h;
+        Tensor a_mh = a; a_mh.data()[i] -= h;
+        float f_ph = a_ph.log().sum();
+        float f_mh = a_mh.log().sum();
+        g.data()[i] = (f_ph - f_mh) / (2.0f * h);
+    }
+    return g;
+}
+
+TEST(UnaryAutograd, SqrtBackwardMatchesChainRule) {
+    Tensor a_data({1.0f, 4.0f, 9.0f}, std::vector<int>{3});
+    Variable a(a_data, true);
+    Variable c = torc::sqrt(a);
+    Variable loss = torc::sum(c);
+    loss.backward();
+    ASSERT_TRUE(a.has_grad());
+    expect_near(a.grad().data()[0], 0.5f);
+    expect_near(a.grad().data()[1], 0.25f);
+    expect_near(a.grad().data()[2], 1.0f / 6.0f);
+}
+
+TEST(UnaryAutograd, SqrtGradCheck) {
+    Tensor a_data({1.0f, 4.0f, 9.0f, 16.0f}, std::vector<int>{2, 2});
+    Variable a(a_data, true);
+    Variable c = torc::sqrt(a);
+    Variable loss = torc::sum(c);
+    loss.backward();
+    Tensor num_grad = numerical_grad_sqrt(a_data);
+    for (int i = 0; i < a_data.numel(); ++i)
+        expect_near(a.grad().data()[i], num_grad.data()[i]);
+}
+
+TEST(UnaryAutograd, LogBackwardMatchesChainRule) {
+    Tensor a_data({1.0f, 2.0f, 4.0f}, std::vector<int>{3});
+    Variable a(a_data, true);
+    Variable c = torc::log(a);
+    Variable loss = torc::sum(c);
+    loss.backward();
+    ASSERT_TRUE(a.has_grad());
+    expect_near(a.grad().data()[0], 1.0f);
+    expect_near(a.grad().data()[1], 0.5f);
+    expect_near(a.grad().data()[2], 0.25f);
+}
+
+TEST(UnaryAutograd, LogGradCheck) {
+    Tensor a_data({1.0f, 2.0f, 4.0f, 8.0f}, std::vector<int>{2, 2});
+    Variable a(a_data, true);
+    Variable c = torc::log(a);
+    Variable loss = torc::sum(c);
+    loss.backward();
+    Tensor num_grad = numerical_grad_log(a_data);
+    for (int i = 0; i < a_data.numel(); ++i)
+        expect_near(a.grad().data()[i], num_grad.data()[i]);
+}
+
+// ============================================================
 // Step 4: Reduction ops backward (sum / mean)
 // ============================================================
 

@@ -235,6 +235,30 @@ TEST(TensorExp, NegativeValues) {
     EXPECT_FLOAT_EQ(c.data()[2], std::exp(1.0f));
 }
 
+TEST(TensorSqrt, BasicValues) {
+    Tensor a({0.0f, 1.0f, 4.0f, 9.0f}, {4});
+    Tensor c = a.sqrt();
+    EXPECT_FLOAT_EQ(c.data()[0], 0.0f);
+    EXPECT_FLOAT_EQ(c.data()[1], 1.0f);
+    EXPECT_FLOAT_EQ(c.data()[2], 2.0f);
+    EXPECT_FLOAT_EQ(c.data()[3], 3.0f);
+}
+
+TEST(TensorSqrt, PreservesShape) {
+    Tensor a({1.0f, 4.0f, 9.0f, 16.0f}, {2, 2});
+    Tensor c = a.sqrt();
+    EXPECT_TRUE(c.shape() == a.shape());
+}
+
+TEST(TensorSqrt, NegativeValues) {
+    Tensor a({-4.0f, -1.0f, 0.0f, 1.0f}, {4});
+    Tensor c = a.sqrt();
+    EXPECT_TRUE(std::isnan(c.data()[0]));
+    EXPECT_TRUE(std::isnan(c.data()[1]));
+    EXPECT_FLOAT_EQ(c.data()[2], 0.0f);
+    EXPECT_FLOAT_EQ(c.data()[3], 1.0f);
+}
+
 TEST(TensorReductions, WholeTensorSum) {
     Tensor t({1.0f, 2.0f, 3.0f, 4.0f}, {2, 2});
     EXPECT_FLOAT_EQ(t.sum(), 10.0f);
