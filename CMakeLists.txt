@@ -27,6 +27,9 @@ target_link_libraries(torc_demo PRIVATE torc)
 add_executable(linear_regression_example examples/linear_regression/linear_regression.cpp)
 target_link_libraries(linear_regression_example PRIVATE torc)
 
+add_executable(mnist_mlp_example examples/mnist_mlp/mnist_mlp.cpp)
+target_link_libraries(mnist_mlp_example PRIVATE torc)
+
 # =============================
 # Unit tests
 # =============================

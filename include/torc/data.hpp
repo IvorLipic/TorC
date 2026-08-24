@@ -51,11 +51,23 @@ public:
     size_t len() const override;
     std::pair<Tensor, Tensor> get(size_t idx) const override;
 
+    static std::vector<std::string> split_line(const std::string& line, char delimiter);
+    static float parse_float(const std::string& token);
+
 private:
     Tensor xs_;
     Tensor ys_;
-    static std::vector<std::string> split_line(const std::string& line, char delimiter);
-    static float parse_float(const std::string& token);
+};
+
+class MNISTDataset : public Dataset {
+public:
+    MNISTDataset(const std::string& filepath);
+    size_t len() const override;
+    std::pair<Tensor, Tensor> get(size_t idx) const override;
+
+private:
+    Tensor xs_;
+    Tensor ys_;
 };
 
 class DataLoader {

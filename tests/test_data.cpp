@@ -3,13 +3,28 @@
 #include <algorithm>
 #include <fstream>
 #include <string>
+#include <sstream>
 
 using torc::Tensor;
 using torc::data::Dataset;
 using torc::data::TensorDataset;
 using torc::data::SyntheticRegression;
 using torc::data::CSVDataset;
+using torc::data::MNISTDataset;
 using torc::data::DataLoader;
+
+static std::string write_csv(const std::vector<std::vector<float>>& rows, char delim = ',') {
+    std::string path = "test_data_tmp.csv";
+    std::ofstream file(path);
+    for (const auto& row : rows) {
+        for (size_t i = 0; i < row.size(); ++i) {
+            if (i > 0) file << delim;
+            file << row[i];
+        }
+        file << "\n";
+    }
+    return path;
+}
 
 TEST(TensorDatasetTest, LenReturnsNumberOfSamples) {
     Tensor xs({1.0f, 2.0f, 3.0f, 4.0f}, {2, 2});
@@ -179,14 +194,7 @@ TEST(SyntheticRegressionTest, DifferentSeedProducesDifferentData) {
 }
 
 TEST(CSVDatasetTest, LoadSimpleCSV) {
-    std::string path = "test_simple.csv";
-    {
-        std::ofstream file(path);
-        file << "1.0,2.0,3.0\n";
-        file << "4.0,5.0,6.0\n";
-        file << "7.0,8.0,9.0\n";
-    }
-
+    auto path = write_csv({{1.0f, 2.0f, 3.0f}, {4.0f, 5.0f, 6.0f}, {7.0f, 8.0f, 9.0f}});
     CSVDataset::Options opts;
     opts.feature_cols = 2;
     opts.target_col = 2;
@@ -230,13 +238,7 @@ TEST(CSVDatasetTest, SkipHeader) {
 }
 
 TEST(CSVDatasetTest, CustomDelimiter) {
-    std::string path = "test_semicolon.csv";
-    {
-        std::ofstream file(path);
-        file << "1.0;2.0;3.0\n";
-        file << "4.0;5.0;6.0\n";
-    }
-
+    auto path = write_csv({{1.0f, 2.0f, 3.0f}, {4.0f, 5.0f, 6.0f}}, ';');
     CSVDataset::Options opts;
     opts.delimiter = ';';
     opts.feature_cols = 2;
@@ -268,15 +270,50 @@ TEST(CSVDatasetTest, FileNotFoundThrows) {
 }
 
 TEST(CSVDatasetTest, InconsistentColumnsThrows) {
-    std::string path = "test_inconsistent.csv";
-    {
-        std::ofstream file(path);
-        file << "1.0,2.0,3.0\n";
-        file << "4.0,5.0\n";
-    }
-
+    auto path = write_csv({{1.0f, 2.0f, 3.0f}, {4.0f, 5.0f}});
     EXPECT_THROW(CSVDataset ds(path, CSVDataset::Options()), std::runtime_error);
-
     std::remove(path.c_str());
 }
 
+TEST(MNISTDatasetTest, LenReturnsSamples) {
+    auto path = write_csv({{5.0f,0.1f,0.2f,0.3f},{3.0f,0.4f,0.5f,0.6f}});
+    MNISTDataset ds(path);
+    EXPECT_EQ(ds.len(), 2);
+    std::remove(path.c_str());
+}
+
+TEST(MNISTDatasetTest, GetShapeAndValues) {
+    auto path = write_csv({{5.0f,0.1f,0.2f,0.3f},{3.0f,0.4f,0.5f,0.6f}});
+    MNISTDataset ds(path);
+    auto [x0, y0] = ds.get(0);
+    EXPECT_EQ(x0.shape().size(), 1);
+    EXPECT_EQ(x0.shape()[0], 3);
+    EXPECT_EQ(y0.shape().size(), 1);
+    EXPECT_EQ(y0.shape()[0], 1);
+    EXPECT_FLOAT_EQ(y0.data()[0], 5.0f);
+    EXPECT_FLOAT_EQ(x0.data()[0], 0.1f / 255.0f);
+    EXPECT_FLOAT_EQ(x0.data()[1], 0.2f / 255.0f);
+    EXPECT_FLOAT_EQ(x0.data()[2], 0.3f / 255.0f);
+    std::remove(path.c_str());
+}
+
+TEST(MNISTDatasetTest, PixelsDividedBy255) {
+    auto path = write_csv({{1.0f,255.0f,128.0f,0.0f}});
+    MNISTDataset ds(path);
+    auto [x0, y0] = ds.get(0);
+    EXPECT_FLOAT_EQ(x0.data()[0], 1.0f);
+    EXPECT_FLOAT_EQ(x0.data()[1], 128.0f / 255.0f);
+    EXPECT_FLOAT_EQ(x0.data()[2], 0.0f);
+    std::remove(path.c_str());
+}
+
+TEST(MNISTDatasetTest, InconsistentColumnsThrows) {
+    std::string path = "test_mnist_bad.csv";
+    {
+        std::ofstream file(path);
+        file << "5,0.1,0.2\n";
+        file << "3,0.4,0.5,0.6\n";
+    }
+    EXPECT_THROW(MNISTDataset ds(path), std::runtime_error);
+    std::remove(path.c_str());
+}

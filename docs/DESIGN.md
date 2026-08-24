@@ -575,11 +575,12 @@ based on `param->grad()`. This matches PyTorch's separation of `nn.Module` and `
   - `CSVDataset::Options` controls `has_header`, `delimiter`, `feature_cols`, `target_col`
   - Reads all rows into `Tensor` storage at construction; `get(idx)` slices like `TensorDataset`
   - Validates consistent column counts and parseable floats
-- **Extensibility for MNIST / NLP**: the `Dataset` abstraction is format-agnostic. Future
-  `MNISTDataset` (image bytes → flattened float Tensors) and `TextDataset` / `SequenceDataset`
-  (token vocab + padded sequences) will subclass `Dataset` directly without changing `DataLoader`
+- **Extensibility for future datasets**: the `Dataset` abstraction is format-agnostic. Future
+  `TextDataset` / `SequenceDataset` (token vocab + padded sequences) will subclass `Dataset`
+  directly without changing `DataLoader`
 - **Test**: `SyntheticRegression` shape, values, reproducibility; `CSVDataset` loading,
   header skipping, custom delimiter, malformed-line error, missing-file error, inconsistent
+  columns error; `MNISTDataset` loading, length, shape, pixel normalization, inconsistent
   columns error
 
 **Step 5.11 — End-to-end linear regression example**
@@ -593,6 +594,15 @@ based on `param->grad()`. This matches PyTorch's separation of `nn.Module` and `
   (`examples/linear_regression/plot_results.py`) using matplotlib. It reads the two CSVs and produces
   `loss_curve.png` and `predictions.png`. The C++ binary has zero plotting dependencies;
   users without Python can open the CSVs in Excel/Google Sheets/LibreOffice Calc.
+
+**Step 5.12 — End-to-end MLP on MNIST**
+- `examples/mnist_mlp/mnist_mlp.cpp` — trains a 2-layer MLP (`Linear(784, 128) → ReLU → Linear(128, 10)`)
+  on `data::MNISTDataset` using `optim::Adam` and `nn::CrossEntropyLoss`
+- `MNISTDataset` in `include/torc/data.hpp` / `src/data.cpp` — loads MNIST-format CSV files
+  (label + 784 pixels per row), normalizes pixels to `[0, 1]` by dividing by 255
+- Training loop uses `DataLoader` for batching and shuffling
+- Prints epoch loss and accuracy to stdout
+- Saves `loss_history.csv` (epoch, loss) for external visualization
 
 ### Data loader design
 

@@ -282,4 +282,92 @@ std::pair<Tensor, Tensor> CSVDataset::get(size_t idx) const {
     return {std::move(x), std::move(y)};
 }
 
+MNISTDataset::MNISTDataset(const std::string& filepath)
+    : xs_(std::vector<int>{0}), ys_(std::vector<int>{0}) {
+    std::ifstream file(filepath);
+    if (!file.is_open()) {
+        throw std::runtime_error("MNISTDataset: cannot open file: " + filepath);
+    }
+
+    std::vector<std::vector<float>> rows;
+    std::string line;
+    size_t line_num = 0;
+    size_t expected_cols = 0;
+
+    while (std::getline(file, line)) {
+        ++line_num;
+        if (line.empty()) continue;
+
+        auto tokens = CSVDataset::split_line(line, ',');
+        if (tokens.empty()) continue;
+
+        size_t total_cols = tokens.size();
+        if (expected_cols == 0) {
+            expected_cols = total_cols;
+        } else if (total_cols != expected_cols) {
+            throw std::runtime_error("MNISTDataset: inconsistent column count at line " + std::to_string(line_num));
+        }
+
+        if (expected_cols < 2) {
+            throw std::runtime_error("MNISTDataset: expected at least 2 columns (label + pixels), got " + std::to_string(expected_cols) + " at line " + std::to_string(line_num));
+        }
+
+        std::vector<float> row;
+        row.reserve(total_cols);
+        for (const auto& token : tokens) {
+            row.push_back(CSVDataset::parse_float(token));
+        }
+        rows.push_back(std::move(row));
+    }
+
+    if (rows.empty()) {
+        throw std::runtime_error("MNISTDataset: no data rows found in file: " + filepath);
+    }
+
+    size_t num_samples = rows.size();
+    int num_pixels = static_cast<int>(expected_cols - 1);
+    xs_ = Tensor(std::vector<int>{static_cast<int>(num_samples), num_pixels});
+    ys_ = Tensor(std::vector<int>{static_cast<int>(num_samples), 1});
+
+    for (size_t i = 0; i < num_samples; ++i) {
+        ys_.data()[i] = rows[i][0];
+        for (size_t j = 0; j < static_cast<size_t>(num_pixels); ++j) {
+            xs_.data()[i * num_pixels + j] = rows[i][j + 1] / 255.0f;
+        }
+    }
+}
+
+size_t MNISTDataset::len() const {
+    return xs_.shape().front();
+}
+
+std::pair<Tensor, Tensor> MNISTDataset::get(size_t idx) const {
+    if (idx >= len()) {
+        throw std::out_of_range("MNISTDataset::get: index out of range");
+    }
+
+    auto xs_shape = xs_.shape();
+    auto ys_shape = ys_.shape();
+
+    std::vector<Tensor::Slice> x_slices(xs_shape.size());
+    x_slices[0] = Tensor::Slice{static_cast<int>(idx), static_cast<int>(idx) + 1};
+    for (size_t i = 1; i < xs_shape.size(); ++i) {
+        x_slices[i] = Tensor::Slice{0, xs_shape[i]};
+    }
+    Tensor x = xs_.slice(x_slices);
+    std::vector<int> x_sample_shape(xs_shape.begin() + 1, xs_shape.end());
+    x = x.reshape(x_sample_shape);
+
+    std::vector<Tensor::Slice> y_slices(ys_shape.size());
+    y_slices[0] = Tensor::Slice{static_cast<int>(idx), static_cast<int>(idx) + 1};
+    for (size_t i = 1; i < ys_shape.size(); ++i) {
+        y_slices[i] = Tensor::Slice{0, ys_shape[i]};
+    }
+    Tensor y = ys_.slice(y_slices);
+    std::vector<int> y_sample_shape(ys_shape.begin() + 1, ys_shape.end());
+    y = y.reshape(y_sample_shape);
+
+    return {std::move(x), std::move(y)};
+}
+
 } // namespace torc::data

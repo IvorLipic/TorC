@@ -91,8 +91,7 @@ Each step must pass tests before proceeding.
 - [x] **Step 5.10**: Toy dataset loaders — synthetic regression dataset, then a small CSV-backed
       classification dataset
 - [x] **Step 5.11**: End-to-end example — linear regression on a synthetic dataset
-- [ ] **Step 5.12**: End-to-end example — small MLP on a toy classification dataset (e.g.
-      MNIST-subset or synthetic blobs)
+- [x] **Step 5.12**: End-to-end example — small MLP on MNIST
 - [ ] **Step 5.13**: `nn::LayerNorm` — per-row variance (`mean(x^2) - mean(x)^2`) using
       existing `mul`/`mean(axis)`; test on `{batch, features}` tensors
 - [ ] **Step 5.14**: Embedding lookup / gather-by-index — `Tensor::slice()` is contiguous-range

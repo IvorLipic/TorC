@@ -58,8 +58,8 @@ operations and a tape-based autograd system, built on CMake with GoogleTest-base
 - Activation modules: `nn::ReLU`, `nn::Sigmoid`, `nn::Softmax`
 - Loss functions: `nn::MSELoss`, `nn::CrossEntropyLoss`
 - Optimizers: `optim::SGD` with momentum, `optim::Adam`, `optim::AdamW`
-- Data loaders: `data::TensorDataset`, `data::SyntheticRegression`, `data::CSVDataset`, and `data::DataLoader` with batching and shuffling
-- End-to-end example: linear regression training on synthetic data (`examples/linear_regression/linear_regression.cpp`)
+- Data loaders: `data::TensorDataset`, `data::SyntheticRegression`, `data::CSVDataset`, `data::MNISTDataset`, and `data::DataLoader` with batching and shuffling
+- End-to-end examples: linear regression (`examples/linear_regression/linear_regression.cpp`) and MNIST MLP (`examples/mnist_mlp/mnist_mlp.cpp`)
 
 ## Requirements
 
@@ -99,6 +99,17 @@ Tests use [GoogleTest](https://github.com/google/googletest), fetched automatica
 
 This trains `nn::Linear` on `SyntheticRegression` for 100 epochs and writes two CSV files
 to `examples/linear_regression/`: `loss_history.csv` and `predictions.csv`.
+
+## Run the MNIST MLP example
+
+```bash
+./build/mnist_mlp_example <path/to/mnist_train.csv>
+```
+
+Trains a 2-layer MLP (`Linear(784, 128) → ReLU → Linear(128, 10)`) on MNIST-format CSV data
+for 3 epochs using `Adam` and `CrossEntropyLoss`. The CSV should have 785 columns per row
+(label + 784 pixels, pixels normalized to `[0, 1]`). Download from
+[kaggle.com/c/digit-recognizer/data](https://www.kaggle.com/c/digit-recognizer/data).
 
 ## Visualize results
 
