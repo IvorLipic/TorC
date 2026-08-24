@@ -47,7 +47,8 @@ torc/
 │   │   ├── linear.cpp          # nn::Linear forward
 │   │   └── activations.cpp     # activation forward functions
 │   │   └── losses.cpp          # loss function forward/backward
-│   ├── optim.cpp               # SGD step/zero_grad
+│   ├── optim.cpp               # SGD/Adam/AdamW step/zero_grad
+│   ├── data.cpp                # Dataset / DataLoader implementation
 │   ├── matmul_blas.cpp         # CBLAS-backed matmul, compiled only when TORC_USE_BLAS=ON
 │   └── main.cpp                # demo executable
 └── tests/
@@ -62,7 +63,7 @@ Three build targets:
   (plus `src/matmul_blas.cpp` when configured with `-DTORC_USE_BLAS=ON`).
 - **`torc_demo`** — executable (`src/main.cpp`) linked against `torc`.
 - **`torc_tests`** — GoogleTest executable (`tests/test_tensor.cpp` +
-  `tests/test_autograd.cpp` + `tests/test_nn.cpp`), links `torc`, registered via `enable_testing()` /
+  `tests/test_autograd.cpp` + `tests/test_nn.cpp` + `tests/test_data.cpp`), links `torc`, registered via `enable_testing()` /
   `add_test(NAME TorcTests ...)`.
 
 C++23. GoogleTest (`v1.14.0`) is pulled in for tests via `FetchContent`; the only other
@@ -112,9 +113,9 @@ See `README.md` for the full Tensor feature list. Key highlights:
 - **Milestone 5 in progress**: `nn::Module` base class and `nn::Sequential` container (Step 5.2),
   `nn::Linear` (Step 5.3), Module forward-lifetime fix (Step 5.3a), activation functions
   (`nn::ReLU`, `nn::Sigmoid`, `nn::Softmax`, Step 5.4), loss functions (`nn::MSELoss`,
-  `nn::CrossEntropyLoss`, Step 5.5), optimizers (`optim::SGD` with momentum, Step 5.6;
-  `optim::Adam`, Step 5.7; `optim::AdamW`, Step 5.8) are implemented; data loaders are not yet
-  implemented — see ROADMAP.md for exact status
+   `nn::CrossEntropyLoss`, Step 5.5), optimizers (`optim::SGD` with momentum, Step 5.6;
+   `optim::Adam`, Step 5.7; `optim::AdamW`, Step 5.8), and data loaders (`data::Dataset`,
+   `data::DataLoader`, Step 5.9) are implemented — see ROADMAP.md for exact status
 - **Lifetime constraint (unenforced by the type system):** `TapeEntry.inputs` holds raw,
   non-owning `Variable*` pointers into the actual input `Variable`s, not copies. Every
   `Variable` participating in a graph must outlive `backward()` on any of that graph's
@@ -135,6 +136,8 @@ each with gradient checks against central finite differences where applicable. S
   (`ReLU`, `Sigmoid`, `Softmax`) with gradient checks, loss functions (`MSELoss`,
   `CrossEntropyLoss`) with forward correctness and numerical gradient checks, and optimizers
   (`optim::SGD` with momentum, `optim::Adam`, `optim::AdamW`) with step/zero_grad behavior.
+- `tests/test_data.cpp` covers `data::TensorDataset` construction and indexing, and
+  `data::DataLoader` batching, shuffling, and epoch reset.
 - For full API details and design rationale, see `docs/DESIGN.md`'s Milestone 5 section.
 
 ---

@@ -46,6 +46,7 @@ add_library(torc
     src/nn/activations.cpp
     src/nn/losses.cpp
     src/optim.cpp
+    src/data.cpp
 )
 
 if(TORC_USE_BLAS)
@@ -79,6 +80,7 @@ add_executable(torc_tests
     tests/test_tensor.cpp
     tests/test_autograd.cpp
     tests/test_nn.cpp
+    tests/test_data.cpp
 )
 
 target_include_directories(torc_tests

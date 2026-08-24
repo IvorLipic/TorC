@@ -557,6 +557,24 @@ based on `param->grad()`. This matches PyTorch's separation of `nn.Module` and `
 - **Test**: forward + backward on a small `Linear` model, verify `step()` with `weight_decay=0.0`
   matches `Adam` behavior; verify `weight_decay > 0` reduces parameters additionally
 
+**Step 5.9 — `data::Dataset` + `data::DataLoader`**
+- `include/torc/data.hpp` / `src/data.cpp`
+- `Dataset` is an abstract base class with `virtual size_t len() const = 0` and
+  `virtual std::pair<Tensor, Tensor> get(size_t idx) const = 0` — returns `(x, y)` as
+  `Tensor`s, not `Variable`s
+- `TensorDataset(Tensor xs, Tensor ys)` stores `xs` and `ys` by value; `get(idx)` slices the
+  first dimension and reshapes to remove the sample axis
+- `DataLoader(const Dataset& dataset, size_t batch_size, bool shuffle = false)`:
+  - `std::pair<Tensor, Tensor> next_batch()` — stacks individual samples into batched tensors
+    with the batch dimension prepended; the last batch may be smaller
+  - `bool has_next() const` — true if the current epoch has more batches
+  - `void reset()` — starts a new epoch; reshuffles indices if `shuffle` was set
+- **PyTorch pattern followed**: map-style Dataset with `__len__` / `__getitem__` semantics,
+  `DataLoader` as the sampling/batching layer, shuffle applied at epoch start
+- **No multiprocessing / collate_fn yet** — kept minimal for Milestone 5
+- **Test**: `TensorDataset` construction, indexing, out-of-range error, mismatched sample count;
+  `DataLoader` iteration, batch shape, last-batch size, shuffle permutation, reset, empty dataset
+
 ### Data loader design
 
 Data loading is the thinnest possible wrapper around a dataset, matching PyTorch's
@@ -569,8 +587,11 @@ Data loading is the thinnest possible wrapper around a dataset, matching PyTorch
     is needed.
 - **`data::DataLoader`** takes a `Dataset` and produces batches:
   - `DataLoader(const Dataset& ds, size_t batch_size, bool shuffle = false)`
-  - `std::vector<std::pair<Tensor, Tensor>> next_batch()` — returns a batch of `(x, y)` pairs
-    as `Tensor`s; user is responsible for stacking/reshaping into a batched `Tensor`
+  - `std::pair<Tensor, Tensor> next_batch()` — returns `(x_batch, y_batch)` with the batch
+    dimension prepended (shape `{batch_size, *sample_shape}`); the last batch may be smaller
+    if `len(ds) % batch_size != 0`
+  - `bool has_next() const` — true if the current epoch has more batches
+  - `void reset()` — starts a new epoch; reshuffles indices if `shuffle` was set
 - **No collation / padding yet.** Every dataset sample must have the same shape; `DataLoader`
   does not handle ragged inputs. This keeps the first implementation minimal and deferrable.
 - **Synthetic loaders first**: Steps 5.9–5.10 should build a synthetic regression dataset and
@@ -600,34 +621,34 @@ torc/
 │   └── torc/
 │       ├── tensor.hpp
 │       ├── utils.hpp
-│       ├── autograd.hpp     # Variable, TapeEntry, backward()    [Milestone 4 — landed]
-│       ├── nn.hpp           # Module base + Sequential           [Milestone 5.2 — landed]
+│       ├── autograd.hpp     # Variable, TapeEntry, backward()    [Milestone 4]
+│       ├── nn.hpp           # Module base + Sequential           [Milestone 5.2]
 │       ├── nn/
 │       │   ├── linear.hpp   # nn::Linear                          [Milestone 5.3]
 │       │   ├── activations.hpp # nn::ReLU, nn::Sigmoid, etc.     [Milestone 5.4]
 │       │   └── losses.hpp   # nn::MSELoss, nn::CrossEntropyLoss   [Milestone 5.5]
 │       ├── optim.hpp        # SGD, Adam, AdamW                    [Milestone 5.6-5.8]
-│       └── data.hpp         # Dataset, DataLoader                 [Milestone 5]
+│       └── data.hpp         # Dataset, DataLoader                 [Milestone 5.9]
 ├── src/
 │   ├── tensor.cpp
-│   ├── autograd.cpp                                              [Milestone 4 — landed]
-│   ├── nn.cpp                                                   [Milestone 5.2 — landed]
+│   ├── autograd.cpp                                              [Milestone 4]
+│   ├── nn.cpp                                                   [Milestone 5.2]
 │   ├── nn/
 │   │   ├── linear.cpp                                            [Milestone 5.3]
 │   │   ├── activations.cpp                                       [Milestone 5.4]
 │   │   └── losses.cpp                                             [Milestone 5.5]
-│   ├── optim.cpp                                                 [Milestone 5.6-5.7]
-│   └── matmul_blas.cpp                                           [Milestone 3 — landed]
+│   ├── optim.cpp                                                 [Milestone 5.6-5.8]
+│   ├── data.cpp                                                  [Milestone 5.9]
+│   └── matmul_blas.cpp                                           [Milestone 3]
 ├── examples/                # demo binaries move out of src/, main.cpp retired
 │   ├── basic_ops.cpp        # today's main.cpp, relocated
 │   ├── linear_regression.cpp                                     [Milestone 5]
 │   └── mlp_classification.cpp                                    [Milestone 5]
 └── tests/
     ├── test_tensor.cpp
-    ├── test_autograd.cpp                                         [Milestone 4 — landed]
-    ├── test_nn.cpp                                                [Milestone 5.2 — landed]
-    ├── test_optim.cpp                                             [Milestone 5]
-    └── test_data.cpp                                              [Milestone 5]
+    ├── test_autograd.cpp                                         [Milestone 4]
+    ├── test_nn.cpp                                                [Milestone 5.2]
+    └── test_data.cpp                                              [Milestone 5.9]
 ```
 
 Rationale for the specific moves:

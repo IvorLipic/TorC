@@ -59,8 +59,7 @@ operations and a tape-based autograd system, built on CMake with GoogleTest-base
 - Activation modules: `nn::ReLU`, `nn::Sigmoid`, `nn::Softmax`
 - Loss functions: `nn::MSELoss`, `nn::CrossEntropyLoss`
 - Optimizers: `optim::SGD` with momentum, `optim::Adam`, `optim::AdamW`
-- Data loaders are not yet implemented — see
-  [ROADMAP.md](ROADMAP.md) for exact status
+- Data loaders: `data::TensorDataset` and `data::DataLoader` with batching and shuffling
 
 ## Requirements
 
@@ -113,8 +112,8 @@ ctest --test-dir build --output-on-failure
 
 Tests use [GoogleTest](https://github.com/google/googletest), fetched automatically via CMake
 `FetchContent`. The `TorcTests` target covers `tests/test_tensor.cpp` (Tensor),
-`tests/test_autograd.cpp` (Variable / autograd), and `tests/test_nn.cpp` (`nn::Module` /
-`nn::Sequential`).
+`tests/test_autograd.cpp` (Variable / autograd), `tests/test_nn.cpp` (`nn::Module` /
+`nn::Sequential`), and `tests/test_data.cpp` (`data::TensorDataset` / `data::DataLoader`).
 
 ## License
 
