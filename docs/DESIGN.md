@@ -575,6 +575,21 @@ based on `param->grad()`. This matches PyTorch's separation of `nn.Module` and `
 - **Test**: `TensorDataset` construction, indexing, out-of-range error, mismatched sample count;
   `DataLoader` iteration, batch shape, last-batch size, shuffle permutation, reset, empty dataset
 
+**Step 5.10 — Toy dataset loaders**
+- `SyntheticRegression` in `include/torc/data.hpp` / `src/data.cpp` — generates `(x, y)` pairs
+  in-memory with configurable `num_samples`, `num_features`, `weight`, `bias`, `noise_std`,
+  and `seed`; follows PyTorch's `sklearn.datasets.make_regression` pattern
+- `CSVDataset` in `include/torc/data.hpp` / `src/data.cpp` — loads tabular data from a file:
+  - `CSVDataset::Options` controls `has_header`, `delimiter`, `feature_cols`, `target_col`
+  - Reads all rows into `Tensor` storage at construction; `get(idx)` slices like `TensorDataset`
+  - Validates consistent column counts and parseable floats
+- **Extensibility for MNIST / NLP**: the `Dataset` abstraction is format-agnostic. Future
+  `MNISTDataset` (image bytes → flattened float Tensors) and `TextDataset` / `SequenceDataset`
+  (token vocab + padded sequences) will subclass `Dataset` directly without changing `DataLoader`
+- **Test**: `SyntheticRegression` shape, values, reproducibility; `CSVDataset` loading,
+  header skipping, custom delimiter, malformed-line error, missing-file error, inconsistent
+  columns error
+
 ### Data loader design
 
 Data loading is the thinnest possible wrapper around a dataset, matching PyTorch's
@@ -628,7 +643,7 @@ torc/
 │       │   ├── activations.hpp # nn::ReLU, nn::Sigmoid, etc.     [Milestone 5.4]
 │       │   └── losses.hpp   # nn::MSELoss, nn::CrossEntropyLoss   [Milestone 5.5]
 │       ├── optim.hpp        # SGD, Adam, AdamW                    [Milestone 5.6-5.8]
-│       └── data.hpp         # Dataset, DataLoader                 [Milestone 5.9]
+│       └── data.hpp         # Dataset, DataLoader, SyntheticRegression, CSVDataset [Milestone 5.9-5.10]
 ├── src/
 │   ├── tensor.cpp
 │   ├── autograd.cpp                                              [Milestone 4]
@@ -638,7 +653,7 @@ torc/
 │   │   ├── activations.cpp                                       [Milestone 5.4]
 │   │   └── losses.cpp                                             [Milestone 5.5]
 │   ├── optim.cpp                                                 [Milestone 5.6-5.8]
-│   ├── data.cpp                                                  [Milestone 5.9]
+│   ├── data.cpp                                                  [Milestone 5.9-5.10]
 │   └── matmul_blas.cpp                                           [Milestone 3]
 ├── examples/                # demo binaries move out of src/, main.cpp retired
 │   ├── basic_ops.cpp        # today's main.cpp, relocated

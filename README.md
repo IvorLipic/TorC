@@ -59,7 +59,7 @@ operations and a tape-based autograd system, built on CMake with GoogleTest-base
 - Activation modules: `nn::ReLU`, `nn::Sigmoid`, `nn::Softmax`
 - Loss functions: `nn::MSELoss`, `nn::CrossEntropyLoss`
 - Optimizers: `optim::SGD` with momentum, `optim::Adam`, `optim::AdamW`
-- Data loaders: `data::TensorDataset` and `data::DataLoader` with batching and shuffling
+- Data loaders: `data::TensorDataset`, `data::SyntheticRegression`, `data::CSVDataset`, and `data::DataLoader` with batching and shuffling
 
 ## Requirements
 

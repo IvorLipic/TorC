@@ -115,7 +115,8 @@ See `README.md` for the full Tensor feature list. Key highlights:
   (`nn::ReLU`, `nn::Sigmoid`, `nn::Softmax`, Step 5.4), loss functions (`nn::MSELoss`,
    `nn::CrossEntropyLoss`, Step 5.5), optimizers (`optim::SGD` with momentum, Step 5.6;
    `optim::Adam`, Step 5.7; `optim::AdamW`, Step 5.8), and data loaders (`data::Dataset`,
-   `data::DataLoader`, Step 5.9) are implemented — see ROADMAP.md for exact status
+   `data::TensorDataset`, `data::SyntheticRegression`, `data::CSVDataset`, `data::DataLoader`,
+   Step 5.9–5.10) are implemented — see ROADMAP.md for exact status
 - **Lifetime constraint (unenforced by the type system):** `TapeEntry.inputs` holds raw,
   non-owning `Variable*` pointers into the actual input `Variable`s, not copies. Every
   `Variable` participating in a graph must outlive `backward()` on any of that graph's
@@ -136,8 +137,8 @@ each with gradient checks against central finite differences where applicable. S
   (`ReLU`, `Sigmoid`, `Softmax`) with gradient checks, loss functions (`MSELoss`,
   `CrossEntropyLoss`) with forward correctness and numerical gradient checks, and optimizers
   (`optim::SGD` with momentum, `optim::Adam`, `optim::AdamW`) with step/zero_grad behavior.
-- `tests/test_data.cpp` covers `data::TensorDataset` construction and indexing, and
-  `data::DataLoader` batching, shuffling, and epoch reset.
+- `tests/test_data.cpp` covers `data::TensorDataset` construction and indexing, `data::SyntheticRegression`
+  and `data::CSVDataset` loading, and `data::DataLoader` batching, shuffling, and epoch reset.
 - For full API details and design rationale, see `docs/DESIGN.md`'s Milestone 5 section.
 
 ---

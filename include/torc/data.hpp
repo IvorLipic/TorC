@@ -4,6 +4,7 @@
 #include <vector>
 #include <utility>
 #include <random>
+#include <string>
 
 namespace torc::data {
 
@@ -23,6 +24,38 @@ public:
 private:
     Tensor xs_;
     Tensor ys_;
+};
+
+class SyntheticRegression : public Dataset {
+public:
+    SyntheticRegression(size_t num_samples, int num_features, float weight, float bias, float noise_std, unsigned int seed = 42);
+    size_t len() const override;
+    std::pair<Tensor, Tensor> get(size_t idx) const override;
+
+private:
+    Tensor xs_;
+    Tensor ys_;
+};
+
+class CSVDataset : public Dataset {
+public:
+    struct Options {
+        bool has_header = false;
+        char delimiter = ',';
+        size_t feature_cols = 0;
+        size_t target_col = 0;
+    };
+
+    CSVDataset(const std::string& filepath, Options opts);
+    CSVDataset(const std::string& filepath);
+    size_t len() const override;
+    std::pair<Tensor, Tensor> get(size_t idx) const override;
+
+private:
+    Tensor xs_;
+    Tensor ys_;
+    static std::vector<std::string> split_line(const std::string& line, char delimiter);
+    static float parse_float(const std::string& token);
 };
 
 class DataLoader {
