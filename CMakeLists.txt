@@ -45,6 +45,7 @@ add_library(torc
     src/nn/linear.cpp
     src/nn/activations.cpp
     src/nn/losses.cpp
+    src/optim.cpp
 )
 
 if(TORC_USE_BLAS)

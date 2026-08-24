@@ -34,6 +34,7 @@ torc/
 │       ├── utils.hpp           # shape_product / shape_to_string / error types, used by Tensor
 │       ├── autograd.hpp        # Variable class + free-function ops (add, mul, ...)
 │       ├── nn.hpp              # nn::Module base + nn::Sequential container
+│       ├── optim.hpp           # optim::SGD declaration
 │       └── nn/
 │           ├── linear.hpp      # nn::Linear declaration
 │           ├── activations.hpp # nn::ReLU, nn::Sigmoid, nn::Softmax declarations
@@ -46,6 +47,7 @@ torc/
 │   │   ├── linear.cpp          # nn::Linear forward
 │   │   └── activations.cpp     # activation forward functions
 │   │   └── losses.cpp          # loss function forward/backward
+│   ├── optim.cpp               # SGD step/zero_grad
 │   ├── matmul_blas.cpp         # CBLAS-backed matmul, compiled only when TORC_USE_BLAS=ON
 │   └── main.cpp                # demo executable
 └── tests/
@@ -56,7 +58,7 @@ torc/
 
 Three build targets:
 - **`torc`** — library built from `src/tensor.cpp`, `src/autograd.cpp`, `src/nn.cpp`,
-  `src/nn/linear.cpp`, `src/nn/activations.cpp`, `src/nn/losses.cpp`
+  `src/nn/linear.cpp`, `src/nn/activations.cpp`, `src/nn/losses.cpp`, `src/optim.cpp`
   (plus `src/matmul_blas.cpp` when configured with `-DTORC_USE_BLAS=ON`).
 - **`torc_demo`** — executable (`src/main.cpp`) linked against `torc`.
 - **`torc_tests`** — GoogleTest executable (`tests/test_tensor.cpp` +
@@ -109,9 +111,9 @@ See `README.md` for the full Tensor feature list. Key highlights:
   op; do not add op methods onto `Variable` itself
 - **Milestone 5 in progress**: `nn::Module` base class and `nn::Sequential` container (Step 5.2),
   `nn::Linear` (Step 5.3), Module forward-lifetime fix (Step 5.3a), activation functions
-  (`nn::ReLU`, `nn::Sigmoid`, `nn::Softmax`, Step 5.4), and loss functions (`nn::MSELoss`,
-  `nn::CrossEntropyLoss`, Step 5.5) are implemented; optimizers and data loaders are not yet
-  implemented — see ROADMAP.md for exact status
+  (`nn::ReLU`, `nn::Sigmoid`, `nn::Softmax`, Step 5.4), loss functions (`nn::MSELoss`,
+  `nn::CrossEntropyLoss`, Step 5.5), and optimizer (`optim::SGD`, Step 5.6) are implemented;
+  data loaders are not yet implemented — see ROADMAP.md for exact status
 - **Lifetime constraint (unenforced by the type system):** `TapeEntry.inputs` holds raw,
   non-owning `Variable*` pointers into the actual input `Variable`s, not copies. Every
   `Variable` participating in a graph must outlive `backward()` on any of that graph's
@@ -129,8 +131,9 @@ each with gradient checks against central finite differences where applicable. S
   `forward_cache_` so backward is safe.
 - `nn::Sequential` chains `Module`s in order; `forward(x)` passes input through each module.
 - Tests cover parameter registration, forward/backward for `nn::Linear`, activation modules
-  (`ReLU`, `Sigmoid`, `Softmax`) with gradient checks, and loss functions (`MSELoss`,
-  `CrossEntropyLoss`) with forward correctness and numerical gradient checks.
+  (`ReLU`, `Sigmoid`, `Softmax`) with gradient checks, loss functions (`MSELoss`,
+  `CrossEntropyLoss`) with forward correctness and numerical gradient checks, and `optim::SGD`
+  with step/zero_grad behavior.
 - For full API details and design rationale, see `docs/DESIGN.md`'s Milestone 5 section.
 
 ---

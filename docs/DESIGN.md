@@ -500,23 +500,36 @@ PR. *(Check ROADMAP.md for actual checkbox state — not duplicated here.)*
 
 ### Optimizer design
 
-Optimizers are deliberately separated from `Module`. They operate on the flat
-`std::vector<Variable>` returned by `Module::parameters()` and mutate `param.data()` in-place
-based on `param.grad()`. This matches PyTorch's separation of `nn.Module` and `torch.optim`.
+Optimizers are deliberately separated from `Module`. They operate on non-owning
+`std::vector<Variable*>` returned by `Module::parameters()` and mutate `param->data()` in-place
+based on `param->grad()`. This matches PyTorch's separation of `nn.Module` and `torch.optim`.
 
 - **API shape**: each optimizer class (`optim::SGD`, `optim::Adam`, `optim::AdamW`) exposes:
-  - `optim::SGD(std::vector<Variable>& params, float lr)` — takes references, not copies,
-    because `step()` must mutate the original `data_` tensors
-  - `void step()` — reads `param.grad()` and updates `param.data()` in-place
-  - `void zero_grad()` — not owned by the optimizer in PyTorch; in torc we'll provide it on
-    the optimizer or require manual `zero_grad()` on parameters before each step
-- **Why references matter**: `Module::parameters()` currently returns `vector<Variable>` by value.
-  Once optimizers need mutable access, this must change to `vector<Variable&>` or the optimizer
-  must accept the module and call `parameters()` itself. The current copy-by-value design is
-  acceptable for Step 5.2 but must be revisited before Step 5.6.
+  - `optim::SGD(std::vector<Variable*>& params, float lr, float momentum = 0.0f)` — takes
+    pointers, not copies, because `step()` must mutate the original `data_` tensors
+  - `void step()` — reads `param->grad()` and updates `param->data()` in-place; skips parameters
+    without gradients
+  - `void zero_grad()` — clears `has_grad_` and `grad_` on every tracked parameter
+- **Why pointers**: `Module::parameters()` previously returned `std::vector<Variable>` by value,
+  which copies all parameters. That is fine for inspection but useless for mutation. Step 5.6
+  changed `parameters()` to return `std::vector<Variable*>` so optimizers can mutate in-place
+  without copying.
 - **Gradient accumulation**: optimizers assume `grad_` is already populated by `backward()` and
   that `zero_grad()` was called at the start of the training step. No internal accumulation
   logic lives in the optimizer.
+- **Momentum**: velocities are stored per-parameter in a `std::vector<Tensor>` inside the
+  optimizer, initialized to zero with the same shape as each parameter's data.
+
+**Step 5.6 — `optim::SGD` with momentum**
+- `include/torc/optim.hpp` / `src/optim.cpp`
+- Constructor: `SGD(std::vector<Variable*>& params, float lr, float momentum = 0.0f)`
+- `step()`: for each parameter with a gradient, either applies vanilla SGD
+  (`param = param - lr * grad`) or momentum SGD (`velocity = momentum * velocity + grad;
+  param = param - lr * velocity`)
+- `zero_grad()`: calls `param->zero_grad()` on every tracked parameter
+- **Test**: forward + backward on a small `Linear` model, verify `step()` updates weight and bias
+  by the expected amount; verify momentum accumulates velocity across multiple steps; verify
+  `zero_grad()` clears gradients; verify `step()` skips parameters without gradients
 
 ### Data loader design
 
@@ -567,7 +580,7 @@ torc/
 │       │   ├── linear.hpp   # nn::Linear                          [Milestone 5.3]
 │       │   ├── activations.hpp # nn::ReLU, nn::Sigmoid, etc.     [Milestone 5.4]
 │       │   └── losses.hpp   # nn::MSELoss, nn::CrossEntropyLoss   [Milestone 5.5]
-│       ├── optim.hpp        # SGD, Adam, AdamW                    [Milestone 5]
+│       ├── optim.hpp        # SGD, Adam, AdamW                    [Milestone 5.6]
 │       └── data.hpp         # Dataset, DataLoader                 [Milestone 5]
 ├── src/
 │   ├── tensor.cpp
@@ -577,7 +590,7 @@ torc/
 │   │   ├── linear.cpp                                            [Milestone 5.3]
 │   │   ├── activations.cpp                                       [Milestone 5.4]
 │   │   └── losses.cpp                                             [Milestone 5.5]
-│   ├── optim.cpp                                                 [Milestone 5]
+│   ├── optim.cpp                                                 [Milestone 5.6]
 │   └── matmul_blas.cpp                                           [Milestone 3 — landed]
 ├── examples/                # demo binaries move out of src/, main.cpp retired
 │   ├── basic_ops.cpp        # today's main.cpp, relocated

@@ -26,7 +26,7 @@ public:
     const std::unordered_map<std::string, Variable>& named_parameters() const;
     std::unordered_map<std::string, Variable>& named_parameters();
     
-    virtual std::vector<Variable> parameters() const;
+    virtual std::vector<Variable*> parameters() const;
     
 private:
     std::unordered_map<std::string, Variable> named_params_;
@@ -42,7 +42,7 @@ public:
     void add(std::unique_ptr<Module> module);
     
     Variable forward(const Variable& x) const override;
-    std::vector<Variable> parameters() const override;
+    std::vector<Variable*> parameters() const override;
     
 private:
     std::vector<std::unique_ptr<Module>> modules_;

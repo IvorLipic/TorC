@@ -57,7 +57,8 @@ operations and a tape-based autograd system, built on CMake with GoogleTest-base
 - `nn::Linear` layer with weight/bias parameters and autograd support
 - Activation modules: `nn::ReLU`, `nn::Sigmoid`, `nn::Softmax`
 - Loss functions: `nn::MSELoss`, `nn::CrossEntropyLoss`
-- Optimizers and data loaders are not yet implemented — see
+- Optimizer: `optim::SGD` with momentum
+- Data loaders are not yet implemented — see
   [ROADMAP.md](ROADMAP.md) for exact status
 
 ## Requirements

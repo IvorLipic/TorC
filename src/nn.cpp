@@ -15,11 +15,11 @@ std::unordered_map<std::string, Variable>& Module::named_parameters() {
     return named_params_;
 }
 
-std::vector<Variable> Module::parameters() const {
-    std::vector<Variable> result;
+std::vector<Variable*> Module::parameters() const {
+    std::vector<Variable*> result;
     result.reserve(named_params_.size());
     for (const auto& [name, param] : named_params_) {
-        result.push_back(param);
+        result.push_back(const_cast<Variable*>(&param));
     }
     return result;
 }
@@ -36,8 +36,8 @@ Variable Sequential::forward(const Variable& x) const {
     return out;
 }
 
-std::vector<Variable> Sequential::parameters() const {
-    std::vector<Variable> result = Module::parameters();
+std::vector<Variable*> Sequential::parameters() const {
+    std::vector<Variable*> result = Module::parameters();
     for (const auto& module : modules_) {
         auto child_params = module->parameters();
         result.insert(result.end(),

@@ -3,6 +3,7 @@
 #include "torc/nn/linear.hpp"
 #include "torc/nn/activations.hpp"
 #include "torc/nn/losses.hpp"
+#include "torc/optim.hpp"
 #include <string>
 #include <utility>
 
@@ -16,6 +17,7 @@ using torc::nn::Sigmoid;
 using torc::nn::Softmax;
 using torc::nn::MSELoss;
 using torc::nn::CrossEntropyLoss;
+using torc::optim::SGD;
 
 static constexpr float EPS = 1e-4f;
 static constexpr float GRAD_ATOL = 1e-2f;
@@ -88,8 +90,8 @@ TEST(Sequential, CollectsParametersFromChildren) {
     
     auto params = seq.parameters();
     EXPECT_EQ(params.size(), 2);
-    for (const auto& p : params) {
-        EXPECT_TRUE(p.requires_grad());
+    for (const auto* p : params) {
+        EXPECT_TRUE(p->requires_grad());
     }
 }
 
@@ -159,8 +161,8 @@ TEST(Linear, ParametersAreTracked) {
     Linear linear(2, 3);
     auto params = linear.parameters();
     ASSERT_EQ(params.size(), 2);
-    for (const auto& p : params) {
-        EXPECT_TRUE(p.requires_grad());
+    for (const auto* p : params) {
+        EXPECT_TRUE(p->requires_grad());
     }
 }
 
@@ -429,4 +431,73 @@ TEST(CrossEntropyLoss, BackwardMatchesNumericalGradient) {
             expect_near(logits.grad().data()[i * 3 + j], numerical_grad);
         }
     }
+}
+
+TEST(SGD, StepWithoutMomentumUpdatesParams) {
+    Linear linear(2, 3);
+    auto params = linear.parameters();
+    ASSERT_EQ(params.size(), 2);
+
+    Tensor x_data({1.0f, 2.0f}, std::vector<int>{1, 2});
+    Variable x(x_data, true);
+    Variable out = linear(x);
+    Variable loss = torc::sum(out);
+    loss.backward();
+
+    SGD optimizer(params, 0.1f);
+    optimizer.step();
+
+    const Tensor& W = linear.named_parameters().at("weight").data();
+    const Tensor& b = linear.named_parameters().at("bias").data();
+    expect_near(W.data()[0], 0.01f - 0.1f * 1.0f);
+    expect_near(b.data()[0], 0.0f - 0.1f * 1.0f);
+}
+
+TEST(SGD, StepWithMomentumAccumulatesVelocity) {
+    Linear linear(2, 3);
+    auto params = linear.parameters();
+    ASSERT_EQ(params.size(), 2);
+
+    Tensor x_data({1.0f, 2.0f}, std::vector<int>{1, 2});
+    Variable x(x_data, true);
+    Variable out = linear(x);
+    Variable loss = torc::sum(out);
+    loss.backward();
+
+    SGD optimizer(params, 0.1f, 0.9f);
+    optimizer.step();
+
+    const Tensor& W = linear.named_parameters().at("weight").data();
+    expect_near(W.data()[0], 0.01f - 0.1f * 1.0f);
+}
+
+TEST(SGD, ZeroGradClearsAllParamGrads) {
+    Linear linear(2, 3);
+    auto params = linear.parameters();
+
+    Tensor x_data({1.0f, 2.0f}, std::vector<int>{1, 2});
+    Variable x(x_data, true);
+    Variable out = linear(x);
+    Variable loss = torc::sum(out);
+    loss.backward();
+
+    ASSERT_TRUE(linear.named_parameters().at("weight").has_grad());
+    ASSERT_TRUE(linear.named_parameters().at("bias").has_grad());
+
+    SGD optimizer(params, 0.1f);
+    optimizer.zero_grad();
+
+    EXPECT_FALSE(linear.named_parameters().at("weight").has_grad());
+    EXPECT_FALSE(linear.named_parameters().at("bias").has_grad());
+}
+
+TEST(SGD, SkipsParamsWithoutGrad) {
+    Linear linear(2, 3);
+    auto params = linear.parameters();
+
+    SGD optimizer(params, 0.1f);
+    optimizer.step();
+
+    const Tensor& W = linear.named_parameters().at("weight").data();
+    EXPECT_FLOAT_EQ(W.data()[0], 0.01f);
 }

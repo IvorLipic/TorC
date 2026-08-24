@@ -83,7 +83,9 @@ Each step must pass tests before proceeding.
 - [x] **Step 5.5**: Loss functions — `nn::MSELoss`, `nn::CrossEntropyLoss` (implemented as
       standalone classes in `nn/losses.hpp` / `nn/losses.cpp` with `forward(input, target)`
       signature and custom backward closures)
-- [ ] **Step 5.6**: Optimizer — `optim::SGD` with momentum
+- [x] **Step 5.6**: Optimizer — `optim::SGD` with momentum (`optim::SGD` takes
+      `std::vector<Variable*>&` and mutates `param->data()` in-place via `step()`; `zero_grad()`
+      clears all parameter gradients)
 - [ ] **Step 5.7**: Optimizer — `optim::Adam`
 - [ ] **Step 5.8**: Optimizer — `optim::AdamW`
 - [ ] **Step 5.9**: `data::Dataset` base + `data::DataLoader` (batching, shuffling)
