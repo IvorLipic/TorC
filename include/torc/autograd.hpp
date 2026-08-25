@@ -157,7 +157,7 @@ private:
                         input->accumulate_grad(input_grad);
                         auto insert_result = grad_map.emplace(input, input_grad);
                         if (!insert_result.second) {
-                            insert_result.first->second = input_grad;
+                            insert_result.first->second = insert_result.first->second.add(input_grad);
                         }
                     }
                 }

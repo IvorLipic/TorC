@@ -289,10 +289,14 @@ batch steps into a single PR. *(Check ROADMAP.md for actual checkbox state — n
 - **Test**: gradient check for each view op, including a non-involutive `transpose` permutation
 
 **Step 7 — `detach()` and `no_grad()` context**
-- `Variable detach() const` — new Variable, same data, `requires_grad=false`, empty tape
-- `no_grad()` / `set_grad_enabled(bool)` — global flag that ops check; when disabled, ops
-  return plain Variables with empty tapes
-- **Test**: verify `detach()` breaks graph, gradient doesn't flow back through detached path
+- `Variable detach() const` — new Variable, copy of the data (Tensor copy ctor deep-copies
+  storage_), `requires_grad=false`, empty tape
+- `no_grad()` / `set_grad_enabled(bool)` — global flag that most arithmetic ops check; when
+  disabled, those ops return plain Variables with empty tapes. Note: activation and transcendental
+  ops did not originally check this flag (a bug fixed in Step 5.12 follow-up)
+- **Test**: verify `detach()` breaks graph, gradient doesn't flow back through detached path;
+  verify `set_grad_enabled(false)` blocks tape-building for arithmetic, activation, and
+  transcendental ops
 
 **Step 8 — In-place ops: forbid for `requires_grad` Variables**
 - Added a guarded in-place API: `Tensor::fill(float)` performs the actual mutation; `Variable::fill(float)` checks `requires_grad_` and throws `TorcError` if the Variable is tracked, otherwise delegates to `data_.fill()`. This is the first guarded in-place entry point in the API.

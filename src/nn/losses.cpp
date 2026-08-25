@@ -29,8 +29,8 @@ Variable MSELoss::forward(const Variable& input, const Variable& target) const {
             float n = static_cast<float>(input_data.numel());
             Tensor grad = input_data.sub(target_data);
             grad = grad.mul(2.0f / n);
-            input_grads[0] = grad;
-            input_grads[1] = grad.mul(-1.0f);
+            input_grads[0] = grad.mul(grad_output);
+            input_grads[1] = grad.mul(-1.0f).mul(grad_output);
         };
         out.tape_.push_back(std::move(entry));
     }
@@ -94,6 +94,7 @@ Variable CrossEntropyLoss::forward(const Variable& logits, const Variable& targe
                     input_grads[0].data()[i * num_classes + j] = grad / batch_size;
                 }
             }
+            input_grads[0] = input_grads[0].mul(grad_output);
         };
         out.tape_.push_back(std::move(entry));
     }

@@ -111,7 +111,10 @@ void Variable::backward_with_grad(const Tensor& upstream_grad) {
                     input_grad = reduce_sum_to_shape(input_grad, input->data_.shape());
 
                 input->accumulate_grad(input_grad);
-                grad_map[input] = input_grad;
+                auto insert_result = grad_map.emplace(input, input_grad);
+                if (!insert_result.second) {
+                    insert_result.first->second = insert_result.first->second.add(input_grad);
+                }
             }
 
             current_grad = input_grads.back();  // pass to next tape entry, if any
@@ -125,9 +128,18 @@ void Variable::backward_with_grad(const Tensor& upstream_grad) {
 **Why this is correct:**
 - Each Variable is processed exactly once (no double-visiting)
 - Gradients are computed in dependency order (all downstream grads ready before upstream needs them)
-- Shared subgraphs naturally accumulate gradients via `grad_map`
+- Gradients for shared inputs are accumulated via `+=` in `accumulate_grad`, but `grad_map`
+  currently overwrites on repeated writes (see note below)
 - Stack usage for the DFS is a separate concern from the O(V) *iterative* backward walk above —
   `build_topo()` itself is currently still recursive (see Common Pitfalls)
+
+> **Note on `grad_map` overwrite vs. accumulation:** The current implementation writes
+> `grad_map[input] = input_grad`, overwriting any previous gradient for that input. This is
+> safe for tree-shaped graphs but silently drops gradients for shared subgraphs (diamond
+> dependencies). The `accumulate_grad()` call on the Variable itself still uses `+=`, so
+> `input->grad()` is correct, but the value propagated further backward through `grad_map`
+> is only the last writer's contribution. This is a known limitation; see the diamond-dependency
+> test in `tests/test_autograd.cpp`.
 
 **Sources:**
 - PyTorch dev mailing list: "Simplified Introduction to PyTorch's Autograd" (zdevito, 2021)
@@ -336,9 +348,10 @@ draft of this doc suggested, is tighter than the current tests actually run at.
 Variable d = c.detach();   // new Variable, same data, requires_grad=false, empty tape
 ```
 
-`detach()` returns a new `Variable` sharing `c`'s data but with `requires_grad=false` and an
-empty tape. Backward on `d` is a no-op, and gradients do not flow back through `d` into `c`'s
-ancestors. This matches PyTorch's `Tensor.detach()`.
+`detach()` returns a new `Variable` with a copy of the data (Tensor's copy ctor deep-copies
+storage_) but with `requires_grad=false` and an empty tape. Backward on `d` is a no-op, and
+gradients do not flow back through `d` into `c`'s ancestors. This matches PyTorch's
+`Tensor.detach()`.
 
 ### `set_grad_enabled(bool)` / `grad_enabled()`
 
@@ -348,10 +361,10 @@ Variable c = torc::add(a, b);   // c.requires_grad() == false, tape is empty
 Variable::set_grad_enabled(true);
 ```
 
-A global flag checked by every op at the start of forward. When disabled, ops still compute
-their forward output, but they return plain `Variable`s with `requires_grad=false` and empty
-tapes — no `TapeEntry` is recorded. Defaults to `true`. This is useful for inference sections
-of a training loop without manually detaching each intermediate.
+A global flag checked by arithmetic ops at the start of forward. When disabled, those ops still
+compute their forward output, but they return plain `Variable`s with `requires_grad=false` and
+empty tapes — no `TapeEntry` is recorded. Defaults to `true`. This is useful for inference
+sections of a training loop without manually detaching each intermediate.
 
 **Note**: `set_grad_enabled(false)` does *not* change the `requires_grad` flag on existing
 `Variable`s. Inputs keep their original `requires_grad` value; only the *new* outputs produced

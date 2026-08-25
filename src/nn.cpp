@@ -29,11 +29,17 @@ void Sequential::add(std::unique_ptr<Module> module) {
 }
 
 Variable Sequential::forward(const Variable& x) const {
-    Variable out = x;
+    forward_cache_.clear();
+    forward_cache_.emplace_back(x);
+    Variable* current = &forward_cache_.back();
+    
     for (const auto& module : modules_) {
-        out = module->operator()(out);
+        Variable next = module->operator()(*current);
+        forward_cache_.emplace_back(std::move(next));
+        current = &forward_cache_.back();
     }
-    return out;
+    
+    return *current;
 }
 
 std::vector<Variable*> Sequential::parameters() const {

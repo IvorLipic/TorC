@@ -583,7 +583,7 @@ Variable slice(const Variable& a, std::vector<std::pair<int, int>> slices) {
 }
 
 Variable exp(const Variable& a) {
-    bool needs_grad = a.requires_grad_;
+    bool needs_grad = a.requires_grad_ && Variable::grad_enabled();
     Tensor out_data = a.data_.exp();
     Variable out(std::move(out_data), needs_grad);
 
@@ -601,7 +601,7 @@ Variable exp(const Variable& a) {
 }
 
 Variable relu(const Variable& a) {
-    bool needs_grad = a.requires_grad_;
+    bool needs_grad = a.requires_grad_ && Variable::grad_enabled();
     Tensor out_data(a.data_.shape());
     for (int i = 0; i < a.data_.numel(); ++i) {
         out_data.data()[i] = a.data_.data()[i] > 0.0f ? a.data_.data()[i] : 0.0f;
@@ -625,7 +625,7 @@ Variable relu(const Variable& a) {
 }
 
 Variable sigmoid(const Variable& a) {
-    bool needs_grad = a.requires_grad_;
+    bool needs_grad = a.requires_grad_ && Variable::grad_enabled();
     Tensor out_data(a.data_.shape());
     for (int i = 0; i < a.data_.numel(); ++i) {
         float x = a.data_.data()[i];
@@ -652,7 +652,7 @@ Variable sigmoid(const Variable& a) {
 }
 
 Variable softmax(const Variable& a) {
-    bool needs_grad = a.requires_grad_;
+    bool needs_grad = a.requires_grad_ && Variable::grad_enabled();
     Tensor out_data = a.data_.softmax();
     Variable out(std::move(out_data), needs_grad);
 
@@ -679,7 +679,7 @@ Variable softmax(const Variable& a) {
 }
 
 Variable log(const Variable& a) {
-    bool needs_grad = a.requires_grad_;
+    bool needs_grad = a.requires_grad_ && Variable::grad_enabled();
     Tensor out_data = a.data_.log();
     Variable out(std::move(out_data), needs_grad);
 
@@ -700,7 +700,7 @@ Variable log(const Variable& a) {
 }
 
 Variable sqrt(const Variable& a) {
-    bool needs_grad = a.requires_grad_;
+    bool needs_grad = a.requires_grad_ && Variable::grad_enabled();
     Tensor out_data = a.data_.sqrt();
     Variable out(std::move(out_data), needs_grad);
 

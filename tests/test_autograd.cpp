@@ -1165,6 +1165,44 @@ TEST(DetachNoGradAutograd, NoGradScopePreservesTrackingOnInputs) {
     EXPECT_FALSE(c.requires_grad());
 }
 
+TEST(DetachNoGradAutograd, NoGradBlocksActivationOps) {
+    Tensor a_data({1.0f, -1.0f}, std::vector<int>{2});
+    Variable a(a_data, true);
+    Variable::set_grad_enabled(false);
+    Variable c = torc::relu(a);
+    Variable d = torc::exp(c);
+    Variable::set_grad_enabled(true);
+    EXPECT_FALSE(c.requires_grad());
+    EXPECT_FALSE(d.requires_grad());
+    EXPECT_TRUE(c.tape_.empty());
+    EXPECT_TRUE(d.tape_.empty());
+}
+
+TEST(DetachNoGradAutograd, NoGradBlocksTranscendentalOps) {
+    Tensor a_data({1.0f, 2.0f}, std::vector<int>{2});
+    Variable a(a_data, true);
+    Variable::set_grad_enabled(false);
+    Variable c = torc::log(a);
+    Variable d = torc::sqrt(c);
+    Variable::set_grad_enabled(true);
+    EXPECT_FALSE(c.requires_grad());
+    EXPECT_FALSE(d.requires_grad());
+    EXPECT_TRUE(c.tape_.empty());
+    EXPECT_TRUE(d.tape_.empty());
+}
+
+TEST(GradMapAccumulation, DiamondDependencyAccumulates) {
+    Variable x(2.0f, true);
+    Variable a = torc::add(x, x);
+    Variable b = torc::add(a, a);
+    Variable c = torc::mul_scalar(a, Variable(3.0f, false));
+    Variable d = torc::add(b, c);
+    Variable s = torc::sum(d);
+    s.backward();
+    ASSERT_TRUE(x.has_grad());
+    expect_near(x.grad().data()[0], 10.0f);
+}
+
 // ============================================================
 // Step 8: In-place ops forbidden for requires_grad Variables
 // ============================================================

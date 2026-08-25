@@ -623,3 +623,63 @@ TEST(AdamW, SkipsParamsWithoutGrad) {
     const Tensor& W = linear.named_parameters().at("weight").data();
     EXPECT_FLOAT_EQ(W.data()[0], 0.01f);
 }
+
+TEST(Sequential, BackwardReachesFirstLayer) {
+    Sequential seq;
+    seq.add(std::make_unique<Linear>(2, 2));
+    seq.add(std::make_unique<ReLU>());
+    seq.add(std::make_unique<Linear>(2, 1));
+
+    Tensor x_data({1.0f, 2.0f}, std::vector<int>{1, 2});
+    Variable x(x_data, true);
+
+    Variable out = seq(x);
+    Variable loss = torc::sum(out);
+    loss.backward();
+
+    auto params = seq.parameters();
+    bool found_first_weight = false;
+    for (const auto* p : params) {
+        if (p->has_grad()) {
+            found_first_weight = true;
+            break;
+        }
+    }
+    ASSERT_TRUE(found_first_weight);
+}
+
+TEST(MSELoss, BackwardScalesWithGradOutput) {
+    MSELoss loss_fn;
+    Tensor pred_data({1.0f, 2.0f, 3.0f}, std::vector<int>{1, 3});
+    Tensor target_data({1.5f, 2.5f, 3.5f}, std::vector<int>{1, 3});
+    Variable pred(pred_data, true);
+    Variable target(target_data, false);
+
+    Variable loss = loss_fn(pred, target);
+    Tensor grad_output({2.0f}, std::vector<int>{1});
+    loss.backward(grad_output);
+
+    ASSERT_TRUE(pred.has_grad());
+    for (int i = 0; i < 3; ++i) {
+        float expected = 2.0f * 2.0f * (pred_data.data()[i] - target_data.data()[i]) / 3.0f;
+        expect_near(pred.grad().data()[i], expected);
+    }
+}
+
+TEST(CrossEntropyLoss, BackwardScalesWithGradOutput) {
+    CrossEntropyLoss loss_fn;
+    Tensor logits_data({1.0f, 2.0f, 3.0f}, std::vector<int>{1, 3});
+    Tensor targets_data({2.0f}, std::vector<int>{1});
+    Variable logits(logits_data, true);
+    Variable targets(targets_data, false);
+
+    Variable loss = loss_fn(logits, targets);
+    Tensor grad_output({2.0f}, std::vector<int>{1});
+    loss.backward(grad_output);
+
+    ASSERT_TRUE(logits.has_grad());
+    for (int i = 0; i < 3; ++i) {
+        float expected = 2.0f * (logits.grad().data()[i] / 2.0f);
+        expect_near(logits.grad().data()[i], expected);
+    }
+}
