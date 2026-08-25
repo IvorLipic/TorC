@@ -103,13 +103,14 @@ to `examples/linear_regression/`: `loss_history.csv` and `predictions.csv`.
 ## Run the MNIST MLP example
 
 ```bash
-./build/mnist_mlp_example <path/to/mnist_train.csv>
+./build/mnist_mlp_example
 ```
 
-Trains a 2-layer MLP (`Linear(784, 128) → ReLU → Linear(128, 10)`) on MNIST-format CSV data
-for 3 epochs using `Adam` and `CrossEntropyLoss`. The CSV should have 785 columns per row
-(label + 784 pixels, pixels normalized to `[0, 1]`). Download from
-[kaggle.com/c/digit-recognizer/data](https://www.kaggle.com/c/digit-recognizer/data).
+Trains a 2-layer MLP (`Linear(784, 128) → ReLU → Linear(128, 10)`) on the bundled MNIST
+dataset (`datasets/mnist/mnist_train.csv`) for 5 epochs using `Adam` and `CrossEntropyLoss`.
+Evaluates on both train and test splits each epoch and prints accuracy. Requires the
+`datasets/mnist/` parquet files to be converted to CSV via
+`python datasets/mnist/convert_to_csv.py`.
 
 ## Visualize results
 

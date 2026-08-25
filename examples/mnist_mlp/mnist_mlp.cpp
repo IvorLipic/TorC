@@ -19,23 +19,51 @@ using torc::optim::Adam;
 using torc::data::MNISTDataset;
 using torc::data::DataLoader;
 
-int main(int argc, char** argv) {
-    if (argc != 2) {
-        std::cerr << "Usage: " << argv[0] << " <mnist_train.csv>\n";
-        std::cerr << "Download from: https://www.kaggle.com/c/digit-recognizer/data\n";
-        return 1;
+static int evaluate(const Sequential& model, const std::string& csv_path, int batch_size) {
+    MNISTDataset dataset(csv_path);
+    DataLoader loader(dataset, batch_size, false);
+    
+    int correct = 0;
+    int total = 0;
+    
+    while (loader.has_next()) {
+        auto [x_batch, y_batch] = loader.next_batch();
+        Variable x(x_batch, false);
+        Variable out = model(x);
+        
+        for (size_t i = 0; i < x_batch.shape().front(); ++i) {
+            float max_logit = -1e30f;
+            int pred_class = 0;
+            for (size_t j = 0; j < 10; ++j) {
+                float val = out.data().data()[i * 10 + j];
+                if (val > max_logit) {
+                    max_logit = val;
+                    pred_class = static_cast<int>(j);
+                }
+            }
+            if (pred_class == static_cast<int>(y_batch.data()[i])) {
+                ++correct;
+            }
+            ++total;
+        }
     }
+    
+    return total > 0 ? correct : 0;
+}
 
-    const std::string csv_path = argv[1];
+int main(int argc, char** argv) {
+    const std::string train_path = "datasets/mnist/mnist_train.csv";
+    const std::string test_path = "datasets/mnist/mnist_test.csv";
+    
     const int batch_size = 64;
-    const int epochs = 3;
+    const int epochs = 5;
     const float lr = 0.001f;
 
     std::cout << "Step 5.12 — End-to-end MLP on MNIST\n";
-    std::cout << "Loading dataset from: " << csv_path << "\n";
+    std::cout << "Loading training dataset from: " << train_path << "\n";
 
-    MNISTDataset dataset(csv_path);
-    DataLoader loader(dataset, batch_size, true);
+    MNISTDataset train_dataset(train_path);
+    DataLoader train_loader(train_dataset, batch_size, true);
 
     Sequential model;
     model.add(std::make_unique<Linear>(784, 128));
@@ -50,14 +78,12 @@ int main(int argc, char** argv) {
     loss_file << "epoch,loss\n";
 
     for (int epoch = 0; epoch < epochs; ++epoch) {
-        loader.reset();
+        train_loader.reset();
         float epoch_loss = 0.0f;
         size_t num_batches = 0;
-        size_t correct = 0;
-        size_t total = 0;
 
-        while (loader.has_next()) {
-            auto [x_batch, y_batch] = loader.next_batch();
+        while (train_loader.has_next()) {
+            auto [x_batch, y_batch] = train_loader.next_batch();
 
             Variable x(x_batch, true);
             Variable y(y_batch, false);
@@ -68,38 +94,31 @@ int main(int argc, char** argv) {
             epoch_loss += batch_loss;
             ++num_batches;
 
-            for (size_t i = 0; i < x_batch.shape().front(); ++i) {
-                float max_logit = -1e30f;
-                int pred_class = 0;
-                for (size_t j = 0; j < 10; ++j) {
-                    float val = out.data().data()[i * 10 + j];
-                    if (val > max_logit) {
-                        max_logit = val;
-                        pred_class = static_cast<int>(j);
-                    }
-                }
-                if (pred_class == static_cast<int>(y_batch.data()[i])) {
-                    ++correct;
-                }
-                ++total;
-            }
-
             loss.backward();
             optimizer.step();
             optimizer.zero_grad();
         }
 
         epoch_loss /= static_cast<float>(num_batches);
-        float accuracy = static_cast<float>(correct) / static_cast<float>(total);
         loss_file << epoch << "," << epoch_loss << "\n";
 
+        int train_acc = evaluate(model, train_path, batch_size);
+        int test_acc = evaluate(model, test_path, batch_size);
+        int train_total = train_dataset.len();
+        int test_total = 10000;
+        
         std::cout << "epoch " << (epoch + 1) << "/" << epochs
                   << " — loss: " << epoch_loss
-                  << " — acc: " << accuracy << "\n";
+                  << " — train acc: " << train_acc << "/" << train_total
+                  << " (" << (static_cast<float>(train_acc) / train_total) << ")"
+                  << " — test acc: " << test_acc << "/" << test_total
+                  << " (" << (static_cast<float>(test_acc) / test_total) << ")"
+                  << "\n";
     }
 
     loss_file.close();
 
     std::cout << "\nSaved examples/mnist_mlp/loss_history.csv\n";
+    std::cout << "Run 'python examples/mnist_mlp/plot_results.py' to visualize.\n";
     return 0;
 }
