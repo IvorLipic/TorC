@@ -282,8 +282,8 @@ std::pair<Tensor, Tensor> CSVDataset::get(size_t idx) const {
     return {std::move(x), std::move(y)};
 }
 
-MNISTDataset::MNISTDataset(const std::string& filepath)
-    : xs_(std::vector<int>{0}), ys_(std::vector<int>{0}) {
+MNISTDataset::MNISTDataset(const std::string& filepath, size_t max_samples)
+    : xs_(std::vector<int>{0}), ys_(std::vector<int>{0}), len_(0) {
     std::ifstream file(filepath);
     if (!file.is_open()) {
         throw std::runtime_error("MNISTDataset: cannot open file: " + filepath);
@@ -293,9 +293,11 @@ MNISTDataset::MNISTDataset(const std::string& filepath)
     std::string line;
     size_t line_num = 0;
     size_t expected_cols = 0;
+    size_t loaded_samples = 0;
 
-    while (std::getline(file, line)) {
+    while (std::getline(file, line) && (max_samples == 0 || loaded_samples < max_samples)) {
         ++line_num;
+        if (!line.empty() && line.back() == '\r') line.pop_back();
         if (line.empty()) continue;
 
         auto tokens = CSVDataset::split_line(line, ',');
@@ -318,6 +320,7 @@ MNISTDataset::MNISTDataset(const std::string& filepath)
             row.push_back(CSVDataset::parse_float(token));
         }
         rows.push_back(std::move(row));
+        ++loaded_samples;
     }
 
     if (rows.empty()) {
@@ -335,10 +338,12 @@ MNISTDataset::MNISTDataset(const std::string& filepath)
             xs_.data()[i * num_pixels + j] = rows[i][j + 1] / 255.0f;
         }
     }
+
+    len_ = num_samples;
 }
 
 size_t MNISTDataset::len() const {
-    return xs_.shape().front();
+    return len_;
 }
 
 std::pair<Tensor, Tensor> MNISTDataset::get(size_t idx) const {

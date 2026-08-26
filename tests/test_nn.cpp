@@ -648,6 +648,67 @@ TEST(Sequential, BackwardReachesFirstLayer) {
     ASSERT_TRUE(found_first_weight);
 }
 
+TEST(Sequential, MnistArchitectureForwardPasses) {
+    Sequential model;
+    model.add(std::make_unique<Linear>(784, 128));
+    model.add(std::make_unique<ReLU>());
+    model.add(std::make_unique<Linear>(128, 10));
+
+    Tensor x_data(std::vector<int>{1, 784});
+    x_data.fill(0.5f);
+    Variable x(x_data, true);
+
+    Variable out = model(x);
+    auto shape = out.data().shape();
+    ASSERT_EQ(shape, (std::vector<int>{1, 10}));
+}
+
+TEST(Sequential, MnistArchitectureBackwardPopulatesGrads) {
+    Sequential model;
+    model.add(std::make_unique<Linear>(784, 128));
+    model.add(std::make_unique<ReLU>());
+    model.add(std::make_unique<Linear>(128, 10));
+
+    Tensor x_data(std::vector<int>{1, 784});
+    x_data.fill(0.5f);
+    Variable x(x_data, true);
+
+    Variable out = model(x);
+    Variable loss = torc::sum(out);
+    loss.backward();
+
+    auto params = model.parameters();
+    ASSERT_EQ(params.size(), 4);
+    EXPECT_TRUE(params[0]->has_grad());
+    EXPECT_TRUE(params[1]->has_grad());
+    EXPECT_TRUE(params[2]->has_grad());
+    EXPECT_TRUE(params[3]->has_grad());
+}
+
+TEST(Sequential, SingleTrainingStepUpdatesParams) {
+    Sequential model;
+    model.add(std::make_unique<Linear>(4, 8));
+    model.add(std::make_unique<ReLU>());
+    model.add(std::make_unique<Linear>(8, 2));
+
+    Tensor x_data({1.0f, 2.0f, 3.0f, 4.0f}, std::vector<int>{1, 4});
+    Variable x(x_data, true);
+
+    Tensor y_data({0.0f, 1.0f}, std::vector<int>{1, 2});
+    Variable y(y_data, false);
+
+    auto params = model.parameters();
+    Adam optimizer(params, 0.01f);
+
+    Variable out = model(x);
+    Variable loss = torc::sum(out);
+    loss.backward();
+    optimizer.step();
+
+    auto& w0 = model.parameters()[0]->data();
+    EXPECT_NE(w0.data()[0], 0.01f);
+}
+
 TEST(MSELoss, BackwardScalesWithGradOutput) {
     MSELoss loss_fn;
     Tensor pred_data({1.0f, 2.0f, 3.0f}, std::vector<int>{1, 3});

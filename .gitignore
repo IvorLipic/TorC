@@ -81,3 +81,9 @@ build
 .vscode
 
 datasets
+
+*.txt
+
+# MNIST example generated artifacts
+examples/mnist_mlp/*.csv
+examples/mnist_mlp/*.png

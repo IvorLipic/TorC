@@ -425,12 +425,18 @@ PR. *(Check ROADMAP.md for actual checkbox state — not duplicated here.)*
     `std::list` never relocates elements, raw `Variable*` pointers stored in tape entries
     remain valid until the next forward pass. This makes `output = module(x); output.backward()`
     safe without any user-side lifetime management.
+  - **Sequential implementation**: `Sequential::forward()` calls each child module's
+    `forward()` directly, not `operator()()`, because `operator()()` clears the cache and
+    would destroy previously cached intermediates needed by earlier modules in the chain.
 - **Test**: parameter registration, forward correctness, `Sequential` chaining, empty
   sequential pass-through, own + child parameter collection
 
 **Step 5.3 — `nn::Linear`**
 - `Linear(in_features, out_features)` registers `weight` (shape `{out, in}`) and `bias`
   (shape `{out}`), both initialized to `0.01` and `0.0` respectively
+- `Linear(in_features, out_features, init_std)` overload: if `init_std <= 0`, weight is
+  initialized with Kaiming normal (`std::sqrt(2 / fan_in)`); otherwise uses `init_std` as
+  the fixed standard deviation. Bias remains `0.0`.
 - Forward: `x @ W.T + b`, implemented with existing `torc::matmul`, `torc::transpose`,
   and `torc::add` free functions — no new Tensor primitives
 - **Test**: construction shape checks, forward correctness (unbatched and batched),
@@ -600,13 +606,14 @@ based on `param->grad()`. This matches PyTorch's separation of `nn.Module` and `
   users without Python can open the CSVs in Excel/Google Sheets/LibreOffice Calc.
 
 **Step 5.12 — End-to-end MLP on MNIST**
-- `examples/mnist_mlp/mnist_mlp.cpp` — trains a 2-layer MLP (`Linear(784, 128) → ReLU → Linear(128, 10)`)
-  on `data::MNISTDataset` using `optim::Adam` and `nn::CrossEntropyLoss`
+- `examples/mnist_mlp/mnist_mlp.cpp` — trains a 3-layer MLP (`Linear(784, 32) → ReLU → Linear(32, 32) → ReLU → Linear(32, 10)`)
+  on `data::MNISTDataset` using `optim::AdamW` and `nn::CrossEntropyLoss`
 - `MNISTDataset` in `include/torc/data.hpp` / `src/data.cpp` — loads MNIST-format CSV files
   (label + 784 pixels per row), normalizes pixels to `[0, 1]` by dividing by 255
 - Training loop uses `DataLoader` for batching and shuffling
-- Prints epoch loss and accuracy to stdout
-- Saves `loss_history.csv` (epoch, loss) for external visualization
+- Accepts optional `max_samples` CLI arg to limit training set size for quick experiments
+- Prints per-epoch loss and accuracy to stdout; writes `loss_history.csv` and `per_class_accuracy.csv`
+- Evaluation reuses the same `MNISTDataset` / `DataLoader` objects rather than reloading CSVs each epoch
 
 ### Data loader design
 

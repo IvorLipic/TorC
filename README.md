@@ -106,11 +106,12 @@ to `examples/linear_regression/`: `loss_history.csv` and `predictions.csv`.
 ./build/mnist_mlp_example
 ```
 
-Trains a 2-layer MLP (`Linear(784, 128) → ReLU → Linear(128, 10)`) on the bundled MNIST
-dataset (`datasets/mnist/mnist_train.csv`) for 5 epochs using `Adam` and `CrossEntropyLoss`.
-Evaluates on both train and test splits each epoch and prints accuracy. Requires the
-`datasets/mnist/` parquet files to be converted to CSV via
-`python datasets/mnist/convert_to_csv.py`.
+Trains a 3-layer MLP (`Linear(784, 32) → ReLU → Linear(32, 32) → ReLU → Linear(32, 10)`) on the bundled MNIST
+dataset (`datasets/mnist/mnist_train.csv`) for 10 epochs using `AdamW` and `CrossEntropyLoss`.
+Evaluates on both train and test splits each epoch and prints accuracy. Accepts an optional
+command-line argument for the maximum number of training samples to use (e.g.
+`./build/mnist_mlp_example 100`). The dataset is already provided as CSV files in
+`datasets/mnist/`; no conversion step is needed.
 
 ## Visualize results
 

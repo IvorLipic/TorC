@@ -8,6 +8,7 @@ namespace torc::nn {
 class Linear : public Module {
 public:
     Linear(int in_features, int out_features);
+    Linear(int in_features, int out_features, float init_std);
     
     Variable forward(const Variable& x) const override;
     

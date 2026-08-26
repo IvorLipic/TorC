@@ -32,13 +32,13 @@ Variable Sequential::forward(const Variable& x) const {
     forward_cache_.clear();
     forward_cache_.emplace_back(x);
     Variable* current = &forward_cache_.back();
-    
+
     for (const auto& module : modules_) {
-        Variable next = module->operator()(*current);
+        Variable next = module->forward(*current);
         forward_cache_.emplace_back(std::move(next));
         current = &forward_cache_.back();
     }
-    
+
     return *current;
 }
 

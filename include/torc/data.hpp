@@ -61,13 +61,14 @@ private:
 
 class MNISTDataset : public Dataset {
 public:
-    MNISTDataset(const std::string& filepath);
+    MNISTDataset(const std::string& filepath, size_t max_samples = 0);
     size_t len() const override;
     std::pair<Tensor, Tensor> get(size_t idx) const override;
 
 private:
     Tensor xs_;
     Tensor ys_;
+    size_t len_ = 0;
 };
 
 class DataLoader {
