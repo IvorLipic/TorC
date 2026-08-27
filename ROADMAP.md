@@ -130,9 +130,11 @@ primitives would make the eventual fixes more expensive.
 
 ### Correctness and API safety
 
-- [ ] **Make softmax axis-aware.** Add an explicit axis (at minimum, row-wise `{batch, classes}`
-      softmax), make `nn::Softmax` use conventional neural-network semantics, and implement the
-      matching per-axis backward rule. Add batched forward and gradient tests.
+- [x] **Make softmax axis-aware.** Added `Tensor::softmax(axis)` and `torc::softmax(a, axis)` with
+      stable per-axis forward/backward rules. `nn::Softmax(axis = -1)` now defaults to the last
+      axis, so `{batch, classes}` inputs normalize each row. The no-argument primitive remains
+      the documented flattened legacy behavior for compatibility. Batched forward and gradient
+      tests cover the new contract.
 - [ ] **Harden `CrossEntropyLoss`.** Validate logits rank and shape, target shape/length, non-empty
       batches, integral targets, and target range before indexing. Replace softmax-then-log with a
       numerically stable log-sum-exp formulation. Add malformed-input and extreme-logit tests.

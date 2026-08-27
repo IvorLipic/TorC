@@ -204,6 +204,7 @@ Variable exp(const Variable& a);
 Variable relu(const Variable& a);
 Variable sigmoid(const Variable& a);
 Variable softmax(const Variable& a);
+Variable softmax(const Variable& a, int axis);
 Variable log(const Variable& a);
 Variable sqrt(const Variable& a);
 

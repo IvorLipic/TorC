@@ -332,6 +332,39 @@ TEST(Softmax, ForwardProducesValidProbabilities) {
     }
 }
 
+TEST(Softmax, BatchedForwardNormalizesEachRow) {
+    Softmax softmax;
+    Tensor input_data({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, std::vector<int>{2, 3});
+    Variable input(input_data, false);
+
+    Variable output = softmax(input);
+
+    EXPECT_NEAR(output.data().data()[0] + output.data().data()[1] + output.data().data()[2],
+                1.0f, 1e-5f);
+    EXPECT_NEAR(output.data().data()[3] + output.data().data()[4] + output.data().data()[5],
+                1.0f, 1e-5f);
+    for (int j = 0; j < 3; ++j)
+        EXPECT_NEAR(output.data().data()[j], output.data().data()[3 + j], 1e-5f);
+}
+
+TEST(Softmax, BatchedBackwardUsesPerRowJacobian) {
+    Softmax softmax;
+    Tensor input_data({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, std::vector<int>{2, 3});
+    Variable input(input_data, true);
+    Variable output = softmax(input);
+    Tensor upstream({1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f}, std::vector<int>{2, 3});
+    output.backward(upstream);
+
+    float row0_sum = output.data().data()[0];
+    float row1_sum = output.data().data()[4];
+    for (int j = 0; j < 3; ++j) {
+        float expected0 = output.data().data()[j] * ((j == 0 ? 1.0f : 0.0f) - row0_sum);
+        float expected1 = output.data().data()[3 + j] * ((j == 1 ? 1.0f : 0.0f) - row1_sum);
+        EXPECT_NEAR(input.grad().data()[j], expected0, 1e-5f);
+        EXPECT_NEAR(input.grad().data()[3 + j], expected1, 1e-5f);
+    }
+}
+
 TEST(Softmax, BackwardMatchesNumericalGradient) {
     Softmax softmax;
     Tensor input_data({1.0f, 2.0f, 3.0f}, std::vector<int>{3});
@@ -914,4 +947,3 @@ TEST(DeepSequential, NumericalGradientsMatchAnalytical) {
             << "Input gradient mismatch for element " << i;
     }
 }
-

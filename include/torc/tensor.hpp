@@ -77,6 +77,7 @@ public:
 
     [[nodiscard]] Tensor exp() const;
     [[nodiscard]] Tensor softmax() const;
+    [[nodiscard]] Tensor softmax(int axis) const;
     [[nodiscard]] Tensor log() const;
     [[nodiscard]] Tensor sqrt() const;
 

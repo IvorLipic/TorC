@@ -433,6 +433,8 @@ Tensor Tensor::reshape(std::vector<int> new_shape) const {
 Tensor Tensor::view(std::vector<int> new_shape) const { return reshape(std::move(new_shape)); }
 
 Tensor Tensor::softmax() const {
+    if (storage_.empty())
+        throw ShapeError("Cannot compute softmax of an empty tensor");
     Tensor out(shape_);
     float max_val = *std::ranges::max_element(storage_);
     std::vector<float> exp_vals(numel());
@@ -448,6 +450,41 @@ Tensor Tensor::softmax() const {
 #endif
     for (int i = 0; i < numel(); ++i) {
         out.storage_[i] = exp_vals[i] / sum_exp;
+    }
+    return out;
+}
+
+Tensor Tensor::softmax(int axis) const {
+    int rank = static_cast<int>(shape_.size());
+    if (axis < 0) axis += rank;
+    if (axis < 0 || axis >= rank)
+        throw ShapeError(std::format("Invalid softmax axis {} for tensor with shape {}",
+                                     axis, shape_to_string(shape_)));
+    if (storage_.empty())
+        throw ShapeError("Cannot compute softmax of an empty tensor");
+
+    Tensor out(shape_);
+    int axis_size = shape_[axis];
+    int inner_stride = shape_product(std::span<const int>(shape_).subspan(axis + 1));
+    int outer_stride = axis_size * inner_stride;
+    int outer_count = shape_product(std::span<const int>(shape_).subspan(0, axis));
+
+    for (int outer = 0; outer < outer_count; ++outer) {
+        int base = outer * outer_stride;
+        for (int inner = 0; inner < inner_stride; ++inner) {
+            float max_val = storage_[base + inner];
+            for (int a = 1; a < axis_size; ++a)
+                max_val = std::max(max_val, storage_[base + a * inner_stride + inner]);
+
+            float sum_exp = 0.0f;
+            for (int a = 0; a < axis_size; ++a) {
+                float value = std::exp(storage_[base + a * inner_stride + inner] - max_val);
+                out.storage_[base + a * inner_stride + inner] = value;
+                sum_exp += value;
+            }
+            for (int a = 0; a < axis_size; ++a)
+                out.storage_[base + a * inner_stride + inner] /= sum_exp;
+        }
     }
     return out;
 }

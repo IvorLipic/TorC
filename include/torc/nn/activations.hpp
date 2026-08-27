@@ -18,8 +18,11 @@ public:
 
 class Softmax : public Module {
 public:
-    Softmax() = default;
+    explicit Softmax(int axis = -1) : axis_(axis) {}
     Variable forward(const Variable& x) const override;
+
+private:
+    int axis_;
 };
 
 } // namespace torc::nn

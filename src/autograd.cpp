@@ -678,6 +678,47 @@ Variable softmax(const Variable& a) {
     return out;
 }
 
+Variable softmax(const Variable& a, int axis) {
+    bool needs_grad = a.requires_grad_ && Variable::grad_enabled();
+    Tensor out_data = a.data_.softmax(axis);
+    Variable out(std::move(out_data), needs_grad);
+
+    int rank = static_cast<int>(a.data_.shape().size());
+    if (axis < 0) axis += rank;
+
+    if (needs_grad) {
+        TapeEntry entry;
+        entry.inputs = { const_cast<Variable*>(&a) };
+        Tensor soft_data = out.data();
+        int axis_size = a.data_.shape()[axis];
+        int inner_stride = shape_product(std::span<const int>(a.data_.shape()).subspan(axis + 1));
+        int axis_stride = axis_size * inner_stride;
+        int outer_count = shape_product(std::span<const int>(a.data_.shape()).subspan(0, axis));
+        entry.backward = [soft_data, axis_size, inner_stride, axis_stride, outer_count]
+            (const Tensor& grad_output, std::vector<Tensor>& input_grads) {
+                Tensor result(grad_output.shape());
+                for (int outer = 0; outer < outer_count; ++outer) {
+                    int base = outer * axis_stride;
+                    for (int inner = 0; inner < inner_stride; ++inner) {
+                        float grad_sum = 0.0f;
+                        for (int a = 0; a < axis_size; ++a) {
+                            int index = base + a * inner_stride + inner;
+                            grad_sum += grad_output.data()[index] * soft_data.data()[index];
+                        }
+                        for (int a = 0; a < axis_size; ++a) {
+                            int index = base + a * inner_stride + inner;
+                            result.data()[index] = soft_data.data()[index] *
+                                (grad_output.data()[index] - grad_sum);
+                        }
+                    }
+                }
+                input_grads[0] = std::move(result);
+            };
+        out.tape_.push_back(std::move(entry));
+    }
+    return out;
+}
+
 Variable log(const Variable& a) {
     bool needs_grad = a.requires_grad_ && Variable::grad_enabled();
     Tensor out_data = a.data_.log();

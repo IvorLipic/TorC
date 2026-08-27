@@ -13,7 +13,7 @@ Variable Sigmoid::forward(const Variable& x) const {
 }
 
 Variable Softmax::forward(const Variable& x) const {
-    return torc::softmax(x);
+    return torc::softmax(x, axis_);
 }
 
 } // namespace torc::nn

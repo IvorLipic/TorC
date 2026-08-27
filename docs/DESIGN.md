@@ -14,12 +14,13 @@ working on the hardening backlog in `ROADMAP.md`; it is not a claim that these b
 
 ### Softmax and cross-entropy semantics
 
-`Tensor::softmax()` currently reduces over the entire flattened storage buffer. That is acceptable
-only for a one-dimensional vector. For a conventional `{batch, classes}` tensor, each row must be
-normalized independently, and the autograd Jacobian-vector product must use the same axis.
-`nn::Softmax` must not silently mix examples in a batch. Prefer an explicit axis API with a clear
-default, then make `nn::Softmax` and `torc::softmax` agree on that contract. Tests must cover row
-sums and batched backward gradients.
+`Tensor::softmax()` remains a flattened legacy primitive for compatibility and is only suitable for
+one-dimensional inputs. The axis-aware overload `Tensor::softmax(axis)` computes a stable softmax
+independently along the selected dimension; `torc::softmax(a, axis)` uses the matching per-axis
+Jacobian-vector product. `nn::Softmax(axis = -1)` defaults to the last axis, so conventional
+`{batch, classes}` inputs normalize each row without mixing examples. Batched forward and backward
+tests enforce this contract. New code should pass an explicit axis (or use the module default)
+rather than rely on flattened behavior.
 
 `CrossEntropyLoss` is currently separate from the primitive softmax because that primitive is
 flattened. Numerical stability belongs here too: compute per-row log-sum-exp directly rather than
@@ -556,10 +557,10 @@ PR. *(Check ROADMAP.md for actual checkbox state — not duplicated here.)*
   - **ReLU**: `dL/dx = dL/dy * (x > 0 ? 1 : 0)` — mask from forward pass
   - **Sigmoid**: `dL/dx = dL/dy * sigmoid(x) * (1 - sigmoid(x))` — uses captured forward output
   - **Softmax**: `dL/dx = y * (dL/dy - sum(dL/dy * y))` — uses captured forward output
-- **Design note**: `Softmax` is currently whole-tensor (flattened). Per-axis softmax can be
-  added later if needed for classification heads; the backward implementation is written so
-  it operates over the full flattened tensor, which is correct for the 1D case and a
-  reasonable MVP for higher-rank inputs.
+- **Design note**: The no-argument `Softmax` primitive preserves whole-tensor (flattened)
+  semantics for compatibility. Axis-aware softmax is now the preferred path: `nn::Softmax`
+  defaults to the last axis and the free function accepts an explicit axis, with backward using
+  the same axis.
 - **Test**: forward correctness for each activation, backward correctness for ReLU and Sigmoid
   (hand-computed), and numerical gradient check for Softmax (central differences, `h=1e-4`)
 
@@ -573,9 +574,9 @@ PR. *(Check ROADMAP.md for actual checkbox state — not duplicated here.)*
   negated to `target`.
 - `CrossEntropyLoss`: per-row softmax + log-softmax + negative log-likelihood. The loss
   averages over the batch. Backward = `(softmax - one_hot(target)) / batch_size` per row.
-  **Important**: `Tensor::softmax()` is whole-tensor (flattened), so `CrossEntropyLoss`
-  implements its own per-row softmax locally via `row_softmax()` — this is intentional until
-  per-axis softmax is promoted to a `Tensor` primitive.
+  **Important**: `CrossEntropyLoss` still implements its own per-row softmax locally via
+  `row_softmax()`; migrating it to the axis-aware primitive is part of the separate numerical
+  stability and input-validation hardening task.
 - **New Tensor primitive**: `Tensor::log()` (elementwise, using `std::ranges::transform`) added
   alongside `exp()` as a basic unary op.
 - **New autograd free function**: `torc::log(const Variable&)` added in `src/autograd.cpp`.

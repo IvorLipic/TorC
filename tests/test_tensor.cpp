@@ -235,6 +235,32 @@ TEST(TensorExp, NegativeValues) {
     EXPECT_FLOAT_EQ(c.data()[2], std::exp(1.0f));
 }
 
+TEST(TensorSoftmax, AxisNormalizesRowsIndependently) {
+    Tensor t({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, {2, 3});
+    Tensor out = t.softmax(-1);
+
+    EXPECT_NEAR(out.data()[0] + out.data()[1] + out.data()[2], 1.0f, 1e-5f);
+    EXPECT_NEAR(out.data()[3] + out.data()[4] + out.data()[5], 1.0f, 1e-5f);
+    EXPECT_NEAR(out.data()[0], out.data()[3], 1e-5f);
+    EXPECT_NEAR(out.data()[1], out.data()[4], 1e-5f);
+    EXPECT_NEAR(out.data()[2], out.data()[5], 1e-5f);
+}
+
+TEST(TensorSoftmax, AxisNormalizesColumns) {
+    Tensor t({1.0f, 2.0f, 3.0f, 4.0f}, {2, 2});
+    Tensor out = t.softmax(0);
+
+    EXPECT_NEAR(out.data()[0] + out.data()[2], 1.0f, 1e-5f);
+    EXPECT_NEAR(out.data()[1] + out.data()[3], 1.0f, 1e-5f);
+}
+
+TEST(TensorSoftmax, InvalidOrEmptyAxisThrows) {
+    Tensor t({1.0f, 2.0f}, {2});
+    EXPECT_THROW(t.softmax(1), torc::ShapeError);
+    Tensor empty(std::vector<int>{0, 2});
+    EXPECT_THROW(empty.softmax(-1), torc::ShapeError);
+}
+
 TEST(TensorSqrt, BasicValues) {
     Tensor a({0.0f, 1.0f, 4.0f, 9.0f}, {4});
     Tensor c = a.sqrt();
@@ -820,4 +846,3 @@ TEST(TensorMatmul, ZeroSizeDimensions) {
     EXPECT_EQ(r.shape(), std::vector<int>({0, 4}));
     EXPECT_EQ(r.numel(), 0);
 }
-
