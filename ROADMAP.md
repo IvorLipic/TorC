@@ -121,3 +121,66 @@ Each step must pass tests before proceeding.
 - [ ] Python bindings (pybind11) once the C++ API has stabilized
 - [ ] Versioned releases / install target (`cmake --install`)
 - [ ] CI (GitHub Actions: build + `ctest` on push)
+
+## Review-derived hardening backlog
+
+Before treating the library as production-ready, the backlog below must be addressed. These items
+are separate from feature milestones: adding more layers on top of unsafe or numerically fragile
+primitives would make the eventual fixes more expensive.
+
+### Correctness and API safety
+
+- [ ] **Make softmax axis-aware.** Add an explicit axis (at minimum, row-wise `{batch, classes}`
+      softmax), make `nn::Softmax` use conventional neural-network semantics, and implement the
+      matching per-axis backward rule. Add batched forward and gradient tests.
+- [ ] **Harden `CrossEntropyLoss`.** Validate logits rank and shape, target shape/length, non-empty
+      batches, integral targets, and target range before indexing. Replace softmax-then-log with a
+      numerically stable log-sum-exp formulation. Add malformed-input and extreme-logit tests.
+- [ ] **Define numerical-domain and empty-tensor behavior.** Decide and document the policy for
+      `log`, `sqrt`, division by zero, empty softmax, NaN/Inf inputs, and zero-sized reductions;
+      enforce it consistently with `TorcError` subclasses and tests.
+- [ ] **Remove raw-pointer graph lifetime UB.** Replace or wrap `TapeEntry.inputs`' raw,
+      non-owning `Variable*` pointers with an ownership-safe graph representation, or introduce
+      an API that makes graph ownership/lifetime impossible to misuse. Add returned-graph and
+      destroyed-intermediate tests.
+- [ ] **Encapsulate `Variable` state.** Make `data_`, `grad_`, `requires_grad_`, `has_grad_`, and
+      `tape_` private and expose only invariant-preserving operations.
+- [ ] **Close tracked-mutation loopholes.** Prevent or version-check mutable `data()` and indexing
+      on tracked Variables; the current `fill()` guard does not protect direct writes after
+      forward. Add mutation-after-forward tests.
+- [ ] **Make gradient mode scoped and thread-local.** Add an RAII `no_grad` guard and thread-local
+      state so nested scopes, exceptions, and concurrent inference cannot leak gradient state.
+- [ ] **Validate optimizers and parameter ownership.** Reject invalid learning rates, momentum,
+      beta, epsilon, and decay values; detect null/stale/shape-changing parameter pointers; and
+      define behavior when a module parameter map changes after optimizer construction.
+- [ ] **Validate dataset contracts.** Check sample-shape consistency in generic batching and guard
+      all `size_t`-to-`int` conversions and shape-product arithmetic against overflow. Align data
+      loader errors with the project's TorcError hierarchy.
+
+### Performance and portability
+
+- [ ] Replace per-output-element index-vector allocation in broadcast elementwise kernels with
+      stride/odometer iteration.
+- [ ] Reduce avoidable full-buffer copies from `reshape`/`view`, `transpose`, `slice`, optimizer
+      updates, and autograd saved tensors; introduce strides or an explicitly documented memory
+      budget before scaling model sizes.
+- [ ] Add a portable SIMD dispatch/build mode. `-march=native` and unconditional AVX2 options
+      currently make binaries dependent on the build CPU; retain optimized paths without making
+      the default artifact non-portable.
+- [ ] Add checked shape-product/element-count arithmetic so large shapes fail predictably instead
+      of overflowing `int` and producing invalid allocations or indexing.
+
+### Verification, packaging, and scope
+
+- [ ] Add Debug/Release sanitizer jobs (ASan/UBSan where supported), a clean compiler matrix, and
+      CI that configures and rebuilds from scratch rather than relying on a pre-existing build
+      directory. Keep at least one test target per logical suite in addition to the aggregate test.
+- [ ] Add property/fuzz tests for broadcasting, matmul batch promotion, malformed losses/data, and
+      empty/zero-sized shapes; the current 252 example-oriented tests do not cover these hazards.
+- [ ] Add an install target, package/version metadata, and a dependency strategy that does not
+      require an implicit network fetch for every clean build.
+- [ ] Reconcile roadmap/design status with the implementation after each performance change;
+      the matmul AVX2 and sparsity items currently contain stale or contradictory checklist text.
+- [ ] Decide and document the intended scope for train/eval modes, serialization/state dicts,
+      operator ergonomics, higher-order gradients, and device backends. Until then, describe torc
+      as a small educational CPU reference library rather than a general PyTorch replacement.

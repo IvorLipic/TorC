@@ -7,6 +7,70 @@ after — the point is to force the decision to be explicit.
 
 ---
 
+## Review-derived design constraints and known gaps
+
+This section records issues found after the initial milestone implementation. It guides agents
+working on the hardening backlog in `ROADMAP.md`; it is not a claim that these behaviors are fixed.
+
+### Softmax and cross-entropy semantics
+
+`Tensor::softmax()` currently reduces over the entire flattened storage buffer. That is acceptable
+only for a one-dimensional vector. For a conventional `{batch, classes}` tensor, each row must be
+normalized independently, and the autograd Jacobian-vector product must use the same axis.
+`nn::Softmax` must not silently mix examples in a batch. Prefer an explicit axis API with a clear
+default, then make `nn::Softmax` and `torc::softmax` agree on that contract. Tests must cover row
+sums and batched backward gradients.
+
+`CrossEntropyLoss` is currently separate from the primitive softmax because that primitive is
+flattened. Numerical stability belongs here too: compute per-row log-sum-exp directly rather than
+taking `log(softmax(logits))`. Before indexing, validate rank, batch/class dimensions, target
+length, non-empty batches, integral target values, and `0 <= target < classes`; malformed input
+must throw a torc error rather than perform an out-of-bounds read or divide by zero.
+
+### Graph ownership, mutability, and gradient mode
+
+The tape stores raw pointers to input Variables. Capturing tensor values in closures does not keep
+those Variable objects alive, so returning a graph whose local inputs have gone out of scope is
+undefined behavior. A future ownership-safe design should make this lifetime relationship explicit
+and define whether backward graphs are reusable or consumed.
+
+`Variable` data, gradients, flags, and tape are currently public. This was convenient for
+incremental tests but prevents invariant enforcement; make them private before adding version
+counters, saved-tensor checks, or graph reuse.
+
+The `fill()` guard is incomplete while mutable `data()` and indexing remain available: callers can
+modify a tracked input after forward and invalidate saved derivatives. Either remove those mutable
+access paths, add version checking, or explicitly detect unsupported mutation.
+
+`set_grad_enabled()` is a process-global boolean. It must become thread-local and scoped by an RAII
+guard so exceptions and nested inference regions restore the previous state reliably.
+
+### Memory, shape, and portability constraints
+
+Tensor operations intentionally copy contiguous storage, and backward closures often capture full
+Tensor copies. This is useful for a reference implementation, but memory scales with graph size.
+Any stride/view or saved-tensor optimization must preserve row-major semantics and update ownership
+rules together.
+
+Broadcast kernels currently reconstruct an index vector per output element, and shape products and
+element counts use `int`. Replace allocation-heavy indexing and add checked arithmetic before
+accepting large shapes.
+
+The default build enables CPU-specific optimization (`-march=native` or AVX2 under MSVC). Keep a
+portable baseline path and make ISA-specific dispatch opt-in or runtime-selected; otherwise a
+binary built on one machine may fail on another.
+
+### Verification and product boundary
+
+The aggregate GoogleTest target does not replace sanitizer, fuzz/property, malformed-input, or
+clean-build coverage. New hardening work should add those checks and keep the documented test
+command reproducible from a fresh build directory.
+
+The project currently has no install/package metadata, CI, serialization/state-dict API, or
+train/eval mode. These are scope decisions, not accidental PyTorch compatibility: documentation
+and examples should call torc a small CPU reference/educational library until those capabilities
+are designed.
+
 ## Decisions made so far
 
 ### dtype strategy
@@ -63,8 +127,19 @@ they are not re-litigated:
 
 ### Error handling convention
 `TorcError` (base, derives `std::runtime_error`) and `ShapeError` (shape mismatches) live in
-`utils.hpp`. All error sites use `ShapeError`; existing `catch (std::runtime_error&)` still
-works since it's a base class.
+`utils.hpp`. Tensor shape failures should use these types. The current data-loader code still
+throws standard `invalid_argument`, `out_of_range`, and `runtime_error` exceptions in several
+paths; unifying those errors is part of the review-derived hardening backlog. Existing
+`catch (std::runtime_error&)` sites remain compatible because the torc base error derives from it.
+
+### Documentation consistency
+
+Performance and milestone notes are historical design records, but they must still identify the
+current implementation accurately. In particular, the matmul paragraph above describes a retained
+sparsity early-exit while the current implementation has removed that branch, and the roadmap has
+an unchecked AVX2 vectorization item despite the implementation containing an AVX2 path. When a
+performance change lands, update both the checklist and this rationale in the same change so agents
+do not optimize against obsolete assumptions.
 
 ---
 
