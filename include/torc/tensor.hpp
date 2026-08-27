@@ -36,7 +36,9 @@ public:
 
     [[nodiscard]] Tensor operator-() const;
 
-    bool operator==(const Tensor& other) const = default;
+    bool operator==(const Tensor& other) const {
+        return shape_ == other.shape_ && storage_ == other.storage_;
+    }
 
     // indexing — one implementation, deduced-this const/non-const, arg types checked at compile time
     template<typename Self, typename... Args>
@@ -82,6 +84,8 @@ public:
 private:
     std::vector<int> shape_;
     std::vector<float> storage_;
+    mutable int numel_;
+    mutable bool numel_valid_;
 
     static void validate_shape(std::span<const int> shape);
 

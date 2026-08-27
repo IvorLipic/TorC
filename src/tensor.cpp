@@ -1,5 +1,6 @@
 // tensor.cpp
 #include "torc/tensor.hpp"
+#include "simd_ops.hpp"
 #include <ostream>
 #include <format>
 #include <algorithm>
@@ -19,13 +20,13 @@ void advance_indices(std::vector<int>& idx, std::span<const int> shape) {
 }
 } // namespace
 
-Tensor::Tensor(std::vector<int> shape) : shape_(std::move(shape)) {
+Tensor::Tensor(std::vector<int> shape) : shape_(std::move(shape)), numel_valid_(false) {
     validate_shape(shape_);
     storage_.resize(shape_product(shape_), 0.0f);
 }
 
 Tensor::Tensor(std::initializer_list<float> data, std::vector<int> shape)
-    : shape_(std::move(shape)), storage_(data) {
+    : shape_(std::move(shape)), storage_(data), numel_valid_(false) {
     validate_shape(shape_);
     if (shape_product(shape_) != (int)storage_.size())
         throw ShapeError(std::format(
@@ -43,7 +44,13 @@ void Tensor::validate_shape(std::span<const int> shape) {
 float* Tensor::data() { return storage_.data(); }
 const float* Tensor::data() const { return storage_.data(); }
 
-int Tensor::numel() const { return shape_product(shape_); }
+int Tensor::numel() const {
+    if (!numel_valid_) {
+        numel_ = shape_product(shape_);
+        numel_valid_ = true;
+    }
+    return numel_;
+}
 
 int Tensor::flat_index(std::span<const int> indices) const {
     int idx = 0;
@@ -68,24 +75,41 @@ Tensor Tensor::elementwise_binary_op(const Tensor& other, BinOp op) const {
     auto out_shape = broadcast_shape(shape_, other.shape_);
     Tensor out(out_shape);
     int rank = (int)out_shape.size();
+    int n = out.numel();
 
-    for (int i = 0; i < out.numel(); ++i) {
+    std::vector<int> a_strides(rank), b_strides(rank);
+    int a_rank = (int)shape_.size(), b_rank = (int)other.shape_.size();
+    int a_offset = rank - a_rank, b_offset = rank - b_rank;
+
+    int a_stride = 1;
+    for (int d = rank - 1; d >= 0; --d) {
+        int a_dim = (d < a_offset) ? 1 : shape_[d - a_offset];
+        a_strides[d] = (a_dim == 1) ? 0 : a_stride;
+        if (d >= a_offset) a_stride *= shape_[d - a_offset];
+    }
+
+    int b_stride = 1;
+    for (int d = rank - 1; d >= 0; --d) {
+        int b_dim = (d < b_offset) ? 1 : other.shape_[d - b_offset];
+        b_strides[d] = (b_dim == 1) ? 0 : b_stride;
+        if (d >= b_offset) b_stride *= other.shape_[d - b_offset];
+    }
+
+#if defined(_OPENMP)
+    #pragma omp parallel for if(n > 65536) schedule(static)
+#endif
+    for (int i = 0; i < n; ++i) {
         std::vector<int> out_indices(rank);
         int tmp = i;
         for (int d = rank - 1; d >= 0; --d) {
             out_indices[d] = tmp % out_shape[d];
             tmp /= out_shape[d];
         }
-        int a_rank = (int)shape_.size(), b_rank = (int)other.shape_.size();
-        int a_offset = rank - a_rank, b_offset = rank - b_rank;
-
-        int a_idx = 0;
-        for (int d = 0; d < a_rank; ++d)
-            a_idx = a_idx * shape_[d] + (shape_[d] == 1 ? 0 : out_indices[d + a_offset]);
-        int b_idx = 0;
-        for (int d = 0; d < b_rank; ++d)
-            b_idx = b_idx * other.shape_[d] + (other.shape_[d] == 1 ? 0 : out_indices[d + b_offset]);
-
+        int a_idx = 0, b_idx = 0;
+        for (int d = 0; d < rank; ++d) {
+            a_idx += out_indices[d] * a_strides[d];
+            b_idx += out_indices[d] * b_strides[d];
+        }
         out.storage_[i] = op(storage_[a_idx], other.storage_[b_idx]);
     }
     return out;
@@ -98,34 +122,34 @@ Tensor Tensor::div(const Tensor& other) const { return elementwise_binary_op(oth
 
 Tensor Tensor::add(float scalar) const {
     Tensor out(shape_);
-    std::ranges::transform(storage_, out.storage_.begin(), [scalar](float x) { return x + scalar; });
+    simd::add_scalar(storage_.data(), scalar, out.storage_.data(), numel());
     return out;
 }
 Tensor Tensor::sub(float scalar) const {
     Tensor out(shape_);
-    std::ranges::transform(storage_, out.storage_.begin(), [scalar](float x) { return x - scalar; });
+    simd::sub_scalar(storage_.data(), scalar, out.storage_.data(), numel());
     return out;
 }
 Tensor Tensor::mul(float scalar) const {
     Tensor out(shape_);
-    std::ranges::transform(storage_, out.storage_.begin(), [scalar](float x) { return x * scalar; });
+    simd::mul_scalar(storage_.data(), scalar, out.storage_.data(), numel());
     return out;
 }
 Tensor Tensor::div(float scalar) const {
     Tensor out(shape_);
-    std::ranges::transform(storage_, out.storage_.begin(), [scalar](float x) { return x / scalar; });
+    simd::div_scalar(storage_.data(), scalar, out.storage_.data(), numel());
     return out;
 }
 
 Tensor Tensor::operator-() const {
     Tensor out(shape_);
-    std::ranges::transform(storage_, out.storage_.begin(), std::negate<>{});
+    simd::neg(storage_.data(), out.storage_.data(), numel());
     return out;
 }
 
 Tensor Tensor::exp() const {
     Tensor out(shape_);
-    std::ranges::transform(storage_, out.storage_.begin(), [](float x) { return std::exp(x); });
+    simd::exp(storage_.data(), out.storage_.data(), numel());
     return out;
 }
 
@@ -165,6 +189,8 @@ Tensor Tensor::matmul(const Tensor& other) const {
     int out_batch = shape_product(batch);
     int batch_rank = (int)batch.size();
 
+    constexpr int Mc = 32, Nc = 32, Kc = 32;
+
     std::vector<int> batch_idx(batch_rank, 0);
     for (int b = 0; b < out_batch; ++b) {
         int a_off = 0, b_off = 0;
@@ -186,14 +212,25 @@ Tensor Tensor::matmul(const Tensor& other) const {
         }
         int out_off = b * m * n;
 
-        for (int i = 0; i < m; ++i) {
-            for (int j = 0; j < n; ++j) {
-                float acc = 0.0f;
-                for (int p = 0; p < k; ++p)
-                    acc += storage_[a_off + i * k + p] * other.storage_[b_off + p * n + j];
-                out.storage_[out_off + i * n + j] = acc;
+        for (int i0 = 0; i0 < m; i0 += Mc) {
+            int imax = std::min(i0 + Mc, m);
+            for (int k0 = 0; k0 < k; k0 += Kc) {
+                int kmax = std::min(k0 + Kc, k);
+                for (int j0 = 0; j0 < n; j0 += Nc) {
+                    int jmax = std::min(j0 + Nc, n);
+                    for (int i = i0; i < imax; ++i) {
+                        for (int p = k0; p < kmax; ++p) {
+                            float a_val = storage_[a_off + i * k + p];
+                            if (a_val == 0.0f) continue;
+                            for (int j = j0; j < jmax; ++j) {
+                                out.storage_[out_off + i * n + j] += a_val * other.storage_[b_off + p * n + j];
+                            }
+                        }
+                    }
+                }
             }
         }
+
         advance_indices(batch_idx, batch);
     }
     return out;
@@ -223,11 +260,26 @@ Tensor Tensor::transpose(std::vector<int> axes) const {
     for (int i = 0; i < rank; ++i) new_shape[i] = shape_[axes[i]];
     Tensor out(std::move(new_shape));
 
+    std::vector<int> in_strides(rank);
+    int stride = 1;
+    for (int d = rank - 1; d >= 0; --d) {
+        in_strides[d] = stride;
+        stride *= shape_[d];
+    }
+
+    std::vector<int> out_strides(rank);
+    stride = 1;
+    for (int d = rank - 1; d >= 0; --d) {
+        out_strides[d] = stride;
+        stride *= out.shape()[d];
+    }
+
     std::vector<int> out_indices(rank, 0);
     for (int out_flat = 0; out_flat < out.numel(); ++out_flat) {
-        std::vector<int> in_indices(rank);
-        for (int i = 0; i < rank; ++i) in_indices[axes[i]] = out_indices[i];
-        out.storage_[out_flat] = storage_[flat_index(in_indices)];
+        int in_flat = 0;
+        for (int i = 0; i < rank; ++i)
+            in_flat += out_indices[i] * in_strides[axes[i]];
+        out.storage_[out_flat] = storage_[in_flat];
         advance_indices(out_indices, out.shape());
     }
     return out;
@@ -247,11 +299,19 @@ Tensor Tensor::slice(const std::vector<Slice>& slices) const {
     }
     Tensor out(std::move(out_shape));
 
+    std::vector<int> in_strides(rank);
+    int stride = 1;
+    for (int d = rank - 1; d >= 0; --d) {
+        in_strides[d] = stride;
+        stride *= shape_[d];
+    }
+
     std::vector<int> out_indices(rank, 0);
     for (int out_flat = 0; out_flat < out.numel(); ++out_flat) {
-        std::vector<int> in_indices(rank);
-        for (int i = 0; i < rank; ++i) in_indices[i] = offsets[i] + out_indices[i];
-        out.storage_[out_flat] = storage_[flat_index(in_indices)];
+        int in_flat = 0;
+        for (int i = 0; i < rank; ++i)
+            in_flat += (offsets[i] + out_indices[i]) * in_strides[i];
+        out.storage_[out_flat] = storage_[in_flat];
         advance_indices(out_indices, out.shape());
     }
     return out;
@@ -289,6 +349,9 @@ Tensor Tensor::reduce_axis(int axis, BinOp op) const {
     int inner_stride = shape_product(std::span(shape_).subspan(0, axis));
     int axis_size = shape_[axis];
 
+#if defined(_OPENMP)
+    #pragma omp parallel for if(inner_stride > 65536) schedule(static)
+#endif
     for (int outer = 0; outer < inner_stride; ++outer) {
         for (int j = 0; j < outer_stride; ++j) {
             int out_idx = outer * outer_stride + j;
@@ -333,10 +396,16 @@ Tensor Tensor::softmax() const {
     Tensor out(shape_);
     float max_val = *std::ranges::max_element(storage_);
     std::vector<float> exp_vals(numel());
+#if defined(_OPENMP)
+    #pragma omp parallel for if(numel() > 65536) schedule(static)
+#endif
     for (int i = 0; i < numel(); ++i) {
         exp_vals[i] = std::exp(storage_[i] - max_val);
     }
     float sum_exp = std::accumulate(exp_vals.begin(), exp_vals.end(), 0.0f);
+#if defined(_OPENMP)
+    #pragma omp parallel for if(numel() > 65536) schedule(static)
+#endif
     for (int i = 0; i < numel(); ++i) {
         out.storage_[i] = exp_vals[i] / sum_exp;
     }
@@ -345,13 +414,21 @@ Tensor Tensor::softmax() const {
 
 Tensor Tensor::log() const {
     Tensor out(shape_);
-    std::ranges::transform(storage_, out.storage_.begin(), [](float x) { return std::log(x); });
+#if defined(_OPENMP)
+    #pragma omp parallel for if(numel() > 65536) schedule(static)
+#endif
+    for (int i = 0; i < numel(); ++i)
+        out.storage_[i] = std::log(storage_[i]);
     return out;
 }
 
 Tensor Tensor::sqrt() const {
     Tensor out(shape_);
-    std::ranges::transform(storage_, out.storage_.begin(), [](float x) { return std::sqrt(x); });
+#if defined(_OPENMP)
+    #pragma omp parallel for if(numel() > 65536) schedule(static)
+#endif
+    for (int i = 0; i < numel(); ++i)
+        out.storage_[i] = std::sqrt(storage_[i]);
     return out;
 }
 

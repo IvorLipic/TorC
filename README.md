@@ -69,12 +69,26 @@ operations and a tape-based autograd system, built on CMake with GoogleTest-base
 - CMake 3.16+
 - A C++23 compiler (GCC, Clang, or MSVC)
 - Git (for fetching GoogleTest during the build)
+- Optional: OpenMP (enable with `-DUSE_OPENMP=ON` for parallelized elementwise/reduction ops)
 
 ## Build
 
 ```bash
 cmake -S . -B build
 cmake --build build
+```
+
+For Release optimizations (AVX2 SIMD, auto-vectorization):
+
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+```
+
+For benchmarks:
+
+```bash
+cmake -S . -B build -DBUILD_BENCHMARKS=ON
+cmake --build build --config Release
 ```
 
 ## Run the demo
@@ -113,8 +127,7 @@ Trains a 3-layer MLP (`Linear(784, 32) → ReLU → Linear(32, 32) → ReLU → 
 dataset (`datasets/mnist/mnist_train.csv`) for 10 epochs using `AdamW` and `CrossEntropyLoss`.
 Evaluates on both train and test splits each epoch and prints accuracy. Accepts an optional
 command-line argument for the maximum number of training samples to use (e.g.
-`./build/mnist_mlp_example 100`). The dataset is already provided as CSV files in
-`datasets/mnist/`; no conversion step is needed.
+`./build/mnist_mlp_example 100`).
 
 ## Visualize results
 

@@ -41,6 +41,7 @@ torc/
 │           └── losses.hpp      # nn::MSELoss, nn::CrossEntropyLoss declarations
 ├── src/
 │   ├── tensor.cpp              # Tensor implementation
+│   ├── simd_ops.hpp            # AVX2-accelerated elementwise/unary ops
 │   ├── autograd.cpp            # Variable op implementations (backward closures)
 │   ├── nn.cpp                  # Module / Sequential method definitions
 │   ├── nn/
@@ -50,6 +51,8 @@ torc/
 │   ├── optim.cpp               # SGD/Adam/AdamW step/zero_grad
 │   ├── data.cpp                # Dataset / DataLoader implementation
 │   └── main.cpp                # demo executable
+├── benchmarks/
+│   └── bench_tensor.cpp        # Google Benchmark suite (optional)
 ├── examples/
 │   ├── linear_regression/
 │   │   ├── linear_regression.cpp   # end-to-end training script (Step 5.11)
@@ -64,7 +67,7 @@ torc/
     └── test_data.cpp           # GoogleTest suite for data::Dataset / DataLoader
 ```
 
-Four build targets:
+Five build targets:
 - **`torc`** — library built from `src/tensor.cpp`, `src/autograd.cpp`, `src/nn.cpp`,
   `src/nn/linear.cpp`, `src/nn/activations.cpp`, `src/nn/losses.cpp`, `src/optim.cpp`,
   `src/data.cpp`
@@ -75,8 +78,9 @@ Four build targets:
   `tests/test_autograd.cpp` + `tests/test_nn.cpp` + `tests/test_data.cpp`), links `torc`, registered via `enable_testing()` /
   `add_test(NAME TorcTests ...)`.
 
-C++23. GoogleTest (`v1.14.0`) is pulled in for tests via `FetchContent`; there are no other
-dependencies.
+C++23. GoogleTest (`v1.14.0`) is pulled in for tests via `FetchContent`; Google Benchmark
+(`v1.8.0`) is pulled in for benchmarks via `FetchContent` when `BUILD_BENCHMARKS=ON`. There are
+no other dependencies.
 
 ---
 
@@ -182,14 +186,12 @@ each with gradient checks against central finite differences where applicable. S
 
 ## 5. Known issues
 
-1. `numel()` recomputes on every call instead of being cached at construction — fine for now,
-   will matter once tensors get large or `numel()` is called in hot loops.
-2. No CI configured — build + `ctest` only run locally, no GitHub Actions workflow yet.
-3. `Variable`'s tape (`TapeEntry.inputs`) holds raw, non-owning `Variable*` pointers with no
+1. No CI configured — build + `ctest` only run locally, no GitHub Actions workflow yet.
+2. `Variable`'s tape (`TapeEntry.inputs`) holds raw, non-owning `Variable*` pointers with no
    lifetime safety — using a `Variable` after any of its graph ancestors have been destroyed is
    undefined behavior, and nothing catches this at compile or run time. See `docs/DESIGN.md`'s
    "Tape / graph structure" section.
-4. `Variable`'s data members (`data_`, `grad_`, `requires_grad_`, `has_grad_`, `tape_`) are all
+3. `Variable`'s data members (`data_`, `grad_`, `requires_grad_`, `has_grad_`, `tape_`) are all
    `public`, despite the trailing-underscore naming that elsewhere in this codebase
    (`Tensor::shape_`, `storage_`) signals "private." Tests reach directly into `tape_`. This is
    inconsistent with `Tensor`'s own convention; not urgent to fix, but don't copy the pattern

@@ -81,5 +81,6 @@ build
 .vscode
 
 datasets
+benchmark_results.json
 
-*.txt
+*.csv

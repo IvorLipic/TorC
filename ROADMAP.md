@@ -104,8 +104,10 @@ Each step must pass tests before proceeding.
       Softmax, `matmul`, and broadcasting all being in place
 
 ## Milestone 6 — Performance & ergonomics
-- [ ] Cache `numel()` at construction/reshape instead of recomputing
-- [ ] SIMD or threaded elementwise ops (behind a flag, benchmark-gated)
+
+- [x] Benchmark infrastructure (Google Benchmark, `BUILD_BENCHMARKS=OFF` default)
+- [x] Cache `numel()` at construction/reshape instead of recomputing
+- [x] SIMD or threaded elementwise ops (behind a flag, benchmark-gated)
 - [ ] Optional CUDA/Metal backend exploration (stretch goal, only after CPU path is solid)
 
 ## Milestone 7 — Bindings & packaging
