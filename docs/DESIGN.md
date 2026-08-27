@@ -441,8 +441,8 @@ PR. *(Check ROADMAP.md for actual checkbox state — not duplicated here.)*
 - `Linear(in_features, out_features)` registers `weight` (shape `{out, in}`) and `bias`
   (shape `{out}`), both initialized to `0.01` and `0.0` respectively
 - `Linear(in_features, out_features, init_std)` overload: if `init_std <= 0`, weight is
-  initialized with Kaiming normal (`std::sqrt(2 / fan_in)`); otherwise uses `init_std` as
-  the fixed standard deviation. Bias remains `0.0`.
+  initialized with Kaiming normal (`std::sqrt(2 / fan_in)`); otherwise samples weight from
+  `N(0, init_std)`. Bias remains `0.0`.
 - Forward: `x @ W.T + b`, implemented with existing `torc::matmul`, `torc::transpose`,
   and `torc::add` free functions — no new Tensor primitives
 - **Test**: construction shape checks, forward correctness (unbatched and batched),
@@ -459,13 +459,10 @@ PR. *(Check ROADMAP.md for actual checkbox state — not duplicated here.)*
   `std::list` never relocates elements, raw `Variable*` pointers in tape entries remain valid
   until the next forward pass clears the cache.
 - **API impact**: users call `output = module(x); output.backward()` exactly as in Python.
-  `Sequential::forward()` calls `module->forward()` directly (not `operator()()`), as
-  explained in Step 5.2, so it does not clear each child's `forward_cache_` before calling
-  `forward()`. The cache is per-module; `operator()()` clears the cache before `forward()`,
-  but `Sequential` bypasses it to avoid destroying intermediates still referenced by tape
-  entries in the chain. A side effect is that child caches accumulate across repeated
-  `Sequential::forward()` calls without being cleared — this is a minor memory leak, not a
-  correctness issue, and is acceptable for the naive reference implementation.
+   `Sequential::forward()` calls each child's `operator()()` directly, which clears each
+   child's `forward_cache_` before calling `forward()`. This prevents unbounded cache growth
+   across repeated forward passes while keeping tape-entry pointers valid for the duration of
+   backward.
 - **Why `std::list`**: `std::vector` can reallocate and move elements, invalidating raw
   pointers stored in tape entries. `std::list` guarantees stable addresses, which is a
   prerequisite for the current tape design. The memory overhead is acceptable for a naive

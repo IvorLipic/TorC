@@ -75,13 +75,7 @@ operations and a tape-based autograd system, built on CMake with GoogleTest-base
 
 ```bash
 cmake -S . -B build
-cmake --build build
-```
-
-For Release optimizations (AVX2 SIMD, auto-vectorization):
-
-```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release
 ```
 
 For benchmarks:
@@ -100,7 +94,7 @@ cmake --build build --config Release
 ## Run tests
 
 ```bash
-ctest --test-dir build --output-on-failure
+ctest --test-dir build --output-on-failure -C Release
 ```
 
 Tests use [GoogleTest](https://github.com/google/googletest), fetched automatically via CMake

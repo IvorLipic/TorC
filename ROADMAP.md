@@ -32,7 +32,7 @@ see [AGENTS.md](AGENTS.md).
 - [x] Slicing (basic contiguous-range slices)
 
 ## Milestone 3 — Linear algebra
-- [x] `matmul()` for 2D tensors (naive triple loop first, correctness over speed)
+- [x] `matmul()` for 2D tensors (cache-blocked tiling with 32×32×32 tiles, `i, k, j` loop order)
 - [x] Batched matmul for higher-rank tensors
 
 ## Milestone 4 — Autograd (incremental, tested each step)
@@ -72,8 +72,8 @@ Each step must pass tests before proceeding.
       `torch::nn::Sequential`-style container
 - [x] **Step 5.3**: `nn::Linear` — `Linear(in, out)` with weight/bias parameters and a forward
   that does `x @ W.T + b`. `Linear(in, out, init_std)` overload: when `init_std <= 0`,
-  weight is initialized with Kaiming normal (`std::sqrt(2 / fan_in)`); otherwise uses
-  `init_std` as the fixed standard deviation. Bias is always initialized to `0.0`.
+  weight is initialized with Kaiming normal (`std::sqrt(2 / fan_in)`); otherwise samples
+  weight from `N(0, init_std)`. Bias is always initialized to `0.0`.
 - [x] **Step 5.3a**: Fix `Module::forward` / `Module::operator()` API so intermediate `Variable`s
        created inside `forward()` stay alive until after `backward()` completes. Solution:
        `Module` owns a `mutable std::list<Variable> forward_cache_`; `operator()()` clears it
@@ -113,7 +113,7 @@ Each step must pass tests before proceeding.
 - [x] `matmul` cache-blocked tiling (32×32×32 tiles, `i, k, j` loop order) shipped in Milestone 3
 - [x] Contiguous same-shape fast paths for elementwise binary ops (dispatch to `simd::add`/`sub`/`mul`/`div` directly, bypassing index reconstruction)
 - [ ] Vectorize matmul inner loop with AVX2/FMA for dense throughput
-- [ ] Remove sparsity early-exit from matmul inner loop if dense performance is prioritized
+- [x] Remove sparsity early-exit from matmul inner loop (dense throughput prioritized)
 - [ ] Replace `std::vector<int>` index reconstruction in hot loops with stack-allocated stride iteration
 - [ ] Optional CUDA/Metal backend exploration (stretch goal, only after CPU path is solid)
 

@@ -238,10 +238,12 @@ dz/dx = grad_output @ y.T    (m×n @ n×k = m×k)
 dz/dy = x.T @ grad_output    (k×m @ m×n = k×n)
 ```
 This generalizes to batched matmul: the 2D formulas are applied per-batch, then any broadcast
-*batch* dimensions are summed out via `reduce_sum_to_shape` on each input's gradient before
-accumulation. The implementation uses `swap_last_two_axes` to transpose the last two dimensions
-of `a`/`b`, then calls the existing `Tensor::matmul`, and finally applies `reduce_sum_to_shape`
-centrally in `backward_with_grad` — same pattern as elementwise ops.
+*batch* dimensions are summed out. The implementation uses `swap_last_two_axes` to transpose
+the last two dimensions of `a`/`b`, then calls the existing `Tensor::matmul`. Unlike elementwise
+ops, matmul's backward closure calls `reduce_sum_to_shape` directly for both inputs, because
+batched matmul produces gradients that may have extra batch dimensions from broadcasting — this
+is an intentional, documented exception to the "centralized only" rule. See `Common Pitfalls`
+for the full caveat.
 
 ### Sum reduction: z = x.sum(axis=0)  (x: m×n to z: n,)
 ```

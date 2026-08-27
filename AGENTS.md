@@ -88,8 +88,8 @@ no other dependencies.
 
 ```bash
 cmake -S . -B build
-cmake --build build
-ctest --test-dir build --output-on-failure   # runs TorcTests (Tensor + Variable + nn + data suites)
+cmake --build build --config Release
+ctest --test-dir build --output-on-failure -C Release   # runs TorcTests (Tensor + Variable + nn + data suites)
 ./build/torc_demo
 ```
 
