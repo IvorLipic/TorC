@@ -21,6 +21,11 @@ public:
     explicit ShapeError(const std::string& msg) : TorcError(msg) {}
 };
 
+class NumericalError : public TorcError {
+public:
+    explicit NumericalError(const std::string& msg) : TorcError(msg) {}
+};
+
 inline int shape_product(std::span<const int> shape) {
     return std::ranges::fold_left(shape, 1, std::multiplies<>{});
 }

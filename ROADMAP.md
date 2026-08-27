@@ -139,9 +139,10 @@ primitives would make the eventual fixes more expensive.
       targets whose length matches the batch. It rejects non-finite logits, non-integral/NaN,
       negative, and out-of-range targets before indexing. Forward uses per-row stable log-sum-exp
       (with double-precision accumulation), and malformed-input/extreme-logit tests are covered.
-- [ ] **Define numerical-domain and empty-tensor behavior.** Decide and document the policy for
-      `log`, `sqrt`, division by zero, empty softmax, NaN/Inf inputs, and zero-sized reductions;
-      enforce it consistently with `TorcError` subclasses and tests.
+- [x] **Define numerical-domain and empty-tensor behavior.** `NumericalError` now rejects
+      non-finite values, non-positive `log` inputs, negative `sqrt` inputs, and division by zero.
+      Empty `sum()` returns its additive identity (`0`); `mean`/`max`/`min`, axis reductions, and
+      softmax reject empty tensors with `ShapeError`. Regression tests cover each contract.
 - [ ] **Remove raw-pointer graph lifetime UB.** Replace or wrap `TapeEntry.inputs`' raw,
       non-owning `Variable*` pointers with an ownership-safe graph representation, or introduce
       an API that makes graph ownership/lifetime impossible to misuse. Add returned-graph and

@@ -30,6 +30,19 @@ double-precision accumulation, instead of taking `log(softmax(logits))`. Backwar
 validated, stably computed per-row probabilities. Extreme finite logits therefore remain usable;
 non-finite logits are rejected explicitly.
 
+### Numerical domains and empty tensors
+
+`NumericalError` is the `TorcError` subclass for invalid numeric inputs. Tensor arithmetic and
+reductions reject NaN or infinity rather than silently propagating them. Division rejects both
+scalar zero divisors and tensor divisors containing zero. `log` requires strictly positive finite
+inputs; `sqrt` requires non-negative finite inputs. `exp` and softmax require finite inputs;
+softmax retains its separate empty-tensor `ShapeError` for both flattened and axis-aware forms.
+
+Empty reductions follow explicit identities: whole-tensor `sum()` returns `0`, while `mean()`,
+`max()`, `min()`, and every axis reduction throw `ShapeError` because no finite result is defined.
+Elementwise operations on empty tensors preserve their shape when their inputs satisfy the numeric
+contract. These checks happen before SIMD kernels so CPU-specific paths cannot bypass validation.
+
 ### Graph ownership, mutability, and gradient mode
 
 The tape stores raw pointers to input Variables. Capturing tensor values in closures does not keep
@@ -129,11 +142,13 @@ they are not re-litigated:
   priority.
 
 ### Error handling convention
-`TorcError` (base, derives `std::runtime_error`) and `ShapeError` (shape mismatches) live in
-`utils.hpp`. Tensor shape failures should use these types. The current data-loader code still
-throws standard `invalid_argument`, `out_of_range`, and `runtime_error` exceptions in several
-paths; unifying those errors is part of the review-derived hardening backlog. Existing
-`catch (std::runtime_error&)` sites remain compatible because the torc base error derives from it.
+`TorcError` (base, derives `std::runtime_error`), `ShapeError` (shape mismatches), and
+`NumericalError` (invalid numeric domains or non-finite values) live in `utils.hpp`. Tensor shape
+failures should use `ShapeError`; numeric-domain failures should use `NumericalError`. The current
+data-loader code still throws standard `invalid_argument`, `out_of_range`, and `runtime_error`
+exceptions in several paths; unifying those errors is part of the review-derived hardening backlog.
+Existing `catch (std::runtime_error&)` sites remain compatible because the torc base error derives
+from it.
 
 ### Documentation consistency
 

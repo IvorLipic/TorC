@@ -7,10 +7,25 @@
 #include <numeric>
 #include <functional>
 #include <cmath>
+#include <string_view>
 
 namespace torc {
 
 namespace {
+void require_finite(const Tensor& tensor, std::string_view operation) {
+    for (int i = 0; i < tensor.numel(); ++i) {
+        if (!std::isfinite(tensor.data()[i]))
+            throw NumericalError(std::format("{} requires finite input values", operation));
+    }
+}
+
+void require_nonzero(const Tensor& tensor, std::string_view operation) {
+    for (int i = 0; i < tensor.numel(); ++i) {
+        if (tensor.data()[i] == 0.0f)
+            throw NumericalError(std::format("{} does not allow division by zero", operation));
+    }
+}
+
 // odometer-style increment of a multi-index in row-major order; shared by transpose/slice
 void advance_indices(std::vector<int>& idx, std::span<const int> shape) {
     for (int i = (int)idx.size() - 1; i >= 0; --i) {
@@ -72,6 +87,8 @@ void Tensor::check_index(std::span<const int> indices) const {
 
 template<typename BinOp>
 Tensor Tensor::elementwise_binary_op(const Tensor& other, BinOp op) const {
+    require_finite(*this, "elementwise operation");
+    require_finite(other, "elementwise operation");
     auto out_shape = broadcast_shape(shape_, other.shape_);
     Tensor out(out_shape);
     int rank = (int)out_shape.size();
@@ -117,6 +134,8 @@ Tensor Tensor::elementwise_binary_op(const Tensor& other, BinOp op) const {
 
     Tensor Tensor::add(const Tensor& other) const {
         if (shape_ == other.shape_) {
+            require_finite(*this, "addition");
+            require_finite(other, "addition");
             Tensor out(shape_);
             simd::add(storage_.data(), other.storage_.data(), out.storage_.data(), numel());
             return out;
@@ -125,6 +144,8 @@ Tensor Tensor::elementwise_binary_op(const Tensor& other, BinOp op) const {
     }
     Tensor Tensor::sub(const Tensor& other) const {
         if (shape_ == other.shape_) {
+            require_finite(*this, "subtraction");
+            require_finite(other, "subtraction");
             Tensor out(shape_);
             simd::sub(storage_.data(), other.storage_.data(), out.storage_.data(), numel());
             return out;
@@ -133,6 +154,8 @@ Tensor Tensor::elementwise_binary_op(const Tensor& other, BinOp op) const {
     }
     Tensor Tensor::mul(const Tensor& other) const {
         if (shape_ == other.shape_) {
+            require_finite(*this, "multiplication");
+            require_finite(other, "multiplication");
             Tensor out(shape_);
             simd::mul(storage_.data(), other.storage_.data(), out.storage_.data(), numel());
             return out;
@@ -140,6 +163,9 @@ Tensor Tensor::elementwise_binary_op(const Tensor& other, BinOp op) const {
         return elementwise_binary_op(other, std::multiplies<>{});
     }
     Tensor Tensor::div(const Tensor& other) const {
+        require_finite(*this, "division");
+        require_finite(other, "division");
+        require_nonzero(other, "division");
         if (shape_ == other.shape_) {
             Tensor out(shape_);
             simd::div(storage_.data(), other.storage_.data(), out.storage_.data(), numel());
@@ -149,33 +175,44 @@ Tensor Tensor::elementwise_binary_op(const Tensor& other, BinOp op) const {
     }
 
 Tensor Tensor::add(float scalar) const {
+    require_finite(*this, "addition");
+    if (!std::isfinite(scalar)) throw NumericalError("addition requires a finite scalar");
     Tensor out(shape_);
     simd::add_scalar(storage_.data(), scalar, out.storage_.data(), numel());
     return out;
 }
 Tensor Tensor::sub(float scalar) const {
+    require_finite(*this, "subtraction");
+    if (!std::isfinite(scalar)) throw NumericalError("subtraction requires a finite scalar");
     Tensor out(shape_);
     simd::sub_scalar(storage_.data(), scalar, out.storage_.data(), numel());
     return out;
 }
 Tensor Tensor::mul(float scalar) const {
+    require_finite(*this, "multiplication");
+    if (!std::isfinite(scalar)) throw NumericalError("multiplication requires a finite scalar");
     Tensor out(shape_);
     simd::mul_scalar(storage_.data(), scalar, out.storage_.data(), numel());
     return out;
 }
 Tensor Tensor::div(float scalar) const {
+    require_finite(*this, "division");
+    if (!std::isfinite(scalar)) throw NumericalError("division requires a finite scalar");
+    if (scalar == 0.0f) throw NumericalError("division does not allow division by zero");
     Tensor out(shape_);
     simd::div_scalar(storage_.data(), scalar, out.storage_.data(), numel());
     return out;
 }
 
 Tensor Tensor::operator-() const {
+    require_finite(*this, "negation");
     Tensor out(shape_);
     simd::neg(storage_.data(), out.storage_.data(), numel());
     return out;
 }
 
 Tensor Tensor::exp() const {
+    require_finite(*this, "exp");
     Tensor out(shape_);
     simd::exp(storage_.data(), out.storage_.data(), numel());
     return out;
@@ -196,6 +233,8 @@ Tensor Tensor::matmul(const Tensor& other) const {
     if (k != k2)
         throw ShapeError(std::format("matmul inner dimensions must match, got {} and {}",
                                      shape_to_string(shape_), shape_to_string(other.shape_)));
+    require_finite(*this, "matmul");
+    require_finite(other, "matmul");
 
     std::vector<int> batch;
     try {
@@ -357,7 +396,10 @@ Tensor Tensor::slice(const std::vector<Slice>& slices) const {
     return out;
 }
 
-float Tensor::sum() const { return std::ranges::fold_left(storage_, 0.0f, std::plus<>{}); }
+float Tensor::sum() const {
+    require_finite(*this, "sum");
+    return std::ranges::fold_left(storage_, 0.0f, std::plus<>{});
+}
 
 float Tensor::mean() const {
     if (numel() == 0) throw ShapeError("Cannot compute mean of empty tensor");
@@ -365,11 +407,13 @@ float Tensor::mean() const {
 }
 
 float Tensor::max() const {
+    require_finite(*this, "max");
     if (storage_.empty()) throw ShapeError("Cannot compute max of empty tensor");
     return std::ranges::max(storage_);
 }
 
 float Tensor::min() const {
+    require_finite(*this, "min");
     if (storage_.empty()) throw ShapeError("Cannot compute min of empty tensor");
     return std::ranges::min(storage_);
 }
@@ -380,6 +424,7 @@ Tensor Tensor::reduce_axis(int axis, BinOp op) const {
         throw ShapeError(std::format("Invalid axis {} for tensor with shape {}", axis, shape_to_string(shape_)));
     if (numel() == 0)
         throw ShapeError("Cannot reduce empty tensor");
+    require_finite(*this, "reduction");
 
     std::vector<int> out_shape = shape_;
     out_shape.erase(out_shape.begin() + axis);
@@ -433,6 +478,7 @@ Tensor Tensor::reshape(std::vector<int> new_shape) const {
 Tensor Tensor::view(std::vector<int> new_shape) const { return reshape(std::move(new_shape)); }
 
 Tensor Tensor::softmax() const {
+    require_finite(*this, "softmax");
     if (storage_.empty())
         throw ShapeError("Cannot compute softmax of an empty tensor");
     Tensor out(shape_);
@@ -455,6 +501,7 @@ Tensor Tensor::softmax() const {
 }
 
 Tensor Tensor::softmax(int axis) const {
+    require_finite(*this, "softmax");
     int rank = static_cast<int>(shape_.size());
     if (axis < 0) axis += rank;
     if (axis < 0 || axis >= rank)
@@ -490,6 +537,11 @@ Tensor Tensor::softmax(int axis) const {
 }
 
 Tensor Tensor::log() const {
+    require_finite(*this, "log");
+    for (float value : storage_) {
+        if (value <= 0.0f)
+            throw NumericalError("log requires strictly positive input values");
+    }
     Tensor out(shape_);
 #if defined(_OPENMP)
     #pragma omp parallel for if(numel() > 65536) schedule(static)
@@ -500,6 +552,11 @@ Tensor Tensor::log() const {
 }
 
 Tensor Tensor::sqrt() const {
+    require_finite(*this, "sqrt");
+    for (float value : storage_) {
+        if (value < 0.0f)
+            throw NumericalError("sqrt requires non-negative input values");
+    }
     Tensor out(shape_);
     simd::sqrt(storage_.data(), out.storage_.data(), numel());
     return out;

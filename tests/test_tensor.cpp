@@ -5,6 +5,7 @@
 #include <string>
 #include <cstdio>
 #include <cmath>
+#include <limits>
 
 using torc::Tensor;
 
@@ -145,6 +146,23 @@ TEST(TensorScalarOps, DivScalar) {
     EXPECT_FLOAT_EQ(c.data()[2], 15.0f);
 }
 
+TEST(TensorNumericalDomain, DivisionByZeroThrowsNumericalError) {
+    Tensor a({1.0f, 2.0f}, {2});
+    Tensor zeros({1.0f, 0.0f}, {2});
+    EXPECT_THROW(a.div(zeros), torc::NumericalError);
+    EXPECT_THROW(a.div(0.0f), torc::NumericalError);
+}
+
+TEST(TensorNumericalDomain, NonFiniteInputsAreRejected) {
+    Tensor nan_value({std::numeric_limits<float>::quiet_NaN()}, {1});
+    Tensor inf_value({std::numeric_limits<float>::infinity()}, {1});
+    Tensor one({1.0f}, {1});
+    EXPECT_THROW(nan_value.add(one), torc::NumericalError);
+    EXPECT_THROW(inf_value.mul(one), torc::NumericalError);
+    EXPECT_THROW(nan_value.exp(), torc::NumericalError);
+    EXPECT_THROW(inf_value.softmax(), torc::NumericalError);
+}
+
 TEST(TensorComparison, OperatorEqual) {
     Tensor a({1.0f, 2.0f, 3.0f}, {3});
     Tensor b({1.0f, 2.0f, 3.0f}, {3});
@@ -175,6 +193,10 @@ TEST(TensorErrors, ShapeErrorDerivesFromTorcError) {
             throw;
         }
     }, torc::ShapeError);
+}
+
+TEST(TensorErrors, NumericalErrorDerivesFromTorcError) {
+    EXPECT_THROW(throw torc::NumericalError("numeric domain"), torc::TorcError);
 }
 
 TEST(TensorNegation, NegatesValues) {
@@ -258,6 +280,7 @@ TEST(TensorSoftmax, InvalidOrEmptyAxisThrows) {
     Tensor t({1.0f, 2.0f}, {2});
     EXPECT_THROW(t.softmax(1), torc::ShapeError);
     Tensor empty(std::vector<int>{0, 2});
+    EXPECT_THROW(empty.softmax(), torc::ShapeError);
     EXPECT_THROW(empty.softmax(-1), torc::ShapeError);
 }
 
@@ -276,13 +299,16 @@ TEST(TensorSqrt, PreservesShape) {
     EXPECT_TRUE(c.shape() == a.shape());
 }
 
-TEST(TensorSqrt, NegativeValues) {
+TEST(TensorSqrt, NegativeValuesThrow) {
     Tensor a({-4.0f, -1.0f, 0.0f, 1.0f}, {4});
-    Tensor c = a.sqrt();
-    EXPECT_TRUE(std::isnan(c.data()[0]));
-    EXPECT_TRUE(std::isnan(c.data()[1]));
-    EXPECT_FLOAT_EQ(c.data()[2], 0.0f);
-    EXPECT_FLOAT_EQ(c.data()[3], 1.0f);
+    EXPECT_THROW(a.sqrt(), torc::NumericalError);
+}
+
+TEST(TensorLog, NonPositiveValuesThrow) {
+    Tensor zero({0.0f, 1.0f}, {2});
+    Tensor negative({-1.0f}, {1});
+    EXPECT_THROW(zero.log(), torc::NumericalError);
+    EXPECT_THROW(negative.log(), torc::NumericalError);
 }
 
 TEST(TensorReductions, WholeTensorSum) {
@@ -323,8 +349,17 @@ TEST(TensorReductions, WholeTensorSingleElement) {
 
 TEST(TensorReductions, WholeTensorMaxMinEmptyThrows) {
     Tensor t(std::vector<int>{0});
+    EXPECT_FLOAT_EQ(t.sum(), 0.0f);
+    EXPECT_THROW(t.mean(), torc::ShapeError);
     EXPECT_THROW(t.max(), torc::ShapeError);
     EXPECT_THROW(t.min(), torc::ShapeError);
+}
+
+TEST(TensorReductions, NonFiniteValuesThrow) {
+    Tensor nan_value({std::numeric_limits<float>::quiet_NaN()}, {1});
+    EXPECT_THROW(nan_value.sum(), torc::NumericalError);
+    EXPECT_THROW(nan_value.max(), torc::NumericalError);
+    EXPECT_THROW(nan_value.min(), torc::NumericalError);
 }
 
 TEST(TensorReductions, AxisSum) {
@@ -412,6 +447,8 @@ TEST(TensorReductions, AxisEmptyThrows) {
     Tensor t(std::vector<int>{0});
     EXPECT_THROW(t.sum(0), torc::ShapeError);
     EXPECT_THROW(t.mean(0), torc::ShapeError);
+    EXPECT_THROW(t.max(0), torc::ShapeError);
+    EXPECT_THROW(t.min(0), torc::ShapeError);
 }
 
 TEST(TensorReshape, ValidReshape) {
