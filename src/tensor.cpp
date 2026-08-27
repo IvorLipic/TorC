@@ -249,8 +249,21 @@ Tensor Tensor::matmul(const Tensor& other) const {
                     for (int i = i0; i < imax; ++i) {
                         for (int p = k0; p < kmax; ++p) {
                             float a_val = storage_[a_off + i * k + p];
-                            for (int j = j0; j < jmax; ++j) {
-                                out.storage_[out_off + i * n + j] += a_val * other.storage_[b_off + p * n + j];
+                            float* out_row = out.storage_.data() + out_off + i * n;
+                            const float* b_row = other.storage_.data() + b_off + p * n;
+                            int j = j0;
+#if TORC_HAS_AVX2
+                            for (; j + 8 <= jmax; j += 8) {
+                                __m256 b_vec = _mm256_loadu_ps(b_row + j);
+                                __m256 a_vec = _mm256_set1_ps(a_val);
+                                __m256 out_vec = _mm256_loadu_ps(out_row + j);
+                                __m256 prod = _mm256_mul_ps(a_vec, b_vec);
+                                __m256 res = _mm256_add_ps(out_vec, prod);
+                                _mm256_storeu_ps(out_row + j, res);
+                            }
+#endif
+                            for (; j < jmax; ++j) {
+                                out_row[j] += a_val * b_row[j];
                             }
                         }
                     }
