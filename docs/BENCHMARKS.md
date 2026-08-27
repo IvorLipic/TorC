@@ -37,6 +37,38 @@ Run benchmarks:
 | numel() | [4096] | 5.05 | 112000000 |
 | numel() | [16384] | 4.93 | 100000000 |
 
+## Latest rerun after hot-path fix (2026-08-27)
+
+This rerun used the GCC 16.2 Release build (`-O3 -march=native`) on the same 12-core, 2096 MHz
+machine, with `--benchmark_min_time=1s`. The table above remains the historical pre-session
+baseline; these are the current post-fix measurements.
+
+| Operation | Shape | Time (ns) | Iterations |
+|-----------|-------|-----------|------------|
+| Elementwise add | [1024] | 486 | 2890323 |
+| Elementwise add | [4096] | 2155 | 689231 |
+| Elementwise add | [16384] | 7482 | 182045 |
+| Elementwise mul | [1024] | 486 | 2890323 |
+| Elementwise mul | [4096] | 1591 | 995556 |
+| Elementwise mul | [16384] | 7498 | 186667 |
+| Scalar add | [1024] | 459 | 3089655 |
+| Scalar add | [4096] | 1602 | 1120000 |
+| Scalar add | [16384] | 5332 | 256000 |
+| Matmul 2D | [64, 64, 64] | 64291 | 22400 |
+| Matmul 2D | [128, 128, 128] | 541508 | 2635 |
+| Matmul 2D | [256, 256, 256] | 4480598 | 309 |
+| Batched matmul | [4, 64, 64, 64] | 272917 | 5271 |
+| Batched matmul | [8, 128, 128, 128] | 4049734 | 345 |
+| Softmax | [1024] | 11175 | 112000 |
+| Softmax | [4096] | 44512 | 32000 |
+| Softmax | [16384] | 180523 | 8145 |
+| Transpose 2D | [64, 64] | 80264 | 17569 |
+| Transpose 2D | [128, 128] | 320137 | 4267 |
+| Transpose 2D | [256, 256] | 1260250 | 1120 |
+| numel() | [1024] | 3.40 | 471578947 |
+| numel() | [4096] | 2.96 | 471578947 |
+| numel() | [16384] | 3.12 | 471578947 |
+
 ## Changes from previous baseline
 
 - **Elementwise add/mul**: ~200–280× faster for contiguous same-shape inputs due to direct `simd::` dispatch, bypassing the generic index-reconstruction loop.
@@ -59,3 +91,12 @@ machine, the post-fix GCC release rerun measured matmul at 66.5 µs / 535.7 µs 
 43.5 µs / 174.3 µs (versus 10.7 µs / 42.6 µs / 173.2 µs). The remaining small differences are
 within compiler/build and run-to-run variation; the validation-induced 1.4–1.9× matmul and
 1.6× softmax regressions are gone.
+
+## Autograd lifetime-guard overhead
+
+The tensor benchmarks above do not construct `Variable` graphs, so the lifetime guard cannot affect
+their timings. Commit `6566da5` does add a small, intentional cost to autograd workloads: each
+`Variable` owns a lifetime token, each tracked tape edge stores a `weak_ptr` and a recorded
+`requires_grad` flag, and backward checks those records before dereferencing inputs. That overhead
+belongs in a separate autograd benchmark; it should not be attributed to the tensor-kernel changes
+shown in the tables above.
