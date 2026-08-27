@@ -41,14 +41,23 @@ Variable x(2.0f, true);   // scalar convenience ctor: data=2.0, requires_grad=tr
 Each Variable carries its own tape. During forward, ops append a `TapeEntry` to the
 **output** Variable's tape. Each entry stores:
 - A `backward` closure that knows how to compute gradients for its inputs
-- Pointers to the input Variables (for graph traversal)
+- Non-owning pointers to the input Variables (for graph traversal)
+- Weak lifetime tokens and a recorded `requires_grad` bit for each input; backward checks these
+  before traversing or dereferencing tracked inputs and throws `TorcError` if one expired
 
 ```cpp
 struct TapeEntry {
     std::vector<Variable*> inputs;  // input Variables (for topological sort)
+    std::vector<std::weak_ptr<VariableLifetime>> input_lifetimes;
+    std::vector<bool> input_requires_grad;
     std::function<void(const Tensor& grad_output, std::vector<Tensor>& input_grads)> backward;
 };
 ```
+
+The lifetime tokens make the non-owning representation fail-safe: they do not keep graph nodes
+alive, but they turn a destroyed tracked ancestor into a controlled `TorcError` instead of a
+use-after-free. Untracked constants may be temporary because their values are captured by the
+backward closure and they are not traversed.
 
 ### Backward Algorithm: Topological Sort (Not Recursion)
 

@@ -87,8 +87,6 @@ void Tensor::check_index(std::span<const int> indices) const {
 
 template<typename BinOp>
 Tensor Tensor::elementwise_binary_op(const Tensor& other, BinOp op) const {
-    require_finite(*this, "elementwise operation");
-    require_finite(other, "elementwise operation");
     auto out_shape = broadcast_shape(shape_, other.shape_);
     Tensor out(out_shape);
     int rank = (int)out_shape.size();
@@ -134,8 +132,6 @@ Tensor Tensor::elementwise_binary_op(const Tensor& other, BinOp op) const {
 
     Tensor Tensor::add(const Tensor& other) const {
         if (shape_ == other.shape_) {
-            require_finite(*this, "addition");
-            require_finite(other, "addition");
             Tensor out(shape_);
             simd::add(storage_.data(), other.storage_.data(), out.storage_.data(), numel());
             return out;
@@ -144,8 +140,6 @@ Tensor Tensor::elementwise_binary_op(const Tensor& other, BinOp op) const {
     }
     Tensor Tensor::sub(const Tensor& other) const {
         if (shape_ == other.shape_) {
-            require_finite(*this, "subtraction");
-            require_finite(other, "subtraction");
             Tensor out(shape_);
             simd::sub(storage_.data(), other.storage_.data(), out.storage_.data(), numel());
             return out;
@@ -154,8 +148,6 @@ Tensor Tensor::elementwise_binary_op(const Tensor& other, BinOp op) const {
     }
     Tensor Tensor::mul(const Tensor& other) const {
         if (shape_ == other.shape_) {
-            require_finite(*this, "multiplication");
-            require_finite(other, "multiplication");
             Tensor out(shape_);
             simd::mul(storage_.data(), other.storage_.data(), out.storage_.data(), numel());
             return out;
@@ -175,22 +167,16 @@ Tensor Tensor::elementwise_binary_op(const Tensor& other, BinOp op) const {
     }
 
 Tensor Tensor::add(float scalar) const {
-    require_finite(*this, "addition");
-    if (!std::isfinite(scalar)) throw NumericalError("addition requires a finite scalar");
     Tensor out(shape_);
     simd::add_scalar(storage_.data(), scalar, out.storage_.data(), numel());
     return out;
 }
 Tensor Tensor::sub(float scalar) const {
-    require_finite(*this, "subtraction");
-    if (!std::isfinite(scalar)) throw NumericalError("subtraction requires a finite scalar");
     Tensor out(shape_);
     simd::sub_scalar(storage_.data(), scalar, out.storage_.data(), numel());
     return out;
 }
 Tensor Tensor::mul(float scalar) const {
-    require_finite(*this, "multiplication");
-    if (!std::isfinite(scalar)) throw NumericalError("multiplication requires a finite scalar");
     Tensor out(shape_);
     simd::mul_scalar(storage_.data(), scalar, out.storage_.data(), numel());
     return out;
@@ -205,7 +191,6 @@ Tensor Tensor::div(float scalar) const {
 }
 
 Tensor Tensor::operator-() const {
-    require_finite(*this, "negation");
     Tensor out(shape_);
     simd::neg(storage_.data(), out.storage_.data(), numel());
     return out;

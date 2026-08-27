@@ -2,18 +2,25 @@
 #pragma once
 #include "torc/tensor.hpp"
 #include <vector>
+#include <initializer_list>
 #include <functional>
 #include <stdexcept>
 #include <unordered_set>
 #include <unordered_map>
+#include <memory>
 
 namespace torc {
 
 struct Variable;
+struct VariableLifetime {};
 
 struct TapeEntry {
     std::vector<Variable*> inputs;
+    std::vector<std::weak_ptr<VariableLifetime>> input_lifetimes;
+    std::vector<bool> input_requires_grad;
     std::function<void(const Tensor& grad_output, std::vector<Tensor>& input_grads)> backward;
+
+    void set_inputs(std::initializer_list<Variable*> values);
 };
 
 Tensor reduce_sum_to_shape(const Tensor& grad, const std::vector<int>& target_shape);
@@ -32,14 +39,48 @@ public:
         : data_(std::move(data)),
           grad_(std::vector<int>{}),
           requires_grad_(requires_grad),
-          has_grad_(false) {}
+          has_grad_(false),
+          lifetime_(std::make_shared<VariableLifetime>()) {}
 
     Variable(float scalar, bool requires_grad)
         : data_(Tensor(std::vector<int>{1})),
           grad_(std::vector<int>{}),
           requires_grad_(requires_grad),
-          has_grad_(false) {
+          has_grad_(false),
+          lifetime_(std::make_shared<VariableLifetime>()) {
         data_.data()[0] = scalar;
+    }
+
+    Variable(const Variable& other)
+        : data_(other.data_),
+          grad_(other.grad_),
+          requires_grad_(other.requires_grad_),
+          has_grad_(other.has_grad_),
+          tape_(other.tape_),
+          lifetime_(std::make_shared<VariableLifetime>()) {}
+
+    Variable(Variable&& other) noexcept = default;
+
+    Variable& operator=(const Variable& other) {
+        if (this != &other) {
+            data_ = other.data_;
+            grad_ = other.grad_;
+            requires_grad_ = other.requires_grad_;
+            has_grad_ = other.has_grad_;
+            tape_ = other.tape_;
+        }
+        return *this;
+    }
+
+    Variable& operator=(Variable&& other) noexcept {
+        if (this != &other) {
+            data_ = std::move(other.data_);
+            grad_ = std::move(other.grad_);
+            requires_grad_ = other.requires_grad_;
+            has_grad_ = other.has_grad_;
+            tape_ = std::move(other.tape_);
+        }
+        return *this;
     }
 
     [[nodiscard]] Tensor& data() { return data_; }
@@ -47,6 +88,7 @@ public:
     [[nodiscard]] bool requires_grad() const { return requires_grad_; }
     [[nodiscard]] bool has_grad() const { return has_grad_; }
     [[nodiscard]] const Tensor& grad() const { return grad_; }
+    [[nodiscard]] std::weak_ptr<VariableLifetime> lifetime_token() const { return lifetime_; }
 
     [[nodiscard]] Variable detach() const {
         Variable out(data_, false);
@@ -90,6 +132,8 @@ public:
     }
 
 private:
+    std::shared_ptr<VariableLifetime> lifetime_;
+
     void accumulate_grad(const Tensor& local_grad) {
         if (!has_grad_) {
             grad_ = Tensor(std::vector<int>(local_grad.shape().begin(), local_grad.shape().end()));
@@ -110,7 +154,16 @@ private:
             if (visited.count(v)) return;
             visited.insert(v);
             for (const auto& entry : v->tape_) {
-                for (Variable* input : entry.inputs) {
+                for (size_t i = 0; i < entry.inputs.size(); ++i) {
+                    if (entry.input_requires_grad.size() != entry.inputs.size()) {
+                        throw TorcError("autograd tape entry lacks input lifetime metadata");
+                    }
+                    if (!entry.input_requires_grad[i]) continue;
+                    if (entry.input_lifetimes.size() != entry.inputs.size() ||
+                        entry.input_lifetimes[i].expired()) {
+                        throw TorcError("autograd graph input expired before backward(); keep all graph Variables alive");
+                    }
+                    Variable* input = entry.inputs[i];
                     dfs(input);
                 }
             }
@@ -149,6 +202,10 @@ private:
                 entry.backward(current_grad, input_grads);
                 
                 for (size_t i = 0; i < entry.inputs.size(); ++i) {
+                    if (entry.input_requires_grad.size() != entry.inputs.size()) {
+                        throw TorcError("autograd tape entry lacks input lifetime metadata");
+                    }
+                    if (!entry.input_requires_grad[i]) continue;
                     Variable* input = entry.inputs[i];
                     if (input->requires_grad_) {
                         Tensor input_grad = input_grads[i];
@@ -169,6 +226,18 @@ private:
         tape_.clear();
     }
 };
+
+inline void TapeEntry::set_inputs(std::initializer_list<Variable*> values) {
+    inputs.assign(values.begin(), values.end());
+    input_lifetimes.clear();
+    input_lifetimes.reserve(inputs.size());
+    input_requires_grad.clear();
+    input_requires_grad.reserve(inputs.size());
+    for (Variable* input : inputs) {
+        input_lifetimes.push_back(input->lifetime_token());
+        input_requires_grad.push_back(input->requires_grad());
+    }
+}
 
 } // namespace torc
 

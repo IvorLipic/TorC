@@ -156,11 +156,9 @@ TEST(TensorNumericalDomain, DivisionByZeroThrowsNumericalError) {
 TEST(TensorNumericalDomain, NonFiniteInputsAreRejected) {
     Tensor nan_value({std::numeric_limits<float>::quiet_NaN()}, {1});
     Tensor inf_value({std::numeric_limits<float>::infinity()}, {1});
-    Tensor one({1.0f}, {1});
-    EXPECT_THROW(nan_value.add(one), torc::NumericalError);
-    EXPECT_THROW(inf_value.mul(one), torc::NumericalError);
     EXPECT_THROW(nan_value.exp(), torc::NumericalError);
     EXPECT_THROW(inf_value.softmax(), torc::NumericalError);
+    EXPECT_THROW(nan_value.sum(), torc::NumericalError);
 }
 
 TEST(TensorComparison, OperatorEqual) {

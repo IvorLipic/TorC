@@ -32,11 +32,13 @@ non-finite logits are rejected explicitly.
 
 ### Numerical domains and empty tensors
 
-`NumericalError` is the `TorcError` subclass for invalid numeric inputs. Tensor arithmetic and
-reductions reject NaN or infinity rather than silently propagating them. Division rejects both
-scalar zero divisors and tensor divisors containing zero. `log` requires strictly positive finite
-inputs; `sqrt` requires non-negative finite inputs. `exp` and softmax require finite inputs;
-softmax retains its separate empty-tensor `ShapeError` for both flattened and axis-aware forms.
+`NumericalError` is the `TorcError` subclass for invalid numeric inputs. Domain-sensitive tensor
+operations and reductions reject NaN or infinity rather than silently propagating them. Ordinary
+add/subtract/multiply/negate remain IEEE-style elementwise operations (so callers can explicitly
+choose propagation without paying a validation scan). Division rejects both scalar zero divisors
+and tensor divisors containing zero. `log` requires strictly positive finite inputs; `sqrt` requires
+non-negative finite inputs. `exp`, softmax, and matmul require finite inputs; softmax retains its
+separate empty-tensor `ShapeError` for both flattened and axis-aware forms.
 
 Empty reductions follow explicit identities: whole-tensor `sum()` returns `0`, while `mean()`,
 `max()`, `min()`, and every axis reduction throw `ShapeError` because no finite result is defined.
@@ -45,10 +47,15 @@ contract. These checks happen before SIMD kernels so CPU-specific paths cannot b
 
 ### Graph ownership, mutability, and gradient mode
 
-The tape stores raw pointers to input Variables. Capturing tensor values in closures does not keep
-those Variable objects alive, so returning a graph whose local inputs have gone out of scope is
-undefined behavior. A future ownership-safe design should make this lifetime relationship explicit
-and define whether backward graphs are reusable or consumed.
+The tape stores raw pointers to input Variables to preserve the value-style API, but each pointer is
+paired with a weak lifetime token captured when the tape entry is created. Tracked inputs also carry
+a recorded `requires_grad` flag; untracked constants are not traversed and remain safe to discard
+because backward closures capture the tensor values they need. Backward validates the metadata and
+token before every graph traversal or pointer dereference, throwing `TorcError` if a tracked input
+has expired. This converts the former use-after-free UB into a deterministic error, but does not
+retain graph nodes: every tracked Variable must still outlive `backward()` for a graph that uses it.
+Variable copy construction creates a fresh token, while moves transfer the token, so ordinary
+value-return and container moves do not invalidate live graph edges.
 
 `Variable` data, gradients, flags, and tape are currently public. This was convenient for
 incremental tests but prevents invariant enforcement; make them private before adding version

@@ -224,6 +224,18 @@ TEST(ScalarAutograd, TapeConsumedAfterBackward) {
     expect_near(b.grad().data()[0], 3.0f);
 }
 
+TEST(GraphLifetime, ExpiredIntermediateFailsBeforeDereference) {
+    Variable x(2.0f, true);
+    Variable output(0.0f, true);
+    {
+        Variable intermediate = torc::mul_scalar(x, Variable(3.0f, false));
+        output = torc::add_scalar(intermediate, x);
+    }
+
+    EXPECT_THROW(output.backward(), torc::TorcError);
+    EXPECT_FALSE(x.has_grad());
+}
+
 // Hand-computed: f(x) = 2*x + 1, df/dx = 2
 TEST(ScalarAutograd, HandComputedLinear) {
     Variable x(5.0f, true);
@@ -1227,4 +1239,3 @@ TEST(InPlaceGuardAutograd, TensorFillIsAlwaysAllowed) {
     Tensor expected({5.0f, 5.0f, 5.0f}, std::vector<int>{3});
     EXPECT_TRUE(a_data == expected);
 }
-

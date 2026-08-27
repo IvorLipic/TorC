@@ -48,7 +48,7 @@ Variable add(const Variable& a, const Variable& b) {
 
     if (needs_grad) {
         TapeEntry entry;
-        entry.inputs = { const_cast<Variable*>(&a), const_cast<Variable*>(&b) };
+        entry.set_inputs({ const_cast<Variable*>(&a), const_cast<Variable*>(&b) });
         entry.backward = [](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
             input_grads[0] = grad_output;
             input_grads[1] = grad_output;
@@ -66,7 +66,7 @@ Variable sub(const Variable& a, const Variable& b) {
 
     if (needs_grad) {
         TapeEntry entry;
-        entry.inputs = { const_cast<Variable*>(&a), const_cast<Variable*>(&b) };
+        entry.set_inputs({ const_cast<Variable*>(&a), const_cast<Variable*>(&b) });
         entry.backward = [](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
             input_grads[0] = grad_output;
             input_grads[1] = grad_output.mul(-1.0f);
@@ -84,7 +84,7 @@ Variable mul(const Variable& a, const Variable& b) {
 
     if (needs_grad) {
         TapeEntry entry;
-        entry.inputs = { const_cast<Variable*>(&a), const_cast<Variable*>(&b) };
+        entry.set_inputs({ const_cast<Variable*>(&a), const_cast<Variable*>(&b) });
         Tensor a_data = a.data();
         Tensor b_data = b.data();
         entry.backward = [a_data, b_data](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
@@ -104,7 +104,7 @@ Variable div(const Variable& a, const Variable& b) {
 
     if (needs_grad) {
         TapeEntry entry;
-        entry.inputs = { const_cast<Variable*>(&a), const_cast<Variable*>(&b) };
+        entry.set_inputs({ const_cast<Variable*>(&a), const_cast<Variable*>(&b) });
         Tensor a_data = a.data();
         Tensor b_data = b.data();
         entry.backward = [a_data, b_data](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
@@ -125,7 +125,7 @@ Variable neg(const Variable& a) {
 
     if (needs_grad) {
         TapeEntry entry;
-        entry.inputs = { const_cast<Variable*>(&a) };
+        entry.set_inputs({ const_cast<Variable*>(&a) });
         entry.backward = [](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
             input_grads[0] = grad_output.mul(-1.0f);
         };
@@ -143,7 +143,7 @@ Variable add_scalar(const Variable& a, const Variable& b) {
 
     if (needs_grad) {
         TapeEntry entry;
-        entry.inputs = { const_cast<Variable*>(&a), const_cast<Variable*>(&b) };
+        entry.set_inputs({ const_cast<Variable*>(&a), const_cast<Variable*>(&b) });
         entry.backward = [](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
             input_grads[0] = grad_output;  // dz/da = 1
             input_grads[1] = grad_output;  // dz/db = 1
@@ -162,7 +162,7 @@ Variable sub_scalar(const Variable& a, const Variable& b) {
 
     if (needs_grad) {
         TapeEntry entry;
-        entry.inputs = { const_cast<Variable*>(&a), const_cast<Variable*>(&b) };
+        entry.set_inputs({ const_cast<Variable*>(&a), const_cast<Variable*>(&b) });
         entry.backward = [](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
             input_grads[0] = grad_output;  // dz/da = 1
             input_grads[1] = Tensor(std::vector<int>{1});
@@ -182,7 +182,7 @@ Variable mul_scalar(const Variable& a, const Variable& b) {
 
     if (needs_grad) {
         TapeEntry entry;
-        entry.inputs = { const_cast<Variable*>(&a), const_cast<Variable*>(&b) };
+        entry.set_inputs({ const_cast<Variable*>(&a), const_cast<Variable*>(&b) });
         entry.backward = [av, bv](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
             input_grads[0] = Tensor(std::vector<int>{1});
             input_grads[0].data()[0] = grad_output.data()[0] * bv;  // dz/da = b
@@ -203,7 +203,7 @@ Variable div_scalar(const Variable& a, const Variable& b) {
 
     if (needs_grad) {
         TapeEntry entry;
-        entry.inputs = { const_cast<Variable*>(&a), const_cast<Variable*>(&b) };
+        entry.set_inputs({ const_cast<Variable*>(&a), const_cast<Variable*>(&b) });
         entry.backward = [av, bv](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
             input_grads[0] = Tensor(std::vector<int>{1});
             input_grads[0].data()[0] = grad_output.data()[0] / bv;  // dz/da = 1/b
@@ -223,7 +223,7 @@ Variable neg_scalar(const Variable& a) {
 
     if (needs_grad) {
         TapeEntry entry;
-        entry.inputs = { const_cast<Variable*>(&a) };
+        entry.set_inputs({ const_cast<Variable*>(&a) });
         entry.backward = [](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
             input_grads[0] = Tensor(std::vector<int>{1});
             input_grads[0].data()[0] = -grad_output.data()[0];  // dz/da = -1
@@ -241,7 +241,7 @@ Variable sum(const Variable& a) {
 
     if (needs_grad) {
         TapeEntry entry;
-        entry.inputs = { const_cast<Variable*>(&a) };
+        entry.set_inputs({ const_cast<Variable*>(&a) });
         Tensor a_data = a.data();
         entry.backward = [a_data](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
             float g = grad_output.data()[0];
@@ -263,7 +263,7 @@ Variable sum(const Variable& a, int axis) {
 
     if (needs_grad) {
         TapeEntry entry;
-        entry.inputs = { const_cast<Variable*>(&a) };
+        entry.set_inputs({ const_cast<Variable*>(&a) });
         Tensor a_data = a.data();
         int axis_size = a.data_.shape()[axis];
         entry.backward = [a_data, axis, axis_size](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
@@ -282,7 +282,7 @@ Variable mean(const Variable& a) {
 
     if (needs_grad) {
         TapeEntry entry;
-        entry.inputs = { const_cast<Variable*>(&a) };
+        entry.set_inputs({ const_cast<Variable*>(&a) });
         Tensor a_data = a.data();
         entry.backward = [a_data](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
             float g = grad_output.data()[0] / a_data.numel();
@@ -304,7 +304,7 @@ Variable mean(const Variable& a, int axis) {
 
     if (needs_grad) {
         TapeEntry entry;
-        entry.inputs = { const_cast<Variable*>(&a) };
+        entry.set_inputs({ const_cast<Variable*>(&a) });
         Tensor a_data = a.data();
         int axis_size = a.data_.shape()[axis];
         entry.backward = [a_data, axis, axis_size](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
@@ -327,7 +327,7 @@ Variable max(const Variable& a) {
 
     if (needs_grad) {
         TapeEntry entry;
-        entry.inputs = { const_cast<Variable*>(&a) };
+        entry.set_inputs({ const_cast<Variable*>(&a) });
         Tensor a_data = a.data();
         entry.backward = [a_data](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
             float g = grad_output.data()[0];
@@ -356,7 +356,7 @@ Variable min(const Variable& a) {
 
     if (needs_grad) {
         TapeEntry entry;
-        entry.inputs = { const_cast<Variable*>(&a) };
+        entry.set_inputs({ const_cast<Variable*>(&a) });
         Tensor a_data = a.data();
         entry.backward = [a_data](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
             float g = grad_output.data()[0];
@@ -385,7 +385,7 @@ Variable max(const Variable& a, int axis) {
 
     if (needs_grad) {
         TapeEntry entry;
-        entry.inputs = { const_cast<Variable*>(&a) };
+        entry.set_inputs({ const_cast<Variable*>(&a) });
         Tensor a_data = a.data();
         int axis_size = a_data.shape()[axis];
         int outer_stride = shape_product(std::span<const int>(a_data.shape()).subspan(axis + 1));
@@ -422,7 +422,7 @@ Variable min(const Variable& a, int axis) {
 
     if (needs_grad) {
         TapeEntry entry;
-        entry.inputs = { const_cast<Variable*>(&a) };
+        entry.set_inputs({ const_cast<Variable*>(&a) });
         Tensor a_data = a.data();
         int axis_size = a_data.shape()[axis];
         int outer_stride = shape_product(std::span<const int>(a_data.shape()).subspan(axis + 1));
@@ -468,7 +468,7 @@ Variable matmul(const Variable& a, const Variable& b) {
 
     if (needs_grad) {
         TapeEntry entry;
-        entry.inputs = { const_cast<Variable*>(&a), const_cast<Variable*>(&b) };
+        entry.set_inputs({ const_cast<Variable*>(&a), const_cast<Variable*>(&b) });
         Tensor a_data = a.data();
         Tensor b_data = b.data();
         entry.backward = [a_data, b_data](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
@@ -502,7 +502,7 @@ Variable transpose(const Variable& a, std::vector<int> axes) {
 
     if (needs_grad) {
         TapeEntry entry;
-        entry.inputs = { const_cast<Variable*>(&a) };
+        entry.set_inputs({ const_cast<Variable*>(&a) });
         Tensor a_data = a.data();
         std::vector<int> inv_axes(axes.begin(), axes.end());
         std::vector<int> new_inv(axes.size());
@@ -523,7 +523,7 @@ Variable reshape(const Variable& a, std::vector<int> new_shape) {
 
     if (needs_grad) {
         TapeEntry entry;
-        entry.inputs = { const_cast<Variable*>(&a) };
+        entry.set_inputs({ const_cast<Variable*>(&a) });
         Tensor a_data = a.data();
         std::vector<int> original_shape = a_data.shape();
         entry.backward = [original_shape](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
@@ -545,7 +545,7 @@ Variable slice(const Variable& a, std::vector<std::pair<int, int>> slices) {
 
     if (needs_grad) {
         TapeEntry entry;
-        entry.inputs = { const_cast<Variable*>(&a) };
+        entry.set_inputs({ const_cast<Variable*>(&a) });
         Tensor a_data = a.data();
         std::vector<std::pair<int, int>> stored_slices = std::move(slices);
         entry.backward = [a_data, stored_slices](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
@@ -589,7 +589,7 @@ Variable exp(const Variable& a) {
 
     if (needs_grad) {
         TapeEntry entry;
-        entry.inputs = { const_cast<Variable*>(&a) };
+        entry.set_inputs({ const_cast<Variable*>(&a) });
 
         Tensor a_data = a.data();
         entry.backward = [a_data](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
@@ -610,7 +610,7 @@ Variable relu(const Variable& a) {
 
     if (needs_grad) {
         TapeEntry entry;
-        entry.inputs = { const_cast<Variable*>(&a) };
+        entry.set_inputs({ const_cast<Variable*>(&a) });
 
         Tensor a_data = a.data();
         entry.backward = [a_data](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
@@ -635,7 +635,7 @@ Variable sigmoid(const Variable& a) {
 
     if (needs_grad) {
         TapeEntry entry;
-        entry.inputs = { const_cast<Variable*>(&a) };
+        entry.set_inputs({ const_cast<Variable*>(&a) });
 
         Tensor a_data = a.data();
         Tensor sig_data = out.data();
@@ -658,7 +658,7 @@ Variable softmax(const Variable& a) {
 
     if (needs_grad) {
         TapeEntry entry;
-        entry.inputs = { const_cast<Variable*>(&a) };
+        entry.set_inputs({ const_cast<Variable*>(&a) });
 
         Tensor a_data = a.data();
         Tensor soft_data = out.data();
@@ -688,7 +688,7 @@ Variable softmax(const Variable& a, int axis) {
 
     if (needs_grad) {
         TapeEntry entry;
-        entry.inputs = { const_cast<Variable*>(&a) };
+        entry.set_inputs({ const_cast<Variable*>(&a) });
         Tensor soft_data = out.data();
         int axis_size = a.data_.shape()[axis];
         int inner_stride = shape_product(std::span<const int>(a.data_.shape()).subspan(axis + 1));
@@ -726,7 +726,7 @@ Variable log(const Variable& a) {
 
     if (needs_grad) {
         TapeEntry entry;
-        entry.inputs = { const_cast<Variable*>(&a) };
+        entry.set_inputs({ const_cast<Variable*>(&a) });
 
         Tensor a_data = a.data();
         entry.backward = [a_data](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
@@ -747,7 +747,7 @@ Variable sqrt(const Variable& a) {
 
     if (needs_grad) {
         TapeEntry entry;
-        entry.inputs = { const_cast<Variable*>(&a) };
+        entry.set_inputs({ const_cast<Variable*>(&a) });
 
         Tensor a_data = a.data();
         Tensor sqrt_data = out.data();

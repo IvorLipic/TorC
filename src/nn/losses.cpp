@@ -21,7 +21,7 @@ Variable MSELoss::forward(const Variable& input, const Variable& target) const {
 
     if (needs_grad) {
         TapeEntry entry;
-        entry.inputs = { const_cast<Variable*>(&input), const_cast<Variable*>(&target) };
+        entry.set_inputs({ const_cast<Variable*>(&input), const_cast<Variable*>(&target) });
 
         Tensor input_data = input.data();
         Tensor target_data = target.data();
@@ -122,7 +122,7 @@ Variable CrossEntropyLoss::forward(const Variable& logits, const Variable& targe
 
     if (needs_grad) {
         TapeEntry entry;
-        entry.inputs = { const_cast<Variable*>(&logits) };
+        entry.set_inputs({ const_cast<Variable*>(&logits) });
 
         Tensor softmax_copy = softmax_data;
         Tensor targets_copy = targets.data();

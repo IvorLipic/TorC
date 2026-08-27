@@ -127,10 +127,11 @@ See `README.md` for the full Tensor feature list. Key highlights:
    `data::TensorDataset`, `data::SyntheticRegression`, `data::CSVDataset`, `data::DataLoader`,
    Step 5.9–5.10), and an end-to-end linear regression example (`examples/linear_regression/linear_regression.cpp`,
    Step 5.11) are implemented — see ROADMAP.md for exact status
-- **Lifetime constraint (unenforced by the type system):** `TapeEntry.inputs` holds raw,
-  non-owning `Variable*` pointers into the actual input `Variable`s, not copies. Every
-  `Variable` participating in a graph must outlive `backward()` on any of that graph's
-  outputs — not just the final loss Variable. See §5 and `docs/DESIGN.md`.
+- **Lifetime constraint (runtime-checked, not ownership-retaining):** `TapeEntry.inputs` holds
+  raw, non-owning `Variable*` pointers paired with weak lifetime tokens. Backward checks tokens
+  before traversing tracked inputs and throws `TorcError` if an ancestor was destroyed. Every
+  tracked `Variable` should still outlive `backward()`; untracked constants may be temporary
+  because their tensor values are captured by closures. See §5 and `docs/DESIGN.md`.
 
 `tests/test_autograd.cpp` covers: `Variable` scaffold, scalar and tensor-tensor autograd,
 broadcast backward, reductions, view ops, `detach()`/`no_grad()`, and guarded in-place ops —
@@ -187,10 +188,10 @@ each with gradient checks against central finite differences where applicable. S
 ## 5. Known issues
 
 1. No CI configured — build + `ctest` only run locally, no GitHub Actions workflow yet.
-2. `Variable`'s tape (`TapeEntry.inputs`) holds raw, non-owning `Variable*` pointers with no
-   lifetime safety — using a `Variable` after any of its graph ancestors have been destroyed is
-   undefined behavior, and nothing catches this at compile or run time. See `docs/DESIGN.md`'s
-   "Tape / graph structure" section.
+2. `Variable`'s tape (`TapeEntry.inputs`) retains raw, non-owning `Variable*` pointers. Weak
+   lifetime tokens now detect destroyed tracked ancestors and make backward throw `TorcError`,
+   but the graph is still not ownership-retaining; callers must keep tracked ancestors alive.
+   See `docs/DESIGN.md`'s "Tape / graph structure" section.
 3. `Variable`'s data members (`data_`, `grad_`, `requires_grad_`, `has_grad_`, `tape_`) are all
    `public`, despite the trailing-underscore naming that elsewhere in this codebase
    (`Tensor::shape_`, `storage_`) signals "private." Tests reach directly into `tape_`. This is

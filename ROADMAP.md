@@ -140,13 +140,14 @@ primitives would make the eventual fixes more expensive.
       negative, and out-of-range targets before indexing. Forward uses per-row stable log-sum-exp
       (with double-precision accumulation), and malformed-input/extreme-logit tests are covered.
 - [x] **Define numerical-domain and empty-tensor behavior.** `NumericalError` now rejects
-      non-finite values, non-positive `log` inputs, negative `sqrt` inputs, and division by zero.
+      non-finite values in domain-sensitive operations, non-positive `log` inputs, negative `sqrt`
+      inputs, and division by zero; ordinary add/subtract/multiply/negate preserve IEEE propagation.
       Empty `sum()` returns its additive identity (`0`); `mean`/`max`/`min`, axis reductions, and
       softmax reject empty tensors with `ShapeError`. Regression tests cover each contract.
-- [ ] **Remove raw-pointer graph lifetime UB.** Replace or wrap `TapeEntry.inputs`' raw,
-      non-owning `Variable*` pointers with an ownership-safe graph representation, or introduce
-      an API that makes graph ownership/lifetime impossible to misuse. Add returned-graph and
-      destroyed-intermediate tests.
+- [x] **Remove raw-pointer graph lifetime UB.** `TapeEntry` inputs remain non-owning pointers for
+      the value-style API, but each is paired with a weak lifetime token and tracked-input flag.
+      Backward validates metadata before any pointer dereference and throws `TorcError` when a
+      tracked ancestor has expired. Destroyed-intermediate coverage prevents the former UB.
 - [ ] **Encapsulate `Variable` state.** Make `data_`, `grad_`, `requires_grad_`, `has_grad_`, and
       `tape_` private and expose only invariant-preserving operations.
 - [ ] **Close tracked-mutation loopholes.** Prevent or version-check mutable `data()` and indexing
