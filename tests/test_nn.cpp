@@ -802,3 +802,116 @@ TEST(CrossEntropyLoss, NoGradDisablesTape) {
     Variable::set_grad_enabled(true);
 }
 
+class CountingModule : public Module {
+public:
+    mutable int cache_size_after_forward = 0;
+    
+    Variable forward(const Variable& x) const override {
+        forward_cache_.emplace_back(torc::add_scalar(x, Variable(1.0f, false)));
+        cache_size_after_forward = (int)forward_cache_.size();
+        return forward_cache_.back();
+    }
+    
+    int cache_size() const { return (int)forward_cache_.size(); }
+};
+
+TEST(Sequential, ChildCacheDoesNotLeakAcrossForwards) {
+    Sequential seq;
+    auto mod = std::make_unique<CountingModule>();
+    CountingModule* raw = mod.get();
+    seq.add(std::move(mod));
+    
+    Tensor x_data({1.0f}, std::vector<int>{1});
+    Variable x(x_data, false);
+    
+    seq(x);
+    EXPECT_EQ(raw->cache_size(), 1);
+    
+    seq(x);
+    EXPECT_EQ(raw->cache_size(), 1);
+    
+    seq(x);
+    EXPECT_EQ(raw->cache_size(), 1);
+}
+
+TEST(DeepSequential, GradientsFlowThroughMultipleLayers) {
+    Sequential model;
+    model.add(std::make_unique<Linear>(2, 4));
+    model.add(std::make_unique<ReLU>());
+    model.add(std::make_unique<Linear>(4, 3));
+    model.add(std::make_unique<ReLU>());
+    model.add(std::make_unique<Linear>(3, 1));
+    
+    Tensor x_data({1.0f, 2.0f}, std::vector<int>{1, 2});
+    Variable x(x_data, true);
+    
+    Variable out = model(x);
+    Variable loss = torc::sum(out);
+    loss.backward();
+    
+    auto params = model.parameters();
+    ASSERT_EQ(params.size(), 6);
+    for (const auto* p : params) {
+        ASSERT_TRUE(p->has_grad()) << "Parameter missing gradient in deep Sequential";
+    }
+    
+    const Tensor& g0 = params[0]->grad();
+    EXPECT_NE(g0.data()[0], 0.0f);
+}
+
+TEST(DiamondDependencySequential, GradientsAccumulateCorrectly) {
+    Sequential shared;
+    shared.add(std::make_unique<Linear>(2, 2));
+    
+    Sequential model;
+    model.add(std::make_unique<Linear>(2, 2));
+    model.add(std::make_unique<torc::nn::Sequential>(std::move(shared)));
+    model.add(std::make_unique<Linear>(2, 1));
+    
+    Tensor x_data({1.0f, 2.0f}, std::vector<int>{1, 2});
+    Variable x(x_data, true);
+    
+    Variable out = model(x);
+    Variable loss = torc::sum(out);
+    loss.backward();
+    
+    auto params = model.parameters();
+    ASSERT_EQ(params.size(), 6);
+    for (const auto* p : params) {
+        ASSERT_TRUE(p->has_grad()) << "Parameter missing gradient in diamond Sequential";
+    }
+}
+
+TEST(DeepSequential, NumericalGradientsMatchAnalytical) {
+    Sequential model;
+    model.add(std::make_unique<Linear>(2, 4));
+    model.add(std::make_unique<ReLU>());
+    model.add(std::make_unique<Linear>(4, 1));
+    
+    Tensor x_data({1.0f, 2.0f}, std::vector<int>{1, 2});
+    Variable x(x_data, true);
+    
+    Variable out = model(x);
+    Variable loss = torc::sum(out);
+    loss.backward();
+    
+    ASSERT_TRUE(x.has_grad());
+    
+    float h = 1e-4f;
+    for (int i = 0; i < 2; ++i) {
+        Tensor x_plus = x_data;
+        x_plus.data()[i] += h;
+        Variable out_plus = model(Variable(x_plus, false));
+        float loss_plus = torc::sum(out_plus).data().data()[0];
+        
+        Tensor x_minus = x_data;
+        x_minus.data()[i] -= h;
+        Variable out_minus = model(Variable(x_minus, false));
+        float loss_minus = torc::sum(out_minus).data().data()[0];
+        
+        float numerical = (loss_plus - loss_minus) / (2.0f * h);
+        EXPECT_NEAR(x.grad().data()[i], numerical, 1e-2f)
+            << "Input gradient mismatch for element " << i;
+    }
+}
+

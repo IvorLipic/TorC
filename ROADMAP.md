@@ -75,10 +75,12 @@ Each step must pass tests before proceeding.
   weight is initialized with Kaiming normal (`std::sqrt(2 / fan_in)`); otherwise uses
   `init_std` as the fixed standard deviation. Bias is always initialized to `0.0`.
 - [x] **Step 5.3a**: Fix `Module::forward` / `Module::operator()` API so intermediate `Variable`s
-      created inside `forward()` stay alive until after `backward()` completes. Solution:
-      `Module` owns a `mutable std::list<Variable> forward_cache_`; `operator()()` clears it
-      before calling `forward()`, and each module's `forward()` appends intermediates via
-      `emplace_back` so their addresses are stable for tape-entry raw pointers.
+       created inside `forward()` stay alive until after `backward()` completes. Solution:
+       `Module` owns a `mutable std::list<Variable> forward_cache_`; `operator()()` clears it
+       before calling `forward()`, and each module's `forward()` appends intermediates via
+       `emplace_back` so their addresses are stable for tape-entry raw pointers.
+       `Sequential::forward()` calls each child's `operator()()` to prevent unbounded cache
+       growth.
 - [x] **Step 5.4**: Activation functions — `nn::ReLU`, `nn::Sigmoid`, `nn::Softmax` (each as a
       `Module` with differentiable forward, gradient checks included)
 - [x] **Step 5.5**: Loss functions — `nn::MSELoss`, `nn::CrossEntropyLoss` (implemented as

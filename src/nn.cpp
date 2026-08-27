@@ -30,11 +30,10 @@ void Sequential::add(std::unique_ptr<Module> module) {
 
 Variable Sequential::forward(const Variable& x) const {
     forward_cache_.clear();
-    forward_cache_.emplace_back(x);
-    Variable* current = &forward_cache_.back();
+    const Variable* current = &x;
 
     for (const auto& module : modules_) {
-        Variable next = module->forward(*current);
+        Variable next = module->operator()(*current);
         forward_cache_.emplace_back(std::move(next));
         current = &forward_cache_.back();
     }

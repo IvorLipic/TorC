@@ -431,8 +431,9 @@ PR. *(Check ROADMAP.md for actual checkbox state — not duplicated here.)*
     remain valid until the next forward pass. This makes `output = module(x); output.backward()`
     safe without any user-side lifetime management.
   - **Sequential implementation**: `Sequential::forward()` calls each child module's
-    `forward()` directly, not `operator()()`, because `operator()()` clears the cache and
-    would destroy previously cached intermediates needed by earlier modules in the chain.
+    `operator()()` directly, which clears each child's `forward_cache_` before calling
+    `forward()`. This prevents unbounded cache growth across repeated forward passes while
+    keeping tape-entry pointers valid for the duration of backward.
 - **Test**: parameter registration, forward correctness, `Sequential` chaining, empty
   sequential pass-through, own + child parameter collection
 
