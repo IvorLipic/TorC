@@ -135,9 +135,10 @@ primitives would make the eventual fixes more expensive.
       axis, so `{batch, classes}` inputs normalize each row. The no-argument primitive remains
       the documented flattened legacy behavior for compatibility. Batched forward and gradient
       tests cover the new contract.
-- [ ] **Harden `CrossEntropyLoss`.** Validate logits rank and shape, target shape/length, non-empty
-      batches, integral targets, and target range before indexing. Replace softmax-then-log with a
-      numerically stable log-sum-exp formulation. Add malformed-input and extreme-logit tests.
+- [x] **Harden `CrossEntropyLoss`.** The loss now requires rank-2, non-empty logits and rank-1
+      targets whose length matches the batch. It rejects non-finite logits, non-integral/NaN,
+      negative, and out-of-range targets before indexing. Forward uses per-row stable log-sum-exp
+      (with double-precision accumulation), and malformed-input/extreme-logit tests are covered.
 - [ ] **Define numerical-domain and empty-tensor behavior.** Decide and document the policy for
       `log`, `sqrt`, division by zero, empty softmax, NaN/Inf inputs, and zero-sized reductions;
       enforce it consistently with `TorcError` subclasses and tests.

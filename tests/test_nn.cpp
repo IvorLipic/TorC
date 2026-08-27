@@ -6,6 +6,8 @@
 #include "torc/optim.hpp"
 #include <string>
 #include <utility>
+#include <cmath>
+#include <limits>
 
 using torc::Variable;
 using torc::Tensor;
@@ -466,6 +468,53 @@ TEST(CrossEntropyLoss, BackwardMatchesNumericalGradient) {
             expect_near(logits.grad().data()[i * 3 + j], numerical_grad);
         }
     }
+}
+
+TEST(CrossEntropyLoss, RejectsMalformedLogitsAndTargets) {
+    CrossEntropyLoss loss_fn;
+    Variable rank_one_logits(Tensor({1.0f, 2.0f, 3.0f}, std::vector<int>{3}), false);
+    Variable valid_target(Tensor({1.0f}, std::vector<int>{1}), false);
+    EXPECT_THROW(loss_fn(rank_one_logits, valid_target), torc::ShapeError);
+
+    Variable logits(Tensor({1.0f, 2.0f, 3.0f, 4.0f}, std::vector<int>{2, 2}), false);
+    Variable wrong_rank(Tensor({0.0f, 1.0f}, std::vector<int>{1, 2}), false);
+    EXPECT_THROW(loss_fn(logits, wrong_rank), torc::ShapeError);
+
+    Variable wrong_length(Tensor({0.0f}, std::vector<int>{1}), false);
+    EXPECT_THROW(loss_fn(logits, wrong_length), torc::ShapeError);
+}
+
+TEST(CrossEntropyLoss, RejectsInvalidTargetValuesAndEmptyInputs) {
+    CrossEntropyLoss loss_fn;
+    Variable logits(Tensor({1.0f, 2.0f, 3.0f, 4.0f}, std::vector<int>{2, 2}), false);
+
+    Variable fractional(Tensor({0.5f, 1.0f}, std::vector<int>{2}), false);
+    EXPECT_THROW(loss_fn(logits, fractional), torc::ShapeError);
+    Variable negative(Tensor({-1.0f, 1.0f}, std::vector<int>{2}), false);
+    EXPECT_THROW(loss_fn(logits, negative), torc::ShapeError);
+    Variable too_large(Tensor({0.0f, 2.0f}, std::vector<int>{2}), false);
+    EXPECT_THROW(loss_fn(logits, too_large), torc::ShapeError);
+    Variable nan_target(Tensor({std::numeric_limits<float>::quiet_NaN(), 1.0f}, std::vector<int>{2}), false);
+    EXPECT_THROW(loss_fn(logits, nan_target), torc::ShapeError);
+
+    Variable empty_logits(Tensor(std::vector<int>{0, 2}), false);
+    Variable empty_targets(Tensor(std::vector<int>{0}), false);
+    EXPECT_THROW(loss_fn(empty_logits, empty_targets), torc::ShapeError);
+}
+
+TEST(CrossEntropyLoss, StableForExtremeLogits) {
+    CrossEntropyLoss loss_fn;
+    Tensor logits_data({1000.0f, -1000.0f, -1000.0f, 1000.0f}, std::vector<int>{2, 2});
+    Tensor targets_data({0.0f, 1.0f}, std::vector<int>{2});
+    Variable logits(logits_data, true);
+    Variable targets(targets_data, false);
+
+    Variable loss = loss_fn(logits, targets);
+    EXPECT_TRUE(std::isfinite(loss.data().data()[0]));
+    EXPECT_NEAR(loss.data().data()[0], 0.0f, 1e-5f);
+    loss.backward();
+    for (int i = 0; i < logits.data().numel(); ++i)
+        EXPECT_NEAR(logits.grad().data()[i], 0.0f, 1e-5f);
 }
 
 TEST(SGD, StepWithoutMomentumUpdatesParams) {

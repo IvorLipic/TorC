@@ -5,6 +5,7 @@
 #include <cmath>
 #include <algorithm>
 #include <limits>
+#include <format>
 
 namespace torc::nn {
 
@@ -45,33 +46,77 @@ static Tensor row_softmax(const Tensor& logits, int batch_size, int num_classes)
         for (int j = 0; j < num_classes; ++j) {
             max_val = std::max(max_val, logits.data()[i * num_classes + j]);
         }
-        float sum_exp = 0.0f;
+        double sum_exp = 0.0;
         for (int j = 0; j < num_classes; ++j) {
-            sum_exp += std::exp(logits.data()[i * num_classes + j] - max_val);
+            sum_exp += std::exp(static_cast<double>(logits.data()[i * num_classes + j]) - max_val);
         }
         for (int j = 0; j < num_classes; ++j) {
-            out.data()[i * num_classes + j] = std::exp(logits.data()[i * num_classes + j] - max_val) / sum_exp;
+            out.data()[i * num_classes + j] = static_cast<float>(
+                std::exp(static_cast<double>(logits.data()[i * num_classes + j]) - max_val) / sum_exp);
         }
     }
     return out;
 }
 
 Variable CrossEntropyLoss::forward(const Variable& logits, const Variable& targets) const {
+    const auto& logits_shape = logits.data().shape();
+    const auto& targets_shape = targets.data().shape();
+    if (logits_shape.size() != 2) {
+        throw ShapeError(std::format("CrossEntropyLoss expects rank-2 logits, got shape {}",
+                                     shape_to_string(logits_shape)));
+    }
+    if (targets_shape.size() != 1) {
+        throw ShapeError(std::format("CrossEntropyLoss expects rank-1 targets, got shape {}",
+                                     shape_to_string(targets_shape)));
+    }
+
     bool needs_grad = logits.requires_grad_ && Variable::grad_enabled();
-    int batch_size = logits.data().shape()[0];
-    int num_classes = logits.data().shape()[1];
+    int batch_size = logits_shape[0];
+    int num_classes = logits_shape[1];
+    if (batch_size <= 0 || num_classes <= 0) {
+        throw ShapeError(std::format("CrossEntropyLoss requires non-empty batch and classes, got logits shape {}",
+                                     shape_to_string(logits_shape)));
+    }
+    if (targets_shape[0] != batch_size) {
+        throw ShapeError(std::format("CrossEntropyLoss target length {} does not match batch size {}",
+                                     targets_shape[0], batch_size));
+    }
+
+    for (int i = 0; i < logits.data().numel(); ++i) {
+        if (!std::isfinite(logits.data().data()[i])) {
+            throw ShapeError("CrossEntropyLoss logits must be finite");
+        }
+    }
+    for (int i = 0; i < batch_size; ++i) {
+        float target_value = targets.data().data()[i];
+        if (!std::isfinite(target_value) || std::floor(target_value) != target_value) {
+            throw ShapeError(std::format("CrossEntropyLoss target at index {} must be an integer", i));
+        }
+        if (target_value < 0.0f || target_value >= static_cast<float>(num_classes)) {
+            throw ShapeError(std::format("CrossEntropyLoss target {} at index {} is out of range [0, {})",
+                                         target_value, i, num_classes));
+        }
+    }
 
     Tensor softmax_data = row_softmax(logits.data(), batch_size, num_classes);
-    Tensor log_softmax_data = softmax_data.log();
 
     Tensor loss_data(std::vector<int>{1});
-    loss_data.data()[0] = 0.0f;
+    double total_loss = 0.0;
 
     for (int i = 0; i < batch_size; ++i) {
         int target_class = static_cast<int>(targets.data().data()[i]);
-        loss_data.data()[0] -= log_softmax_data.data()[i * num_classes + target_class];
+        float max_val = logits.data().data()[i * num_classes];
+        for (int j = 1; j < num_classes; ++j) {
+            max_val = std::max(max_val, logits.data().data()[i * num_classes + j]);
+        }
+        double sum_exp = 0.0;
+        for (int j = 0; j < num_classes; ++j) {
+            sum_exp += std::exp(static_cast<double>(logits.data().data()[i * num_classes + j]) - max_val);
+        }
+        double log_sum_exp = static_cast<double>(max_val) + std::log(sum_exp);
+        total_loss += log_sum_exp - logits.data().data()[i * num_classes + target_class];
     }
-    loss_data.data()[0] /= batch_size;
+    loss_data.data()[0] = static_cast<float>(total_loss / batch_size);
 
     Variable out(std::move(loss_data), needs_grad);
 

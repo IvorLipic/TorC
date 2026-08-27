@@ -22,11 +22,13 @@ Jacobian-vector product. `nn::Softmax(axis = -1)` defaults to the last axis, so 
 tests enforce this contract. New code should pass an explicit axis (or use the module default)
 rather than rely on flattened behavior.
 
-`CrossEntropyLoss` is currently separate from the primitive softmax because that primitive is
-flattened. Numerical stability belongs here too: compute per-row log-sum-exp directly rather than
-taking `log(softmax(logits))`. Before indexing, validate rank, batch/class dimensions, target
-length, non-empty batches, integral target values, and `0 <= target < classes`; malformed input
-must throw a torc error rather than perform an out-of-bounds read or divide by zero.
+`CrossEntropyLoss` validates rank-2, non-empty logits and rank-1 targets whose length equals the
+batch size before indexing. Targets must be finite integer-valued class indices in
+`[0, classes)`, and logits must be finite; malformed input throws `ShapeError` rather than risking
+an out-of-bounds read or divide by zero. Forward computes each row's log-sum-exp directly, with
+double-precision accumulation, instead of taking `log(softmax(logits))`. Backward reuses the
+validated, stably computed per-row probabilities. Extreme finite logits therefore remain usable;
+non-finite logits are rejected explicitly.
 
 ### Graph ownership, mutability, and gradient mode
 
@@ -572,16 +574,17 @@ PR. *(Check ROADMAP.md for actual checkbox state — not duplicated here.)*
   `forward(input, target)` and `operator()(input, target)` instead.
 - `MSELoss`: `mean((input - target)^2)`. Backward = `2 * (input - target) / n` to `input`,
   negated to `target`.
-- `CrossEntropyLoss`: per-row softmax + log-softmax + negative log-likelihood. The loss
-  averages over the batch. Backward = `(softmax - one_hot(target)) / batch_size` per row.
-  **Important**: `CrossEntropyLoss` still implements its own per-row softmax locally via
-  `row_softmax()`; migrating it to the axis-aware primitive is part of the separate numerical
-  stability and input-validation hardening task.
+- `CrossEntropyLoss`: validates rank/shape/domain constraints, computes per-row probabilities
+  with a stable max-shifted softmax, and evaluates negative log-likelihood from log-sum-exp.
+  The loss averages over the batch. Backward = `(softmax - one_hot(target)) / batch_size` per row.
+  The local `row_softmax()` remains intentionally separate so the loss can share the validated
+  row layout while avoiding an intermediate `log(softmax(...))` computation.
 - **New Tensor primitive**: `Tensor::log()` (elementwise, using `std::ranges::transform`) added
   alongside `exp()` as a basic unary op.
 - **New autograd free function**: `torc::log(const Variable&)` added in `src/autograd.cpp`.
 - **Test**: forward hand-computed values for both losses, backward chain-rule check for MSE,
-  and numerical gradient check for CrossEntropyLoss (central differences, `h=1e-4`)
+  numerical gradient check for CrossEntropyLoss (central differences, `h=1e-4`), and malformed
+  input plus extreme-logit coverage for CrossEntropyLoss.
 
 ### Optimizer design
 
