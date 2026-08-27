@@ -717,6 +717,14 @@ TEST(TensorMatmul, Square2D) {
     EXPECT_FLOAT_EQ(c.data()[3], 50.0f);
 }
 
+TEST(TensorMatmul, NonFiniteInputsPropagate) {
+    float nan = std::numeric_limits<float>::quiet_NaN();
+    Tensor a({nan}, {1, 1});
+    Tensor b({2.0f}, {1, 1});
+    Tensor c = a.matmul(b);
+    EXPECT_TRUE(std::isnan(c.data()[0]));
+}
+
 TEST(TensorMatmul, NonSquare2D) {
     Tensor a({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, {2, 3});
     Tensor b({7.0f, 8.0f, 9.0f, 10.0f, 11.0f, 12.0f}, {3, 2});

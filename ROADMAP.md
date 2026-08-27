@@ -141,7 +141,8 @@ primitives would make the eventual fixes more expensive.
       (with double-precision accumulation), and malformed-input/extreme-logit tests are covered.
 - [x] **Define numerical-domain and empty-tensor behavior.** `NumericalError` now rejects
       non-finite values in domain-sensitive operations, non-positive `log` inputs, negative `sqrt`
-      inputs, and division by zero; ordinary add/subtract/multiply/negate preserve IEEE propagation.
+      inputs, and division by zero; ordinary add/subtract/multiply/negate and matmul preserve IEEE
+      propagation so dense hot paths do not pay an unconditional validation scan.
       Empty `sum()` returns its additive identity (`0`); `mean`/`max`/`min`, axis reductions, and
       softmax reject empty tensors with `ShapeError`. Regression tests cover each contract.
 - [x] **Remove raw-pointer graph lifetime UB.** `TapeEntry` inputs remain non-owning pointers for

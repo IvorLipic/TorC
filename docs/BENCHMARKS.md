@@ -43,3 +43,19 @@ Run benchmarks:
 - **Scalar add**: ~3–6× faster due to `simd::add_scalar` fast path.
 - **Matmul 2D / Batched matmul**: ~3.5–3.8× faster from AVX2 vectorization of the inner `j` loop (8-float FMA-like throughput). Combined with the earlier cache-blocked tiling, matmul is now ~35–40× faster than the original baseline.
 - **Softmax, Transpose, numel()**: unchanged (no fast-path change for these ops).
+
+## Validation overhead investigation
+
+The numerical-domain hardening commit (`be90e19`) added unconditional `std::isfinite` prepasses.
+Those scans were the source of the large regression observed after the documented baseline: two
+extra passes for matmul and one extra pass for softmax. The lifetime, cross-entropy, and
+axis-aware-softmax commits do not change the benchmarked legacy tensor kernels. Ordinary
+elementwise validation was already removed from the hot path in the follow-up lifetime commit.
+
+The fix keeps softmax's finite-input contract but folds validation into its existing max pass, and
+lets matmul preserve IEEE NaN/infinity propagation without an O(N) prepass. On the same 12-core
+machine, the post-fix GCC release rerun measured matmul at 66.5 µs / 535.7 µs / 4.59 ms for
+64/128/256 matrices (versus 63.7 µs / 505.8 µs / 4.30 ms in this table) and softmax at 11.1 µs /
+43.5 µs / 174.3 µs (versus 10.7 µs / 42.6 µs / 173.2 µs). The remaining small differences are
+within compiler/build and run-to-run variation; the validation-induced 1.4–1.9× matmul and
+1.6× softmax regressions are gone.

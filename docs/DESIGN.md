@@ -37,13 +37,15 @@ operations and reductions reject NaN or infinity rather than silently propagatin
 add/subtract/multiply/negate remain IEEE-style elementwise operations (so callers can explicitly
 choose propagation without paying a validation scan). Division rejects both scalar zero divisors
 and tensor divisors containing zero. `log` requires strictly positive finite inputs; `sqrt` requires
-non-negative finite inputs. `exp`, softmax, and matmul require finite inputs; softmax retains its
-separate empty-tensor `ShapeError` for both flattened and axis-aware forms.
+non-negative finite inputs. `exp` and softmax require finite inputs; matmul follows IEEE floating-
+point propagation for NaN and infinity so its dense hot path does not pay a separate validation scan.
+Softmax retains its separate empty-tensor `ShapeError` for both flattened and axis-aware forms.
 
 Empty reductions follow explicit identities: whole-tensor `sum()` returns `0`, while `mean()`,
 `max()`, `min()`, and every axis reduction throw `ShapeError` because no finite result is defined.
 Elementwise operations on empty tensors preserve their shape when their inputs satisfy the numeric
-contract. These checks happen before SIMD kernels so CPU-specific paths cannot bypass validation.
+contract. Domain checks remain outside SIMD kernels where the operation has a defined numeric
+domain; matmul intentionally follows IEEE propagation rather than adding an O(N) prepass.
 
 ### Graph ownership, mutability, and gradient mode
 

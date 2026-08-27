@@ -218,9 +218,6 @@ Tensor Tensor::matmul(const Tensor& other) const {
     if (k != k2)
         throw ShapeError(std::format("matmul inner dimensions must match, got {} and {}",
                                      shape_to_string(shape_), shape_to_string(other.shape_)));
-    require_finite(*this, "matmul");
-    require_finite(other, "matmul");
-
     std::vector<int> batch;
     try {
         batch = broadcast_shape(std::span(shape_).subspan(0, r - 2),
@@ -463,11 +460,15 @@ Tensor Tensor::reshape(std::vector<int> new_shape) const {
 Tensor Tensor::view(std::vector<int> new_shape) const { return reshape(std::move(new_shape)); }
 
 Tensor Tensor::softmax() const {
-    require_finite(*this, "softmax");
     if (storage_.empty())
         throw ShapeError("Cannot compute softmax of an empty tensor");
     Tensor out(shape_);
-    float max_val = *std::ranges::max_element(storage_);
+    float max_val = storage_[0];
+    for (float value : storage_) {
+        if (!std::isfinite(value))
+            throw NumericalError("softmax requires finite input values");
+        max_val = std::max(max_val, value);
+    }
     std::vector<float> exp_vals(numel());
 #if defined(_OPENMP)
     #pragma omp parallel for if(numel() > 65536) schedule(static)
@@ -486,7 +487,6 @@ Tensor Tensor::softmax() const {
 }
 
 Tensor Tensor::softmax(int axis) const {
-    require_finite(*this, "softmax");
     int rank = static_cast<int>(shape_.size());
     if (axis < 0) axis += rank;
     if (axis < 0 || axis >= rank)
@@ -505,8 +505,12 @@ Tensor Tensor::softmax(int axis) const {
         int base = outer * outer_stride;
         for (int inner = 0; inner < inner_stride; ++inner) {
             float max_val = storage_[base + inner];
-            for (int a = 1; a < axis_size; ++a)
-                max_val = std::max(max_val, storage_[base + a * inner_stride + inner]);
+            for (int a = 0; a < axis_size; ++a) {
+                float value = storage_[base + a * inner_stride + inner];
+                if (!std::isfinite(value))
+                    throw NumericalError("softmax requires finite input values");
+                max_val = std::max(max_val, value);
+            }
 
             float sum_exp = 0.0f;
             for (int a = 0; a < axis_size; ++a) {
