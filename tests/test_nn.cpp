@@ -744,3 +744,61 @@ TEST(CrossEntropyLoss, BackwardScalesWithGradOutput) {
         expect_near(logits.grad().data()[i], expected);
     }
 }
+
+TEST(Linear, InitStdSamplesFromNormalDistribution) {
+    Linear linear(4, 2, 0.5f);
+    
+    const Tensor& W = linear.named_parameters().at("weight").data();
+    ASSERT_EQ(W.shape(), (std::vector<int>{2, 4}));
+    
+    bool all_same = true;
+    for (int i = 1; i < W.numel(); ++i) {
+        if (W.data()[i] != W.data()[0]) {
+            all_same = false;
+            break;
+        }
+    }
+    EXPECT_FALSE(all_same) << "All weights are identical — init_std was used as a constant, not a standard deviation";
+    
+    Tensor x_data({1.0f, 2.0f, 3.0f, 4.0f}, std::vector<int>{1, 4});
+    Variable x(x_data, true);
+    Variable out = linear(x);
+    Variable loss = torc::sum(out);
+    loss.backward();
+    
+    ASSERT_TRUE(linear.named_parameters().at("weight").has_grad());
+    ASSERT_TRUE(linear.named_parameters().at("bias").has_grad());
+}
+
+TEST(MSELoss, NoGradDisablesTape) {
+    Variable::set_grad_enabled(false);
+    MSELoss loss_fn;
+    Tensor input_data({1.0f, 2.0f, 3.0f}, std::vector<int>{1, 3});
+    Tensor target_data({1.5f, 2.5f, 3.5f}, std::vector<int>{1, 3});
+    Variable input(input_data, true);
+    Variable target(target_data, false);
+    
+    Variable loss = loss_fn(input, target);
+    EXPECT_FLOAT_EQ(loss.data().data()[0], 0.25f);
+    EXPECT_FALSE(loss.requires_grad());
+    EXPECT_TRUE(loss.tape_.empty());
+    
+    Variable::set_grad_enabled(true);
+}
+
+TEST(CrossEntropyLoss, NoGradDisablesTape) {
+    Variable::set_grad_enabled(false);
+    CrossEntropyLoss loss_fn;
+    Tensor logits_data({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, std::vector<int>{2, 3});
+    Tensor targets_data({2.0f, 0.0f}, std::vector<int>{2});
+    Variable logits(logits_data, true);
+    Variable targets(targets_data, false);
+    
+    Variable loss = loss_fn(logits, targets);
+    expect_near(loss.data().data()[0], 1.4076f, 2e-3f);
+    EXPECT_FALSE(loss.requires_grad());
+    EXPECT_TRUE(loss.tape_.empty());
+    
+    Variable::set_grad_enabled(true);
+}
+

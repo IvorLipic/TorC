@@ -115,10 +115,38 @@ Tensor Tensor::elementwise_binary_op(const Tensor& other, BinOp op) const {
     return out;
 }
 
-Tensor Tensor::add(const Tensor& other) const { return elementwise_binary_op(other, std::plus<>{}); }
-Tensor Tensor::sub(const Tensor& other) const { return elementwise_binary_op(other, std::minus<>{}); }
-Tensor Tensor::mul(const Tensor& other) const { return elementwise_binary_op(other, std::multiplies<>{}); }
-Tensor Tensor::div(const Tensor& other) const { return elementwise_binary_op(other, std::divides<>{}); }
+    Tensor Tensor::add(const Tensor& other) const {
+        if (shape_ == other.shape_) {
+            Tensor out(shape_);
+            simd::add(storage_.data(), other.storage_.data(), out.storage_.data(), numel());
+            return out;
+        }
+        return elementwise_binary_op(other, std::plus<>{});
+    }
+    Tensor Tensor::sub(const Tensor& other) const {
+        if (shape_ == other.shape_) {
+            Tensor out(shape_);
+            simd::sub(storage_.data(), other.storage_.data(), out.storage_.data(), numel());
+            return out;
+        }
+        return elementwise_binary_op(other, std::minus<>{});
+    }
+    Tensor Tensor::mul(const Tensor& other) const {
+        if (shape_ == other.shape_) {
+            Tensor out(shape_);
+            simd::mul(storage_.data(), other.storage_.data(), out.storage_.data(), numel());
+            return out;
+        }
+        return elementwise_binary_op(other, std::multiplies<>{});
+    }
+    Tensor Tensor::div(const Tensor& other) const {
+        if (shape_ == other.shape_) {
+            Tensor out(shape_);
+            simd::div(storage_.data(), other.storage_.data(), out.storage_.data(), numel());
+            return out;
+        }
+        return elementwise_binary_op(other, std::divides<>{});
+    }
 
 Tensor Tensor::add(float scalar) const {
     Tensor out(shape_);
@@ -221,7 +249,6 @@ Tensor Tensor::matmul(const Tensor& other) const {
                     for (int i = i0; i < imax; ++i) {
                         for (int p = k0; p < kmax; ++p) {
                             float a_val = storage_[a_off + i * k + p];
-                            if (a_val == 0.0f) continue;
                             for (int j = j0; j < jmax; ++j) {
                                 out.storage_[out_off + i * n + j] += a_val * other.storage_[b_off + p * n + j];
                             }
@@ -424,11 +451,7 @@ Tensor Tensor::log() const {
 
 Tensor Tensor::sqrt() const {
     Tensor out(shape_);
-#if defined(_OPENMP)
-    #pragma omp parallel for if(numel() > 65536) schedule(static)
-#endif
-    for (int i = 0; i < numel(); ++i)
-        out.storage_[i] = std::sqrt(storage_[i]);
+    simd::sqrt(storage_.data(), out.storage_.data(), numel());
     return out;
 }
 

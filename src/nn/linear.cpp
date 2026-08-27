@@ -37,8 +37,10 @@ Linear::Linear(int in_features, int out_features, float init_std)
     if (init_std <= 0.0f) {
         torc::fill_kaiming_normal(weight_data.data(), weight_data.numel(), in_features);
     } else {
+        std::mt19937 rng(42);
+        std::normal_distribution<float> dist(0.0f, init_std);
         for (int i = 0; i < weight_data.numel(); ++i) {
-            weight_data.data()[i] = init_std;
+            weight_data.data()[i] = dist(rng);
         }
     }
     register_parameter("weight", Variable(std::move(weight_data), true));

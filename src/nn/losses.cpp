@@ -9,7 +9,7 @@
 namespace torc::nn {
 
 Variable MSELoss::forward(const Variable& input, const Variable& target) const {
-    bool needs_grad = input.requires_grad_ || target.requires_grad_;
+    bool needs_grad = (input.requires_grad_ || target.requires_grad_) && Variable::grad_enabled();
     Tensor diff_data = input.data_.sub(target.data_);
     Tensor squared_data = diff_data.mul(diff_data);
     float mean_val = squared_data.mean();
@@ -57,7 +57,7 @@ static Tensor row_softmax(const Tensor& logits, int batch_size, int num_classes)
 }
 
 Variable CrossEntropyLoss::forward(const Variable& logits, const Variable& targets) const {
-    bool needs_grad = logits.requires_grad_;
+    bool needs_grad = logits.requires_grad_ && Variable::grad_enabled();
     int batch_size = logits.data().shape()[0];
     int num_classes = logits.data().shape()[1];
 

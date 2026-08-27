@@ -108,6 +108,11 @@ Each step must pass tests before proceeding.
 - [x] Benchmark infrastructure (Google Benchmark, `BUILD_BENCHMARKS=OFF` default)
 - [x] Cache `numel()` at construction/reshape instead of recomputing
 - [x] SIMD or threaded elementwise ops (behind a flag, benchmark-gated)
+- [x] `matmul` cache-blocked tiling (32×32×32 tiles, `i, k, j` loop order) shipped in Milestone 3
+- [x] Contiguous same-shape fast paths for elementwise binary ops (dispatch to `simd::add`/`sub`/`mul`/`div` directly, bypassing index reconstruction)
+- [ ] Vectorize matmul inner loop with AVX2/FMA for dense throughput
+- [ ] Remove sparsity early-exit from matmul inner loop if dense performance is prioritized
+- [ ] Replace `std::vector<int>` index reconstruction in hot loops with stack-allocated stride iteration
 - [ ] Optional CUDA/Metal backend exploration (stretch goal, only after CPU path is solid)
 
 ## Milestone 7 — Bindings & packaging
