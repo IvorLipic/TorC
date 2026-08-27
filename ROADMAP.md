@@ -22,7 +22,7 @@ see [AGENTS.md](AGENTS.md).
 - [x] Scalar ops (`Tensor + float`, etc.)
 - [x] `operator==`, `operator<<` (pretty-printing) for debugging/tests
 - [x] Reductions: `sum()`, `mean()`, `max()`, `min()` (whole-tensor first, axis-wise later)
-- [x] `reshape()` / `view()` — no-copy where possible
+- [x] `reshape()` / `view()` — shape-changing copies (no stride metadata yet)
 - [x] Copy vs. move semantics review (rule of 5, or confirm defaults are sufficient)
 
 ## Milestone 2 — Shape flexibility
@@ -50,14 +50,14 @@ Do not implement multiple steps in one PR.
 - [x] **Step 3**: Tensor-tensor elementwise + broadcasting backward (`reduce_sum_to_shape`
       helper, applied centrally in `backward_with_grad`) — grad check on broadcast cases
 - [x] **Step 4**: Reduction ops backward (`sum`, `mean` whole-tensor and axis-wise) — grad check
-- [x] **Step 4b**: Defer `max`/`min` backward (argmax-tracking not yet implemented — throw
-      `ShapeError`)
+- [x] **Step 4b**: Initially deferred `max`/`min` backward until argmax tracking was added;
+      superseded by Step 9 below
 - [x] **Step 5**: `matmul` backward (2D + batched, **including batch-broadcast cases** — these
       need their own reduce-over-batch-dims handling, not a direct reuse of
       `reduce_sum_to_shape`) — hand test + grad check
 - [x] **Step 6**: View ops backward (`transpose` — true inverse permutation, not re-applying
       `axes`; `reshape`/`view`; `slice` — zero-fill-and-scatter into original shape) — grad check
-- [x] **Step 7**: `detach()` and `no_grad()` / `set_grad_enabled(bool)` context
+- [x] **Step 7**: `detach()` and process-global `set_grad_enabled(bool)` mode
 - [x] **Step 8**: In-place ops forbidden for `requires_grad` Variables (throw `TorcError`) —
       new guarded in-place API (`Tensor::fill`, `Variable::fill`) added; direct `data()`/`operator[]`
       mutation remains unguarded
@@ -69,7 +69,7 @@ Each step must pass tests before proceeding.
 - [x] **Step 5.1**: `Tensor::exp()` — elementwise unary transcendental op; needed before any
       activation that uses it (Sigmoid, Softmax)
 - [x] **Step 5.2**: `nn::Module` base class — parameter storage, `forward()` hook, and
-      `torch::nn::Sequential`-style container
+      PyTorch-style `torc::nn::Sequential` container
 - [x] **Step 5.3**: `nn::Linear` — `Linear(in, out)` with weight/bias parameters and a forward
   that does `x @ W.T + b`. `Linear(in, out, init_std)` overload: when `init_std <= 0`,
   weight is initialized with Kaiming normal (`std::sqrt(2 / fan_in)`); otherwise samples
@@ -112,7 +112,7 @@ Each step must pass tests before proceeding.
 - [x] SIMD or threaded elementwise ops (behind a flag, benchmark-gated)
 - [x] `matmul` cache-blocked tiling (32×32×32 tiles, `i, k, j` loop order) shipped in Milestone 3
 - [x] Contiguous same-shape fast paths for elementwise binary ops (dispatch to `simd::add`/`sub`/`mul`/`div` directly, bypassing index reconstruction)
-- [ ] Vectorize matmul inner loop with AVX2/FMA for dense throughput
+- [x] Vectorize matmul inner loop with AVX2/FMA-style AVX2 operations for dense throughput
 - [x] Remove sparsity early-exit from matmul inner loop (dense throughput prioritized)
 - [ ] Replace `std::vector<int>` index reconstruction in hot loops with stack-allocated stride iteration
 - [ ] Optional CUDA/Metal backend exploration (stretch goal, only after CPU path is solid)
@@ -182,11 +182,12 @@ primitives would make the eventual fixes more expensive.
       CI that configures and rebuilds from scratch rather than relying on a pre-existing build
       directory. Keep at least one test target per logical suite in addition to the aggregate test.
 - [ ] Add property/fuzz tests for broadcasting, matmul batch promotion, malformed losses/data, and
-      empty/zero-sized shapes; the current 252 example-oriented tests do not cover these hazards.
+      empty/zero-sized shapes; the current example-oriented tests do not cover these hazards.
 - [ ] Add an install target, package/version metadata, and a dependency strategy that does not
       require an implicit network fetch for every clean build.
-- [ ] Reconcile roadmap/design status with the implementation after each performance change;
-      the matmul AVX2 and sparsity items currently contain stale or contradictory checklist text.
+- [x] Reconcile roadmap/design status with the implementation after each performance change;
+      matmul AVX2 status, sparsity-loop status, and numerical-validation performance notes are
+      kept in sync with the implementation and benchmark record.
 - [ ] Decide and document the intended scope for train/eval modes, serialization/state dicts,
       operator ergonomics, higher-order gradients, and device backends. Until then, describe torc
       as a small educational CPU reference library rather than a general PyTorch replacement.

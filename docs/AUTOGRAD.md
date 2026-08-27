@@ -13,11 +13,11 @@ Two main approaches exist for automatic differentiation:
 
 | Approach | How it works | Complexity |
 |----------|--------------|------------|
-| **Tape-based** (Wengert list) | Record every op during forward pass in a flat list. Walk list in reverse for backward. | Low |
+| **Tape-based** (Wengert-style records) | Record each producing op on its output Variable. Traverse the resulting graph and execute records in reverse dependency order. | Low |
 | **Expression-tree** | Each Variable points to parent nodes. Backward does topological sort + recursion. | High |
 
 **We chose tape-based** because:
-1. **Simplicity** — ~200 lines for core engine, no node hierarchy
+1. **Simplicity** — small closures and records, with no node hierarchy
 2. **Sufficient for torc's scope** — toy models, small datasets (Milestone 5)
 3. **Matches PyTorch eager** — same mental model
 4. **Evolvable** — can swap to expression-tree later without changing Variable API
@@ -59,6 +59,10 @@ alive, but they turn a destroyed tracked ancestor into a controlled `TorcError` 
 use-after-free. Untracked constants may be temporary because their values are captured by the
 backward closure and they are not traversed.
 
+Variable move construction transfers the lifetime token to the destination. Move assignment keeps
+the destination's identity and resets the moved-from token, so existing graph edges to the moved-
+from object fail deterministically instead of observing partially moved state.
+
 ### Backward Algorithm: Topological Sort (Not Recursion)
 
 **Critical design decision:** The backward pass uses **topological sort + iterative execution**,
@@ -80,7 +84,7 @@ production autograd engines work.
 void Variable::backward_with_grad(const Tensor& upstream_grad) {
     if (tape_.empty()) return;
 
-    // 1. Build topological order (DFS post-order over TapeEntry.inputs)
+    // 1. Build topological order (DFS post-order over tracked TapeEntry.inputs)
     std::vector<Variable*> topo = build_topo();
     std::reverse(topo.begin(), topo.end());  // backward order
 
@@ -111,8 +115,13 @@ void Variable::backward_with_grad(const Tensor& upstream_grad) {
             entry.backward(current_grad, input_grads);
 
             for (size_t i = 0; i < entry.inputs.size(); ++i) {
+                if (entry.input_requires_grad.size() != entry.inputs.size())
+                    throw TorcError("autograd tape entry lacks input lifetime metadata");
+                if (!entry.input_requires_grad[i]) continue;
+                if (entry.input_lifetimes.size() != entry.inputs.size() ||
+                    entry.input_lifetimes[i].expired())
+                    throw TorcError("autograd graph input expired before backward()");
                 Variable* input = entry.inputs[i];
-                if (!input->requires_grad_) continue;
 
                 // Broadcasting reduction happens HERE, centrally — never inside entry.backward
                 Tensor input_grad = input_grads[i];
@@ -126,7 +135,6 @@ void Variable::backward_with_grad(const Tensor& upstream_grad) {
                 }
             }
 
-            current_grad = input_grads.back();  // pass to next tape entry, if any
         }
     }
 
@@ -173,7 +181,8 @@ z.backward();                    // Backward: dz/dx = 3, dz/dy = 2
 1. `Tensor::mul` computes `6.0`
 2. `torc::mul` (a free function — ops are never `Variable` methods) wraps the result in a new `Variable`
 3. Creates a `TapeEntry`:
-   - `inputs = {&x, &y}` (raw pointers into `x` and `y` themselves)
+   - `set_inputs({&x, &y})` records raw pointers plus weak lifetime tokens and each input's
+     `requires_grad` state
    - The backward closure captures **copies** of `x.data()` and `y.data()` (not references to
      `x`/`y`) and computes `input_grads[0] = grad_output.mul(y_data)`,
      `input_grads[1] = grad_output.mul(x_data)`
@@ -309,7 +318,9 @@ c.backward();                        // a.grad() populated, b.grad() NOT allocat
 
 - **Default**: `requires_grad = false` (inference-friendly)
 - **Propagation**: If any input requires_grad, output `requires_grad = true`
-- **No tape recorded** for non-requires-grad inputs to avoid gradient allocation
+- **Tape recording**: a tape entry is created whenever the output requires gradients. It records
+  all operands, but backward skips operands whose recorded `requires_grad` bit is false; their
+  tensor values are still available to the closure when needed.
 
 ---
 
@@ -373,7 +384,7 @@ Variable c = torc::add(a, b);   // c.requires_grad() == false, tape is empty
 Variable::set_grad_enabled(true);
 ```
 
-A global flag checked by arithmetic ops at the start of forward. When disabled, those ops still
+A process-global flag checked by arithmetic ops at the start of forward. When disabled, those ops still
 compute their forward output, but they return plain `Variable`s with `requires_grad=false` and
 empty tapes — no `TapeEntry` is recorded. Defaults to `true`. This is useful for inference
 sections of a training loop without manually detaching each intermediate.
@@ -397,7 +408,7 @@ Ops are **free functions in `namespace torc`**, declared in `autograd.hpp` and d
 3. **Define it** in `autograd.cpp`, following the existing pattern (see `add`/`mul`/`neg`):
    ```cpp
    Variable my_op(const Variable& a) {
-       bool needs_grad = a.requires_grad_;
+       bool needs_grad = a.requires_grad_ && Variable::grad_enabled();
        Tensor out_data = a.data_.my_op();
        Variable out(std::move(out_data), needs_grad);
 
@@ -405,7 +416,7 @@ Ops are **free functions in `namespace torc`**, declared in `autograd.hpp` and d
            TapeEntry entry;
            // const_cast is needed because Variable& params are const but TapeEntry.inputs
            // needs non-const pointers to later call accumulate_grad() on them
-           entry.inputs = { const_cast<Variable*>(&a) };
+           entry.set_inputs({ const_cast<Variable*>(&a) });
 
            // Capture whatever the local derivative needs BY VALUE (a copy), the same way
            // mul()/div() capture a_data/b_data — never capture a reference to `a` itself.
@@ -436,7 +447,7 @@ Ops are **free functions in `namespace torc`**, declared in `autograd.hpp` and d
 | Double `backward()` without `zero_grad()` | Expected accumulation; call `zero_grad()` each step |
 | `backward()` on non-scalar | Call `.sum().backward()` or pass an explicit `grad_output` |
 | Recursive backward on deep graphs | The backward *walk* uses topological sort (not recursion) — but `build_topo()` itself is still a recursive DFS today, so very deep graphs can still overflow the stack during topo-sort construction, just not during backward execution |
-| Circular references with `shared_ptr` | Not applicable — `Variable` owns data directly; tape entries hold raw, non-owning pointers instead. That trades the cycle risk for a *lifetime* risk: every `Variable` in a graph must outlive `backward()` on any of its descendants (see `docs/DESIGN.md`) |
+| Circular references with `shared_ptr` | Not applicable — `Variable` owns data directly; tape entries hold raw, non-owning pointers instead. That trades the cycle risk for a *lifetime* risk: every tracked `Variable` in a graph must outlive `backward()` on any of its descendants, or backward throws `TorcError` (see `docs/DESIGN.md`) |
 | Assuming `Tensor` is default-constructible (e.g. `std::vector<Tensor> v(n)`) | It isn't — `Tensor` has no default constructor. Construct placeholders with an explicit shape, e.g. `Tensor(std::vector<int>{1})`, as `backward_with_grad` does |
 | Assuming `reshape()`/`view()` are "metadata-only" or free | They're not — `Tensor::reshape()` copies `storage_` on every call. Correctness is unaffected, but don't rely on this being zero-cost |
 

@@ -2,6 +2,7 @@
 #include "torc/autograd.hpp"
 #include <cmath>
 #include <string>
+#include <utility>
 
 using torc::Variable;
 using torc::Tensor;
@@ -231,6 +232,18 @@ TEST(GraphLifetime, ExpiredIntermediateFailsBeforeDereference) {
         Variable intermediate = torc::mul_scalar(x, Variable(3.0f, false));
         output = torc::add_scalar(intermediate, x);
     }
+
+    EXPECT_THROW(output.backward(), torc::TorcError);
+    EXPECT_FALSE(x.has_grad());
+}
+
+TEST(GraphLifetime, MoveAssignmentInvalidatesMovedFromVariable) {
+    Variable x(2.0f, true);
+    Variable intermediate = torc::mul_scalar(x, Variable(3.0f, false));
+    Variable output = torc::add_scalar(intermediate, x);
+
+    Variable moved_target(0.0f, false);
+    moved_target = std::move(intermediate);
 
     EXPECT_THROW(output.backward(), torc::TorcError);
     EXPECT_FALSE(x.has_grad());
@@ -1114,7 +1127,7 @@ TEST(ViewAutograd, GradCheckSlice) {
 }
 
 // ============================================================
-// Step 7: detach() and no_grad() / set_grad_enabled(bool)
+// Step 7: detach() and set_grad_enabled(bool)
 // ============================================================
 
 TEST(DetachNoGradAutograd, DetachBreaksGraph) {

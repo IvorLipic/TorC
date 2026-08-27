@@ -140,10 +140,16 @@ std::pair<Tensor, Tensor> DataLoader::next_batch() {
         return {Tensor(std::vector<int>{0}), Tensor(std::vector<int>{0})};
     }
 
-    size_t first = batch_indices[0];
-    size_t last = batch_indices.back();
-    if (last - first + 1 == batch_indices.size()) {
-        return dataset_.get_batch(first, last + 1);
+    const size_t first = batch_indices[0];
+    bool contiguous = true;
+    for (size_t i = 1; i < batch_indices.size(); ++i) {
+        if (batch_indices[i] != first + i) {
+            contiguous = false;
+            break;
+        }
+    }
+    if (contiguous) {
+        return dataset_.get_batch(first, first + batch_indices.size());
     }
 
     std::vector<Tensor> x_samples, y_samples;

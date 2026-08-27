@@ -79,6 +79,9 @@ public:
             requires_grad_ = other.requires_grad_;
             has_grad_ = other.has_grad_;
             tape_ = std::move(other.tape_);
+            // A moved-from Variable must not remain a valid target for existing
+            // tape edges.  Resetting its token makes such edges fail safely.
+            other.lifetime_.reset();
         }
         return *this;
     }
@@ -206,20 +209,21 @@ private:
                         throw TorcError("autograd tape entry lacks input lifetime metadata");
                     }
                     if (!entry.input_requires_grad[i]) continue;
+                    if (entry.input_lifetimes.size() != entry.inputs.size() ||
+                        entry.input_lifetimes[i].expired()) {
+                        throw TorcError("autograd graph input expired before backward(); keep all graph Variables alive");
+                    }
                     Variable* input = entry.inputs[i];
-                    if (input->requires_grad_) {
-                        Tensor input_grad = input_grads[i];
-                        if (input_grad.shape() != input->data_.shape())
-                            input_grad = reduce_sum_to_shape(input_grad, input->data_.shape());
-                        input->accumulate_grad(input_grad);
-                        auto insert_result = grad_map.emplace(input, input_grad);
-                        if (!insert_result.second) {
-                            insert_result.first->second = insert_result.first->second.add(input_grad);
-                        }
+                    Tensor input_grad = input_grads[i];
+                    if (input_grad.shape() != input->data_.shape())
+                        input_grad = reduce_sum_to_shape(input_grad, input->data_.shape());
+                    input->accumulate_grad(input_grad);
+                    auto insert_result = grad_map.emplace(input, input_grad);
+                    if (!insert_result.second) {
+                        insert_result.first->second = insert_result.first->second.add(input_grad);
                     }
                 }
                 
-                current_grad = input_grads.back();
             }
         }
 

@@ -67,7 +67,7 @@ torc/
     └── test_data.cpp           # GoogleTest suite for data::Dataset / DataLoader
 ```
 
-Five build targets:
+Five default build targets:
 - **`torc`** — library built from `src/tensor.cpp`, `src/autograd.cpp`, `src/nn.cpp`,
   `src/nn/linear.cpp`, `src/nn/activations.cpp`, `src/nn/losses.cpp`, `src/optim.cpp`,
   `src/data.cpp`
@@ -77,6 +77,9 @@ Five build targets:
 - **`torc_tests`** — GoogleTest executable (`tests/test_tensor.cpp` +
   `tests/test_autograd.cpp` + `tests/test_nn.cpp` + `tests/test_data.cpp`), links `torc`, registered via `enable_testing()` /
   `add_test(NAME TorcTests ...)`.
+
+When `BUILD_BENCHMARKS=ON`, CMake adds the optional `torc_benchmarks` target from
+`benchmarks/bench_tensor.cpp`.
 
 C++23. GoogleTest (`v1.14.0`) is pulled in for tests via `FetchContent`; Google Benchmark
 (`v1.8.0`) is pulled in for benchmarks via `FetchContent` when `BUILD_BENCHMARKS=ON`. There are
@@ -104,7 +107,8 @@ See `README.md` for the full Tensor feature list. Key highlights:
 - Elementwise `add`/`sub`/`mul`/`div` with NumPy-style broadcasting and scalar overloads
 - Reductions: `sum()`, `mean()`, `max()`, `min()` (whole-tensor and axis-wise)
 - `matmul()` for 2D and batched matrix multiplication with batch broadcasting
-- `transpose()`, `slice()`, `reshape()`/`view()`, `exp()`, `softmax()`, `log()`, `sqrt()`
+- `transpose()`, `slice()`, `reshape()`/`view()` (copying), `exp()`, `softmax()` and
+  `softmax(axis)`, `log()`, `sqrt()`
 
 `tests/test_tensor.cpp` covers all of the above plus broadcasting, indexing, and error cases.
 
@@ -134,7 +138,7 @@ See `README.md` for the full Tensor feature list. Key highlights:
   because their tensor values are captured by closures. See §5 and `docs/DESIGN.md`.
 
 `tests/test_autograd.cpp` covers: `Variable` scaffold, scalar and tensor-tensor autograd,
-broadcast backward, reductions, view ops, `detach()`/`no_grad()`, and guarded in-place ops —
+broadcast backward, reductions, view ops, `detach()`/`set_grad_enabled(bool)`, and guarded in-place ops —
 each with gradient checks against central finite differences where applicable. See
 `README.md` for the full feature list.
 
@@ -145,7 +149,7 @@ each with gradient checks against central finite differences where applicable. S
   `forward_cache_` so backward is safe.
 - `nn::Sequential` chains `Module`s in order; `forward(x)` passes input through each module.
 - Tests cover parameter registration, forward/backward for `nn::Linear`, activation modules
-  (`ReLU`, `Sigmoid`, `Softmax`) with gradient checks, loss functions (`MSELoss`,
+  (`ReLU`, `Sigmoid`, `Softmax`, including axis-aware behavior) with gradient checks, loss functions (`MSELoss`,
   `CrossEntropyLoss`) with forward correctness and numerical gradient checks, and optimizers
   (`optim::SGD` with momentum, `optim::Adam`, `optim::AdamW`) with step/zero_grad behavior.
 - `tests/test_data.cpp` covers `data::TensorDataset` construction and indexing, `data::SyntheticRegression`

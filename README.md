@@ -20,7 +20,9 @@ operations and a tape-based autograd system, built on CMake with GoogleTest-base
 - Elementwise exponential (`exp()`)
 - Elementwise natural logarithm (`log()`)
 - Elementwise square root (`sqrt()`)
-- Whole-tensor softmax (`softmax()`) — used by `nn::Softmax` and `nn::CrossEntropyLoss`
+- Whole-tensor softmax (`softmax()`) with an axis-aware overload (`softmax(axis)`); the
+  `nn::Softmax` module defaults to the last axis, while `CrossEntropyLoss` uses its own stable
+  row-wise log-sum-exp implementation
 - `operator==` for value + shape equality
 - Pretty-printing (`operator<<`) for shape and data
 - Raw pointer data access
@@ -45,14 +47,14 @@ operations and a tape-based autograd system, built on CMake with GoogleTest-base
   `mul`, `div`, `neg`), reduction ops backward (`sum`, `mean`, whole-tensor and axis-wise),
   `max`/`min` backward with argmax tracking (whole-tensor and axis-wise), `matmul` backward
   (2D + batched, including batch-broadcast cases), view-op backward (`transpose`,
-  `reshape`/`view`, `slice`), `detach()`/`no_grad()` / `set_grad_enabled(bool)`, unary
+  `reshape`/`view`, `slice`), `detach()` / `set_grad_enabled(bool)`, unary
   transcendental ops (`exp`, `log`, `sqrt`) with backward and gradient checks, and guarded
   in-place ops (`Tensor::fill` / `Variable::fill` throws `TorcError` on tracked
   Variables) — each with gradient checks against central finite differences where applicable
-- **Known constraint:** the tape holds raw, non-owning pointers to the `Variable`s in a graph.
-  Every `Variable` participating in a graph must outlive `backward()` on any of that graph's
-  outputs — not just the final loss `Variable`. Not enforced by the compiler; see
-  `docs/DESIGN.md`.
+- **Known constraint:** the tape holds raw, non-owning pointers to the `Variable`s in a graph,
+  paired with weak lifetime tokens. Backward detects destroyed tracked ancestors and throws
+  `TorcError`, but does not keep them alive; every tracked `Variable` must still outlive
+  `backward()` on any of that graph's outputs. See `docs/DESIGN.md`.
 
 ### Milestone 5 - Basic ML (in progress)
 - `nn::Module` base class with `forward()` hook and parameter registration

@@ -1,9 +1,9 @@
 # torc — Design Notes
 
 This file holds decisions that are expensive to reverse and the rationale behind them,
-plus the planned future project structure once ML work (autograd → nn → optim → data)
-starts. Update this *before* writing code that implements a new architectural layer, not
-after — the point is to force the decision to be explicit.
+plus the planned future project structure as ML work (autograd → nn → optim → data) evolves.
+Update this *before* writing code that implements a new architectural layer, not after —
+the point is to force the decision to be explicit.
 
 ---
 
@@ -14,8 +14,9 @@ working on the hardening backlog in `ROADMAP.md`; it is not a claim that these b
 
 ### Softmax and cross-entropy semantics
 
-`Tensor::softmax()` remains a flattened legacy primitive for compatibility and is only suitable for
-one-dimensional inputs. The axis-aware overload `Tensor::softmax(axis)` computes a stable softmax
+`Tensor::softmax()` remains a flattened legacy primitive for compatibility: it normalizes the entire
+storage buffer as one vector, so multidimensional callers should use the axis-aware overload.
+The axis-aware overload `Tensor::softmax(axis)` computes a stable softmax
 independently along the selected dimension; `torc::softmax(a, axis)` uses the matching per-axis
 Jacobian-vector product. `nn::Softmax(axis = -1)` defaults to the last axis, so conventional
 `{batch, classes}` inputs normalize each row without mixing examples. Batched forward and backward
@@ -56,8 +57,10 @@ because backward closures capture the tensor values they need. Backward validate
 token before every graph traversal or pointer dereference, throwing `TorcError` if a tracked input
 has expired. This converts the former use-after-free UB into a deterministic error, but does not
 retain graph nodes: every tracked Variable must still outlive `backward()` for a graph that uses it.
-Variable copy construction creates a fresh token, while moves transfer the token, so ordinary
-value-return and container moves do not invalidate live graph edges.
+Variable copy construction creates a fresh token. Move construction transfers the token, while
+move assignment preserves the destination identity and resets the moved-from token; ordinary
+value-return and container moves therefore do not invalidate live graph edges, while stale edges
+to a move-assigned-from object fail deterministically.
 
 `Variable` data, gradients, flags, and tape are currently public. This was convenient for
 incremental tests but prevents invariant enforcement; make them private before adding version
@@ -142,13 +145,13 @@ they are not re-litigated:
   of zeros; `(0,3) @ (3,4)` yields an empty `(0,4)`. The contraction is an empty sum, so the
   loops already produce the right answer — no special-casing, and it matches shapes that are
   legal at construction.
-- **Cache-blocked tiling, `float` accumulator.** Complexity is `m * n * k` with `acc` of type
-  `float`. The implementation uses tile sizes of 32×32×32 with an `i, k, j` loop order and a
-  sparsity early-exit inside the innermost loop. This was shipped ahead of Milestone 6 because
-  it is correctness-preserving for dense inputs and the naive triple-loop was the clear
-  bottleneck for ML workloads. The sparsity early-exit is retained for potential sparse use
-  cases but is a branch in the hot path for dense data — revisit if dense throughput becomes a
-  priority.
+- **Cache-blocked tiling, float output accumulation, and AVX2 inner loop.** Complexity is `m * n * k`
+  with the zero-initialized output serving as the `float` accumulator. The
+  implementation uses 32×32×32 tiles, an `i, k, j` loop order, and an AVX2 eight-float inner
+  loop when the build enables AVX2. The former sparsity early-exit was removed because it added
+  a branch to the dense hot path; zero-size contractions still naturally produce zero outputs.
+  This optimization was shipped ahead of Milestone 6 because the naive triple-loop was the clear
+  bottleneck for ML workloads.
 
 ### Error handling convention
 `TorcError` (base, derives `std::runtime_error`), `ShapeError` (shape mismatches), and
@@ -162,11 +165,8 @@ from it.
 ### Documentation consistency
 
 Performance and milestone notes are historical design records, but they must still identify the
-current implementation accurately. In particular, the matmul paragraph above describes a retained
-sparsity early-exit while the current implementation has removed that branch, and the roadmap has
-an unchecked AVX2 vectorization item despite the implementation containing an AVX2 path. When a
-performance change lands, update both the checklist and this rationale in the same change so agents
-do not optimize against obsolete assumptions.
+current implementation accurately. When a performance change lands, update both the checklist and
+this rationale in the same change so agents do not optimize against obsolete assumptions.
 
 ---
 
@@ -214,6 +214,8 @@ instead:
 ```cpp
 struct TapeEntry {
     std::vector<Variable*> inputs;   // raw, non-owning pointers into the input Variables
+    std::vector<std::weak_ptr<VariableLifetime>> input_lifetimes;
+    std::vector<bool> input_requires_grad;
     std::function<void(const Tensor& grad_output, std::vector<Tensor>& input_grads)> backward;
 };
 ```
@@ -232,12 +234,11 @@ input to two different ops). See `docs/AUTOGRAD.md` for the full algorithm, rati
 sources.
 
 **Consequence for `Variable` lifetime.** Because `TapeEntry.inputs` holds raw pointers into
-the *original* `Variable` objects — not copies — **every `Variable` that participates in a
+the *original* `Variable` objects — not copies — **every tracked `Variable` that participates in a
 graph must outlive `backward()` on any of that graph's outputs**, not just the final loss
-Variable. Returning a `Variable` from a function whose local leaf `Variable`s then go out of
-scope, and later calling `.backward()` on the result, is undefined behavior today. This should
-be documented prominently for users (README/AGENTS) and/or closed off by a future design
-change (e.g. `shared_ptr`-owned graph nodes) — right now it's neither.
+Variable. Weak tokens make a destroyed ancestor a deterministic `TorcError` instead of undefined
+behavior, but they do not retain graph nodes. Returning a `Variable` from a function whose local
+tracked leaves then go out of scope still produces an error when `.backward()` is attempted.
 
 ### Broadcasting backward — must be explicit
 
@@ -372,9 +373,11 @@ batch steps into a single PR. *(Check ROADMAP.md for actual checkbox state — n
   re-inserts size-1 dims
 - **Test**: correctness on a `{2,3}` tensor, gradient check for whole-tensor and axis variants
 
-**Step 4b — Defer `max`/`min` backward**
-- Throw `ShapeError("max/min backward not yet implemented")`
-- Document that argmax-tracking is needed before these can be supported
+**Step 4b — Initially defer `max`/`min` backward**
+- The initial reduction milestone deferred `max`/`min` and would have thrown a
+  `ShapeError("max/min backward not yet implemented")`.
+- Step 9 below subsequently implemented argmax/argmin tracking; this historical step is retained
+  only to explain the incremental sequence.
 
 **Step 5 — `matmul` backward**
 - Forward: reuse `Tensor::matmul`
@@ -395,12 +398,12 @@ batch steps into a single PR. *(Check ROADMAP.md for actual checkbox state — n
   primitive was needed
 - **Test**: gradient check for each view op, including a non-involutive `transpose` permutation
 
-**Step 7 — `detach()` and `no_grad()` context**
+**Step 7 — `detach()` and gradient disabling**
 - `Variable detach() const` — new Variable, copy of the data (Tensor copy ctor deep-copies
   storage_), `requires_grad=false`, empty tape
-- `no_grad()` / `set_grad_enabled(bool)` — global flag that most arithmetic ops check; when
-  disabled, those ops return plain Variables with empty tapes. Note: activation and transcendental
-  ops did not originally check this flag (a bug fixed in Step 5.12 follow-up)
+- `set_grad_enabled(bool)` — process-global flag that all current differentiable
+  free functions check; when disabled, those ops return plain Variables with empty tapes. The
+  state is not yet scoped or thread-local (see the hardening backlog).
 - **Test**: verify `detach()` breaks graph, gradient doesn't flow back through detached path;
   verify `set_grad_enabled(false)` blocks tape-building for arithmetic, activation, and
   transcendental ops
@@ -420,10 +423,10 @@ batch steps into a single PR. *(Check ROADMAP.md for actual checkbox state — n
   difference, since `max`/`min` are piecewise-linear and central difference gives 0.5 at the
   kink)
 
-### Constraints to enforce from Day 1
+### Constraints enforced from the initial implementation
 
-1. **No in-place modification** of Variables that require grad, outside the (not-yet-built)
-   controlled in-place API from Step 8
+1. **No in-place modification** of Variables that require grad through the guarded `fill()` API
+   from Step 8; direct mutable `data()`/indexing access remains an explicitly documented loophole.
 2. **Tape is consumed** by `backward()` and cleared — a second `backward()` call on the same
    Variable is a silent no-op today (empty tape), not an error; revisit whether that should
    instead throw, per PyTorch's default behavior, when Step 8 lands
@@ -432,8 +435,9 @@ batch steps into a single PR. *(Check ROADMAP.md for actual checkbox state — n
 4. **Non-scalar outputs** require an explicit `grad_output` argument to `backward()`
 5. **`requires_grad` defaults to `false`** — only parameters should opt in, avoiding wasted
    memory on data/labels in a typical training loop (see TinyTorch Module 06, Q4)
-6. **Every `Variable` in a graph must outlive `backward()` calls on its descendants** — see
-   "Tape / graph structure" above. Not enforced by the type system today.
+6. **Every tracked `Variable` in a graph must outlive `backward()` calls on its descendants** —
+   weak lifetime tokens detect violations at runtime, but do not retain graph nodes or change the
+   type-system requirement.
 
 ### Key risks identified from online sources
 
@@ -441,9 +445,9 @@ batch steps into a single PR. *(Check ROADMAP.md for actual checkbox state — n
    autograd mistake is forgetting to sum over broadcast dims. Test every broadcast case, not
    just one.
 2. **In-place ops corrupting saved tensors** (PyTorch docs): if a user mutates an input after
-   the forward pass, a saved-tensor copy in a backward closure could go stale relative to
-   other state the graph depends on. Step 8's guarded in-place API is meant to prevent
-   user-facing in-place mutation on tracked Variables once it exists.
+   the forward pass, a saved-tensor copy in a backward closure could go stale relative to other
+   state the graph depends on. Step 8's guarded `fill()` API prevents only that named entry point;
+   mutable `data()`/indexing access remains unguarded.
 3. **Float32 numerical noise in gradient checks**: PyTorch's `gradcheck` defaults to double
    precision for this reason. This project's `eps=1e-4` / `atol=1e-2` (see "Gradient
    checking" above) is calibrated for float32 against observed noise, not derived purely from
@@ -465,11 +469,12 @@ batch steps into a single PR. *(Check ROADMAP.md for actual checkbox state — n
 - **`forward()` is the only required override.** Ops are **free functions** in `namespace torc`,
   not `Variable` methods or `Module` methods. `Module::forward` composes those free functions.
 - **Parameter storage is explicit.** `register_parameter(name, param)` stores a named `Variable`
-  in an `unordered_map`; `parameters()` flattens it to a `vector<Variable>`. There is no
-  `add_module` / named submodule registry yet — `Sequential` owns children via
-  `std::unique_ptr<Module>` and collects their parameters recursively.
-- **`parameters()` returns by value.** This copies all parameters, which is fine for Milestone 5's
-  small models. If optimizer patterns later require it, switch to `vector<Variable&>` or `span`.
+  in an `unordered_map`; `parameters()` flattens it to a `vector<Variable*>` pointing at the
+  registered variables. There is no `add_module` / named submodule registry yet — `Sequential`
+  owns children via `std::unique_ptr<Module>` and collects their parameters recursively.
+- **`parameters()` returns a pointer vector by value.** The vector allocation is small for Milestone
+  5 models, while the pointed-to parameters remain owned by the module so optimizers can mutate
+  them without copying tensor storage.
 
 ### Constraints to enforce
 
@@ -478,8 +483,8 @@ batch steps into a single PR. *(Check ROADMAP.md for actual checkbox state — n
 2. **Backward is centralized.** Broadcasting reduction (`reduce_sum_to_shape`) is applied once,
    centrally, in `Variable::backward_with_grad`, never inside a module's forward or an op's
    backward closure.
-3. **`nn::Module` is stateful but not self-contained.** `parameters()` returns copies; there is
-   no `state_dict` / `load_state_dict` yet. Revisit if serialization becomes a need.
+3. **`nn::Module` is stateful but not self-contained.** `parameters()` returns non-owning pointers;
+   there is no `state_dict` / `load_state_dict` yet. Revisit if serialization becomes a need.
 
 ### Key risks identified from online sources
 
@@ -487,10 +492,9 @@ batch steps into a single PR. *(Check ROADMAP.md for actual checkbox state — n
    attributes set in `__init__`; our `Module` requires explicit `register_parameter()` calls.
    Missing one means the optimizer never sees that weight. Tests should verify `parameters()`
    returns exactly what was registered.
-2. **`parameters()` copy cost.** Returning `vector<Variable>` by value copies every parameter
-   tensor. For Milestone 5 this is negligible, but if a model has thousands of parameters and
-   `parameters()` is called every training step, this becomes wasteful. Switch to references
-   before that becomes a bottleneck.
+2. **`parameters()` pointer-vector cost.** Returning a fresh `vector<Variable*>` still allocates and
+   recursively walks module children. For Milestone 5 this is negligible, but a cached view may be
+   useful if large models call `parameters()` every training step.
 3. **Free-function ops inside `forward`.** Because `Module::forward` must compose free functions
    (`torc::mul_scalar`, `torc::add_scalar`, etc.), custom modules need to include
    `torc/autograd.hpp`. This is an extra header dependency compared to PyTorch, where ops are
@@ -513,7 +517,7 @@ PR. *(Check ROADMAP.md for actual checkbox state — not duplicated here.)*
   - `Variable operator()(const Variable& x) const` — calls `forward(x)`
   - `register_parameter(name, param)` — stores named `Variable` in `unordered_map`
   - `named_parameters()` — returns the map (const and non-const overloads)
-  - `parameters()` — flattens to `std::vector<Variable>`
+  - `parameters()` — flattens to `std::vector<Variable*>`
 - `nn::Sequential` inherits `Module` and:
   - `add(std::unique_ptr<Module>)` appends a module
   - `forward(x)` chains modules sequentially
@@ -523,9 +527,8 @@ PR. *(Check ROADMAP.md for actual checkbox state — not duplicated here.)*
   - `Sequential` owns children via `std::unique_ptr<Module>`; no named submodule registry
     yet (PyTorch's `add_module` is not implemented — revisit if state-dict serialization
     needs it)
-  - `parameters()` returns `std::vector<Variable>` by value; this copies all parameters,
-    which is fine for Milestone 5's small models but should switch to `vector<Variable&>`
-    or `span` if optimizer patterns require it later
+  - `parameters()` returns `std::vector<Variable*>` by value; the vector is a non-owning view over
+    module-owned parameters, so optimizers can mutate them without copying tensor storage
   - **Forward lifetime**: `Module` owns a `mutable std::list<Variable> forward_cache_` that
     stores intermediates created during `forward()`. `operator()()` clears this cache before
     calling `forward()`, and subclasses append intermediates via `emplace_back`. Because
@@ -678,7 +681,9 @@ based on `param->grad()`. This matches PyTorch's separation of `nn.Module` and `
   first dimension and reshapes to remove the sample axis
 - `DataLoader(const Dataset& dataset, size_t batch_size, bool shuffle = false)`:
   - `std::pair<Tensor, Tensor> next_batch()` — stacks individual samples into batched tensors
-    with the batch dimension prepended; the last batch may be smaller
+    with the batch dimension prepended; the last batch may be smaller. Samples retain the
+    sampler order, including when shuffling is enabled; only ascending contiguous spans use
+    the dataset's bulk `get_batch()` fast path.
   - `bool has_next() const` — true if the current epoch has more batches
   - `void reset()` — starts a new epoch; reshuffles indices if `shuffle` was set
 - **PyTorch pattern followed**: map-style Dataset with `__len__` / `__getitem__` semantics,
@@ -739,7 +744,8 @@ Data loading is the thinnest possible wrapper around a dataset, matching PyTorch
   - `DataLoader(const Dataset& ds, size_t batch_size, bool shuffle = false)`
   - `std::pair<Tensor, Tensor> next_batch()` — returns `(x_batch, y_batch)` with the batch
     dimension prepended (shape `{batch_size, *sample_shape}`); the last batch may be smaller
-    if `len(ds) % batch_size != 0`
+    if `len(ds) % batch_size != 0`. Within each batch, dataset order (or the shuffled sampler
+    order) is preserved.
   - `bool has_next() const` — true if the current epoch has more batches
   - `void reset()` — starts a new epoch; reshuffles indices if `shuffle` was set
 - **No collation / padding yet.** Every dataset sample must have the same shape; `DataLoader`
@@ -769,9 +775,9 @@ Rationale for the specific moves:
   references to `Variable` parameters and update `data_` in-place; they do not own parameters
   and do not track graph state. This keeps the optimizer implementation independent from
   `nn::Module` and avoids circular dependencies.
-- **`CMakeLists.txt` will need `add_subdirectory` or explicit source lists per target** once
-  `nn/` exists as a folder, plus `BUILD_EXAMPLES`/`BUILD_TESTS` options if the example count
-  grows enough that not everyone wants to compile all of them by default.
+- **CMake currently uses explicit source lists per target**, including the `nn/` and data sources.
+  Separate `BUILD_EXAMPLES`/`BUILD_TESTS` options remain a possible ergonomic improvement if the
+  example or test count grows enough that not everyone wants to compile them by default.
 
 This structure is a target, not a mandate to create now — build it milestone-by-milestone so
 each directory only exists once something real lives in it.

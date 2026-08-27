@@ -37,37 +37,37 @@ Run benchmarks:
 | numel() | [4096] | 5.05 | 112000000 |
 | numel() | [16384] | 4.93 | 100000000 |
 
-## Latest rerun after hot-path fix (2026-08-27)
+## Latest audit rerun after hot-path fix (2026-08-27)
 
 This rerun used the GCC 16.2 Release build (`-O3 -march=native`) on the same 12-core, 2096 MHz
 machine, with `--benchmark_min_time=1s`. The table above remains the historical pre-session
-baseline; these are the current post-fix measurements.
+baseline; these are the current post-fix measurements from this audit.
 
 | Operation | Shape | Time (ns) | Iterations |
 |-----------|-------|-----------|------------|
-| Elementwise add | [1024] | 486 | 2890323 |
-| Elementwise add | [4096] | 2155 | 689231 |
-| Elementwise add | [16384] | 7482 | 182045 |
-| Elementwise mul | [1024] | 486 | 2890323 |
-| Elementwise mul | [4096] | 1591 | 995556 |
-| Elementwise mul | [16384] | 7498 | 186667 |
-| Scalar add | [1024] | 459 | 3089655 |
-| Scalar add | [4096] | 1602 | 1120000 |
-| Scalar add | [16384] | 5332 | 256000 |
-| Matmul 2D | [64, 64, 64] | 64291 | 22400 |
-| Matmul 2D | [128, 128, 128] | 541508 | 2635 |
-| Matmul 2D | [256, 256, 256] | 4480598 | 309 |
-| Batched matmul | [4, 64, 64, 64] | 272917 | 5271 |
-| Batched matmul | [8, 128, 128, 128] | 4049734 | 345 |
-| Softmax | [1024] | 11175 | 112000 |
-| Softmax | [4096] | 44512 | 32000 |
-| Softmax | [16384] | 180523 | 8145 |
-| Transpose 2D | [64, 64] | 80264 | 17569 |
-| Transpose 2D | [128, 128] | 320137 | 4267 |
-| Transpose 2D | [256, 256] | 1260250 | 1120 |
-| numel() | [1024] | 3.40 | 471578947 |
-| numel() | [4096] | 2.96 | 471578947 |
-| numel() | [16384] | 3.12 | 471578947 |
+| Elementwise add | [1024] | 542 | 2890323 |
+| Elementwise add | [4096] | 2280 | 814545 |
+| Elementwise add | [16384] | 7736 | 174906 |
+| Elementwise mul | [1024] | 500 | 2890323 |
+| Elementwise mul | [4096] | 2354 | 689231 |
+| Elementwise mul | [16384] | 7960 | 182857 |
+| Scalar add | [1024] | 451 | 3200000 |
+| Scalar add | [4096] | 1654 | 896000 |
+| Scalar add | [16384] | 5644 | 235789 |
+| Matmul 2D | [64, 64, 64] | 69409 | 21854 |
+| Matmul 2D | [128, 128, 128] | 542383 | 2560 |
+| Matmul 2D | [256, 256, 256] | 5166387 | 280 |
+| Batched matmul | [4, 64, 64, 64] | 272330 | 4978 |
+| Batched matmul | [8, 128, 128, 128] | 4460473 | 320 |
+| Softmax | [1024] | 11413 | 112000 |
+| Softmax | [4096] | 44322 | 29867 |
+| Softmax | [16384] | 175614 | 8145 |
+| Transpose 2D | [64, 64] | 80180 | 17920 |
+| Transpose 2D | [128, 128] | 318482 | 4267 |
+| Transpose 2D | [256, 256] | 1253266 | 1120 |
+| numel() | [1024] | 3.00 | 471578947 |
+| numel() | [4096] | 3.13 | 471578947 |
+| numel() | [16384] | 3.84 | 358400000 |
 
 ## Changes from previous baseline
 
@@ -91,6 +91,10 @@ machine, the post-fix GCC release rerun measured matmul at 66.5 µs / 535.7 µs 
 43.5 µs / 174.3 µs (versus 10.7 µs / 42.6 µs / 173.2 µs). The remaining small differences are
 within compiler/build and run-to-run variation; the validation-induced 1.4–1.9× matmul and
 1.6× softmax regressions are gone.
+
+A later audit rerun on the same machine measured matmul at 69.4 us / 542.4 us / 5.17 ms for
+64/128/256 matrices and softmax at 11.4 us / 44.3 us / 175.6 us. These values remain within
+normal compiler/build and run-to-run variation of the post-fix results above.
 
 ## Autograd lifetime-guard overhead
 

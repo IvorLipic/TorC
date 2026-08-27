@@ -4,6 +4,8 @@
 #include <fstream>
 #include <string>
 #include <sstream>
+#include <random>
+#include <numeric>
 
 using torc::Tensor;
 using torc::data::Dataset;
@@ -120,6 +122,33 @@ TEST(DataLoaderTest, ShuffleProducesValidPermutation) {
     std::sort(sorted.begin(), sorted.end());
     std::vector<float> expected = {1.0f, 3.0f, 5.0f};
     EXPECT_EQ(sorted, expected);
+}
+
+TEST(DataLoaderTest, ShufflePreservesBatchPermutation) {
+    Tensor xs({0.0f, 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f}, {8, 1});
+    Tensor ys({0.0f, 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f}, {8, 1});
+    TensorDataset ds(xs, ys);
+    DataLoader loader(ds, 3, true);
+
+    std::vector<float> seen;
+    while (loader.has_next()) {
+        auto [x_batch, y_batch] = loader.next_batch();
+        ASSERT_EQ(x_batch.shape().size(), 2);
+        ASSERT_EQ(x_batch.shape()[1], 1);
+        for (int i = 0; i < x_batch.shape()[0]; ++i) {
+            seen.push_back(x_batch.data()[i]);
+            EXPECT_FLOAT_EQ(x_batch.data()[i], y_batch.data()[i]);
+        }
+    }
+
+    std::vector<size_t> expected(8);
+    std::iota(expected.begin(), expected.end(), 0);
+    std::mt19937 rng;
+    std::shuffle(expected.begin(), expected.end(), rng);
+    ASSERT_EQ(seen.size(), expected.size());
+    for (size_t i = 0; i < expected.size(); ++i) {
+        EXPECT_FLOAT_EQ(seen[i], static_cast<float>(expected[i]));
+    }
 }
 
 TEST(DataLoaderTest, ResetStartsNewEpoch) {

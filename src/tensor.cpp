@@ -233,8 +233,6 @@ Tensor Tensor::matmul(const Tensor& other) const {
     out_shape.push_back(n);
     Tensor out(std::move(out_shape));
 
-    int a_batch = shape_product(std::span(shape_).subspan(0, r - 2));
-    int b_batch = shape_product(std::span(other.shape_).subspan(0, r2 - 2));
     int out_batch = shape_product(batch);
     int batch_rank = (int)batch.size();
 
