@@ -18,6 +18,9 @@ operations and a tape-based autograd system, built on CMake with GoogleTest-base
 - Scalar overloads for all four elementwise ops
 - Unary negation (`operator-()`)
 - Elementwise exponential (`exp()`)
+- Elementwise natural logarithm (`log()`)
+- Elementwise square root (`sqrt()`)
+- Whole-tensor softmax (`softmax()`) — used by `nn::Softmax` and `nn::CrossEntropyLoss`
 - `operator==` for value + shape equality
 - Pretty-printing (`operator<<`) for shape and data
 - Raw pointer data access

@@ -128,18 +128,19 @@ void Variable::backward_with_grad(const Tensor& upstream_grad) {
 **Why this is correct:**
 - Each Variable is processed exactly once (no double-visiting)
 - Gradients are computed in dependency order (all downstream grads ready before upstream needs them)
-- Gradients for shared inputs are accumulated via `+=` in `accumulate_grad`, but `grad_map`
-  currently overwrites on repeated writes (see note below)
+- Gradients for shared inputs are accumulated via `+=` in `accumulate_grad` and in `grad_map`
+  (see note below)
 - Stack usage for the DFS is a separate concern from the O(V) *iterative* backward walk above —
   `build_topo()` itself is currently still recursive (see Common Pitfalls)
 
-> **Note on `grad_map` overwrite vs. accumulation:** The current implementation writes
-> `grad_map[input] = input_grad`, overwriting any previous gradient for that input. This is
-> safe for tree-shaped graphs but silently drops gradients for shared subgraphs (diamond
-> dependencies). The `accumulate_grad()` call on the Variable itself still uses `+=`, so
-> `input->grad()` is correct, but the value propagated further backward through `grad_map`
-> is only the last writer's contribution. This is a known limitation; see the diamond-dependency
-> test in `tests/test_autograd.cpp`.
+> **Note on `grad_map` accumulation for shared subgraphs:** The current implementation
+> accumulates gradients in `grad_map` via `grad_map.emplace(input, grad)` followed by
+> `insert_result.first->second = insert_result.first->second.add(grad)` when the key already
+> exists (i.e. `+=`). Combined with `input->accumulate_grad(grad)` on the Variable itself
+> (also `+=`), this correctly handles diamond dependencies where an intermediate Variable is
+> consumed by multiple downstream ops. The diamond-dependency test in
+> `tests/test_autograd.cpp` (`GradMapAccumulation.DiamondDependencyAccumulates`) verifies
+> that shared subgraphs accumulate gradients correctly.
 
 **Sources:**
 - PyTorch dev mailing list: "Simplified Introduction to PyTorch's Autograd" (zdevito, 2021)

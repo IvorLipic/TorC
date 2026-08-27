@@ -22,14 +22,16 @@ or one of them is 1. The result shape is the maximum along each dimension. This 
 implemented in Milestone 2 before autograd, because broadcasting changes what a gradient's
 "sum over broadcast dims" step needs to look like.
 
-Storage is always row-major and contiguous. `reshape()` copies the shape vector and moves
-storage; `view()` delegates to `reshape()`. There is no stride metadata yet, so `transpose()`
-and `slice()` explicitly reorder/copy into new contiguous buffers.
+Storage is always row-major and contiguous. `reshape()` copies the shape vector and copies
+storage (the method is `const`, so `storage_` cannot be moved); `view()` delegates to `reshape()`.
+There is no stride metadata yet, so `transpose()` and `slice()` explicitly reorder/copy into new
+contiguous buffers.
 
 ### Memory ownership
 `storage_` is an owned `std::vector<float>` per `Tensor`, copied fresh on every elementwise
-or reduction op. Shape-changing ops (`reshape`/`view`) move `storage_` instead of copying,
-so they are O(1) with respect to data size. Fine for a naive reference implementation.
+  or reduction op. Shape-changing ops (`reshape`/`view`) copy `storage_` (the methods are `const`,
+  so it cannot be moved), so they are O(N) with respect to data size. Fine for a naive reference
+  implementation.
 **This gets more nuanced for autograd** — see below.
 
 ### Linear algebra — matmul (Milestone 3)
@@ -453,9 +455,13 @@ PR. *(Check ROADMAP.md for actual checkbox state — not duplicated here.)*
   `std::list` never relocates elements, raw `Variable*` pointers in tape entries remain valid
   until the next forward pass clears the cache.
 - **API impact**: users call `output = module(x); output.backward()` exactly as in Python.
-  `Sequential::forward()` calls `module->operator()()` on each child so their caches are
-  populated too. The cache is per-module, not per-graph; calling `module(x)` again clears
-  the previous cache automatically.
+  `Sequential::forward()` calls `module->forward()` directly (not `operator()()`), as
+  explained in Step 5.2, so it does not clear each child's `forward_cache_` before calling
+  `forward()`. The cache is per-module; `operator()()` clears the cache before `forward()`,
+  but `Sequential` bypasses it to avoid destroying intermediates still referenced by tape
+  entries in the chain. A side effect is that child caches accumulate across repeated
+  `Sequential::forward()` calls without being cleared — this is a minor memory leak, not a
+  correctness issue, and is acceptable for the naive reference implementation.
 - **Why `std::list`**: `std::vector` can reallocate and move elements, invalidating raw
   pointers stored in tape entries. `std::list` guarantees stable addresses, which is a
   prerequisite for the current tape design. The memory overhead is acceptable for a naive

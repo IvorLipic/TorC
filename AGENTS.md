@@ -1,7 +1,7 @@
 # torc — Agent Guide
 
 `torc` is a minimal, from-scratch C++ tensor library (naive `float32`-only storage) with a
-CMake build, a small demo binary, a tape-based autograd system (Milestone 4, in progress),
+CMake build, a small demo binary, a tape-based autograd system (Milestone 4, complete),
 and a unit test target.
 
 This file is the stable orientation doc: what exists, how to build/test it, and the
@@ -34,7 +34,7 @@ torc/
 │       ├── utils.hpp           # shape_product / shape_to_string / error types, used by Tensor
 │       ├── autograd.hpp        # Variable class + free-function ops (add, mul, ...)
 │       ├── nn.hpp              # nn::Module base + nn::Sequential container
-│       ├── optim.hpp           # optim::SGD declaration
+│       ├── optim.hpp           # optim::SGD, optim::Adam, optim::AdamW declarations
 │       └── nn/
 │           ├── linear.hpp      # nn::Linear declaration
 │           ├── activations.hpp # nn::ReLU, nn::Sigmoid, nn::Softmax declarations
@@ -54,17 +54,23 @@ torc/
 │   ├── linear_regression/
 │   │   ├── linear_regression.cpp   # end-to-end training script (Step 5.11)
 │   │   └── plot_results.py         # optional matplotlib visualization
+│   └── mnist_mlp/
+│       ├── mnist_mlp.cpp           # 3-layer MLP on MNIST (Step 5.12)
+│       └── plot_results.py         # optional matplotlib visualization
 └── tests/
     ├── test_tensor.cpp         # GoogleTest suite for Tensor
     ├── test_autograd.cpp       # GoogleTest suite for Variable / autograd
-    └── test_nn.cpp             # GoogleTest suite for nn::Module / nn::Sequential / activations
+    ├── test_nn.cpp             # GoogleTest suite for nn::Module / nn::Sequential / activations
+    └── test_data.cpp           # GoogleTest suite for data::Dataset / DataLoader
 ```
 
-Three build targets:
+Four build targets:
 - **`torc`** — library built from `src/tensor.cpp`, `src/autograd.cpp`, `src/nn.cpp`,
-  `src/nn/linear.cpp`, `src/nn/activations.cpp`, `src/nn/losses.cpp`, `src/optim.cpp`
+  `src/nn/linear.cpp`, `src/nn/activations.cpp`, `src/nn/losses.cpp`, `src/optim.cpp`,
+  `src/data.cpp`
 - **`torc_demo`** — executable (`src/main.cpp`) linked against `torc`.
 - **`linear_regression_example`** — executable (`examples/linear_regression/linear_regression.cpp`) linked against `torc`.
+- **`mnist_mlp_example`** — executable (`examples/mnist_mlp/mnist_mlp.cpp`) linked against `torc`.
 - **`torc_tests`** — GoogleTest executable (`tests/test_tensor.cpp` +
   `tests/test_autograd.cpp` + `tests/test_nn.cpp` + `tests/test_data.cpp`), links `torc`, registered via `enable_testing()` /
   `add_test(NAME TorcTests ...)`.
@@ -79,7 +85,7 @@ dependencies.
 ```bash
 cmake -S . -B build
 cmake --build build
-ctest --test-dir build --output-on-failure   # runs TorcTests (Tensor + Variable suites)
+ctest --test-dir build --output-on-failure   # runs TorcTests (Tensor + Variable + nn + data suites)
 ./build/torc_demo
 ```
 
@@ -98,7 +104,7 @@ See `README.md` for the full Tensor feature list. Key highlights:
 
 `tests/test_tensor.cpp` covers all of the above plus broadcasting, indexing, and error cases.
 
-### `torc::Variable` (see `include/torc/autograd.hpp`, `src/autograd.cpp`) — Milestone 4, in progress
+### `torc::Variable` (see `include/torc/autograd.hpp`, `src/autograd.cpp`) — Milestone 4, complete
 
 - Wraps a `Tensor` with `requires_grad`/`has_grad` flags and a `tape_` of `TapeEntry` recording
   the op that produced it (see `docs/AUTOGRAD.md` for the full tape structure and why backward
@@ -138,7 +144,8 @@ each with gradient checks against central finite differences where applicable. S
   `CrossEntropyLoss`) with forward correctness and numerical gradient checks, and optimizers
   (`optim::SGD` with momentum, `optim::Adam`, `optim::AdamW`) with step/zero_grad behavior.
 - `tests/test_data.cpp` covers `data::TensorDataset` construction and indexing, `data::SyntheticRegression`
-  and `data::CSVDataset` loading, and `data::DataLoader` batching, shuffling, and epoch reset.
+  and `data::CSVDataset` loading, `data::MNISTDataset` loading and pixel normalization, and
+  `data::DataLoader` batching, shuffling, and epoch reset.
 - For full API details and design rationale, see `docs/DESIGN.md`'s Milestone 5 section.
 
 ---

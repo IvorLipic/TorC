@@ -71,7 +71,9 @@ Each step must pass tests before proceeding.
 - [x] **Step 5.2**: `nn::Module` base class — parameter storage, `forward()` hook, and
       `torch::nn::Sequential`-style container
 - [x] **Step 5.3**: `nn::Linear` — `Linear(in, out)` with weight/bias parameters and a forward
-      that does `x @ W.T + b`
+  that does `x @ W.T + b`. `Linear(in, out, init_std)` overload: when `init_std <= 0`,
+  weight is initialized with Kaiming normal (`std::sqrt(2 / fan_in)`); otherwise uses
+  `init_std` as the fixed standard deviation. Bias is always initialized to `0.0`.
 - [x] **Step 5.3a**: Fix `Module::forward` / `Module::operator()` API so intermediate `Variable`s
       created inside `forward()` stay alive until after `backward()` completes. Solution:
       `Module` owns a `mutable std::list<Variable> forward_cache_`; `operator()()` clears it
