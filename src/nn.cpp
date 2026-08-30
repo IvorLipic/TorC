@@ -25,6 +25,7 @@ std::vector<Variable*> Module::parameters() const {
 }
 
 void Sequential::add(std::unique_ptr<Module> module) {
+    if (!module) throw torc::TorcError("Sequential::add: module must not be null");
     modules_.push_back(std::move(module));
 }
 

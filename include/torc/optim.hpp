@@ -7,7 +7,7 @@ namespace torc::optim {
 
 class SGD {
 public:
-    SGD(std::vector<torc::Variable*>& params, float lr, float momentum = 0.0f);
+    SGD(const std::vector<torc::Variable*>& params, float lr, float momentum = 0.0f);
     void step();
     void zero_grad();
 
@@ -20,7 +20,7 @@ private:
 
 class Adam {
 public:
-    Adam(std::vector<torc::Variable*>& params, float lr, float beta1 = 0.9f, float beta2 = 0.999f, float eps = 1e-8f);
+    Adam(const std::vector<torc::Variable*>& params, float lr, float beta1 = 0.9f, float beta2 = 0.999f, float eps = 1e-8f);
     void step();
     void zero_grad();
 
@@ -37,7 +37,7 @@ private:
 
 class AdamW {
 public:
-    AdamW(std::vector<torc::Variable*>& params, float lr, float weight_decay = 0.01f, float beta1 = 0.9f, float beta2 = 0.999f, float eps = 1e-8f);
+    AdamW(const std::vector<torc::Variable*>& params, float lr, float weight_decay = 0.01f, float beta1 = 0.9f, float beta2 = 0.999f, float eps = 1e-8f);
     void step();
     void zero_grad();
 

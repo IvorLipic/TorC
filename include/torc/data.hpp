@@ -8,6 +8,8 @@
 
 namespace torc::data {
 
+Tensor stack_samples(const std::vector<Tensor>& samples);
+
 class Dataset {
 public:
     virtual ~Dataset() = default;
@@ -25,23 +27,6 @@ public:
             ys.push_back(std::move(y));
         }
         return {stack_samples(xs), stack_samples(ys)};
-    }
-
-private:
-    static Tensor stack_samples(const std::vector<Tensor>& samples) {
-        if (samples.empty()) return Tensor(std::vector<int>{0});
-        size_t batch_size = samples.size();
-        auto sample_shape = samples[0].shape();
-        std::vector<int> batch_shape = sample_shape;
-        batch_shape.insert(batch_shape.begin(), static_cast<int>(batch_size));
-        Tensor result(batch_shape);
-        size_t sample_size = samples[0].numel();
-        for (size_t i = 0; i < batch_size; ++i) {
-            const float* src = samples[i].data();
-            float* dst = result.data() + i * sample_size;
-            std::copy(src, src + sample_size, dst);
-        }
-        return result;
     }
 };
 
@@ -107,7 +92,7 @@ private:
 
 class DataLoader {
 public:
-    DataLoader(const Dataset& dataset, size_t batch_size, bool shuffle = false);
+    DataLoader(const Dataset& dataset, size_t batch_size, bool shuffle = false, unsigned int seed = std::random_device{}());
     std::pair<Tensor, Tensor> next_batch();
     bool has_next() const;
     void reset();

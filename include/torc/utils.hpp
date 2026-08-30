@@ -62,7 +62,7 @@ inline float kaiming_normal_std(int fan_in) {
     return std::sqrt(2.0f / static_cast<float>(fan_in));
 }
 
-inline void fill_kaiming_normal(float* data, size_t count, int fan_in, unsigned int seed = 42) {
+inline void fill_kaiming_normal(float* data, size_t count, int fan_in, unsigned int seed = std::random_device{}()) {
     std::mt19937 rng(seed);
     float std = kaiming_normal_std(fan_in);
     std::normal_distribution<float> dist(0.0f, std);

@@ -1176,6 +1176,26 @@ TEST(DetachNoGradAutograd, GradEnabledDefaultsToTrue) {
     EXPECT_TRUE(Variable::grad_enabled());
 }
 
+TEST(DetachNoGradAutograd, NoGradGuardDisablesAndRestores) {
+    EXPECT_TRUE(Variable::grad_enabled());
+    {
+        Variable::NoGradGuard guard;
+        EXPECT_FALSE(Variable::grad_enabled());
+    }
+    EXPECT_TRUE(Variable::grad_enabled());
+}
+
+TEST(DetachNoGradAutograd, NoGradGuardRestoresAfterException) {
+    EXPECT_TRUE(Variable::grad_enabled());
+    try {
+        Variable::NoGradGuard guard;
+        EXPECT_FALSE(Variable::grad_enabled());
+        throw std::runtime_error("simulated");
+    } catch (...) {
+    }
+    EXPECT_TRUE(Variable::grad_enabled());
+}
+
 TEST(DetachNoGradAutograd, NoGradScopePreservesTrackingOnInputs) {
     Tensor a_data({1.0f, 2.0f}, std::vector<int>{2});
     Tensor b_data({3.0f, 4.0f}, std::vector<int>{2});

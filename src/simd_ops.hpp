@@ -2,7 +2,7 @@
 #include <cstddef>
 #include <cmath>
 
-#if defined(__AVX2__) || (defined(_MSC_VER) && defined(__AVX2__))
+#if defined(__AVX2__)
 #include <immintrin.h>
 #define TORC_HAS_AVX2 1
 #else

@@ -128,7 +128,7 @@ TEST(DataLoaderTest, ShufflePreservesBatchPermutation) {
     Tensor xs({0.0f, 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f}, {8, 1});
     Tensor ys({0.0f, 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f}, {8, 1});
     TensorDataset ds(xs, ys);
-    DataLoader loader(ds, 3, true);
+    DataLoader loader(ds, 3, true, 123);
 
     std::vector<float> seen;
     while (loader.has_next()) {
@@ -143,7 +143,7 @@ TEST(DataLoaderTest, ShufflePreservesBatchPermutation) {
 
     std::vector<size_t> expected(8);
     std::iota(expected.begin(), expected.end(), 0);
-    std::mt19937 rng;
+    std::mt19937 rng(123);
     std::shuffle(expected.begin(), expected.end(), rng);
     ASSERT_EQ(seen.size(), expected.size());
     for (size_t i = 0; i < expected.size(); ++i) {
@@ -185,6 +185,31 @@ TEST(DataLoaderTest, EmptyDataset) {
     DataLoader loader(ds, 2, false);
 
     EXPECT_FALSE(loader.has_next());
+}
+
+TEST(DataLoaderTest, SeedMakesShuffleDeterministic) {
+    Tensor xs({1.0f, 2.0f, 3.0f, 4.0f}, {4, 1});
+    Tensor ys({1.0f, 2.0f, 3.0f, 4.0f}, {4, 1});
+    TensorDataset ds(xs, ys);
+    DataLoader loader1(ds, 2, true, 123);
+    DataLoader loader2(ds, 2, true, 123);
+
+    std::vector<float> seen1, seen2;
+    while (loader1.has_next()) {
+        auto [x, y] = loader1.next_batch();
+        seen1.push_back(x.data()[0]);
+    }
+    while (loader2.has_next()) {
+        auto [x, y] = loader2.next_batch();
+        seen2.push_back(x.data()[0]);
+    }
+    EXPECT_EQ(seen1, seen2);
+}
+
+TEST(CSVDatasetTest, DefaultConstructorRejectsZeroFeatureCols) {
+    auto path = write_csv({{1.0f, 2.0f, 3.0f}});
+    EXPECT_THROW(CSVDataset ds(path), std::invalid_argument);
+    std::remove(path.c_str());
 }
 
 TEST(SyntheticRegressionTest, LenReturnsNumSamples) {
@@ -289,18 +314,27 @@ TEST(CSVDatasetTest, MalformedLineThrows) {
         file << "1.0,2.0,not_a_number\n";
     }
 
-    EXPECT_THROW(CSVDataset ds(path, CSVDataset::Options()), std::invalid_argument);
+    CSVDataset::Options opts;
+    opts.feature_cols = 2;
+    opts.target_col = 2;
+    EXPECT_THROW(CSVDataset ds(path, opts), std::invalid_argument);
 
     std::remove(path.c_str());
 }
 
 TEST(CSVDatasetTest, FileNotFoundThrows) {
-    EXPECT_THROW(CSVDataset ds("nonexistent_file.csv", CSVDataset::Options()), std::runtime_error);
+    CSVDataset::Options opts;
+    opts.feature_cols = 1;
+    opts.target_col = 0;
+    EXPECT_THROW(CSVDataset ds("nonexistent_file.csv", opts), std::runtime_error);
 }
 
 TEST(CSVDatasetTest, InconsistentColumnsThrows) {
     auto path = write_csv({{1.0f, 2.0f, 3.0f}, {4.0f, 5.0f}});
-    EXPECT_THROW(CSVDataset ds(path, CSVDataset::Options()), std::runtime_error);
+    CSVDataset::Options opts;
+    opts.feature_cols = 2;
+    opts.target_col = 2;
+    EXPECT_THROW(CSVDataset ds(path, opts), std::runtime_error);
     std::remove(path.c_str());
 }
 

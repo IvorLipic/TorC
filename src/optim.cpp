@@ -4,8 +4,10 @@
 
 namespace torc::optim {
 
-SGD::SGD(std::vector<torc::Variable*>& params, float lr, float momentum)
+SGD::SGD(const std::vector<torc::Variable*>& params, float lr, float momentum)
     : params_(params), lr_(lr), momentum_(momentum) {
+    if (lr <= 0.0f) throw torc::TorcError("SGD: lr must be positive");
+    if (momentum < 0.0f) throw torc::TorcError("SGD: momentum must be non-negative");
     velocities_.reserve(params_.size());
     for (torc::Variable* param : params_) {
         velocities_.emplace_back(param->data().shape());
@@ -33,8 +35,12 @@ void SGD::zero_grad() {
     }
 }
 
-Adam::Adam(std::vector<torc::Variable*>& params, float lr, float beta1, float beta2, float eps)
+Adam::Adam(const std::vector<torc::Variable*>& params, float lr, float beta1, float beta2, float eps)
     : params_(params), lr_(lr), beta1_(beta1), beta2_(beta2), eps_(eps), step_(1) {
+    if (lr <= 0.0f) throw torc::TorcError("Adam: lr must be positive");
+    if (beta1 < 0.0f || beta1 >= 1.0f) throw torc::TorcError("Adam: beta1 must be in [0, 1)");
+    if (beta2 < 0.0f || beta2 >= 1.0f) throw torc::TorcError("Adam: beta2 must be in [0, 1)");
+    if (eps <= 0.0f) throw torc::TorcError("Adam: eps must be positive");
     m_.reserve(params_.size());
     v_.reserve(params_.size());
     for (torc::Variable* param : params_) {
@@ -75,8 +81,13 @@ void Adam::zero_grad() {
     }
 }
 
-AdamW::AdamW(std::vector<torc::Variable*>& params, float lr, float weight_decay, float beta1, float beta2, float eps)
+AdamW::AdamW(const std::vector<torc::Variable*>& params, float lr, float weight_decay, float beta1, float beta2, float eps)
     : params_(params), lr_(lr), weight_decay_(weight_decay), beta1_(beta1), beta2_(beta2), eps_(eps), step_(1) {
+    if (lr <= 0.0f) throw torc::TorcError("AdamW: lr must be positive");
+    if (weight_decay < 0.0f) throw torc::TorcError("AdamW: weight_decay must be non-negative");
+    if (beta1 < 0.0f || beta1 >= 1.0f) throw torc::TorcError("AdamW: beta1 must be in [0, 1)");
+    if (beta2 < 0.0f || beta2 >= 1.0f) throw torc::TorcError("AdamW: beta2 must be in [0, 1)");
+    if (eps <= 0.0f) throw torc::TorcError("AdamW: eps must be positive");
     m_.reserve(params_.size());
     v_.reserve(params_.size());
     for (torc::Variable* param : params_) {

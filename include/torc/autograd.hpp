@@ -107,6 +107,16 @@ public:
     [[nodiscard]] static bool grad_enabled() { return g_grad_enabled; }
     static void set_grad_enabled(bool enabled) { g_grad_enabled = enabled; }
 
+    class NoGradGuard {
+    public:
+        NoGradGuard() : previous_(g_grad_enabled) { g_grad_enabled = false; }
+        ~NoGradGuard() { g_grad_enabled = previous_; }
+        NoGradGuard(const NoGradGuard&) = delete;
+        NoGradGuard& operator=(const NoGradGuard&) = delete;
+    private:
+        bool previous_;
+    };
+
     void backward() {
         if (!requires_grad_) return;
 

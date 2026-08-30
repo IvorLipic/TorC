@@ -10,7 +10,6 @@
 
 namespace torc::data {
 
-namespace {
 Tensor stack_samples(const std::vector<Tensor>& samples) {
     if (samples.empty()) return Tensor(std::vector<int>{0});
     size_t batch_size = samples.size();
@@ -26,7 +25,6 @@ Tensor stack_samples(const std::vector<Tensor>& samples) {
     }
     return result;
 }
-} // namespace
 
 TensorDataset::TensorDataset(Tensor xs, Tensor ys)
     : xs_(std::move(xs)), ys_(std::move(ys)) {
@@ -108,8 +106,8 @@ std::pair<Tensor, Tensor> TensorDataset::get_batch(size_t start, size_t end) con
     return {std::move(x_batch), std::move(y_batch)};
 }
 
-DataLoader::DataLoader(const Dataset& dataset, size_t batch_size, bool shuffle)
-    : dataset_(dataset), batch_size_(batch_size), shuffle_(shuffle), current_(0) {
+DataLoader::DataLoader(const Dataset& dataset, size_t batch_size, bool shuffle, unsigned int seed)
+    : dataset_(dataset), batch_size_(batch_size), shuffle_(shuffle), current_(0), rng_(seed) {
     if (batch_size_ == 0) {
         throw std::invalid_argument("DataLoader: batch_size must be > 0");
     }
@@ -283,6 +281,9 @@ CSVDataset::CSVDataset(const std::string& filepath)
 
 CSVDataset::CSVDataset(const std::string& filepath, Options opts)
     : xs_(std::vector<int>{0}), ys_(std::vector<int>{0}) {
+    if (opts.feature_cols == 0) {
+        throw std::invalid_argument("CSVDataset: feature_cols must be > 0");
+    }
     std::ifstream file(filepath);
     if (!file.is_open()) {
         throw std::runtime_error("CSVDataset: cannot open file: " + filepath);

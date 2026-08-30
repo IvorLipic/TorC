@@ -85,5 +85,3 @@ datasets/**
 !datasets/**/
 !datasets/**/*.py
 benchmark_results.json
-
-*.csv

@@ -139,7 +139,8 @@ and the project's known issues).
 ## Requirements
 
 - CMake 3.16+
-- A C++23 compiler (GCC, Clang, or MSVC)
+- A C++23 compiler: GCC 14+, Clang 18+, or MSVC 19.36+ (the code uses deducing-`this`
+  and `std::format`, which require recent compiler versions)
 - Git (for fetching GoogleTest / Google Benchmark during the build)
 - Optional: OpenMP (enable with `-DUSE_OPENMP=ON` for parallelized elementwise/reduction ops)
 
