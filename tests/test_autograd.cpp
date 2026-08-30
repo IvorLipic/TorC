@@ -206,7 +206,7 @@ TEST(ScalarAutograd, BothNonTrackedEmptyTape) {
     Variable b(4.0f, false);
     Variable c = torc::add_scalar(a, b);
     EXPECT_FALSE(c.requires_grad());
-    EXPECT_TRUE(c.tape_.empty());
+    EXPECT_TRUE(c.tape().empty());
 }
 
 // Tape consumed after backward
@@ -214,9 +214,9 @@ TEST(ScalarAutograd, TapeConsumedAfterBackward) {
     Variable a(3.0f, true);
     Variable b(4.0f, true);
     Variable c = torc::mul_scalar(a, b);
-    EXPECT_FALSE(c.tape_.empty());
+    EXPECT_FALSE(c.tape().empty());
     c.backward();
-    EXPECT_TRUE(c.tape_.empty());
+    EXPECT_TRUE(c.tape().empty());
     expect_near(a.grad().data()[0], 4.0f);
     expect_near(b.grad().data()[0], 3.0f);
     c.backward(); // second call: tape empty, grads unchanged
@@ -653,7 +653,7 @@ TEST(ReductionAutograd, SumBackwardNonTrackedNoGrad) {
     Variable a(a_data, false);
     Variable c = torc::sum(a);
     EXPECT_FALSE(c.requires_grad());
-    EXPECT_TRUE(c.tape_.empty());
+    EXPECT_TRUE(c.tape().empty());
 }
 
 TEST(ReductionAutograd, GradCheckSumWholeTensor) {
@@ -1053,7 +1053,7 @@ TEST(ViewAutograd, TransposeCustomAxesBackward) {
     Variable a(a_data, true);
     std::vector<int> axes = {2, 0, 1};
     Variable c = torc::transpose(a, axes);
-    EXPECT_TRUE(c.data() == a.data_.transpose(axes));
+    EXPECT_TRUE(c.data() == a.data().transpose(axes));
     Tensor grad({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, std::vector<int>{1, 2, 3});
     c.backward(grad);
     std::vector<int> inv(3);
@@ -1148,7 +1148,7 @@ TEST(DetachNoGradAutograd, DetachBreaksGraph) {
     Variable c = torc::add(a, b);
     Variable d = c.detach();
     EXPECT_TRUE(d.requires_grad() == false);
-    EXPECT_TRUE(d.tape_.empty());
+    EXPECT_TRUE(d.tape().empty());
     Tensor grad({1.0f, 1.0f}, std::vector<int>{2});
     d.backward(grad);
     EXPECT_FALSE(a.has_grad());
@@ -1170,7 +1170,7 @@ TEST(DetachNoGradAutograd, SetGradEnabledFalseDisablesTape) {
     Variable::set_grad_enabled(false);
     Variable c = torc::add(a, b);
     EXPECT_TRUE(c.requires_grad() == false);
-    EXPECT_TRUE(c.tape_.empty());
+    EXPECT_TRUE(c.tape().empty());
     Variable::set_grad_enabled(true);
 }
 
@@ -1180,7 +1180,7 @@ TEST(DetachNoGradAutograd, SetGradEnabledTrueRestoresTape) {
     Variable::set_grad_enabled(true);
     Variable c = torc::neg(a);
     EXPECT_TRUE(c.requires_grad() == true);
-    EXPECT_FALSE(c.tape_.empty());
+    EXPECT_FALSE(c.tape().empty());
 }
 
 TEST(DetachNoGradAutograd, GradEnabledDefaultsToTrue) {
@@ -1229,8 +1229,8 @@ TEST(DetachNoGradAutograd, NoGradBlocksActivationOps) {
     Variable::set_grad_enabled(true);
     EXPECT_FALSE(c.requires_grad());
     EXPECT_FALSE(d.requires_grad());
-    EXPECT_TRUE(c.tape_.empty());
-    EXPECT_TRUE(d.tape_.empty());
+    EXPECT_TRUE(c.tape().empty());
+    EXPECT_TRUE(d.tape().empty());
 }
 
 TEST(DetachNoGradAutograd, NoGradBlocksTranscendentalOps) {
@@ -1242,8 +1242,8 @@ TEST(DetachNoGradAutograd, NoGradBlocksTranscendentalOps) {
     Variable::set_grad_enabled(true);
     EXPECT_FALSE(c.requires_grad());
     EXPECT_FALSE(d.requires_grad());
-    EXPECT_TRUE(c.tape_.empty());
-    EXPECT_TRUE(d.tape_.empty());
+    EXPECT_TRUE(c.tape().empty());
+    EXPECT_TRUE(d.tape().empty());
 }
 
 TEST(GradMapAccumulation, DiamondDependencyAccumulates) {

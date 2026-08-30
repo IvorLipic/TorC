@@ -1026,7 +1026,7 @@ TEST(MSELoss, NoGradDisablesTape) {
     Variable loss = loss_fn(input, target);
     EXPECT_FLOAT_EQ(loss.data().data()[0], 0.25f);
     EXPECT_FALSE(loss.requires_grad());
-    EXPECT_TRUE(loss.tape_.empty());
+    EXPECT_TRUE(loss.tape().empty());
     
     Variable::set_grad_enabled(true);
 }
@@ -1042,7 +1042,7 @@ TEST(CrossEntropyLoss, NoGradDisablesTape) {
     Variable loss = loss_fn(logits, targets);
     expect_near(loss.data().data()[0], 1.4076f, 2e-3f);
     EXPECT_FALSE(loss.requires_grad());
-    EXPECT_TRUE(loss.tape_.empty());
+    EXPECT_TRUE(loss.tape().empty());
     
     Variable::set_grad_enabled(true);
 }

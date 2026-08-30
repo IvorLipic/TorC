@@ -7,6 +7,111 @@ namespace torc {
 
 thread_local bool Variable::g_grad_enabled = true;
 
+Variable::Variable(Tensor data, bool requires_grad)
+    : data_(std::move(data)),
+      grad_(std::vector<int>{}),
+      requires_grad_(requires_grad),
+      has_grad_(false),
+      lifetime_(std::make_shared<VariableLifetime>()) {}
+
+Variable::Variable(float scalar, bool requires_grad)
+    : data_(Tensor(std::vector<int>{1})),
+      grad_(std::vector<int>{}),
+      requires_grad_(requires_grad),
+      has_grad_(false),
+      lifetime_(std::make_shared<VariableLifetime>()) {
+    data_.data()[0] = scalar;
+}
+
+Variable::Variable(const Variable& other)
+    : data_(other.data_),
+      grad_(other.grad_),
+      requires_grad_(other.requires_grad_),
+      has_grad_(other.has_grad_),
+      tape_(other.tape_),
+      lifetime_(std::make_shared<VariableLifetime>()) {}
+
+Variable::Variable(Variable&& other) noexcept
+    : data_(std::move(other.data_)),
+      grad_(std::move(other.grad_)),
+      requires_grad_(other.requires_grad_),
+      has_grad_(other.has_grad_),
+      tape_(std::move(other.tape_)),
+      lifetime_(std::make_shared<VariableLifetime>()) {
+    other.lifetime_.reset();
+}
+
+Variable& Variable::operator=(const Variable& other) {
+    if (this != &other) {
+        data_ = other.data_;
+        grad_ = other.grad_;
+        requires_grad_ = other.requires_grad_;
+        has_grad_ = other.has_grad_;
+        tape_ = other.tape_;
+    }
+    return *this;
+}
+
+Variable& Variable::operator=(Variable&& other) noexcept {
+    if (this != &other) {
+        data_ = std::move(other.data_);
+        grad_ = std::move(other.grad_);
+        requires_grad_ = other.requires_grad_;
+        has_grad_ = other.has_grad_;
+        tape_ = std::move(other.tape_);
+        other.lifetime_.reset();
+    }
+    return *this;
+}
+
+Tensor& Variable::data() { return data_; }
+const Tensor& Variable::data() const { return data_; }
+bool Variable::requires_grad() const { return requires_grad_; }
+bool Variable::has_grad() const { return has_grad_; }
+const Tensor& Variable::grad() const { return grad_; }
+std::weak_ptr<VariableLifetime> Variable::lifetime_token() const { return lifetime_; }
+std::vector<TapeEntry>& Variable::tape() { return tape_; }
+const std::vector<TapeEntry>& Variable::tape() const { return tape_; }
+
+Variable Variable::detach() const {
+    Variable out(data_, false);
+    return out;
+}
+
+void Variable::fill(float val) {
+    if (requires_grad_)
+        throw TorcError("in-place operation forbidden on a Variable that requires grad");
+    data_.fill(val);
+}
+
+bool Variable::grad_enabled() { return g_grad_enabled; }
+void Variable::set_grad_enabled(bool enabled) { g_grad_enabled = enabled; }
+
+void Variable::backward() {
+    if (!requires_grad_) return;
+    if (data_.numel() != 1)
+        throw ShapeError(std::format(
+            "backward() requires scalar output, got shape {}",
+            torc::shape_to_string(data_.shape())));
+    Tensor ones({1.0f}, std::vector<int>{1});
+    backward_with_grad(ones);
+}
+
+void Variable::backward(const Tensor& grad_output) {
+    if (!requires_grad_) return;
+    if (grad_output.numel() != data_.numel())
+        throw ShapeError(std::format(
+            "grad_output shape {} does not match output shape {}",
+            torc::shape_to_string(grad_output.shape()),
+            torc::shape_to_string(data_.shape())));
+    backward_with_grad(grad_output);
+}
+
+void Variable::zero_grad() {
+    has_grad_ = false;
+    grad_ = Tensor(std::vector<int>{});
+}
+
 Tensor reduce_sum_to_shape(const Tensor& grad, const std::vector<int>& target_shape) {
     Tensor result = grad;
     int g_rank = (int)result.shape().size();
@@ -42,8 +147,8 @@ Tensor expand_grad_along_axis(const Tensor& grad_output, int axis, int axis_size
 }
 
 Variable add(const Variable& a, const Variable& b) {
-    bool needs_grad = (a.requires_grad_ || b.requires_grad_) && Variable::grad_enabled();
-    Tensor out = a.data_.add(b.data_);
+    bool needs_grad = (a.requires_grad() || b.requires_grad()) && Variable::grad_enabled();
+    Tensor out = a.data().add(b.data());
     Variable vout(std::move(out), needs_grad);
 
     if (needs_grad) {
@@ -53,15 +158,15 @@ Variable add(const Variable& a, const Variable& b) {
             input_grads[0] = grad_output;
             input_grads[1] = grad_output;
         };
-        vout.tape_.push_back(std::move(entry));
+        vout.tape().push_back(std::move(entry));
     }
 
     return vout;
 }
 
 Variable sub(const Variable& a, const Variable& b) {
-    bool needs_grad = (a.requires_grad_ || b.requires_grad_) && Variable::grad_enabled();
-    Tensor out = a.data_.sub(b.data_);
+    bool needs_grad = (a.requires_grad() || b.requires_grad()) && Variable::grad_enabled();
+    Tensor out = a.data().sub(b.data());
     Variable vout(std::move(out), needs_grad);
 
     if (needs_grad) {
@@ -71,15 +176,15 @@ Variable sub(const Variable& a, const Variable& b) {
             input_grads[0] = grad_output;
             input_grads[1] = grad_output.mul(-1.0f);
         };
-        vout.tape_.push_back(std::move(entry));
+        vout.tape().push_back(std::move(entry));
     }
 
     return vout;
 }
 
 Variable mul(const Variable& a, const Variable& b) {
-    bool needs_grad = (a.requires_grad_ || b.requires_grad_) && Variable::grad_enabled();
-    Tensor out = a.data_.mul(b.data_);
+    bool needs_grad = (a.requires_grad() || b.requires_grad()) && Variable::grad_enabled();
+    Tensor out = a.data().mul(b.data());
     Variable vout(std::move(out), needs_grad);
 
     if (needs_grad) {
@@ -91,15 +196,15 @@ Variable mul(const Variable& a, const Variable& b) {
             input_grads[0] = grad_output.mul(b_data);
             input_grads[1] = grad_output.mul(a_data);
         };
-        vout.tape_.push_back(std::move(entry));
+        vout.tape().push_back(std::move(entry));
     }
 
     return vout;
 }
 
 Variable div(const Variable& a, const Variable& b) {
-    bool needs_grad = (a.requires_grad_ || b.requires_grad_) && Variable::grad_enabled();
-    Tensor out = a.data_.div(b.data_);
+    bool needs_grad = (a.requires_grad() || b.requires_grad()) && Variable::grad_enabled();
+    Tensor out = a.data().div(b.data());
     Variable vout(std::move(out), needs_grad);
 
     if (needs_grad) {
@@ -112,15 +217,15 @@ Variable div(const Variable& a, const Variable& b) {
             Tensor b_sq = b_data.mul(b_data);
             input_grads[1] = grad_output.mul(a_data).mul(-1.0f).div(b_sq);
         };
-        vout.tape_.push_back(std::move(entry));
+        vout.tape().push_back(std::move(entry));
     }
 
     return vout;
 }
 
 Variable neg(const Variable& a) {
-    bool needs_grad = a.requires_grad_ && Variable::grad_enabled();
-    Tensor out = a.data_.operator-();
+    bool needs_grad = a.requires_grad() && Variable::grad_enabled();
+    Tensor out = a.data().operator-();
     Variable vout(std::move(out), needs_grad);
 
     if (needs_grad) {
@@ -129,16 +234,16 @@ Variable neg(const Variable& a) {
         entry.backward = [](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
             input_grads[0] = grad_output.mul(-1.0f);
         };
-        vout.tape_.push_back(std::move(entry));
+        vout.tape().push_back(std::move(entry));
     }
 
     return vout;
 }
 
 Variable add_scalar(const Variable& a, const Variable& b) {
-    bool needs_grad = (a.requires_grad_ || b.requires_grad_) && Variable::grad_enabled();
-    float av = a.data_.data()[0];
-    float bv = b.data_.data()[0];
+    bool needs_grad = (a.requires_grad() || b.requires_grad()) && Variable::grad_enabled();
+    float av = a.data().data()[0];
+    float bv = b.data().data()[0];
     Variable out(av + bv, needs_grad);
 
     if (needs_grad) {
@@ -148,16 +253,16 @@ Variable add_scalar(const Variable& a, const Variable& b) {
             input_grads[0] = grad_output;  // dz/da = 1
             input_grads[1] = grad_output;  // dz/db = 1
         };
-        out.tape_.push_back(std::move(entry));
+        out.tape().push_back(std::move(entry));
     }
 
     return out;
 }
 
 Variable sub_scalar(const Variable& a, const Variable& b) {
-    bool needs_grad = (a.requires_grad_ || b.requires_grad_) && Variable::grad_enabled();
-    float av = a.data_.data()[0];
-    float bv = b.data_.data()[0];
+    bool needs_grad = (a.requires_grad() || b.requires_grad()) && Variable::grad_enabled();
+    float av = a.data().data()[0];
+    float bv = b.data().data()[0];
     Variable out(av - bv, needs_grad);
 
     if (needs_grad) {
@@ -168,16 +273,16 @@ Variable sub_scalar(const Variable& a, const Variable& b) {
             input_grads[1] = Tensor(std::vector<int>{1});
             input_grads[1].data()[0] = -grad_output.data()[0];  // dz/db = -1
         };
-        out.tape_.push_back(std::move(entry));
+        out.tape().push_back(std::move(entry));
     }
 
     return out;
 }
 
 Variable mul_scalar(const Variable& a, const Variable& b) {
-    bool needs_grad = (a.requires_grad_ || b.requires_grad_) && Variable::grad_enabled();
-    float av = a.data_.data()[0];
-    float bv = b.data_.data()[0];
+    bool needs_grad = (a.requires_grad() || b.requires_grad()) && Variable::grad_enabled();
+    float av = a.data().data()[0];
+    float bv = b.data().data()[0];
     Variable out(av * bv, needs_grad);
 
     if (needs_grad) {
@@ -189,16 +294,16 @@ Variable mul_scalar(const Variable& a, const Variable& b) {
             input_grads[1] = Tensor(std::vector<int>{1});
             input_grads[1].data()[0] = grad_output.data()[0] * av;  // dz/db = a
         };
-        out.tape_.push_back(std::move(entry));
+        out.tape().push_back(std::move(entry));
     }
 
     return out;
 }
 
 Variable div_scalar(const Variable& a, const Variable& b) {
-    bool needs_grad = (a.requires_grad_ || b.requires_grad_) && Variable::grad_enabled();
-    float av = a.data_.data()[0];
-    float bv = b.data_.data()[0];
+    bool needs_grad = (a.requires_grad() || b.requires_grad()) && Variable::grad_enabled();
+    float av = a.data().data()[0];
+    float bv = b.data().data()[0];
     Variable out(av / bv, needs_grad);
 
     if (needs_grad) {
@@ -210,15 +315,15 @@ Variable div_scalar(const Variable& a, const Variable& b) {
             input_grads[1] = Tensor(std::vector<int>{1});
             input_grads[1].data()[0] = -grad_output.data()[0] * av / (bv * bv);  // dz/db = -a/b^2
         };
-        out.tape_.push_back(std::move(entry));
+        out.tape().push_back(std::move(entry));
     }
 
     return out;
 }
 
 Variable neg_scalar(const Variable& a) {
-    bool needs_grad = a.requires_grad_ && Variable::grad_enabled();
-    float av = a.data_.data()[0];
+    bool needs_grad = a.requires_grad() && Variable::grad_enabled();
+    float av = a.data().data()[0];
     Variable out(-av, needs_grad);
 
     if (needs_grad) {
@@ -228,15 +333,15 @@ Variable neg_scalar(const Variable& a) {
             input_grads[0] = Tensor(std::vector<int>{1});
             input_grads[0].data()[0] = -grad_output.data()[0];  // dz/da = -1
         };
-        out.tape_.push_back(std::move(entry));
+        out.tape().push_back(std::move(entry));
     }
 
     return out;
 }
 
 Variable sum(const Variable& a) {
-    bool needs_grad = a.requires_grad_ && Variable::grad_enabled();
-    float out_val = a.data_.sum();
+    bool needs_grad = a.requires_grad() && Variable::grad_enabled();
+    float out_val = a.data().sum();
     Variable out(out_val, needs_grad);
 
     if (needs_grad) {
@@ -250,34 +355,34 @@ Variable sum(const Variable& a) {
                 result.data()[i] = g;
             input_grads[0] = result;
         };
-        out.tape_.push_back(std::move(entry));
+        out.tape().push_back(std::move(entry));
     }
 
     return out;
 }
 
 Variable sum(const Variable& a, int axis) {
-    bool needs_grad = a.requires_grad_ && Variable::grad_enabled();
-    Tensor out_data = a.data_.sum(axis);
+    bool needs_grad = a.requires_grad() && Variable::grad_enabled();
+    Tensor out_data = a.data().sum(axis);
     Variable out(std::move(out_data), needs_grad);
 
     if (needs_grad) {
         TapeEntry entry;
         entry.set_inputs({ const_cast<Variable*>(&a) });
         Tensor a_data = a.data();
-        int axis_size = a.data_.shape()[axis];
+        int axis_size = a.data().shape()[axis];
         entry.backward = [a_data, axis, axis_size](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
             input_grads[0] = expand_grad_along_axis(grad_output, axis, axis_size, a_data.shape());
         };
-        out.tape_.push_back(std::move(entry));
+        out.tape().push_back(std::move(entry));
     }
 
     return out;
 }
 
 Variable mean(const Variable& a) {
-    bool needs_grad = a.requires_grad_ && Variable::grad_enabled();
-    float out_val = a.data_.mean();
+    bool needs_grad = a.requires_grad() && Variable::grad_enabled();
+    float out_val = a.data().mean();
     Variable out(out_val, needs_grad);
 
     if (needs_grad) {
@@ -291,22 +396,22 @@ Variable mean(const Variable& a) {
                 result.data()[i] = g;
             input_grads[0] = result;
         };
-        out.tape_.push_back(std::move(entry));
+        out.tape().push_back(std::move(entry));
     }
 
     return out;
 }
 
 Variable mean(const Variable& a, int axis) {
-    bool needs_grad = a.requires_grad_ && Variable::grad_enabled();
-    Tensor out_data = a.data_.mean(axis);
+    bool needs_grad = a.requires_grad() && Variable::grad_enabled();
+    Tensor out_data = a.data().mean(axis);
     Variable out(std::move(out_data), needs_grad);
 
     if (needs_grad) {
         TapeEntry entry;
         entry.set_inputs({ const_cast<Variable*>(&a) });
         Tensor a_data = a.data();
-        int axis_size = a.data_.shape()[axis];
+        int axis_size = a.data().shape()[axis];
         entry.backward = [a_data, axis, axis_size](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
             Tensor scaled_grad(grad_output.shape());
             float scale = 1.0f / axis_size;
@@ -314,15 +419,15 @@ Variable mean(const Variable& a, int axis) {
                 scaled_grad.data()[i] = grad_output.data()[i] * scale;
             input_grads[0] = expand_grad_along_axis(scaled_grad, axis, axis_size, a_data.shape());
         };
-        out.tape_.push_back(std::move(entry));
+        out.tape().push_back(std::move(entry));
     }
 
     return out;
 }
 
 Variable max(const Variable& a) {
-    bool needs_grad = a.requires_grad_ && Variable::grad_enabled();
-    float out_val = a.data_.max();
+    bool needs_grad = a.requires_grad() && Variable::grad_enabled();
+    float out_val = a.data().max();
     Variable out(out_val, needs_grad);
 
     if (needs_grad) {
@@ -343,15 +448,15 @@ Variable max(const Variable& a) {
             result.data()[max_idx] = g;
             input_grads[0] = result;
         };
-        out.tape_.push_back(std::move(entry));
+        out.tape().push_back(std::move(entry));
     }
 
     return out;
 }
 
 Variable min(const Variable& a) {
-    bool needs_grad = a.requires_grad_ && Variable::grad_enabled();
-    float out_val = a.data_.min();
+    bool needs_grad = a.requires_grad() && Variable::grad_enabled();
+    float out_val = a.data().min();
     Variable out(out_val, needs_grad);
 
     if (needs_grad) {
@@ -372,15 +477,15 @@ Variable min(const Variable& a) {
             result.data()[min_idx] = g;
             input_grads[0] = result;
         };
-        out.tape_.push_back(std::move(entry));
+        out.tape().push_back(std::move(entry));
     }
 
     return out;
 }
 
 Variable max(const Variable& a, int axis) {
-    bool needs_grad = a.requires_grad_ && Variable::grad_enabled();
-    Tensor out_data = a.data_.max(axis);
+    bool needs_grad = a.requires_grad() && Variable::grad_enabled();
+    Tensor out_data = a.data().max(axis);
     Variable out(std::move(out_data), needs_grad);
 
     if (needs_grad) {
@@ -409,15 +514,15 @@ Variable max(const Variable& a, int axis) {
             }
             input_grads[0] = result;
         };
-        out.tape_.push_back(std::move(entry));
+        out.tape().push_back(std::move(entry));
     }
 
     return out;
 }
 
 Variable min(const Variable& a, int axis) {
-    bool needs_grad = a.requires_grad_ && Variable::grad_enabled();
-    Tensor out_data = a.data_.min(axis);
+    bool needs_grad = a.requires_grad() && Variable::grad_enabled();
+    Tensor out_data = a.data().min(axis);
     Variable out(std::move(out_data), needs_grad);
 
     if (needs_grad) {
@@ -446,7 +551,7 @@ Variable min(const Variable& a, int axis) {
             }
             input_grads[0] = result;
         };
-        out.tape_.push_back(std::move(entry));
+        out.tape().push_back(std::move(entry));
     }
 
     return out;
@@ -462,8 +567,8 @@ Tensor swap_last_two_axes(const Tensor& t) {
 }
 
 Variable matmul(const Variable& a, const Variable& b) {
-    bool needs_grad = (a.requires_grad_ || b.requires_grad_) && Variable::grad_enabled();
-    Tensor out_data = a.data_.matmul(b.data_);
+    bool needs_grad = (a.requires_grad() || b.requires_grad()) && Variable::grad_enabled();
+    Tensor out_data = a.data().matmul(b.data());
     Variable out(std::move(out_data), needs_grad);
 
     if (needs_grad) {
@@ -480,24 +585,24 @@ Variable matmul(const Variable& a, const Variable& b) {
             Tensor db_raw = at.matmul(grad_output);
             input_grads[1] = reduce_sum_to_shape(db_raw, b_data.shape());
         };
-        out.tape_.push_back(std::move(entry));
+        out.tape().push_back(std::move(entry));
     }
 
     return out;
 }
 
 Variable transpose(const Variable& a) {
-    bool needs_grad = a.requires_grad_ && Variable::grad_enabled();
+    bool needs_grad = a.requires_grad() && Variable::grad_enabled();
     std::vector<int> axes;
-    int rank = (int)a.data_.shape().size();
+    int rank = (int)a.data().shape().size();
     axes.resize(rank);
     for (int i = 0; i < rank; ++i) axes[i] = rank - 1 - i;
     return transpose(a, std::move(axes));
 }
 
 Variable transpose(const Variable& a, std::vector<int> axes) {
-    bool needs_grad = a.requires_grad_ && Variable::grad_enabled();
-    Tensor out_data = a.data_.transpose(axes);
+    bool needs_grad = a.requires_grad() && Variable::grad_enabled();
+    Tensor out_data = a.data().transpose(axes);
     Variable out(std::move(out_data), needs_grad);
 
     if (needs_grad) {
@@ -510,15 +615,15 @@ Variable transpose(const Variable& a, std::vector<int> axes) {
         entry.backward = [a_data, new_inv](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
             input_grads[0] = grad_output.transpose(new_inv);
         };
-        out.tape_.push_back(std::move(entry));
+        out.tape().push_back(std::move(entry));
     }
 
     return out;
 }
 
 Variable reshape(const Variable& a, std::vector<int> new_shape) {
-    bool needs_grad = a.requires_grad_ && Variable::grad_enabled();
-    Tensor out_data = a.data_.reshape(std::move(new_shape));
+    bool needs_grad = a.requires_grad() && Variable::grad_enabled();
+    Tensor out_data = a.data().reshape(std::move(new_shape));
     Variable out(std::move(out_data), needs_grad);
 
     if (needs_grad) {
@@ -529,18 +634,18 @@ Variable reshape(const Variable& a, std::vector<int> new_shape) {
         entry.backward = [original_shape](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
             input_grads[0] = grad_output.reshape(original_shape);
         };
-        out.tape_.push_back(std::move(entry));
+        out.tape().push_back(std::move(entry));
     }
 
     return out;
 }
 
 Variable slice(const Variable& a, std::vector<std::pair<int, int>> slices) {
-    bool needs_grad = a.requires_grad_ && Variable::grad_enabled();
+    bool needs_grad = a.requires_grad() && Variable::grad_enabled();
     std::vector<Tensor::Slice> tensor_slices;
     tensor_slices.reserve(slices.size());
     for (auto& p : slices) tensor_slices.push_back({p.first, p.second});
-    Tensor out_data = a.data_.slice(std::move(tensor_slices));
+    Tensor out_data = a.data().slice(std::move(tensor_slices));
     Variable out(std::move(out_data), needs_grad);
 
     if (needs_grad) {
@@ -576,15 +681,15 @@ Variable slice(const Variable& a, std::vector<std::pair<int, int>> slices) {
             }
             input_grads[0] = result;
         };
-        out.tape_.push_back(std::move(entry));
+        out.tape().push_back(std::move(entry));
     }
 
     return out;
 }
 
 Variable exp(const Variable& a) {
-    bool needs_grad = a.requires_grad_ && Variable::grad_enabled();
-    Tensor out_data = a.data_.exp();
+    bool needs_grad = a.requires_grad() && Variable::grad_enabled();
+    Tensor out_data = a.data().exp();
     Variable out(std::move(out_data), needs_grad);
 
     if (needs_grad) {
@@ -595,16 +700,16 @@ Variable exp(const Variable& a) {
         entry.backward = [a_data](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
             input_grads[0] = grad_output.mul(a_data.exp());
         };
-        out.tape_.push_back(std::move(entry));
+        out.tape().push_back(std::move(entry));
     }
     return out;
 }
 
 Variable relu(const Variable& a) {
-    bool needs_grad = a.requires_grad_ && Variable::grad_enabled();
-    Tensor out_data(a.data_.shape());
-    for (int i = 0; i < a.data_.numel(); ++i) {
-        out_data.data()[i] = a.data_.data()[i] > 0.0f ? a.data_.data()[i] : 0.0f;
+    bool needs_grad = a.requires_grad() && Variable::grad_enabled();
+    Tensor out_data(a.data().shape());
+    for (int i = 0; i < a.data().numel(); ++i) {
+        out_data.data()[i] = a.data().data()[i] > 0.0f ? a.data().data()[i] : 0.0f;
     }
     Variable out(std::move(out_data), needs_grad);
 
@@ -619,16 +724,16 @@ Variable relu(const Variable& a) {
                 input_grads[0].data()[i] = a_data.data()[i] > 0.0f ? grad_output.data()[i] : 0.0f;
             }
         };
-        out.tape_.push_back(std::move(entry));
+        out.tape().push_back(std::move(entry));
     }
     return out;
 }
 
 Variable sigmoid(const Variable& a) {
-    bool needs_grad = a.requires_grad_ && Variable::grad_enabled();
-    Tensor out_data(a.data_.shape());
-    for (int i = 0; i < a.data_.numel(); ++i) {
-        float x = a.data_.data()[i];
+    bool needs_grad = a.requires_grad() && Variable::grad_enabled();
+    Tensor out_data(a.data().shape());
+    for (int i = 0; i < a.data().numel(); ++i) {
+        float x = a.data().data()[i];
         out_data.data()[i] = 1.0f / (1.0f + std::exp(-x));
     }
     Variable out(std::move(out_data), needs_grad);
@@ -646,14 +751,14 @@ Variable sigmoid(const Variable& a) {
                 input_grads[0].data()[i] = grad_output.data()[i] * s * (1.0f - s);
             }
         };
-        out.tape_.push_back(std::move(entry));
+        out.tape().push_back(std::move(entry));
     }
     return out;
 }
 
 Variable softmax(const Variable& a) {
-    bool needs_grad = a.requires_grad_ && Variable::grad_enabled();
-    Tensor out_data = a.data_.softmax();
+    bool needs_grad = a.requires_grad() && Variable::grad_enabled();
+    Tensor out_data = a.data().softmax();
     Variable out(std::move(out_data), needs_grad);
 
     if (needs_grad) {
@@ -673,27 +778,27 @@ Variable softmax(const Variable& a) {
                 input_grads[0].data()[i] = s * (grad_output.data()[i] - grad_sum);
             }
         };
-        out.tape_.push_back(std::move(entry));
+        out.tape().push_back(std::move(entry));
     }
     return out;
 }
 
 Variable softmax(const Variable& a, int axis) {
-    bool needs_grad = a.requires_grad_ && Variable::grad_enabled();
-    Tensor out_data = a.data_.softmax(axis);
+    bool needs_grad = a.requires_grad() && Variable::grad_enabled();
+    Tensor out_data = a.data().softmax(axis);
     Variable out(std::move(out_data), needs_grad);
 
-    int rank = static_cast<int>(a.data_.shape().size());
+    int rank = static_cast<int>(a.data().shape().size());
     if (axis < 0) axis += rank;
 
     if (needs_grad) {
         TapeEntry entry;
         entry.set_inputs({ const_cast<Variable*>(&a) });
         Tensor soft_data = out.data();
-        int axis_size = a.data_.shape()[axis];
-        int inner_stride = shape_product(std::span<const int>(a.data_.shape()).subspan(axis + 1));
+        int axis_size = a.data().shape()[axis];
+        int inner_stride = shape_product(std::span<const int>(a.data().shape()).subspan(axis + 1));
         int axis_stride = axis_size * inner_stride;
-        int outer_count = shape_product(std::span<const int>(a.data_.shape()).subspan(0, axis));
+        int outer_count = shape_product(std::span<const int>(a.data().shape()).subspan(0, axis));
         entry.backward = [soft_data, axis_size, inner_stride, axis_stride, outer_count]
             (const Tensor& grad_output, std::vector<Tensor>& input_grads) {
                 Tensor result(grad_output.shape());
@@ -714,14 +819,14 @@ Variable softmax(const Variable& a, int axis) {
                 }
                 input_grads[0] = std::move(result);
             };
-        out.tape_.push_back(std::move(entry));
+        out.tape().push_back(std::move(entry));
     }
     return out;
 }
 
 Variable log(const Variable& a) {
-    bool needs_grad = a.requires_grad_ && Variable::grad_enabled();
-    Tensor out_data = a.data_.log();
+    bool needs_grad = a.requires_grad() && Variable::grad_enabled();
+    Tensor out_data = a.data().log();
     Variable out(std::move(out_data), needs_grad);
 
     if (needs_grad) {
@@ -735,14 +840,14 @@ Variable log(const Variable& a) {
                 input_grads[0].data()[i] = grad_output.data()[i] / a_data.data()[i];
             }
         };
-        out.tape_.push_back(std::move(entry));
+        out.tape().push_back(std::move(entry));
     }
     return out;
 }
 
 Variable sqrt(const Variable& a) {
-    bool needs_grad = a.requires_grad_ && Variable::grad_enabled();
-    Tensor out_data = a.data_.sqrt();
+    bool needs_grad = a.requires_grad() && Variable::grad_enabled();
+    Tensor out_data = a.data().sqrt();
     Variable out(std::move(out_data), needs_grad);
 
     if (needs_grad) {
@@ -757,7 +862,7 @@ Variable sqrt(const Variable& a) {
                 input_grads[0].data()[i] = grad_output.data()[i] / (2.0f * sqrt_data.data()[i]);
             }
         };
-        out.tape_.push_back(std::move(entry));
+        out.tape().push_back(std::move(entry));
     }
     return out;
 }

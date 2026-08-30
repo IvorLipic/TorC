@@ -27,93 +27,28 @@ Tensor reduce_sum_to_shape(const Tensor& grad, const std::vector<int>& target_sh
 
 class Variable {
 public:
-    Tensor data_;
-    Tensor grad_;
-    bool requires_grad_;
-    bool has_grad_;
-    std::vector<TapeEntry> tape_;
-
     static thread_local bool g_grad_enabled;
 
-    explicit Variable(Tensor data, bool requires_grad)
-        : data_(std::move(data)),
-          grad_(std::vector<int>{}),
-          requires_grad_(requires_grad),
-          has_grad_(false),
-          lifetime_(std::make_shared<VariableLifetime>()) {}
+    explicit Variable(Tensor data, bool requires_grad);
+    Variable(float scalar, bool requires_grad);
+    Variable(const Variable& other);
+    Variable(Variable&& other) noexcept;
+    Variable& operator=(const Variable& other);
+    Variable& operator=(Variable&& other) noexcept;
 
-    Variable(float scalar, bool requires_grad)
-        : data_(Tensor(std::vector<int>{1})),
-          grad_(std::vector<int>{}),
-          requires_grad_(requires_grad),
-          has_grad_(false),
-          lifetime_(std::make_shared<VariableLifetime>()) {
-        data_.data()[0] = scalar;
-    }
+    [[nodiscard]] Tensor& data();
+    [[nodiscard]] const Tensor& data() const;
+    [[nodiscard]] bool requires_grad() const;
+    [[nodiscard]] bool has_grad() const;
+    [[nodiscard]] const Tensor& grad() const;
+    [[nodiscard]] std::weak_ptr<VariableLifetime> lifetime_token() const;
+    [[nodiscard]] std::vector<TapeEntry>& tape();
+    [[nodiscard]] const std::vector<TapeEntry>& tape() const;
 
-    Variable(const Variable& other)
-        : data_(other.data_),
-          grad_(other.grad_),
-          requires_grad_(other.requires_grad_),
-          has_grad_(other.has_grad_),
-          tape_(other.tape_),
-          lifetime_(std::make_shared<VariableLifetime>()) {}
-
-    Variable(Variable&& other) noexcept
-        : data_(std::move(other.data_)),
-          grad_(std::move(other.grad_)),
-          requires_grad_(other.requires_grad_),
-          has_grad_(other.has_grad_),
-          tape_(std::move(other.tape_)),
-          lifetime_(std::make_shared<VariableLifetime>()) {
-        other.lifetime_.reset();
-    }
-
-    Variable& operator=(const Variable& other) {
-        if (this != &other) {
-            data_ = other.data_;
-            grad_ = other.grad_;
-            requires_grad_ = other.requires_grad_;
-            has_grad_ = other.has_grad_;
-            tape_ = other.tape_;
-        }
-        return *this;
-    }
-
-    Variable& operator=(Variable&& other) noexcept {
-        if (this != &other) {
-            data_ = std::move(other.data_);
-            grad_ = std::move(other.grad_);
-            requires_grad_ = other.requires_grad_;
-            has_grad_ = other.has_grad_;
-            tape_ = std::move(other.tape_);
-            // A moved-from Variable must not remain a valid target for existing
-            // tape edges.  Resetting its token makes such edges fail safely.
-            other.lifetime_.reset();
-        }
-        return *this;
-    }
-
-    [[nodiscard]] Tensor& data() { return data_; }
-    [[nodiscard]] const Tensor& data() const { return data_; }
-    [[nodiscard]] bool requires_grad() const { return requires_grad_; }
-    [[nodiscard]] bool has_grad() const { return has_grad_; }
-    [[nodiscard]] const Tensor& grad() const { return grad_; }
-    [[nodiscard]] std::weak_ptr<VariableLifetime> lifetime_token() const { return lifetime_; }
-
-    [[nodiscard]] Variable detach() const {
-        Variable out(data_, false);
-        return out;
-    }
-
-    void fill(float val) {
-        if (requires_grad_)
-            throw TorcError("in-place operation forbidden on a Variable that requires grad");
-        data_.fill(val);
-    }
-
-    [[nodiscard]] static bool grad_enabled() { return g_grad_enabled; }
-    static void set_grad_enabled(bool enabled) { g_grad_enabled = enabled; }
+    [[nodiscard]] Variable detach() const;
+    void fill(float val);
+    [[nodiscard]] static bool grad_enabled();
+    static void set_grad_enabled(bool enabled);
 
     class NoGradGuard {
     public:
@@ -125,34 +60,16 @@ public:
         bool previous_;
     };
 
-    void backward() {
-        if (!requires_grad_) return;
-
-        if (data_.numel() != 1)
-            throw ShapeError(std::format(
-                "backward() requires scalar output, got shape {}",
-                torc::shape_to_string(data_.shape())));
-
-        Tensor ones({1.0f}, std::vector<int>{1});
-        backward_with_grad(ones);
-    }
-
-    void backward(const Tensor& grad_output) {
-        if (!requires_grad_) return;
-        if (grad_output.numel() != data_.numel())
-            throw ShapeError(std::format(
-                "grad_output shape {} does not match output shape {}",
-                torc::shape_to_string(grad_output.shape()),
-                torc::shape_to_string(data_.shape())));
-        backward_with_grad(grad_output);
-    }
-
-    void zero_grad() {
-        has_grad_ = false;
-        grad_ = Tensor(std::vector<int>{});
-    }
+    void backward();
+    void backward(const Tensor& grad_output);
+    void zero_grad();
 
 private:
+    Tensor data_;
+    Tensor grad_;
+    bool requires_grad_;
+    bool has_grad_;
+    std::vector<TapeEntry> tape_;
     std::shared_ptr<VariableLifetime> lifetime_;
 
     void accumulate_grad(const Tensor& local_grad) {

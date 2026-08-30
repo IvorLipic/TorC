@@ -10,8 +10,8 @@
 namespace torc::nn {
 
 Variable MSELoss::forward(const Variable& input, const Variable& target) const {
-    bool needs_grad = (input.requires_grad_ || target.requires_grad_) && Variable::grad_enabled();
-    Tensor diff_data = input.data_.sub(target.data_);
+    bool needs_grad = (input.requires_grad() || target.requires_grad()) && Variable::grad_enabled();
+    Tensor diff_data = input.data().sub(target.data());
     Tensor squared_data = diff_data.mul(diff_data);
     float mean_val = squared_data.mean();
     Tensor loss_data(std::vector<int>{1});
@@ -33,7 +33,7 @@ Variable MSELoss::forward(const Variable& input, const Variable& target) const {
             input_grads[0] = grad.mul(grad_output);
             input_grads[1] = grad.mul(-1.0f).mul(grad_output);
         };
-        out.tape_.push_back(std::move(entry));
+        out.tape().push_back(std::move(entry));
     }
 
     return out;
@@ -75,7 +75,7 @@ Variable CrossEntropyLoss::forward(const Variable& logits, const Variable& targe
                                      shape_to_string(targets_shape)));
     }
 
-    bool needs_grad = logits.requires_grad_ && Variable::grad_enabled();
+    bool needs_grad = logits.requires_grad() && Variable::grad_enabled();
     int batch_size = logits_shape[0];
     int num_classes = logits_shape[1];
     if (batch_size <= 0 || num_classes <= 0) {
@@ -146,7 +146,7 @@ Variable CrossEntropyLoss::forward(const Variable& logits, const Variable& targe
             }
             input_grads[0] = input_grads[0].mul(grad_output);
         };
-        out.tape_.push_back(std::move(entry));
+        out.tape().push_back(std::move(entry));
     }
 
     return out;
