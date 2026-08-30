@@ -65,8 +65,8 @@ int main(int argc, char** argv) {
     }
     
     const int batch_size = 128;
-    const int epochs = 10;
-    const float lr = 0.001f;
+    const int epochs = 20;
+    const float lr = 0.0005f;
 
     std::cout << "Step 5.12 - End-to-end MLP on MNIST\n";
     std::cout << "Config:\n\t--batch size: " << batch_size << "\n\t--epochs: " << epochs << "\n\t--lr: " << lr << "\n";

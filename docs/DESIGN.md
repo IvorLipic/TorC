@@ -321,17 +321,22 @@ prevents silent gradient-shape bugs.
 For every differentiable op, verify analytical gradients against **central finite differences**:
 
 ```
-h = 1e-4  (for float32)
 grad_numerical[i] = (f(x + h*e_i) - f(x - h*e_i)) / (2*h)
 max |grad_analytical - grad_numerical| < tol
 ```
+
+The central-difference step `h` follows the op's typical magnitude (larger `h` avoids
+catastrophic cancellation when forward passes accumulate large sums):
+- `h = 1e-4f` for ordinary elementwise / reduction ops and activations
+- `h = 1e-3f` for 2D `matmul`
+- `h = 1e-2f` for batched `matmul` (even larger accumulated sums across the batch dimension)
 
 Where to check:
 - One hand-picked small example per op (e.g. `{3}` shape for elementwise, `{2,2}` for matmul)
 - One broadcast case per op that uses broadcasting
 - One batched case for `matmul`
 
-**Tolerance**: `tests/test_autograd.cpp` uses `EPS = 1e-4f` and `GRAD_ATOL = 1e-2f`. Float32
+**Tolerance**: `tests/test_autograd.cpp` uses `GRAD_ATOL = 1e-2f`. Float32
 has ~7 decimal digits of precision; central-difference truncation error is
 `O(h²) ≈ O(1e-8)` for `h = 1e-4` in exact arithmetic, but in practice float32 finite
 differences on chained/elementwise ops show errors around `1e-3` to `1e-2` from repeated
@@ -449,8 +454,8 @@ batch steps into a single PR. *(Check ROADMAP.md for actual checkbox state — n
    state the graph depends on. Step 8's guarded `fill()` API prevents only that named entry point;
    mutable `data()`/indexing access remains unguarded.
 3. **Float32 numerical noise in gradient checks**: PyTorch's `gradcheck` defaults to double
-   precision for this reason. This project's `eps=1e-4` / `atol=1e-2` (see "Gradient
-   checking" above) is calibrated for float32 against observed noise, not derived purely from
+   precision for this reason. This project's step size `h=1e-4` (and `1e-3`/`1e-2` for matmul;
+   see "Gradient checking" above) with `atol=1e-2` is calibrated for float32 against observed noise, not derived purely from
     truncation-error theory, and should be re-validated if precision ever changes.
 
 ---
@@ -507,7 +512,9 @@ Each step = implement → test → update-docs → build → commit. Do not batc
 PR. *(Check ROADMAP.md for actual checkbox state — not duplicated here.)*
 
 **Step 5.1 — `Tensor::exp()`**
-- Elementwise unary transcendental op using `std::ranges::transform` + `std::exp`
+- Elementwise unary transcendental op. Forward delegates to `simd::exp(in, out, n)` in
+  `src/simd_ops.hpp`, which is currently a scalar `std::exp` loop — note there is **no AVX2
+  specialization** for `exp` yet, unlike `sqrt`/`add`/`sub`/`mul`/`div`.
 - Added `<cmath>` to `src/tensor.cpp` and `tests/test_tensor.cpp`
 - **Test**: basic values, shape preservation, negative values
 
@@ -606,8 +613,9 @@ PR. *(Check ROADMAP.md for actual checkbox state — not duplicated here.)*
   The loss averages over the batch. Backward = `(softmax - one_hot(target)) / batch_size` per row.
   The local `row_softmax()` remains intentionally separate so the loss can share the validated
   row layout while avoiding an intermediate `log(softmax(...))` computation.
-- **New Tensor primitive**: `Tensor::log()` (elementwise, using `std::ranges::transform`) added
-  alongside `exp()` as a basic unary op.
+- **New Tensor primitive**: `Tensor::log()` (elementwise) added alongside `exp()` as a basic
+  unary op. Forward is an OpenMP-guarded raw loop calling `std::log` directly (after a
+  strict-positivity `value > 0` check), not `std::ranges::transform`.
 - **New autograd free function**: `torc::log(const Variable&)` added in `src/autograd.cpp`.
 - **Test**: forward hand-computed values for both losses, backward chain-rule check for MSE,
   numerical gradient check for CrossEntropyLoss (central differences, `h=1e-4`), and malformed

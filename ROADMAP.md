@@ -108,7 +108,7 @@ Each step must pass tests before proceeding.
 ## Milestone 6 — Performance & ergonomics
 
 - [x] Benchmark infrastructure (Google Benchmark, `BUILD_BENCHMARKS=OFF` default)
-- [x] Cache `numel()` at construction/reshape instead of recomputing
+- [x] Memoize `numel()` on first access (lazily, via `numel_valid_`) instead of recomputing each call
 - [x] SIMD or threaded elementwise ops (behind a flag, benchmark-gated)
 - [x] `matmul` cache-blocked tiling (32×32×32 tiles, `i, k, j` loop order) shipped in Milestone 3
 - [x] Contiguous same-shape fast paths for elementwise binary ops (dispatch to `simd::add`/`sub`/`mul`/`div` directly, bypassing index reconstruction)

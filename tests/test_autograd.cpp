@@ -9,7 +9,6 @@ using torc::Tensor;
 using torc::ShapeError;
 using torc::TorcError;
 
-static constexpr float EPS = 1e-4f;
 static constexpr float GRAD_ATOL = 1e-2f;
 
 static void expect_near(float actual, float expected, float tol = GRAD_ATOL) {

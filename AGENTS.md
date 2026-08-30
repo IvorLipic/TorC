@@ -27,7 +27,8 @@ torc/
 ├── .gitignore
 ├── docs/
 │   ├── DESIGN.md                # design decisions + planned future structure
-│   └── AUTOGRAD.md              # autograd algorithm details
+│   ├── AUTOGRAD.md              # autograd algorithm details
+│   └── BENCHMARKS.md            # CPU benchmark suite results + methodology
 ├── include/
 │   └── torc/
 │       ├── tensor.hpp          # Tensor class declaration

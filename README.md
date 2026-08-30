@@ -119,11 +119,16 @@ to `examples/linear_regression/`: `loss_history.csv` and `predictions.csv`.
 ./build/mnist_mlp_example
 ```
 
-Trains a 3-layer MLP (`Linear(784, 32) → ReLU → Linear(32, 32) → ReLU → Linear(32, 10)`) on the bundled MNIST
-dataset (`datasets/mnist/mnist_train.csv`) for 10 epochs using `AdamW` and `CrossEntropyLoss`.
-Evaluates on both train and test splits each epoch and prints accuracy. Accepts an optional
-command-line argument for the maximum number of training samples to use (e.g.
-`./build/mnist_mlp_example 100`).
+Trains a 3-layer MLP (`Linear(784, 32) → ReLU → Linear(32, 32) → ReLU → Linear(32, 10)`) on the
+MNIST dataset for 20 epochs (batch size 128, learning rate 0.0005) using `AdamW` and
+`CrossEntropyLoss`. Evaluates on both train and test splits each epoch and prints accuracy.
+
+The MNIST CSVs are **not bundled** with the repo — the `datasets/` directory is git-ignored.
+Download the data and place `mnist_train.csv` and `mnist_test.csv` (a label column followed by
+784 pixel columns) under `datasets/mnist/`; for example, export the HuggingFace `ylecun/mnist`
+parquet splits to CSV. Accepts an optional command-line argument for the maximum number of samples
+to load — it truncates **both** the training and test sets (e.g. `./build/mnist_mlp_example 100`),
+so the printed accuracy reflects the capped sample count.
 
 ## Visualize results
 
