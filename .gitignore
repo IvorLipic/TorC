@@ -80,7 +80,10 @@ build
 .kilo
 .vscode
 
-datasets
+# Datasets: ignore all downloaded data, but keep the conversion scripts tracked
+datasets/**
+!datasets/**/
+!datasets/**/*.py
 benchmark_results.json
 
 *.csv
