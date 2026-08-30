@@ -771,10 +771,10 @@ Rationale for the specific moves:
 - **`nn.hpp` splits into `nn/` sub-headers** (`linear.hpp`, `activations.hpp`) once those
   modules exist, keeping each header focused. The top-level `nn.hpp` remains the public entry
   point and re-exports the sub-headers or just the base `Module`/`Sequential` types.
-- **`examples/` instead of a single `main.cpp`.** AGENTS.md already says `main.cpp` should
-  stay a thin demo, not a dumping ground — once there are two real end-to-end examples
-  (linear regression, MLP classification) that stops being true of a single file. Multiple
-  small example binaries keep each one focused and testable in isolation via CMake.
+- **`examples/` binaries instead of a single `main.cpp`.** Each end-to-end example
+  (linear regression, MLP classification) is its own small executable under `examples/`, keeping
+  each one focused and testable in isolation via CMake. There is no `main.cpp` demo target; the
+  MNIST MLP is the current headline example.
 - **`data.hpp`/`data.cpp` are deliberately minimal at first** — a `Dataset` interface plus
   one synthetic or small CSV-backed implementation is enough to unblock the Milestone 5
   end-to-end examples. Don't build a general data pipeline before there's a second dataset

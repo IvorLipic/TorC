@@ -50,8 +50,7 @@ torc/
 │   │   └── activations.cpp     # activation forward functions
 │   │   └── losses.cpp          # loss function forward/backward
 │   ├── optim.cpp               # SGD/Adam/AdamW step/zero_grad
-│   ├── data.cpp                # Dataset / DataLoader implementation
-│   └── main.cpp                # demo executable
+│   └── data.cpp                # Dataset / DataLoader implementation
 ├── benchmarks/
 │   └── bench_tensor.cpp        # Google Benchmark suite (optional)
 ├── examples/
@@ -68,11 +67,10 @@ torc/
     └── test_data.cpp           # GoogleTest suite for data::Dataset / DataLoader
 ```
 
-Five default build targets:
+Four default build targets:
 - **`torc`** — library built from `src/tensor.cpp`, `src/autograd.cpp`, `src/nn.cpp`,
   `src/nn/linear.cpp`, `src/nn/activations.cpp`, `src/nn/losses.cpp`, `src/optim.cpp`,
   `src/data.cpp`
-- **`torc_demo`** — executable (`src/main.cpp`) linked against `torc`.
 - **`linear_regression_example`** — executable (`examples/linear_regression/linear_regression.cpp`) linked against `torc`.
 - **`mnist_mlp_example`** — executable (`examples/mnist_mlp/mnist_mlp.cpp`) linked against `torc`.
 - **`torc_tests`** — GoogleTest executable (`tests/test_tensor.cpp` +
@@ -94,7 +92,6 @@ no other dependencies.
 cmake -S . -B build
 cmake --build build --config Release
 ctest --test-dir build --output-on-failure -C Release   # runs TorcTests (Tensor + Variable + nn + data suites)
-./build/torc_demo
 ```
 
 ---
@@ -181,7 +178,7 @@ each with gradient checks against central finite differences where applicable. S
 - **Broadcasting reduction in backward is centralized**: `reduce_sum_to_shape` is called once,
   in `Variable::backward_with_grad`, after a backward closure returns — never inside the
   closure itself.
-- **Keep `main.cpp`/`examples/` thin**: demos should showcase the API, not be where new
+- **Keep `examples/` thin**: demos should showcase the API, not be where new
   features get exercised for the first time. Every new op ships with tests in `tests/`.
 - **Every new op needs**: a shape-mismatch test (if applicable), a correctness test against
   a hand-computed example, and — for autograd ops — a gradient check against central finite

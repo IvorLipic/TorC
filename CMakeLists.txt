@@ -35,9 +35,6 @@ else()
     target_compile_options(torc PRIVATE "$<$<CONFIG:Release>:-O3;-march=native;-funroll-loops>")
 endif()
 
-add_executable(torc_demo src/main.cpp)
-target_link_libraries(torc_demo PRIVATE torc)
-
 add_executable(linear_regression_example examples/linear_regression/linear_regression.cpp)
 target_include_directories(linear_regression_example PRIVATE ${PROJECT_SOURCE_DIR}/include)
 target_link_libraries(linear_regression_example PRIVATE torc)
