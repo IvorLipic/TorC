@@ -9,6 +9,34 @@ operations and a tape-based autograd system, built on CMake with GoogleTest-base
 - **[ROADMAP.md](ROADMAP.md)** — milestone checklist, what's done and what's next
 - **[docs/DESIGN.md](docs/DESIGN.md)** — architecture decisions and the rationale behind them
 - **[docs/AUTOGRAD.md](docs/AUTOGRAD.md)** — the autograd tape structure and backward algorithm
+- **[docs/BENCHMARKS.md](docs/BENCHMARKS.md)** — CPU benchmark suite, including a PyTorch comparison
+
+## Demonstration — MNIST MLP
+
+The headline example is a 3-layer MLP trained end-to-end on MNIST:
+
+```
+Linear(784, 32) → ReLU → Linear(32, 32) → ReLU → Linear(32, 10)
+```
+
+optimized with `AdamW` and `CrossEntropyLoss` for 20 epochs (batch size 128, learning rate
+0.0005). It evaluates train and test accuracy every epoch and writes `loss_history.csv` and
+`per_class_accuracy.csv`.
+
+```bash
+./build/mnist_mlp_example              # full training run
+./build/mnist_mlp_example 100          # cap to 100 samples (truncates BOTH train and test)
+```
+
+The MNIST CSVs are **not bundled** with the repo — the `datasets/` directory is git-ignored.
+Download the data and place `mnist_train.csv` and `mnist_test.csv` (a label column followed by
+784 pixel columns) under `datasets/mnist/`; for example, export the HuggingFace `ylecun/mnist`
+parquet splits to CSV.
+
+![Per-class test accuracy per epoch](examples/mnist_mlp/per_class_accuracy.png)
+
+The optional helper `python examples/mnist_mlp/plot_results.py` regenerates the plots from the
+CSV files.
 
 ## Features
 
@@ -64,13 +92,42 @@ operations and a tape-based autograd system, built on CMake with GoogleTest-base
 - Loss functions: `nn::MSELoss`, `nn::CrossEntropyLoss`
 - Optimizers: `optim::SGD` with momentum, `optim::Adam`, `optim::AdamW`
 - Data loaders: `data::TensorDataset`, `data::SyntheticRegression`, `data::CSVDataset`, `data::MNISTDataset`, and `data::DataLoader` with batching and shuffling
-- End-to-end examples: linear regression (`examples/linear_regression/linear_regression.cpp`) and MNIST MLP (`examples/mnist_mlp/mnist_mlp.cpp`)
+- End-to-end example: MNIST MLP (`examples/mnist_mlp/mnist_mlp.cpp`)
+
+## Benchmark (vs PyTorch)
+
+`torc` is a naive, single-threaded, `float32`-only implementation — it is not meant to compete
+with production frameworks. The table below places it side-by-side with PyTorch (CPU,
+single-threaded) on the same machine and Release builds, so you can see where the naive path
+stands.
+
+| Operation | Shape | torc (µs) | torch 2.11 (µs) | torc / torch |
+|-----------|-------|-----------|-----------------|--------------|
+| Elementwise add | [16384] | 6.6 | 9.3 | 0.7× |
+| Matmul 2D | [64, 64, 64] | 64.5 | 19.7 | 3.3× |
+| Matmul 2D | [128, 128, 128] | 512 | 99.3 | 5.2× |
+| Matmul 2D | [256, 256, 256] | 4283 | 869 | 4.9× |
+| Batched matmul | [4, 64, 64, 64] | 261 | 74.1 | 3.5× |
+| Batched matmul | [8, 128, 128, 128] | 4142 | 1069 | 3.9× |
+| Softmax | [16384] | 265 | 39.8 | 6.7× |
+| Transpose 2D | [256, 256] | 424 | 4.4 | 96× |
+
+Measured single-threaded on the same reference machine, Release builds. `torc` numbers come from
+Google Benchmark (`-DBUILD_BENCHMARKS=ON`); torch numbers from `benchmarks/bench_torch.py`
+(`torch.set_num_threads(1)`). Full tables and methodology are in
+**[docs/BENCHMARKS.md](docs/BENCHMARKS.md)**.
+
+How to read it: elementwise ops are already competitive — `torc`'s `simd` fast path beats eager
+PyTorch dispatch at this size — while `matmul` trails by ~3–5× and `softmax`/`transpose` by more.
+The `transpose` gap is the most telling: `torch.t()` is a zero-copy view, whereas `torc` still
+copies storage on every `transpose`/`reshape`/`view` (see `docs/DESIGN.md`'s memory-model notes
+and the project's known issues).
 
 ## Requirements
 
 - CMake 3.16+
 - A C++23 compiler (GCC, Clang, or MSVC)
-- Git (for fetching GoogleTest during the build)
+- Git (for fetching GoogleTest / Google Benchmark during the build)
 - Optional: OpenMP (enable with `-DUSE_OPENMP=ON` for parallelized elementwise/reduction ops)
 
 ## Build
@@ -80,17 +137,11 @@ cmake -S . -B build
 cmake --build build --config Release
 ```
 
-For benchmarks:
+For benchmarks (includes the `torc_benchmarks` target):
 
 ```bash
 cmake -S . -B build -DBUILD_BENCHMARKS=ON
 cmake --build build --config Release
-```
-
-## Run the demo
-
-```bash
-./build/torc_demo
 ```
 
 ## Run tests
@@ -103,43 +154,6 @@ Tests use [GoogleTest](https://github.com/google/googletest), fetched automatica
 `FetchContent`. The `TorcTests` target covers `tests/test_tensor.cpp` (Tensor),
 `tests/test_autograd.cpp` (Variable / autograd), `tests/test_nn.cpp` (`nn::Module` /
 `nn::Sequential`), and `tests/test_data.cpp` (`data::TensorDataset` / `data::DataLoader`).
-
-## Run the linear regression example
-
-```bash
-./build/linear_regression_example
-```
-
-This trains `nn::Linear` on `SyntheticRegression` for 100 epochs and writes two CSV files
-to `examples/linear_regression/`: `loss_history.csv` and `predictions.csv`.
-
-## Run the MNIST MLP example
-
-```bash
-./build/mnist_mlp_example
-```
-
-Trains a 3-layer MLP (`Linear(784, 32) → ReLU → Linear(32, 32) → ReLU → Linear(32, 10)`) on the
-MNIST dataset for 20 epochs (batch size 128, learning rate 0.0005) using `AdamW` and
-`CrossEntropyLoss`. Evaluates on both train and test splits each epoch and prints accuracy.
-
-The MNIST CSVs are **not bundled** with the repo — the `datasets/` directory is git-ignored.
-Download the data and place `mnist_train.csv` and `mnist_test.csv` (a label column followed by
-784 pixel columns) under `datasets/mnist/`; for example, export the HuggingFace `ylecun/mnist`
-parquet splits to CSV. Accepts an optional command-line argument for the maximum number of samples
-to load — it truncates **both** the training and test sets (e.g. `./build/mnist_mlp_example 100`),
-so the printed accuracy reflects the capped sample count.
-
-## Visualize results
-
-The simplest path is the optional Python helper script using matplotlib:
-
-```bash
-python examples/linear_regression/plot_results.py
-```
-
-It reads the CSVs and saves `loss_curve.png` and `predictions.png`. If you don't have
-matplotlib, open the CSVs in Excel, Google Sheets, or LibreOffice Calc instead.
 
 ## License
 

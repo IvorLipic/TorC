@@ -104,3 +104,50 @@ their timings. Commit `6566da5` does add a small, intentional cost to autograd w
 `requires_grad` flag, and backward checks those records before dereferencing inputs. That overhead
 belongs in a separate autograd benchmark; it should not be attributed to the tensor-kernel changes
 shown in the tables above.
+
+## Comparison with PyTorch (CPU)
+
+To keep the naive implementation honest about where it stands, the tensor kernels are also
+benchmarked against PyTorch on the same machine, pinned to a single thread.
+
+Run torc:
+
+```bash
+cmake -S . -B build -DBUILD_BENCHMARKS=ON
+cmake --build build --config Release
+./build/torc_benchmarks --benchmark_min_time=1s
+```
+
+Run torch:
+
+```bash
+python benchmarks/bench_torch.py
+```
+
+`bench_torch.py` calls `torch.set_num_threads(1)` so its numbers are comparable to torc's
+single-threaded AVX2 path, and mirrors the exact shapes in `benchmarks/bench_tensor.cpp`.
+
+Latest numbers (single-threaded, Release, same 12-core reference machine):
+
+| Operation | Shape | torc (µs) | torch 2.11 (µs) | torc / torch |
+|-----------|-------|-----------|-----------------|--------------|
+| Elementwise add | [16384] | 6.6 | 9.3 | 0.7× |
+| Matmul 2D | [64, 64, 64] | 64.5 | 19.7 | 3.3× |
+| Matmul 2D | [128, 128, 128] | 512 | 99.3 | 5.2× |
+| Matmul 2D | [256, 256, 256] | 4283 | 869 | 4.9× |
+| Batched matmul | [4, 64, 64, 64] | 261 | 74.1 | 3.5× |
+| Batched matmul | [8, 128, 128, 128] | 4142 | 1069 | 3.9× |
+| Softmax | [16384] | 265 | 39.8 | 6.7× |
+| Transpose 2D | [256, 256] | 424 | 4.4 | 96× |
+
+Notes:
+- **Elementwise add is already competitive** — torc's contiguous `simd::` fast path avoids the
+  generic index-reconstruction loop, while torch's eager `a + b` pays per-call dispatch and
+  allocation overhead at this size.
+- **matmul trails by ~3–5×**: torch dispatches to a tuned single-thread SGEMM, whereas torc uses
+  its own cache-blocked + AVX2 inner loop (still far behind a production BLAS).
+- **softmax trails by ~6–7×** for the same reason — torc has no vectorized reduction in its
+  softmax/exp path yet.
+- **transpose shows the largest gap** because `torch.t()` is a zero-copy view, while torc copies
+  storage on every `transpose`/`reshape`/`view`. This is the single biggest memory-model debt
+  tracked in `ROADMAP.md`.
