@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 #include <algorithm>
+#include <exception>
 
 using torc::Tensor;
 using torc::Variable;
@@ -54,6 +55,7 @@ static std::pair<std::vector<int>, std::vector<int>> evaluate(const Sequential& 
 }
 
 int main(int argc, char** argv) {
+ try {
     const std::string train_path = "datasets/mnist/mnist_train.csv";
     const std::string test_path = "datasets/mnist/mnist_test.csv";
     
@@ -62,19 +64,26 @@ int main(int argc, char** argv) {
         max_samples = static_cast<size_t>(std::atoi(argv[1]));
     }
     
-    const int batch_size = 64;
+    const int batch_size = 128;
     const int epochs = 10;
     const float lr = 0.001f;
 
     std::cout << "Step 5.12 - End-to-end MLP on MNIST\n";
-    std::cout << "Loading training dataset from: " << train_path;
+    std::cout << "Config:\n\t--batch size: " << batch_size << "\n\t--epochs: " << epochs << "\n\t--lr: " << lr << "\n";
+
+    std::cout << "Constructing MNISTDataset (train): " << train_path;
     if (max_samples > 0) std::cout << " (max " << max_samples << " samples)";
     std::cout << "\n";
 
     MNISTDataset train_dataset(train_path, max_samples);
+    const auto num_samples = train_dataset.len(); 
+    std::cout << "\t-- " << num_samples << " samples (" << num_samples / batch_size << " batches)" << "\n";
     DataLoader train_loader(train_dataset, batch_size, true);
+
+    std::cout << "Constructing MNISTDataset (test): " << test_path << "\n";
     MNISTDataset test_dataset(test_path, max_samples);
 
+    std::cout << "Building the model..." << "\n";
     Sequential model;
     model.add(std::make_unique<Linear>(784, 32, 0.0f));
     model.add(std::make_unique<ReLU>());
@@ -83,6 +92,7 @@ int main(int argc, char** argv) {
     model.add(std::make_unique<Linear>(32, 10, 0.0f));
 
     auto params = model.parameters();
+
     AdamW optimizer(params, lr);
     CrossEntropyLoss loss_fn;
 
@@ -99,6 +109,7 @@ int main(int argc, char** argv) {
         size_t num_batches = 0;
         int step = 1;
 
+        std::cout << "\tEpoch " << epoch << "\n";
         while (train_loader.has_next()) {
             auto [x_batch, y_batch] = train_loader.next_batch();
 
@@ -137,10 +148,10 @@ int main(int argc, char** argv) {
         int test_total_samples = std::accumulate(test_total.begin(), test_total.end(), 0);
 
         std::cout << "epoch " << (epoch + 1) << "/" << epochs
-                  << " — loss: " << epoch_loss
-                  << " — train acc: " << train_total_correct << "/" << train_total_samples
+                  << " - loss: " << epoch_loss
+                  << " - train acc: " << train_total_correct << "/" << train_total_samples
                   << " (" << (static_cast<float>(train_total_correct) / static_cast<float>(train_total_samples)) << ")"
-                  << " — test acc: " << test_total_correct << "/" << test_total_samples
+                  << " - test acc: " << test_total_correct << "/" << test_total_samples
                   << " (" << (static_cast<float>(test_total_correct) / static_cast<float>(test_total_samples)) << ")"
                   << "\n";
     }
@@ -151,4 +162,8 @@ int main(int argc, char** argv) {
     std::cout << "\nSaved examples/mnist_mlp/loss_history.csv and per_class_accuracy.csv\n";
     std::cout << "Run 'python examples/mnist_mlp/plot_results.py' to visualize.\n";
     return 0;
+ } catch (const std::exception& e) {
+    std::cerr << "Error: " << e.what() << "\n";
+    return 1;
+ }
 }

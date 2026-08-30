@@ -440,6 +440,18 @@ TEST(CrossEntropyLoss, ForwardMatchesHandComputed) {
     expect_near(loss.data().data()[0], 1.4076f, 2e-3f);
 }
 
+TEST(CrossEntropyLoss, AcceptsColumnVectorTargets) {
+    CrossEntropyLoss loss_fn;
+    // 2 samples, 3 classes, targets given as a column vector [n, 1] (rank-2)
+    Tensor logits_data({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, std::vector<int>{2, 3});
+    Tensor targets_data({2.0f, 0.0f}, std::vector<int>{2, 1});
+    Variable logits(logits_data, false);
+    Variable targets(targets_data, false);
+
+    Variable loss = loss_fn(logits, targets);
+    expect_near(loss.data().data()[0], 1.4076f, 2e-3f);
+}
+
 TEST(CrossEntropyLoss, BackwardMatchesNumericalGradient) {
     CrossEntropyLoss loss_fn;
     Tensor logits_data({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, std::vector<int>{2, 3});

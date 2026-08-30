@@ -60,13 +60,18 @@ static Tensor row_softmax(const Tensor& logits, int batch_size, int num_classes)
 
 Variable CrossEntropyLoss::forward(const Variable& logits, const Variable& targets) const {
     const auto& logits_shape = logits.data().shape();
-    const auto& targets_shape = targets.data().shape();
+    Tensor targets_data = targets.data();
+    std::vector<int> targets_shape = targets_data.shape();
+    if (targets_shape.size() == 2 && targets_shape[1] == 1) {
+        targets_data = targets_data.reshape(std::vector<int>{targets_shape[0]});
+        targets_shape = targets_data.shape();
+    }
     if (logits_shape.size() != 2) {
         throw ShapeError(std::format("CrossEntropyLoss expects rank-2 logits, got shape {}",
                                      shape_to_string(logits_shape)));
     }
     if (targets_shape.size() != 1) {
-        throw ShapeError(std::format("CrossEntropyLoss expects rank-1 targets, got shape {}",
+        throw ShapeError(std::format("CrossEntropyLoss expects rank-1 targets or rank-2 [n,1], got shape {}",
                                      shape_to_string(targets_shape)));
     }
 
@@ -88,7 +93,7 @@ Variable CrossEntropyLoss::forward(const Variable& logits, const Variable& targe
         }
     }
     for (int i = 0; i < batch_size; ++i) {
-        float target_value = targets.data().data()[i];
+        float target_value = targets_data.data()[i];
         if (!std::isfinite(target_value) || std::floor(target_value) != target_value) {
             throw ShapeError(std::format("CrossEntropyLoss target at index {} must be an integer", i));
         }
@@ -104,7 +109,7 @@ Variable CrossEntropyLoss::forward(const Variable& logits, const Variable& targe
     double total_loss = 0.0;
 
     for (int i = 0; i < batch_size; ++i) {
-        int target_class = static_cast<int>(targets.data().data()[i]);
+        int target_class = static_cast<int>(targets_data.data()[i]);
         float max_val = logits.data().data()[i * num_classes];
         for (int j = 1; j < num_classes; ++j) {
             max_val = std::max(max_val, logits.data().data()[i * num_classes + j]);
@@ -125,7 +130,7 @@ Variable CrossEntropyLoss::forward(const Variable& logits, const Variable& targe
         entry.set_inputs({ const_cast<Variable*>(&logits) });
 
         Tensor softmax_copy = softmax_data;
-        Tensor targets_copy = targets.data();
+        Tensor targets_copy = targets_data;
 
         entry.backward = [softmax_copy, targets_copy, batch_size, num_classes](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
             input_grads[0] = Tensor(softmax_copy.shape());
