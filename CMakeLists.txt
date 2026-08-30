@@ -39,9 +39,11 @@ add_executable(torc_demo src/main.cpp)
 target_link_libraries(torc_demo PRIVATE torc)
 
 add_executable(linear_regression_example examples/linear_regression/linear_regression.cpp)
+target_include_directories(linear_regression_example PRIVATE ${PROJECT_SOURCE_DIR}/include)
 target_link_libraries(linear_regression_example PRIVATE torc)
 
 add_executable(mnist_mlp_example examples/mnist_mlp/mnist_mlp.cpp)
+target_include_directories(mnist_mlp_example PRIVATE ${PROJECT_SOURCE_DIR}/include)
 target_link_libraries(mnist_mlp_example PRIVATE torc)
 
 # =============================

@@ -27,7 +27,7 @@ int main() {
     const float lr = 0.01f;
     const int batch_size = 10;
 
-    std::cout << "Step 5.11 — End-to-end linear regression\n";
+    std::cout << "Step 5.11 - End-to-end linear regression\n";
     std::cout << "Generating synthetic data: y = " << true_weight << " * x + " << true_bias
               << " + noise\n";
 
@@ -73,7 +73,7 @@ int main() {
 
         if ((epoch + 1) % 10 == 0 || epoch == 0) {
             std::cout << "epoch " << (epoch + 1) << "/" << epochs
-                      << " — loss: " << epoch_loss << "\n";
+                      << " - loss: " << epoch_loss << "\n";
         }
     }
 
