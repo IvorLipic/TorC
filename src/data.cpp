@@ -1,5 +1,6 @@
 // data.cpp
 #include "torc/data.hpp"
+#include "torc/utils.hpp"
 #include <algorithm>
 #include <stdexcept>
 #include <fstream>
@@ -29,10 +30,10 @@ Tensor stack_samples(const std::vector<Tensor>& samples) {
 TensorDataset::TensorDataset(Tensor xs, Tensor ys)
     : xs_(std::move(xs)), ys_(std::move(ys)) {
     if (xs_.shape().empty() || ys_.shape().empty()) {
-        throw std::invalid_argument("TensorDataset: xs and ys must have at least one dimension");
+        throw torc::TorcError("TensorDataset: xs and ys must have at least one dimension");
     }
     if (xs_.shape().front() != ys_.shape().front()) {
-        throw std::invalid_argument("TensorDataset: xs and ys must have the same number of samples");
+        throw torc::TorcError("TensorDataset: xs and ys must have the same number of samples");
     }
 }
 
@@ -42,7 +43,7 @@ size_t TensorDataset::len() const {
 
 std::pair<Tensor, Tensor> TensorDataset::get(size_t idx) const {
     if (idx >= len()) {
-        throw std::out_of_range("TensorDataset::get: index out of range");
+        throw torc::IndexError("TensorDataset::get: index out of range");
     }
 
     auto xs_shape = xs_.shape();
@@ -109,7 +110,7 @@ std::pair<Tensor, Tensor> TensorDataset::get_batch(size_t start, size_t end) con
 DataLoader::DataLoader(const Dataset& dataset, size_t batch_size, bool shuffle, unsigned int seed)
     : dataset_(dataset), batch_size_(batch_size), shuffle_(shuffle), current_(0), rng_(seed) {
     if (batch_size_ == 0) {
-        throw std::invalid_argument("DataLoader: batch_size must be > 0");
+        throw torc::TorcError("DataLoader: batch_size must be > 0");
     }
     size_t n = dataset_.len();
     indices_.resize(n);
@@ -121,7 +122,7 @@ DataLoader::DataLoader(const Dataset& dataset, size_t batch_size, bool shuffle, 
 
 std::pair<Tensor, Tensor> DataLoader::next_batch() {
     if (!has_next()) {
-        throw std::runtime_error("DataLoader::next_batch: no more batches in current epoch");
+        throw torc::TorcError("DataLoader::next_batch: no more batches in current epoch");
     }
 
     size_t end = std::min(current_ + batch_size_, indices_.size());
@@ -193,7 +194,7 @@ size_t SyntheticRegression::len() const {
 
 std::pair<Tensor, Tensor> SyntheticRegression::get(size_t idx) const {
     if (idx >= len()) {
-        throw std::out_of_range("SyntheticRegression::get: index out of range");
+        throw torc::IndexError("SyntheticRegression::get: index out of range");
     }
 
     auto xs_shape = xs_.shape();
@@ -271,7 +272,7 @@ float CSVDataset::parse_float(const std::string& token) {
     try {
         return std::stof(token);
     } catch (const std::exception&) {
-        throw std::invalid_argument("CSVDataset: cannot parse float from token: '" + token + "'");
+        throw torc::TorcError("CSVDataset: cannot parse float from token: '" + token + "'");
     }
 }
 
@@ -282,11 +283,11 @@ CSVDataset::CSVDataset(const std::string& filepath)
 CSVDataset::CSVDataset(const std::string& filepath, Options opts)
     : xs_(std::vector<int>{0}), ys_(std::vector<int>{0}) {
     if (opts.feature_cols == 0) {
-        throw std::invalid_argument("CSVDataset: feature_cols must be > 0");
+        throw torc::TorcError("CSVDataset: feature_cols must be > 0");
     }
     std::ifstream file(filepath);
     if (!file.is_open()) {
-        throw std::runtime_error("CSVDataset: cannot open file: " + filepath);
+        throw torc::TorcError("CSVDataset: cannot open file: " + filepath);
     }
 
     std::vector<std::vector<float>> rows;
@@ -309,14 +310,14 @@ CSVDataset::CSVDataset(const std::string& filepath, Options opts)
         if (expected_cols == 0) {
             expected_cols = total_cols;
         } else if (total_cols != expected_cols) {
-            throw std::runtime_error("CSVDataset: inconsistent column count at line " + std::to_string(line_num));
+            throw torc::ShapeError("CSVDataset: inconsistent column count at line " + std::to_string(line_num));
         }
 
         if (opts.target_col >= total_cols) {
-            throw std::runtime_error("CSVDataset: target_col out of range at line " + std::to_string(line_num));
+            throw torc::ShapeError("CSVDataset: target_col out of range at line " + std::to_string(line_num));
         }
         if (opts.feature_cols > total_cols) {
-            throw std::runtime_error("CSVDataset: feature_cols exceeds column count at line " + std::to_string(line_num));
+            throw torc::ShapeError("CSVDataset: feature_cols exceeds column count at line " + std::to_string(line_num));
         }
 
         std::vector<float> row;
@@ -328,7 +329,7 @@ CSVDataset::CSVDataset(const std::string& filepath, Options opts)
     }
 
     if (rows.empty()) {
-        throw std::runtime_error("CSVDataset: no data rows found in file: " + filepath);
+        throw torc::TorcError("CSVDataset: no data rows found in file: " + filepath);
     }
 
     size_t num_samples = rows.size();
@@ -351,7 +352,7 @@ size_t CSVDataset::len() const {
 
 std::pair<Tensor, Tensor> CSVDataset::get(size_t idx) const {
     if (idx >= len()) {
-        throw std::out_of_range("CSVDataset::get: index out of range");
+        throw torc::IndexError("CSVDataset::get: index out of range");
     }
 
     auto xs_shape = xs_.shape();
@@ -419,7 +420,7 @@ MNISTDataset::MNISTDataset(const std::string& filepath, size_t max_samples)
     : xs_(std::vector<int>{0}), ys_(std::vector<int>{0}), len_(0) {
     std::ifstream file(filepath);
     if (!file.is_open()) {
-        throw std::runtime_error("MNISTDataset: cannot open file: " + filepath);
+        throw torc::TorcError("MNISTDataset: cannot open file: " + filepath);
     }
 
     std::vector<std::vector<float>> rows;
@@ -440,11 +441,11 @@ MNISTDataset::MNISTDataset(const std::string& filepath, size_t max_samples)
         if (expected_cols == 0) {
             expected_cols = total_cols;
         } else if (total_cols != expected_cols) {
-            throw std::runtime_error("MNISTDataset: inconsistent column count at line " + std::to_string(line_num));
+            throw torc::ShapeError("MNISTDataset: inconsistent column count at line " + std::to_string(line_num));
         }
 
         if (expected_cols < 2) {
-            throw std::runtime_error("MNISTDataset: expected at least 2 columns (label + pixels), got " + std::to_string(expected_cols) + " at line " + std::to_string(line_num));
+            throw torc::ShapeError("MNISTDataset: expected at least 2 columns (label + pixels), got " + std::to_string(expected_cols) + " at line " + std::to_string(line_num));
         }
 
         std::vector<float> row;
@@ -457,7 +458,7 @@ MNISTDataset::MNISTDataset(const std::string& filepath, size_t max_samples)
     }
 
     if (rows.empty()) {
-        throw std::runtime_error("MNISTDataset: no data rows found in file: " + filepath);
+        throw torc::TorcError("MNISTDataset: no data rows found in file: " + filepath);
     }
 
     size_t num_samples = rows.size();
@@ -481,7 +482,7 @@ size_t MNISTDataset::len() const {
 
 std::pair<Tensor, Tensor> MNISTDataset::get(size_t idx) const {
     if (idx >= len()) {
-        throw std::out_of_range("MNISTDataset::get: index out of range");
+        throw torc::IndexError("MNISTDataset::get: index out of range");
     }
 
     auto xs_shape = xs_.shape();

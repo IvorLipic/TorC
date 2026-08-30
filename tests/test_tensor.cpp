@@ -434,11 +434,19 @@ TEST(TensorReductions, AxisHigherDim) {
 
 TEST(TensorReductions, AxisInvalidThrows) {
     Tensor t({1.0f, 2.0f, 3.0f}, {3});
-    EXPECT_THROW(t.sum(-1), torc::ShapeError);
     EXPECT_THROW(t.sum(3), torc::ShapeError);
-    EXPECT_THROW(t.mean(-1), torc::ShapeError);
+    EXPECT_THROW(t.mean(3), torc::ShapeError);
     EXPECT_THROW(t.max(3), torc::ShapeError);
     EXPECT_THROW(t.min(3), torc::ShapeError);
+}
+
+TEST(TensorReductions, NegativeAxisWorks) {
+    Tensor t({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, {2, 3});
+    EXPECT_FLOAT_EQ(t.sum(-1).data()[0], 6.0f);
+    EXPECT_FLOAT_EQ(t.sum(-1).data()[1], 15.0f);
+    EXPECT_NEAR(t.mean(-1).data()[0], 2.0f, 1e-5f);
+    EXPECT_FLOAT_EQ(t.max(-1).data()[0], 3.0f);
+    EXPECT_FLOAT_EQ(t.min(-1).data()[0], 1.0f);
 }
 
 TEST(TensorReductions, AxisEmptyThrows) {

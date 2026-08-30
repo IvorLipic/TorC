@@ -26,6 +26,11 @@ public:
     explicit NumericalError(const std::string& msg) : TorcError(msg) {}
 };
 
+class IndexError : public TorcError {
+public:
+    explicit IndexError(const std::string& msg) : TorcError(msg) {}
+};
+
 inline int shape_product(std::span<const int> shape) {
     return std::ranges::fold_left(shape, 1, std::multiplies<>{});
 }
@@ -64,8 +69,8 @@ inline float kaiming_normal_std(int fan_in) {
 
 inline void fill_kaiming_normal(float* data, size_t count, int fan_in, unsigned int seed = std::random_device{}()) {
     std::mt19937 rng(seed);
-    float std = kaiming_normal_std(fan_in);
-    std::normal_distribution<float> dist(0.0f, std);
+    float stddev = kaiming_normal_std(fan_in);
+    std::normal_distribution<float> dist(0.0f, stddev);
     for (size_t i = 0; i < count; ++i) data[i] = dist(rng);
 }
 

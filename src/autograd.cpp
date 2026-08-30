@@ -5,7 +5,7 @@
 
 namespace torc {
 
-bool Variable::g_grad_enabled = true;
+thread_local bool Variable::g_grad_enabled = true;
 
 Tensor reduce_sum_to_shape(const Tensor& grad, const std::vector<int>& target_shape) {
     Tensor result = grad;

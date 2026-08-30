@@ -64,7 +64,7 @@ CSV files.
 - Whole-tensor softmax (`softmax()`) with an axis-aware overload (`softmax(axis)`); the
   `nn::Softmax` module defaults to the last axis, while `CrossEntropyLoss` uses its own stable
   row-wise log-sum-exp implementation
-- `operator==` for value + shape equality
+- `operator==` for value + shape equality (exact bitwise/value comparison; use approximate/tolerance-based comparison for computed results)
 - Pretty-printing (`operator<<`) for shape and data
 - Raw pointer data access
 - Shape inspection and element count

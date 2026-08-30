@@ -400,6 +400,7 @@ float Tensor::min() const {
 
 template<typename BinOp>
 Tensor Tensor::reduce_axis(int axis, BinOp op) const {
+    if (axis < 0) axis += (int)shape_.size();
     if (axis < 0 || axis >= (int)shape_.size())
         throw ShapeError(std::format("Invalid axis {} for tensor with shape {}", axis, shape_to_string(shape_)));
     if (numel() == 0)
@@ -439,6 +440,7 @@ void Tensor::fill(float val) {
 }
 
 Tensor Tensor::mean(int axis) const {
+    if (axis < 0) axis += (int)shape_.size();
     Tensor s = sum(axis);
     std::ranges::transform(s.storage_, s.storage_.begin(),
                             [n = shape_[axis]](float x) { return x / n; });

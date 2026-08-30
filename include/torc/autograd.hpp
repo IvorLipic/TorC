@@ -33,7 +33,7 @@ public:
     bool has_grad_;
     std::vector<TapeEntry> tape_;
 
-    static bool g_grad_enabled;
+    static thread_local bool g_grad_enabled;
 
     explicit Variable(Tensor data, bool requires_grad)
         : data_(std::move(data)),
@@ -59,7 +59,15 @@ public:
           tape_(other.tape_),
           lifetime_(std::make_shared<VariableLifetime>()) {}
 
-    Variable(Variable&& other) noexcept = default;
+    Variable(Variable&& other) noexcept
+        : data_(std::move(other.data_)),
+          grad_(std::move(other.grad_)),
+          requires_grad_(other.requires_grad_),
+          has_grad_(other.has_grad_),
+          tape_(std::move(other.tape_)),
+          lifetime_(std::make_shared<VariableLifetime>()) {
+        other.lifetime_.reset();
+    }
 
     Variable& operator=(const Variable& other) {
         if (this != &other) {

@@ -55,13 +55,13 @@ TEST(TensorDatasetTest, GetOutOfRangeThrows) {
     Tensor xs({1.0f, 2.0f}, {2});
     Tensor ys({0.0f, 1.0f}, {2});
     TensorDataset ds(std::move(xs), std::move(ys));
-    EXPECT_THROW(ds.get(2), std::out_of_range);
+    EXPECT_THROW(ds.get(2), torc::IndexError);
 }
 
 TEST(TensorDatasetTest, MismatchedSampleCountThrows) {
     Tensor xs({1.0f, 2.0f}, {2});
     Tensor ys({0.0f}, {1});
-    EXPECT_THROW(TensorDataset(std::move(xs), std::move(ys)), std::invalid_argument);
+    EXPECT_THROW(TensorDataset(std::move(xs), std::move(ys)), torc::TorcError);
 }
 
 TEST(DataLoaderTest, IteratesAllSamples) {
@@ -208,7 +208,7 @@ TEST(DataLoaderTest, SeedMakesShuffleDeterministic) {
 
 TEST(CSVDatasetTest, DefaultConstructorRejectsZeroFeatureCols) {
     auto path = write_csv({{1.0f, 2.0f, 3.0f}});
-    EXPECT_THROW(CSVDataset ds(path), std::invalid_argument);
+    EXPECT_THROW(CSVDataset ds(path), torc::TorcError);
     std::remove(path.c_str());
 }
 
@@ -317,7 +317,7 @@ TEST(CSVDatasetTest, MalformedLineThrows) {
     CSVDataset::Options opts;
     opts.feature_cols = 2;
     opts.target_col = 2;
-    EXPECT_THROW(CSVDataset ds(path, opts), std::invalid_argument);
+    EXPECT_THROW(CSVDataset ds(path, opts), torc::TorcError);
 
     std::remove(path.c_str());
 }
@@ -326,7 +326,7 @@ TEST(CSVDatasetTest, FileNotFoundThrows) {
     CSVDataset::Options opts;
     opts.feature_cols = 1;
     opts.target_col = 0;
-    EXPECT_THROW(CSVDataset ds("nonexistent_file.csv", opts), std::runtime_error);
+    EXPECT_THROW(CSVDataset ds("nonexistent_file.csv", opts), torc::TorcError);
 }
 
 TEST(CSVDatasetTest, InconsistentColumnsThrows) {
@@ -334,7 +334,7 @@ TEST(CSVDatasetTest, InconsistentColumnsThrows) {
     CSVDataset::Options opts;
     opts.feature_cols = 2;
     opts.target_col = 2;
-    EXPECT_THROW(CSVDataset ds(path, opts), std::runtime_error);
+    EXPECT_THROW(CSVDataset ds(path, opts), torc::ShapeError);
     std::remove(path.c_str());
 }
 
@@ -377,6 +377,6 @@ TEST(MNISTDatasetTest, InconsistentColumnsThrows) {
         file << "5,0.1,0.2\n";
         file << "3,0.4,0.5,0.6\n";
     }
-    EXPECT_THROW(MNISTDataset ds(path), std::runtime_error);
+    EXPECT_THROW(MNISTDataset ds(path), torc::TorcError);
     std::remove(path.c_str());
 }
