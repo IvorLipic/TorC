@@ -897,3 +897,62 @@ TEST(TensorMatmul, ZeroSizeDimensions) {
     EXPECT_EQ(r.shape(), std::vector<int>({0, 4}));
     EXPECT_EQ(r.numel(), 0);
 }
+
+TEST(TensorConv2d, OutputShapeStride1Padding0) {
+    Tensor input({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f,
+                  9.0f, 10.0f, 11.0f, 12.0f, 13.0f, 14.0f, 15.0f, 16.0f}, {1, 1, 4, 4});
+    Tensor weight({1.0f}, {1, 1, 1, 1});
+    Tensor out = input.conv2d(weight, 1, 0);
+    EXPECT_EQ(out.shape(), std::vector<int>({1, 1, 4, 4}));
+}
+
+TEST(TensorConv2d, OutputShapeStride2Padding1) {
+    Tensor input({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f,
+                  9.0f, 10.0f, 11.0f, 12.0f, 13.0f, 14.0f, 15.0f, 16.0f}, {1, 1, 4, 4});
+    Tensor weight({1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f}, {1, 1, 3, 3});
+    Tensor out = input.conv2d(weight, 2, 1);
+    EXPECT_EQ(out.shape(), std::vector<int>({1, 1, 2, 2}));
+}
+
+TEST(TensorConv2d, HandComputed3x3Kernel) {
+    Tensor input({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f,
+                  9.0f, 10.0f, 11.0f, 12.0f, 13.0f, 14.0f, 15.0f, 16.0f}, {1, 1, 4, 4});
+    Tensor weight({1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f}, {1, 1, 3, 3});
+    Tensor out = input.conv2d(weight, 1, 0);
+    EXPECT_EQ(out.shape(), std::vector<int>({1, 1, 2, 2}));
+    EXPECT_FLOAT_EQ(out.data()[0], 54.0f);
+    EXPECT_FLOAT_EQ(out.data()[1], 63.0f);
+    EXPECT_FLOAT_EQ(out.data()[2], 90.0f);
+    EXPECT_FLOAT_EQ(out.data()[3], 99.0f);
+}
+
+TEST(TensorConv2d, RankMismatchThrows) {
+    Tensor input({1.0f, 2.0f, 3.0f}, {3});
+    Tensor weight({1.0f}, {1, 1, 1, 1});
+    EXPECT_THROW(input.conv2d(weight, 1, 0), torc::ShapeError);
+}
+
+TEST(TensorConv2d, ChannelMismatchThrows) {
+    Tensor input({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f}, {1, 2, 2, 2});
+    Tensor weight({1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
+                   1.0f, 1.0f, 1.0f, 1.0f}, {1, 3, 2, 2});
+    EXPECT_THROW(input.conv2d(weight, 1, 0), torc::ShapeError);
+}
+
+TEST(TensorConv2d, NegativeOutputDimThrows) {
+    Tensor input({1.0f, 2.0f, 3.0f, 4.0f}, {1, 1, 2, 2});
+    Tensor weight({1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f}, {1, 1, 3, 3});
+    EXPECT_THROW(input.conv2d(weight, 1, 0), torc::ShapeError);
+}
+
+TEST(TensorConv2d, InvalidStrideThrows) {
+    Tensor input({1.0f, 2.0f, 3.0f, 4.0f}, {1, 1, 2, 2});
+    Tensor weight({1.0f}, {1, 1, 1, 1});
+    EXPECT_THROW(input.conv2d(weight, 0, 0), torc::ShapeError);
+}
+
+TEST(TensorConv2d, NegativePaddingThrows) {
+    Tensor input({1.0f, 2.0f, 3.0f, 4.0f}, {1, 1, 2, 2});
+    Tensor weight({1.0f}, {1, 1, 1, 1});
+    EXPECT_THROW(input.conv2d(weight, 1, -1), torc::ShapeError);
+}

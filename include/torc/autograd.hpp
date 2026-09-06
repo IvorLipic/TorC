@@ -204,6 +204,7 @@ Variable min(const Variable& a);
 Variable max(const Variable& a, int axis);
 Variable min(const Variable& a, int axis);
 Variable matmul(const Variable& a, const Variable& b);
+Variable conv2d(const Variable& input, const Variable& weight, int stride, int padding);
 Variable transpose(const Variable& a);
 Variable transpose(const Variable& a, std::vector<int> axes);
 Variable reshape(const Variable& a, std::vector<int> new_shape);

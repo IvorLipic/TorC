@@ -738,6 +738,44 @@ based on `param->grad()`. This matches PyTorch's separation of `nn.Module` and `
 - Prints per-epoch loss and accuracy to stdout; writes `loss_history.csv` and `per_class_accuracy.csv`
 - Evaluation reuses the same `MNISTDataset` / `DataLoader` objects rather than reloading CSVs each epoch
 
+**Step 5.13 — `nn::Conv2d` + end-to-end example — MNIST CNN**
+- `Tensor::conv2d(const Tensor& weight, int stride, int padding) const` added to `include/torc/tensor.hpp`
+  / `src/tensor.cpp` — naive direct convolution (not im2col+matmul), matching the project's
+  "naive but correct first" philosophy. Input is `{N, C_in, H, W}`, weight is `{C_out, C_in, KH, KW}`,
+  output is `{N, C_out, H_out, W_out}` where `H_out = (H + 2*padding - KH) / stride + 1` (same for W).
+  Shape validation throws `ShapeError` for rank mismatches, channel mismatches, non-positive stride/padding,
+  or non-positive output dimensions.
+- `torc::conv2d(const Variable& input, const Variable& weight, int stride, int padding)` added as a
+  free function in `include/torc/autograd.hpp` / `src/autograd.cpp`. Backward reuses the forward index
+  loops, zero-filling two output buffers (`dInput` and `dWeight`) and scatter-accumulating into them —
+  the same "zero-fill original shape, scatter into it" idiom already documented for `slice`'s backward.
+- `nn::Conv2d` in `include/torc/nn/conv.hpp` / `src/nn/conv.cpp` — registers `weight` with shape
+  `{out_channels, in_channels, kernel_size, kernel_size}` and `bias` with shape `{out_channels}`.
+  Initialization follows `Linear`'s two-branch pattern exactly: Kaiming normal when `init_std <= 0`,
+  otherwise `N(0, init_std)`; bias is always `0.0`. Forward reshapes bias to `{1, C_out, 1, 1}` and
+  routes it through the existing `torc::add` free function — no new Tensor primitive needed.
+- `nn::Flatten` in `include/torc/nn/conv.hpp` / `src/nn/conv.cpp` — parameterless module that reshapes
+  `{batch, ...}` to `{batch, product_of_remaining_dims}` via `torc::reshape`.
+- `examples/mnist_cnn/mnist_cnn.cpp` — trains `Conv2d(1, 8, 3, stride=2, padding=1) → ReLU →
+  Conv2d(8, 16, 3, stride=2, padding=1) → ReLU → Flatten → Linear(16*7*7, 10)` on MNIST using
+  `optim::AdamW` and `nn::CrossEntropyLoss`. Input batches are reshaped from `{batch, 784}` to
+  `{batch, 1, 28, 28}` before the first conv. Writes `loss_history.csv` and `per_class_accuracy.csv`
+  in the same format as the MLP example.
+- **Design decisions**:
+  - Naive direct convolution, not im2col+matmul — a fast path can be a future Milestone 6 optimization.
+  - No unconditional finiteness prepass on the dense forward loop — IEEE NaN/Inf propagation is allowed
+    through the hot path, matching `matmul`'s documented precedent.
+  - Bias added via existing broadcasting (`torc::add`), not a new primitive.
+  - Backward reuses the forward index loops — forward and backward index math are trivially auditable
+    against each other.
+  - Stride does the downsampling; no pooling layer in this step — pooling is a natural follow-on later.
+  - Ops remain free functions — `nn::Conv2d::forward` composes `torc::conv2d`, the same way
+    `nn::Linear::forward` composes `torc::matmul`/`torc::transpose`/`torc::add`.
+- **Test**: shape tests (valid combos produce expected output shape; degenerate combos throw `ShapeError`;
+  channel mismatch throws `ShapeError`); one hand-computed correctness test (1×1×4×4 input, 1×1×3×3
+  kernel, stride=1, padding=0); gradient checks for input and weight covering stride=1/padding=0,
+  stride=2/padding=1, and one multi-channel (`C_in > 1`) case.
+
 ### Data loader design
 
 Data loading is the thinnest possible wrapper around a dataset, matching PyTorch's

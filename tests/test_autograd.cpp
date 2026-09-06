@@ -1282,3 +1282,98 @@ TEST(InPlaceGuardAutograd, TensorFillIsAlwaysAllowed) {
     Tensor expected({5.0f, 5.0f, 5.0f}, std::vector<int>{3});
     EXPECT_TRUE(a_data == expected);
 }
+
+// ============================================================
+// Step 5.13: conv2d backward
+// ============================================================
+
+static Tensor numerical_grad_conv2d_input(const Tensor& input, const Tensor& weight, int stride, int padding) {
+    Tensor g(input.shape());
+    float h = 1e-2f;
+    for (int i = 0; i < input.numel(); ++i) {
+        Tensor in_ph = input; in_ph.data()[i] += h;
+        Tensor in_mh = input; in_mh.data()[i] -= h;
+        float f_ph = in_ph.conv2d(weight, stride, padding).sum();
+        float f_mh = in_mh.conv2d(weight, stride, padding).sum();
+        g.data()[i] = (f_ph - f_mh) / (2.0f * h);
+    }
+    return g;
+}
+
+static Tensor numerical_grad_conv2d_weight(const Tensor& input, const Tensor& weight, int stride, int padding) {
+    Tensor g(weight.shape());
+    float h = 1e-2f;
+    for (int i = 0; i < weight.numel(); ++i) {
+        Tensor w_ph = weight; w_ph.data()[i] += h;
+        Tensor w_mh = weight; w_mh.data()[i] -= h;
+        float f_ph = input.conv2d(w_ph, stride, padding).sum();
+        float f_mh = input.conv2d(w_mh, stride, padding).sum();
+        g.data()[i] = (f_ph - f_mh) / (2.0f * h);
+    }
+    return g;
+}
+
+TEST(Conv2dAutograd, ForwardMatchesTensorConv2d) {
+    Tensor input_data({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f,
+                       9.0f, 10.0f, 11.0f, 12.0f, 13.0f, 14.0f, 15.0f, 16.0f}, {1, 1, 4, 4});
+    Tensor weight_data({1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f}, {1, 1, 3, 3});
+    Variable input(input_data, false);
+    Variable weight(weight_data, false);
+    Variable out = torc::conv2d(input, weight, 1, 0);
+    Tensor expected = input_data.conv2d(weight_data, 1, 0);
+    EXPECT_TRUE(out.data() == expected);
+}
+
+TEST(Conv2dAutograd, GradCheckStride1Padding0) {
+    Tensor input_data({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f,
+                       9.0f, 10.0f, 11.0f, 12.0f, 13.0f, 14.0f, 15.0f, 16.0f}, {1, 1, 4, 4});
+    Tensor weight_data({1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f}, {1, 1, 3, 3});
+    Variable input(input_data, true);
+    Variable weight(weight_data, true);
+    Variable out = torc::conv2d(input, weight, 1, 0);
+    Variable loss = torc::sum(out);
+    loss.backward();
+
+    Tensor num_grad_in = numerical_grad_conv2d_input(input_data, weight_data, 1, 0);
+    Tensor num_grad_w = numerical_grad_conv2d_weight(input_data, weight_data, 1, 0);
+    for (int i = 0; i < input_data.numel(); ++i)
+        expect_near(input.grad().data()[i], num_grad_in.data()[i]);
+    for (int i = 0; i < weight_data.numel(); ++i)
+        expect_near(weight.grad().data()[i], num_grad_w.data()[i]);
+}
+
+TEST(Conv2dAutograd, GradCheckStride2Padding1) {
+    Tensor input_data({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f,
+                       9.0f, 10.0f, 11.0f, 12.0f, 13.0f, 14.0f, 15.0f, 16.0f}, {1, 1, 4, 4});
+    Tensor weight_data({1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f}, {1, 1, 3, 3});
+    Variable input(input_data, true);
+    Variable weight(weight_data, true);
+    Variable out = torc::conv2d(input, weight, 2, 1);
+    Variable loss = torc::sum(out);
+    loss.backward();
+
+    Tensor num_grad_in = numerical_grad_conv2d_input(input_data, weight_data, 2, 1);
+    Tensor num_grad_w = numerical_grad_conv2d_weight(input_data, weight_data, 2, 1);
+    for (int i = 0; i < input_data.numel(); ++i)
+        expect_near(input.grad().data()[i], num_grad_in.data()[i]);
+    for (int i = 0; i < weight_data.numel(); ++i)
+        expect_near(weight.grad().data()[i], num_grad_w.data()[i]);
+}
+
+TEST(Conv2dAutograd, GradCheckMultiChannel) {
+    Tensor input_data({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f}, {1, 2, 2, 2});
+    Tensor weight_data({1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
+                        1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f}, {2, 2, 2, 2});
+    Variable input(input_data, true);
+    Variable weight(weight_data, true);
+    Variable out = torc::conv2d(input, weight, 1, 0);
+    Variable loss = torc::sum(out);
+    loss.backward();
+
+    Tensor num_grad_in = numerical_grad_conv2d_input(input_data, weight_data, 1, 0);
+    Tensor num_grad_w = numerical_grad_conv2d_weight(input_data, weight_data, 1, 0);
+    for (int i = 0; i < input_data.numel(); ++i)
+        expect_near(input.grad().data()[i], num_grad_in.data()[i]);
+    for (int i = 0; i < weight_data.numel(); ++i)
+        expect_near(weight.grad().data()[i], num_grad_w.data()[i]);
+}

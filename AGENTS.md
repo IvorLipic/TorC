@@ -34,18 +34,20 @@ torc/
 │       ├── tensor.hpp          # Tensor class declaration
 │       ├── utils.hpp           # shape_product / shape_to_string / error types, used by Tensor
 │       ├── autograd.hpp        # Variable class + free-function ops (add, mul, ...)
-│       ├── nn.hpp              # nn::Module base + nn::Sequential container
-│       ├── optim.hpp           # optim::SGD, optim::Adam, optim::AdamW declarations
-│       └── nn/
-│           ├── linear.hpp      # nn::Linear declaration
-│           ├── activations.hpp # nn::ReLU, nn::Sigmoid, nn::Softmax declarations
-│           └── losses.hpp      # nn::MSELoss, nn::CrossEntropyLoss declarations
+│   ├── nn.hpp              # nn::Module base + nn::Sequential container
+│   ├── optim.hpp           # optim::SGD, optim::Adam, optim::AdamW declarations
+│   └── nn/
+│       ├── linear.hpp      # nn::Linear declaration
+│       ├── activations.hpp # nn::ReLU, nn::Sigmoid, nn::Softmax declarations
+│       ├── conv.hpp        # nn::Conv2d, nn::Flatten declarations
+│       └── losses.hpp      # nn::MSELoss, nn::CrossEntropyLoss declarations
 ├── src/
 │   ├── tensor.cpp              # Tensor implementation
 │   ├── simd_ops.hpp            # AVX2-accelerated elementwise/unary ops
 │   ├── autograd.cpp            # Variable op implementations (backward closures)
 │   ├── nn.cpp                  # Module / Sequential method definitions
 │   ├── nn/
+│   │   ├── conv.cpp            # nn::Conv2d, nn::Flatten forward
 │   │   ├── linear.cpp          # nn::Linear forward
 │   │   └── activations.cpp     # activation forward functions
 │   │   └── losses.cpp          # loss function forward/backward
@@ -60,6 +62,9 @@ torc/
 │   └── mnist_mlp/
 │       ├── mnist_mlp.cpp           # 3-layer MLP on MNIST (Step 5.12)
 │       └── plot_results.py         # optional matplotlib visualization
+│   └── mnist_cnn/
+│       ├── mnist_cnn.cpp           # CNN on MNIST (Step 5.13)
+│       └── plot_results.py         # optional matplotlib visualization
 └── tests/
     ├── test_tensor.cpp         # GoogleTest suite for Tensor
     ├── test_autograd.cpp       # GoogleTest suite for Variable / autograd
@@ -69,10 +74,11 @@ torc/
 
 Four default build targets:
 - **`torc`** — library built from `src/tensor.cpp`, `src/autograd.cpp`, `src/nn.cpp`,
-  `src/nn/linear.cpp`, `src/nn/activations.cpp`, `src/nn/losses.cpp`, `src/optim.cpp`,
-  `src/data.cpp`
+  `src/nn/conv.cpp`, `src/nn/linear.cpp`, `src/nn/activations.cpp`, `src/nn/losses.cpp`,
+  `src/optim.cpp`, `src/data.cpp`
 - **`linear_regression_example`** — executable (`examples/linear_regression/linear_regression.cpp`) linked against `torc`.
 - **`mnist_mlp_example`** — executable (`examples/mnist_mlp/mnist_mlp.cpp`) linked against `torc`.
+- **`mnist_cnn_example`** — executable (`examples/mnist_cnn/mnist_cnn.cpp`) linked against `torc`.
 - **`torc_tests`** — GoogleTest executable (`tests/test_tensor.cpp` +
   `tests/test_autograd.cpp` + `tests/test_nn.cpp` + `tests/test_data.cpp`), links `torc`, registered via `enable_testing()` /
   `add_test(NAME TorcTests ...)`.
@@ -127,8 +133,9 @@ See `README.md` for the full Tensor feature list. Key highlights:
    `nn::CrossEntropyLoss`, Step 5.5), optimizers (`optim::SGD` with momentum, Step 5.6;
    `optim::Adam`, Step 5.7; `optim::AdamW`, Step 5.8), data loaders (`data::Dataset`,
    `data::TensorDataset`, `data::SyntheticRegression`, `data::CSVDataset`, `data::DataLoader`,
-   Step 5.9–5.10), and an end-to-end linear regression example (`examples/linear_regression/linear_regression.cpp`,
-   Step 5.11) are implemented — see ROADMAP.md for exact status
+   Step 5.9–5.10), end-to-end linear regression and MLP examples (`examples/linear_regression/linear_regression.cpp`,
+   `examples/mnist_mlp/mnist_mlp.cpp`, Steps 5.11–5.12), and `nn::Conv2d` + MNIST CNN
+   (`examples/mnist_cnn/mnist_cnn.cpp`, Step 5.13) are implemented — see ROADMAP.md for exact status
 - **Lifetime constraint (runtime-checked, not ownership-retaining):** `TapeEntry.inputs` holds
   raw, non-owning `Variable*` pointers paired with weak lifetime tokens. Backward checks tokens
   before traversing tracked inputs and throws `TorcError` if an ancestor was destroyed. Every

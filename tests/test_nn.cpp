@@ -2,6 +2,7 @@
 #include "torc/nn.hpp"
 #include "torc/nn/linear.hpp"
 #include "torc/nn/activations.hpp"
+#include "torc/nn/conv.hpp"
 #include "torc/nn/losses.hpp"
 #include "torc/optim.hpp"
 #include <string>
@@ -17,6 +18,8 @@ using torc::nn::Linear;
 using torc::nn::ReLU;
 using torc::nn::Sigmoid;
 using torc::nn::Softmax;
+using torc::nn::Conv2d;
+using torc::nn::Flatten;
 using torc::nn::MSELoss;
 using torc::nn::CrossEntropyLoss;
 using torc::optim::SGD;
@@ -29,6 +32,32 @@ static constexpr float GRAD_ATOL = 1e-2f;
 static void expect_near(float actual, float expected, float tol = GRAD_ATOL) {
     EXPECT_NEAR(actual, expected, tol)
         << "actual=" << actual << " expected=" << expected;
+}
+
+static Tensor numerical_grad_conv2d_input(const Tensor& input, const Tensor& weight, int stride, int padding) {
+    Tensor g(input.shape());
+    float h = 1e-2f;
+    for (int i = 0; i < input.numel(); ++i) {
+        Tensor in_ph = input; in_ph.data()[i] += h;
+        Tensor in_mh = input; in_mh.data()[i] -= h;
+        float f_ph = in_ph.conv2d(weight, stride, padding).sum();
+        float f_mh = in_mh.conv2d(weight, stride, padding).sum();
+        g.data()[i] = (f_ph - f_mh) / (2.0f * h);
+    }
+    return g;
+}
+
+static Tensor numerical_grad_conv2d_weight(const Tensor& input, const Tensor& weight, int stride, int padding) {
+    Tensor g(weight.shape());
+    float h = 1e-2f;
+    for (int i = 0; i < weight.numel(); ++i) {
+        Tensor w_ph = weight; w_ph.data()[i] += h;
+        Tensor w_mh = weight; w_mh.data()[i] -= h;
+        float f_ph = input.conv2d(w_ph, stride, padding).sum();
+        float f_mh = input.conv2d(w_mh, stride, padding).sum();
+        g.data()[i] = (f_ph - f_mh) / (2.0f * h);
+    }
+    return g;
 }
 
 class MultiplyModule : public Module {
@@ -1160,5 +1189,102 @@ TEST(DeepSequential, NumericalGradientsMatchAnalytical) {
         float numerical = (loss_plus - loss_minus) / (2.0f * h);
         EXPECT_NEAR(x.grad().data()[i], numerical, 1e-2f)
             << "Input gradient mismatch for element " << i;
+    }
+}
+
+TEST(Conv2d, ConstructionCreatesCorrectShapes) {
+    Conv2d conv(2, 4, 3, 1, 1);
+    auto params = conv.named_parameters();
+    ASSERT_EQ(params.size(), 2);
+    EXPECT_TRUE(params.contains("weight"));
+    EXPECT_TRUE(params.contains("bias"));
+
+    const Tensor& weight = params.at("weight").data();
+    const Tensor& bias = params.at("bias").data();
+
+    EXPECT_EQ(weight.shape(), (std::vector<int>{4, 2, 3, 3}));
+    EXPECT_EQ(bias.shape(), (std::vector<int>{4}));
+}
+
+TEST(Conv2d, ForwardMatchesTensorConv2d) {
+    Conv2d conv(1, 1, 3, 1, 0, 0.0f, 42);
+    Tensor input_data({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f,
+                       9.0f, 10.0f, 11.0f, 12.0f, 13.0f, 14.0f, 15.0f, 16.0f}, {1, 1, 4, 4});
+    Variable input(input_data, false);
+    Variable out = conv(input);
+
+    const Tensor& W = conv.named_parameters().at("weight").data();
+    Tensor expected = input_data.conv2d(W, 1, 0);
+    EXPECT_TRUE(out.data() == expected);
+}
+
+TEST(Conv2d, ForwardWithBatchedInput) {
+    Conv2d conv(1, 2, 3, 1, 0, 0.0f, 42);
+    Tensor input_data({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f,
+                       9.0f, 10.0f, 11.0f, 12.0f, 13.0f, 14.0f, 15.0f, 16.0f,
+                       1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f,
+                       9.0f, 10.0f, 11.0f, 12.0f, 13.0f, 14.0f, 15.0f, 16.0f}, {2, 1, 4, 4});
+    Variable input(input_data, false);
+    Variable out = conv(input);
+
+    EXPECT_EQ(out.data().shape(), (std::vector<int>{2, 2, 2, 2}));
+}
+
+TEST(Conv2d, ParametersAreTracked) {
+    Conv2d conv(2, 4, 3);
+    auto params = conv.parameters();
+    ASSERT_EQ(params.size(), 2);
+    for (const auto* p : params) {
+        EXPECT_TRUE(p->requires_grad());
+    }
+}
+
+TEST(Conv2d, GradCheckForwardAndBackward) {
+    Conv2d conv(1, 1, 3, 1, 0, 0.0f, 42);
+    Tensor input_data({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f,
+                       9.0f, 10.0f, 11.0f, 12.0f, 13.0f, 14.0f, 15.0f, 16.0f}, {1, 1, 4, 4});
+    Variable input(input_data, true);
+    Variable out = conv(input);
+    Variable loss = torc::sum(out);
+    loss.backward();
+
+    ASSERT_TRUE(conv.named_parameters().at("weight").has_grad());
+    ASSERT_TRUE(conv.named_parameters().at("bias").has_grad());
+
+    const Tensor& W = conv.named_parameters().at("weight").data();
+    const Tensor& w_grad = conv.named_parameters().at("weight").grad();
+    const Tensor& b_grad = conv.named_parameters().at("bias").grad();
+
+    Tensor num_w_grad = numerical_grad_conv2d_weight(input_data, W, 1, 0);
+    for (int i = 0; i < W.numel(); ++i)
+        expect_near(w_grad.data()[i], num_w_grad.data()[i]);
+    for (int i = 0; i < b_grad.numel(); ++i)
+        expect_near(b_grad.data()[i], 4.0f);
+}
+
+TEST(Flatten, ForwardReshapesCorrectly) {
+    Flatten flatten;
+    Tensor input_data({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, {2, 3});
+    Variable input(input_data, false);
+    Variable out = flatten(input);
+    EXPECT_EQ(out.data().shape(), (std::vector<int>{2, 3}));
+    EXPECT_TRUE(out.data() == input_data);
+}
+
+TEST(Flatten, ForwardBatched4D) {
+    Flatten flatten;
+    Tensor input_data({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f}, {2, 1, 2, 2});
+    Variable input(input_data, false);
+    Variable out = flatten(input);
+    EXPECT_EQ(out.data().shape(), (std::vector<int>{2, 4}));
+}
+
+TEST(Conv2d, SeedProducesReproducibleWeights) {
+    Conv2d conv1(2, 4, 3, 1, 0, 0.0f, 42);
+    Conv2d conv2(2, 4, 3, 1, 0, 0.0f, 42);
+    const Tensor& W1 = conv1.named_parameters().at("weight").data();
+    const Tensor& W2 = conv2.named_parameters().at("weight").data();
+    for (size_t i = 0; i < W1.numel(); ++i) {
+        EXPECT_FLOAT_EQ(W1.data()[i], W2.data()[i]);
     }
 }

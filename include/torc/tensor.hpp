@@ -51,6 +51,11 @@ public:
 
     [[nodiscard]] Tensor matmul(const Tensor& other) const;
 
+    // 2D convolution. input: {N, C_in, H, W}. weight: {C_out, C_in, KH, KW}.
+    // output: {N, C_out, H_out, W_out} where H_out = (H + 2*padding - KH)/stride + 1 (same for W).
+    // Throws ShapeError for rank mismatches, channel mismatches, or non-positive output dims.
+    [[nodiscard]] Tensor conv2d(const Tensor& weight, int stride, int padding) const;
+
     [[nodiscard]] Tensor transpose(std::vector<int> axes) const;
 
     struct Slice { int start; int end; };

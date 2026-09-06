@@ -295,6 +295,57 @@ Tensor Tensor::matmul(const Tensor& other) const {
     return out;
 }
 
+Tensor Tensor::conv2d(const Tensor& weight, int stride, int padding) const {
+    int r = (int)shape_.size();
+    int r2 = (int)weight.shape_.size();
+    if (r != 4)
+        throw ShapeError(std::format("conv2d requires rank-4 input, got shape {}", shape_to_string(shape_)));
+    if (r2 != 4)
+        throw ShapeError(std::format("conv2d requires rank-4 weight, got shape {}", shape_to_string(weight.shape_)));
+
+    int N = shape_[0], C_in = shape_[1], H = shape_[2], W = shape_[3];
+    int C_out = weight.shape_[0], C_in_w = weight.shape_[1], KH = weight.shape_[2], KW = weight.shape_[3];
+    if (C_in != C_in_w)
+        throw ShapeError(std::format("conv2d input channels {} must match weight channels {}",
+                                     C_in, C_in_w));
+    if (stride < 1)
+        throw ShapeError(std::format("conv2d stride must be >= 1, got {}", stride));
+    if (padding < 0)
+        throw ShapeError(std::format("conv2d padding must be >= 0, got {}", padding));
+
+    int H_out = (H + 2 * padding - KH) / stride + 1;
+    int W_out = (W + 2 * padding - KW) / stride + 1;
+    if (H_out <= 0 || W_out <= 0)
+        throw ShapeError(std::format("conv2d output dims must be positive, got {}x{} from input {}x{} weight {}x{} stride {} padding {}",
+                                     H_out, W_out, H, W, KH, KW, stride, padding));
+
+    std::vector<int> out_shape = {N, C_out, H_out, W_out};
+    Tensor out(out_shape);
+
+    for (int n = 0; n < N; ++n) {
+        for (int co = 0; co < C_out; ++co) {
+            for (int i = 0; i < H_out; ++i) {
+                for (int j = 0; j < W_out; ++j) {
+                    float acc = 0.0f;
+                    for (int ci = 0; ci < C_in; ++ci) {
+                        for (int ki = 0; ki < KH; ++ki) {
+                            for (int kj = 0; kj < KW; ++kj) {
+                                int ii = i * stride + ki - padding;
+                                int jj = j * stride + kj - padding;
+                                if (0 <= ii && ii < H && 0 <= jj && jj < W) {
+                                    acc += (*this)[n, ci, ii, jj] * weight[co, ci, ki, kj];
+                                }
+                            }
+                        }
+                    }
+                    out[n, co, i, j] = acc;
+                }
+            }
+        }
+    }
+    return out;
+}
+
 
 
 Tensor Tensor::transpose(std::vector<int> axes) const {

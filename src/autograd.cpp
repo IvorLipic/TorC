@@ -591,6 +591,60 @@ Variable matmul(const Variable& a, const Variable& b) {
     return out;
 }
 
+Variable conv2d(const Variable& a, const Variable& b, int stride, int padding) {
+    bool needs_grad = (a.requires_grad() || b.requires_grad()) && Variable::grad_enabled();
+    Tensor out_data = a.data().conv2d(b.data(), stride, padding);
+    Variable out(std::move(out_data), needs_grad);
+
+    if (needs_grad) {
+        TapeEntry entry;
+        entry.set_inputs({ const_cast<Variable*>(&a), const_cast<Variable*>(&b) });
+        Tensor a_data = a.data();
+        Tensor b_data = b.data();
+        entry.backward = [a_data, b_data, stride, padding](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
+            Tensor da(a_data.shape());
+            Tensor db(b_data.shape());
+            int N = a_data.shape()[0];
+            int C_in = a_data.shape()[1];
+            int H = a_data.shape()[2];
+            int W = a_data.shape()[3];
+            int C_out = b_data.shape()[0];
+            int C_in_w = b_data.shape()[1];
+            int KH = b_data.shape()[2];
+            int KW = b_data.shape()[3];
+            int H_out = grad_output.shape()[2];
+            int W_out = grad_output.shape()[3];
+
+            for (int n = 0; n < N; ++n) {
+                for (int co = 0; co < C_out; ++co) {
+                    for (int i = 0; i < H_out; ++i) {
+                        for (int j = 0; j < W_out; ++j) {
+                            float g = grad_output[n, co, i, j];
+                            for (int ci = 0; ci < C_in_w; ++ci) {
+                                for (int ki = 0; ki < KH; ++ki) {
+                                    for (int kj = 0; kj < KW; ++kj) {
+                                        int ii = i * stride + ki - padding;
+                                        int jj = j * stride + kj - padding;
+                                        if (0 <= ii && ii < H && 0 <= jj && jj < W) {
+                                            da[n, ci, ii, jj] += b_data[co, ci, ki, kj] * g;
+                                            db[co, ci, ki, kj] += a_data[n, ci, ii, jj] * g;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            input_grads[0] = std::move(da);
+            input_grads[1] = std::move(db);
+        };
+        out.tape().push_back(std::move(entry));
+    }
+
+    return out;
+}
+
 Variable transpose(const Variable& a) {
     bool needs_grad = a.requires_grad() && Variable::grad_enabled();
     std::vector<int> axes;

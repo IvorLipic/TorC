@@ -59,7 +59,7 @@ alive, but they turn a destroyed tracked ancestor into a controlled `TorcError` 
 use-after-free. Untracked constants may be temporary because their values are captured by the
 backward closure and they are not traversed.
 
-Variable move construction transfers the lifetime token to the destination. Move assignment keeps
+Variable move construction, like move assignment, gives the destination a fresh identity and resets the moved-from object's token, so existing graph edges to the moved-from object fail deterministically instead of observing partially moved state.
 the destination's identity and resets the moved-from token, so existing graph edges to the moved-
 from object fail deterministically instead of observing partially moved state.
 
@@ -304,6 +304,18 @@ scanning `x.data()` and scatters `grad_output` to that position. For axis-wise r
 (`max(axis)` / `min(axis)`), the scan is per-output-element along the reduced axis, matching
 the iteration order of `Tensor::reduce_axis`. In both cases ties are broken by first-occurrence,
 matching `std::ranges::max` / `std::ranges::min` used in the forward pass.
+
+### Conv2d: z = conv2d(input, weight, stride, padding)  (input: N×C_in×H×W, weight: C_out×C_in×KH×KW)
+```
+dWeight[co,ci,ki,kj] = Σ_{n,i,j} input[n,ci, i*S+ki-P, j*S+kj-P] * grad_out[n,co,i,j]
+                       (sum only over n,i,j where the padded index is in-bounds)
+
+dInput[n,ci,ii,jj] = Σ_{co,ki,kj s.t. i*S+ki-P=ii, j*S+kj-P=jj} weight[co,ci,ki,kj] * grad_out[n,co,i,j]
+```
+Both gradients are computed by walking the same nested `(n, co, i, j, ci, ki, kj)` loop as
+forward and accumulating into zero-filled buffers — the same "zero-fill original shape, scatter
+into it" idiom already documented for `slice`'s backward, just with two output buffers and a
+multiply-accumulate instead of a plain copy.
 
 ---
 

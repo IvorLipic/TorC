@@ -96,12 +96,13 @@ Each step must pass tests before proceeding.
       classification dataset
 - [x] **Step 5.11**: End-to-end example — linear regression on a synthetic dataset
 - [x] **Step 5.12**: End-to-end example — small MLP on MNIST
-- [ ] **Step 5.13**: `nn::LayerNorm` — per-row variance (`mean(x^2) - mean(x)^2`) using
+- [ ] **Step 5.13**: `nn::Conv2d` + end-to-end example — MNIST CNN
+- [ ] **Step 5.14**: `nn::LayerNorm` — per-row variance (`mean(x^2) - mean(x)^2`) using
       existing `mul`/`mean(axis)`; test on `{batch, features}` tensors
-- [ ] **Step 5.14**: Embedding lookup / gather-by-index — `Tensor::slice()` is contiguous-range
+- [ ] **Step 5.15**: Embedding lookup / gather-by-index — `Tensor::slice()` is contiguous-range
       only today, so this needs either an arbitrary-index gather primitive or a one-hot +
       `matmul` workaround
-- [ ] **Step 5.15**: End-to-end example — minimal transformer block (multi-head self-attention +
+- [ ] **Step 5.16**: End-to-end example — minimal transformer block (multi-head self-attention +
       feed-forward) on a toy sequence task; depends on `exp`, LayerNorm, embedding-lookup,
       Softmax, `matmul`, and broadcasting all being in place
 
@@ -154,8 +155,9 @@ primitives would make the eventual fixes more expensive.
 - [ ] **Close tracked-mutation loopholes.** Prevent or version-check mutable `data()` and indexing
       on tracked Variables; the current `fill()` guard does not protect direct writes after
       forward. Add mutation-after-forward tests.
-- [ ] **Make gradient mode scoped and thread-local.** Add an RAII `no_grad` guard and thread-local
-      state so nested scopes, exceptions, and concurrent inference cannot leak gradient state.
+- [x] **Make gradient mode scoped and thread-local.** Thread-local `g_grad_enabled` plus an RAII
+      `Variable::NoGradGuard` are implemented; see `NoGradGuardDisablesAndRestores` and
+      `NoGradGuardRestoresAfterException` in `tests/test_autograd.cpp`.
 - [ ] **Validate optimizers and parameter ownership.** Reject invalid learning rates, momentum,
       beta, epsilon, and decay values; detect null/stale/shape-changing parameter pointers; and
       define behavior when a module parameter map changes after optimizer construction.

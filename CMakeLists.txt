@@ -16,6 +16,7 @@ add_library(torc
     src/tensor.cpp
     src/autograd.cpp
     src/nn.cpp
+    src/nn/conv.cpp
     src/nn/linear.cpp
     src/nn/activations.cpp
     src/nn/losses.cpp
@@ -46,6 +47,10 @@ target_link_libraries(linear_regression_example PRIVATE torc)
 add_executable(mnist_mlp_example examples/mnist_mlp/mnist_mlp.cpp)
 target_include_directories(mnist_mlp_example PRIVATE ${PROJECT_SOURCE_DIR}/include)
 target_link_libraries(mnist_mlp_example PRIVATE torc)
+
+add_executable(mnist_cnn_example examples/mnist_cnn/mnist_cnn.cpp)
+target_include_directories(mnist_cnn_example PRIVATE ${PROJECT_SOURCE_DIR}/include)
+target_link_libraries(mnist_cnn_example PRIVATE torc)
 
 # =============================
 # Unit tests
