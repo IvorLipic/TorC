@@ -70,44 +70,7 @@ std::pair<Tensor, Tensor> TensorDataset::get(size_t idx) const {
     return {std::move(x), std::move(y)};
 }
 
-std::pair<Tensor, Tensor> TensorDataset::get_batch(size_t start, size_t end) const {
-    if (start >= len()) {
-        return {Tensor(std::vector<int>{0}), Tensor(std::vector<int>{0})};
-    }
-    if (end > len()) end = len();
-    if (start >= end) {
-        return {Tensor(std::vector<int>{0}), Tensor(std::vector<int>{0})};
-    }
-
-    auto xs_shape = xs_.shape();
-    auto ys_shape = ys_.shape();
-    size_t batch_size = end - start;
-
-    std::vector<int> x_batch_shape = xs_shape;
-    x_batch_shape[0] = static_cast<int>(batch_size);
-    Tensor x_batch(std::move(x_batch_shape));
-
-    std::vector<int> y_batch_shape = ys_shape;
-    y_batch_shape[0] = static_cast<int>(batch_size);
-    Tensor y_batch(std::move(y_batch_shape));
-
-    size_t sample_size_x = xs_.numel() / xs_.shape().front();
-    size_t sample_size_y = ys_.numel() / ys_.shape().front();
-
-    for (size_t i = 0; i < batch_size; ++i) {
-        const float* x_src = xs_.data() + (start + i) * sample_size_x;
-        float* x_dst = x_batch.data() + i * sample_size_x;
-        std::copy(x_src, x_src + sample_size_x, x_dst);
-
-        const float* y_src = ys_.data() + (start + i) * sample_size_y;
-        float* y_dst = y_batch.data() + i * sample_size_y;
-        std::copy(y_src, y_src + sample_size_y, y_dst);
-    }
-
-    return {std::move(x_batch), std::move(y_batch)};
-}
-
-std::pair<Tensor, Tensor> TensorDataset::get_indices(const std::vector<size_t>& indices) const {
+std::pair<Tensor, Tensor> TensorDataset::gather(const std::vector<size_t>& indices) const {
     if (indices.empty()) {
         return {Tensor(std::vector<int>{0}), Tensor(std::vector<int>{0})};
     }
@@ -246,44 +209,7 @@ std::pair<Tensor, Tensor> SyntheticRegression::get(size_t idx) const {
     return {std::move(x), std::move(y)};
 }
 
-std::pair<Tensor, Tensor> SyntheticRegression::get_batch(size_t start, size_t end) const {
-    if (start >= len()) {
-        return {Tensor(std::vector<int>{0}), Tensor(std::vector<int>{0})};
-    }
-    if (end > len()) end = len();
-    if (start >= end) {
-        return {Tensor(std::vector<int>{0}), Tensor(std::vector<int>{0})};
-    }
-
-    auto xs_shape = xs_.shape();
-    auto ys_shape = ys_.shape();
-    size_t batch_size = end - start;
-
-    std::vector<int> x_batch_shape = xs_shape;
-    x_batch_shape[0] = static_cast<int>(batch_size);
-    Tensor x_batch(std::move(x_batch_shape));
-
-    std::vector<int> y_batch_shape = ys_shape;
-    y_batch_shape[0] = static_cast<int>(batch_size);
-    Tensor y_batch(std::move(y_batch_shape));
-
-    size_t sample_size_x = xs_.numel() / xs_.shape().front();
-    size_t sample_size_y = ys_.numel() / ys_.shape().front();
-
-    for (size_t i = 0; i < batch_size; ++i) {
-        const float* x_src = xs_.data() + (start + i) * sample_size_x;
-        float* x_dst = x_batch.data() + i * sample_size_x;
-        std::copy(x_src, x_src + sample_size_x, x_dst);
-
-        const float* y_src = ys_.data() + (start + i) * sample_size_y;
-        float* y_dst = y_batch.data() + i * sample_size_y;
-        std::copy(y_src, y_src + sample_size_y, y_dst);
-    }
-
-    return {std::move(x_batch), std::move(y_batch)};
-}
-
-std::pair<Tensor, Tensor> SyntheticRegression::get_indices(const std::vector<size_t>& indices) const {
+std::pair<Tensor, Tensor> SyntheticRegression::gather(const std::vector<size_t>& indices) const {
     if (indices.empty()) {
         return {Tensor(std::vector<int>{0}), Tensor(std::vector<int>{0})};
     }
@@ -437,44 +363,7 @@ std::pair<Tensor, Tensor> CSVDataset::get(size_t idx) const {
     return {std::move(x), std::move(y)};
 }
 
-std::pair<Tensor, Tensor> CSVDataset::get_batch(size_t start, size_t end) const {
-    if (start >= len()) {
-        return {Tensor(std::vector<int>{0}), Tensor(std::vector<int>{0})};
-    }
-    if (end > len()) end = len();
-    if (start >= end) {
-        return {Tensor(std::vector<int>{0}), Tensor(std::vector<int>{0})};
-    }
-
-    auto xs_shape = xs_.shape();
-    auto ys_shape = ys_.shape();
-    size_t batch_size = end - start;
-
-    std::vector<int> x_batch_shape = xs_shape;
-    x_batch_shape[0] = static_cast<int>(batch_size);
-    Tensor x_batch(std::move(x_batch_shape));
-
-    std::vector<int> y_batch_shape = ys_shape;
-    y_batch_shape[0] = static_cast<int>(batch_size);
-    Tensor y_batch(std::move(y_batch_shape));
-
-    size_t sample_size_x = xs_.numel() / xs_.shape().front();
-    size_t sample_size_y = ys_.numel() / ys_.shape().front();
-
-    for (size_t i = 0; i < batch_size; ++i) {
-        const float* x_src = xs_.data() + (start + i) * sample_size_x;
-        float* x_dst = x_batch.data() + i * sample_size_x;
-        std::copy(x_src, x_src + sample_size_x, x_dst);
-
-        const float* y_src = ys_.data() + (start + i) * sample_size_y;
-        float* y_dst = y_batch.data() + i * sample_size_y;
-        std::copy(y_src, y_src + sample_size_y, y_dst);
-    }
-
-    return {std::move(x_batch), std::move(y_batch)};
-}
-
-std::pair<Tensor, Tensor> CSVDataset::get_indices(const std::vector<size_t>& indices) const {
+std::pair<Tensor, Tensor> CSVDataset::gather(const std::vector<size_t>& indices) const {
     if (indices.empty()) {
         return {Tensor(std::vector<int>{0}), Tensor(std::vector<int>{0})};
     }
@@ -613,44 +502,7 @@ std::pair<Tensor, Tensor> MNISTDataset::get(size_t idx) const {
     return {std::move(x), std::move(y)};
 }
 
-std::pair<Tensor, Tensor> MNISTDataset::get_batch(size_t start, size_t end) const {
-    if (start >= len_) {
-        return {Tensor(std::vector<int>{0}), Tensor(std::vector<int>{0})};
-    }
-    if (end > len_) end = len_;
-    if (start >= end) {
-        return {Tensor(std::vector<int>{0}), Tensor(std::vector<int>{0})};
-    }
-
-    auto xs_shape = xs_.shape();
-    auto ys_shape = ys_.shape();
-    size_t batch_size = end - start;
-
-    std::vector<int> x_batch_shape = xs_shape;
-    x_batch_shape[0] = static_cast<int>(batch_size);
-    Tensor x_batch(std::move(x_batch_shape));
-
-    std::vector<int> y_batch_shape = ys_shape;
-    y_batch_shape[0] = static_cast<int>(batch_size);
-    Tensor y_batch(std::move(y_batch_shape));
-
-    size_t sample_size_x = xs_.numel() / xs_.shape().front();
-    size_t sample_size_y = ys_.numel() / ys_.shape().front();
-
-    for (size_t i = 0; i < batch_size; ++i) {
-        const float* x_src = xs_.data() + (start + i) * sample_size_x;
-        float* x_dst = x_batch.data() + i * sample_size_x;
-        std::copy(x_src, x_src + sample_size_x, x_dst);
-
-        const float* y_src = ys_.data() + (start + i) * sample_size_y;
-        float* y_dst = y_batch.data() + i * sample_size_y;
-        std::copy(y_src, y_src + sample_size_y, y_dst);
-    }
-
-    return {std::move(x_batch), std::move(y_batch)};
-}
-
-std::pair<Tensor, Tensor> MNISTDataset::get_indices(const std::vector<size_t>& indices) const {
+std::pair<Tensor, Tensor> MNISTDataset::gather(const std::vector<size_t>& indices) const {
     if (indices.empty()) {
         return {Tensor(std::vector<int>{0}), Tensor(std::vector<int>{0})};
     }

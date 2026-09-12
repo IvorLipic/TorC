@@ -5,6 +5,7 @@
 #include <utility>
 #include <random>
 #include <string>
+#include <numeric>
 
 namespace torc::data {
 
@@ -15,20 +16,22 @@ public:
     virtual ~Dataset() = default;
     virtual size_t len() const = 0;
     virtual std::pair<Tensor, Tensor> get(size_t idx) const = 0;
-    virtual std::pair<Tensor, Tensor> get_batch(size_t start, size_t end) const {
+
+    std::pair<Tensor, Tensor> get_batch(size_t start, size_t end) const {
+        if (start >= len()) return {Tensor(std::vector<int>{0}), Tensor(std::vector<int>{0})};
         if (end > len()) end = len();
         if (start >= end) return {Tensor(std::vector<int>{0}), Tensor(std::vector<int>{0})};
-        std::vector<Tensor> xs, ys;
-        xs.reserve(end - start);
-        ys.reserve(end - start);
-        for (size_t i = start; i < end; ++i) {
-            auto [x, y] = get(i);
-            xs.push_back(std::move(x));
-            ys.push_back(std::move(y));
-        }
-        return {stack_samples(xs), stack_samples(ys)};
+        std::vector<size_t> indices(end - start);
+        std::iota(indices.begin(), indices.end(), start);
+        return gather(indices);
     }
-    virtual std::pair<Tensor, Tensor> get_indices(const std::vector<size_t>& indices) const {
+
+    std::pair<Tensor, Tensor> get_indices(const std::vector<size_t>& indices) const {
+        if (indices.empty()) return {Tensor(std::vector<int>{0}), Tensor(std::vector<int>{0})};
+        return gather(indices);
+    }
+
+    virtual std::pair<Tensor, Tensor> gather(const std::vector<size_t>& indices) const {
         std::vector<Tensor> xs, ys;
         xs.reserve(indices.size());
         ys.reserve(indices.size());
@@ -46,8 +49,7 @@ public:
     TensorDataset(Tensor xs, Tensor ys);
     size_t len() const override;
     std::pair<Tensor, Tensor> get(size_t idx) const override;
-    std::pair<Tensor, Tensor> get_batch(size_t start, size_t end) const override;
-    std::pair<Tensor, Tensor> get_indices(const std::vector<size_t>& indices) const override;
+    std::pair<Tensor, Tensor> gather(const std::vector<size_t>& indices) const override;
 
 private:
     Tensor xs_;
@@ -59,8 +61,7 @@ public:
     SyntheticRegression(size_t num_samples, int num_features, float weight, float bias, float noise_std, unsigned int seed = 42);
     size_t len() const override;
     std::pair<Tensor, Tensor> get(size_t idx) const override;
-    std::pair<Tensor, Tensor> get_batch(size_t start, size_t end) const override;
-    std::pair<Tensor, Tensor> get_indices(const std::vector<size_t>& indices) const override;
+    std::pair<Tensor, Tensor> gather(const std::vector<size_t>& indices) const override;
 
 private:
     Tensor xs_;
@@ -80,8 +81,7 @@ public:
     CSVDataset(const std::string& filepath);
     size_t len() const override;
     std::pair<Tensor, Tensor> get(size_t idx) const override;
-    std::pair<Tensor, Tensor> get_batch(size_t start, size_t end) const override;
-    std::pair<Tensor, Tensor> get_indices(const std::vector<size_t>& indices) const override;
+    std::pair<Tensor, Tensor> gather(const std::vector<size_t>& indices) const override;
 
     static std::vector<std::string> split_line(const std::string& line, char delimiter);
     static float parse_float(const std::string& token);
@@ -96,8 +96,7 @@ public:
     MNISTDataset(const std::string& filepath, size_t max_samples = 0, std::vector<int> sample_shape = {});
     size_t len() const override;
     std::pair<Tensor, Tensor> get(size_t idx) const override;
-    std::pair<Tensor, Tensor> get_batch(size_t start, size_t end) const override;
-    std::pair<Tensor, Tensor> get_indices(const std::vector<size_t>& indices) const override;
+    std::pair<Tensor, Tensor> gather(const std::vector<size_t>& indices) const override;
 
 private:
     Tensor xs_;
