@@ -536,12 +536,12 @@ PR. *(Check ROADMAP.md for actual checkbox state — not duplicated here.)*
     needs it)
   - `parameters()` returns `std::vector<Variable*>` by value; the vector is a non-owning view over
     module-owned parameters, so optimizers can mutate them without copying tensor storage
-  - **Forward lifetime**: `Module` owns a `mutable std::list<Variable> forward_cache_` that
-    stores intermediates created during `forward()`. `operator()()` clears this cache before
-    calling `forward()`, and subclasses append intermediates via `emplace_back`. Because
-    `std::list` never relocates elements, raw `Variable*` pointers stored in tape entries
-    remain valid until the next forward pass. This makes `output = module(x); output.backward()`
-    safe without any user-side lifetime management.
+   - **Forward lifetime**: `Module` owns a `mutable std::deque<Variable> forward_cache_` that
+     stores intermediates created during `forward()`. `operator()()` clears this cache before
+     calling `forward()`, and subclasses append intermediates via `emplace_back`. Because
+     `std::deque` does not relocate existing elements on `emplace_back`, raw `Variable*` pointers
+     stored in tape entries remain valid until the next forward pass. This makes
+     `output = module(x); output.backward()` safe without any user-side lifetime management.
   - **Sequential implementation**: `Sequential::forward()` calls each child module's
     `operator()()` directly, which clears each child's `forward_cache_` before calling
     `forward()`. This prevents unbounded cache growth across repeated forward passes while
@@ -565,20 +565,21 @@ PR. *(Check ROADMAP.md for actual checkbox state — not duplicated here.)*
 - **Problem**: local `Variable` intermediates created inside `forward()` are destroyed at
   return, but their tape entries hold raw pointers to them. `backward()` on the returned
   `Variable` therefore dereferences dangling pointers.
-- **Solution**: `Module` owns a `mutable std::list<Variable> forward_cache_`. `operator()()`
-  clears it before calling `forward()`. Each module's `forward()` appends intermediates via
-  `emplace_back` so their addresses are stable for the lifetime of the cache. Because
-  `std::list` never relocates elements, raw `Variable*` pointers in tape entries remain valid
-  until the next forward pass clears the cache.
-- **API impact**: users call `output = module(x); output.backward()` exactly as in Python.
-   `Sequential::forward()` calls each child's `operator()()` directly, which clears each
-   child's `forward_cache_` before calling `forward()`. This prevents unbounded cache growth
-   across repeated forward passes while keeping tape-entry pointers valid for the duration of
-   backward.
-- **Why `std::list`**: `std::vector` can reallocate and move elements, invalidating raw
-  pointers stored in tape entries. `std::list` guarantees stable addresses, which is a
-  prerequisite for the current tape design. The memory overhead is acceptable for a naive
-  reference implementation.
+    - **Solution**: `Module` owns a `mutable std::deque<Variable> forward_cache_`. `operator()()`
+      clears it before calling `forward()`. Each module's `forward()` appends intermediates via
+      `emplace_back` so their addresses are stable for the lifetime of the cache. Because
+      `std::deque` does not relocate existing elements on `emplace_back`, raw `Variable*`
+      pointers in tape entries remain valid until the next forward pass clears the cache.
+    - **API impact**: users call `output = module(x); output.backward()` exactly as in Python.
+       `Sequential::forward()` calls each child's `operator()()` directly, which clears each
+       child's `forward_cache_` before calling `forward()`. This prevents unbounded cache growth
+       across repeated forward passes while keeping tape-entry pointers valid for the duration of
+       backward.
+    - **Why `std::deque`**: `std::vector` can reallocate and move elements, invalidating raw
+      pointers stored in tape entries. `std::list` and `std::deque` both guarantee stable
+      references to existing elements on `emplace_back`; `std::deque` is preferred because it
+      avoids per-element heap allocation and provides better cache locality, at no
+      cost to the stable-reference invariant.
 - **Test**: `Linear` gradient checks for unbatched and batched input pass; `Sequential` with
   multiple layers also works because each child's cache keeps its own intermediates alive.
 
@@ -758,9 +759,17 @@ based on `param->grad()`. This matches PyTorch's separation of `nn.Module` and `
   `{batch, ...}` to `{batch, product_of_remaining_dims}` via `torc::reshape`.
 - `examples/mnist_cnn/mnist_cnn.cpp` — trains `Conv2d(1, 8, 3, stride=2, padding=1) → ReLU →
   Conv2d(8, 16, 3, stride=2, padding=1) → ReLU → Flatten → Linear(16*7*7, 10)` on MNIST using
-  `optim::AdamW` and `nn::CrossEntropyLoss`. Input batches are reshaped from `{batch, 784}` to
-  `{batch, 1, 28, 28}` before the first conv. Writes `loss_history.csv` and `per_class_accuracy.csv`
-  in the same format as the MLP example.
+  `optim::AdamW` and `nn::CrossEntropyLoss`. The `MNISTDataset` constructor now accepts an optional
+  `sample_shape` parameter; the CNN example passes `{1, 28, 28}` so samples are reshaped once at
+  load time and batches arrive already shaped `{batch, 1, 28, 28}`, eliminating the per-batch
+  `torc::reshape` that was previously in the training loop and `evaluate()`. A decorator was
+  considered but deferred — there is currently exactly one dataset type and one target reshape, so
+  extending `MNISTDataset` directly keeps the public surface smaller. Writes `loss_history.csv` and
+  `per_class_accuracy.csv` in the same format as the MLP example.
+- **conv2d indexing**: both `Tensor::conv2d` forward and the `torc::conv2d` backward closure now use
+  raw-pointer arithmetic with precomputed strides instead of `Tensor::operator[]`. The `ii` bounds
+  check is hoisted out of the `kj` inner loop, matching the pattern already used in `Tensor::matmul`.
+  AVX2 vectorization of the innermost accumulation loop is a follow-on, not done here.
 - **Design decisions**:
   - Naive direct convolution, not im2col+matmul — a fast path can be a future Milestone 6 optimization.
   - No unconditional finiteness prepass on the dense forward loop — IEEE NaN/Inf propagation is allowed
@@ -786,6 +795,12 @@ Data loading is the thinnest possible wrapper around a dataset, matching PyTorch
   - `virtual std::pair<Tensor, Tensor> get(size_t idx) const = 0` — returns `(x, y)` as
     `Tensor`s, not `Variable`s. The training loop wraps them in `Variable`s if `requires_grad`
     is needed.
+  - `virtual std::pair<Tensor, Tensor> get_indices(const std::vector<size_t>& indices) const` —
+    gathers arbitrary (possibly non-contiguous) indices into one batch. The default implementation
+    falls back to per-sample `get()` + `stack_samples()`. `TensorDataset`, `MNISTDataset`,
+    `SyntheticRegression`, and `CSVDataset` override this to copy directly from their backing
+    storage in a single pass, avoiding the three-copy-per-sample cost of the default path when
+    shuffling produces non-contiguous batches.
 - **`data::DataLoader`** takes a `Dataset` and produces batches:
   - `DataLoader(const Dataset& ds, size_t batch_size, bool shuffle = false)`
   - `std::pair<Tensor, Tensor> next_batch()` — returns `(x_batch, y_batch)` with the batch

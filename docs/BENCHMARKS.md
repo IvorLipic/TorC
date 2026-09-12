@@ -6,7 +6,7 @@ Baseline measurements for `torc` tensor operations. Generated with
 Run benchmarks:
 
 ```bash
-./build/torc_benchmarks --benchmark_out=benchmark_results.json
+./build/Release/torc_benchmarks --benchmark_out=benchmark_results.json
 ```
 
 ## Baseline (Reference Machine: 12-core, 2096 MHz, L1=32KB, L2=512KB, L3=4096KB)
@@ -115,7 +115,7 @@ Run torc:
 ```bash
 cmake -S . -B build -DBUILD_BENCHMARKS=ON
 cmake --build build --config Release
-./build/torc_benchmarks --benchmark_min_time=1s
+./build/Release/torc_benchmarks --benchmark_min_time=1s
 ```
 
 Run torch:

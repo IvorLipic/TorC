@@ -14,6 +14,7 @@ using torc::data::SyntheticRegression;
 using torc::data::CSVDataset;
 using torc::data::MNISTDataset;
 using torc::data::DataLoader;
+using torc::data::stack_samples;
 
 static std::string write_csv(const std::vector<std::vector<float>>& rows, char delim = ',') {
     std::string path = "test_data_tmp.csv";
@@ -379,4 +380,102 @@ TEST(MNISTDatasetTest, InconsistentColumnsThrows) {
     }
     EXPECT_THROW(MNISTDataset ds(path), torc::TorcError);
     std::remove(path.c_str());
+}
+
+TEST(MNISTDatasetTest, OptionalSampleShapeReshapesOnce) {
+    auto path = write_csv({{5.0f,0.1f,0.2f,0.3f,0.4f},{3.0f,0.5f,0.6f,0.7f,0.8f}});
+    MNISTDataset ds(path, 0, std::vector<int>{2, 2});
+    auto [x0, y0] = ds.get(0);
+    EXPECT_EQ(x0.shape(), (std::vector<int>{2, 2}));
+    EXPECT_FLOAT_EQ(x0.data()[0], 0.1f / 255.0f);
+    EXPECT_FLOAT_EQ(y0.data()[0], 5.0f);
+    std::remove(path.c_str());
+}
+
+TEST(MNISTDatasetTest, SampleShapeMismatchThrows) {
+    auto path = write_csv({{5.0f,0.1f,0.2f,0.3f}});
+    EXPECT_THROW(MNISTDataset(path, 0, std::vector<int>{2, 2}), torc::ShapeError);
+    std::remove(path.c_str());
+}
+
+TEST(MNISTDatasetTest, DefaultSampleShapeStaysFlat) {
+    auto path = write_csv({{5.0f,0.1f,0.2f,0.3f}});
+    MNISTDataset ds(path);
+    auto [x0, y0] = ds.get(0);
+    EXPECT_EQ(x0.shape(), (std::vector<int>{3}));
+    std::remove(path.c_str());
+}
+
+TEST(MNISTDatasetTest, GetBatchRespectsSampleShape) {
+    auto path = write_csv({{1.0f,1.0f,2.0f,3.0f,4.0f},{2.0f,5.0f,6.0f,7.0f,8.0f},{3.0f,9.0f,10.0f,11.0f,12.0f}});
+    MNISTDataset ds(path, 0, std::vector<int>{2, 2});
+    auto [xb, yb] = ds.get_batch(0, 2);
+    EXPECT_EQ(xb.shape(), (std::vector<int>{2, 2, 2}));
+    std::remove(path.c_str());
+}
+
+TEST(TensorDatasetTest, GetIndicesMatchesManualStack) {
+    Tensor xs({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, {3, 2});
+    Tensor ys({0.0f, 1.0f, 2.0f}, {3});
+    TensorDataset ds(std::move(xs), std::move(ys));
+
+    auto [x_asc, y_asc] = ds.get_indices({0, 1, 2});
+    std::vector<Tensor> xs_asc, ys_asc;
+    for (size_t i : {0, 1, 2}) {
+        auto [x, y] = ds.get(i);
+        xs_asc.push_back(std::move(x));
+        ys_asc.push_back(std::move(y));
+    }
+    EXPECT_TRUE(x_asc == stack_samples(xs_asc));
+    EXPECT_TRUE(y_asc == stack_samples(ys_asc));
+
+    auto [x_shuf, y_shuf] = ds.get_indices({2, 0, 1});
+    std::vector<Tensor> xs_shuf, ys_shuf;
+    for (size_t i : {2, 0, 1}) {
+        auto [x, y] = ds.get(i);
+        xs_shuf.push_back(std::move(x));
+        ys_shuf.push_back(std::move(y));
+    }
+    EXPECT_TRUE(x_shuf == stack_samples(xs_shuf));
+    EXPECT_TRUE(y_shuf == stack_samples(ys_shuf));
+}
+
+TEST(MNISTDatasetTest, GetIndicesMatchesManualStack) {
+    auto path = write_csv({{1.0f,1.0f,2.0f,3.0f,4.0f},{2.0f,5.0f,6.0f,7.0f,8.0f},{3.0f,9.0f,10.0f,11.0f,12.0f}});
+    MNISTDataset ds(path, 0, std::vector<int>{2, 2});
+
+    auto [x_idx, y_idx] = ds.get_indices({2, 0, 1});
+    std::vector<Tensor> xs_manual, ys_manual;
+    for (size_t i : {2, 0, 1}) {
+        auto [x, y] = ds.get(i);
+        xs_manual.push_back(std::move(x));
+        ys_manual.push_back(std::move(y));
+    }
+    EXPECT_TRUE(x_idx == stack_samples(xs_manual));
+    EXPECT_TRUE(y_idx == stack_samples(ys_manual));
+    std::remove(path.c_str());
+}
+
+TEST(DataLoaderTest, ShuffleGetIndicesProducesCorrectOrder) {
+    Tensor xs({0.0f, 1.0f, 2.0f, 3.0f}, {4, 1});
+    Tensor ys({0.0f, 1.0f, 2.0f, 3.0f}, {4, 1});
+    TensorDataset ds(xs, ys);
+    DataLoader loader(ds, 2, true, 42);
+
+    std::vector<float> seen;
+    while (loader.has_next()) {
+        auto [x_batch, y_batch] = loader.next_batch();
+        for (int i = 0; i < x_batch.shape()[0]; ++i) {
+            seen.push_back(x_batch.data()[i]);
+        }
+    }
+
+    std::vector<size_t> expected = {0, 1, 2, 3};
+    std::mt19937 rng(42);
+    std::shuffle(expected.begin(), expected.end(), rng);
+
+    ASSERT_EQ(seen.size(), expected.size());
+    for (size_t i = 0; i < expected.size(); ++i) {
+        EXPECT_FLOAT_EQ(seen[i], static_cast<float>(expected[i]));
+    }
 }

@@ -76,7 +76,7 @@ Each step must pass tests before proceeding.
   weight from `N(0, init_std)`. Bias is always initialized to `0.0`.
 - [x] **Step 5.3a**: Fix `Module::forward` / `Module::operator()` API so intermediate `Variable`s
        created inside `forward()` stay alive until after `backward()` completes. Solution:
-       `Module` owns a `mutable std::list<Variable> forward_cache_`; `operator()()` clears it
+               `Module` owns a `mutable std::deque<Variable> forward_cache_`; `operator()()` clears it
        before calling `forward()`, and each module's `forward()` appends intermediates via
        `emplace_back` so their addresses are stable for tape-entry raw pointers.
        `Sequential::forward()` calls each child's `operator()()` to prevent unbounded cache
@@ -115,7 +115,9 @@ Each step must pass tests before proceeding.
 - [x] Contiguous same-shape fast paths for elementwise binary ops (dispatch to `simd::add`/`sub`/`mul`/`div` directly, bypassing index reconstruction)
 - [x] Vectorize matmul inner loop with AVX2/FMA-style AVX2 operations for dense throughput
 - [x] Remove sparsity early-exit from matmul inner loop (dense throughput prioritized)
-- [ ] Replace `std::vector<int>` index reconstruction in hot loops with stack-allocated stride iteration
+- [x] Replace `std::vector<int>` index reconstruction in hot loops with stack-allocated stride iteration
+- [x] `conv2d` forward/backward use raw-pointer/precomputed-stride loops matching `matmul`'s existing pattern (AVX2 inner-loop vectorization remains a follow-up)
+- [x] Eliminate per-batch reshape in CNN example by reshaping `MNISTDataset` once at load time via optional `sample_shape` parameter
 - [ ] Optional CUDA/Metal backend exploration (stretch goal, only after CPU path is solid)
 
 ## Milestone 7 — Bindings & packaging

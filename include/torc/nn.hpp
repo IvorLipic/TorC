@@ -5,7 +5,7 @@
 #include <string>
 #include <unordered_map>
 #include <memory>
-#include <list>
+#include <deque>
 
 namespace torc::nn {
 
@@ -32,7 +32,7 @@ private:
     std::unordered_map<std::string, Variable> named_params_;
     
 protected:
-    mutable std::list<Variable> forward_cache_;
+    mutable std::deque<Variable> forward_cache_;
 };
 
 class Sequential : public Module {

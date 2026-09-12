@@ -34,8 +34,7 @@ static std::pair<std::vector<int>, std::vector<int>> evaluate(const Sequential& 
     while (loader.has_next()) {
         auto [x_batch, y_batch] = loader.next_batch();
         Variable x(x_batch, false);
-        Variable x_reshaped = torc::reshape(x, std::vector<int>{static_cast<int>(x_batch.shape().front()), 1, 28, 28});
-        Variable out = model(x_reshaped);
+        Variable out = model(x);
 
         for (size_t i = 0; i < x_batch.shape().front(); ++i) {
             float max_logit = -1e30f;
@@ -79,13 +78,13 @@ int main(int argc, char** argv) {
         if (max_samples > 0) std::cout << " (max " << max_samples << " samples)";
         std::cout << "\n";
 
-        MNISTDataset train_dataset(train_path, max_samples);
+        MNISTDataset train_dataset(train_path, max_samples, std::vector<int>{1, 28, 28});
         const auto num_samples = train_dataset.len();
         std::cout << "\t-- " << num_samples << " samples (" << num_samples / batch_size << " batches)" << "\n";
         DataLoader train_loader(train_dataset, batch_size, true);
 
         std::cout << "Constructing MNISTDataset (test): " << test_path << "\n";
-        MNISTDataset test_dataset(test_path, max_samples);
+        MNISTDataset test_dataset(test_path, max_samples, std::vector<int>{1, 28, 28});
 
         std::cout << "Building the model..." << "\n";
         std::cout << "\tInput: [N, 1, 28, 28]\n";
@@ -123,8 +122,7 @@ int main(int argc, char** argv) {
                 Variable x(x_batch, true);
                 Variable y(y_batch, false);
 
-                Variable x_reshaped = torc::reshape(x, std::vector<int>{static_cast<int>(x_batch.shape().front()), 1, 28, 28});
-                Variable out = model(x_reshaped);
+                Variable out = model(x);
                 Variable loss = loss_fn(out, y);
                 float batch_loss = loss.data().data()[0];
                 epoch_loss += batch_loss;
@@ -168,7 +166,7 @@ int main(int argc, char** argv) {
         acc_file.close();
 
         std::cout << "\nSaved examples/mnist_cnn/loss_history.csv and per_class_accuracy.csv\n";
-        std::cout << "Run 'python examples/mnist_mlp/plot_results.py' (adapted) to visualize.\n";
+        std::cout << "Run 'python examples/mnist_cnn/plot_results.py' to visualize.\n";
         return 0;
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << "\n";

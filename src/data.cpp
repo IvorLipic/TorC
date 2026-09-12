@@ -107,6 +107,39 @@ std::pair<Tensor, Tensor> TensorDataset::get_batch(size_t start, size_t end) con
     return {std::move(x_batch), std::move(y_batch)};
 }
 
+std::pair<Tensor, Tensor> TensorDataset::get_indices(const std::vector<size_t>& indices) const {
+    if (indices.empty()) {
+        return {Tensor(std::vector<int>{0}), Tensor(std::vector<int>{0})};
+    }
+
+    size_t batch_size = indices.size();
+    auto xs_shape = xs_.shape();
+    auto ys_shape = ys_.shape();
+
+    std::vector<int> x_batch_shape = xs_shape;
+    x_batch_shape[0] = static_cast<int>(batch_size);
+    Tensor x_batch(std::move(x_batch_shape));
+
+    std::vector<int> y_batch_shape = ys_shape;
+    y_batch_shape[0] = static_cast<int>(batch_size);
+    Tensor y_batch(std::move(y_batch_shape));
+
+    size_t sample_size_x = xs_.numel() / xs_.shape().front();
+    size_t sample_size_y = ys_.numel() / ys_.shape().front();
+
+    for (size_t i = 0; i < batch_size; ++i) {
+        const float* x_src = xs_.data() + indices[i] * sample_size_x;
+        float* x_dst = x_batch.data() + i * sample_size_x;
+        std::copy(x_src, x_src + sample_size_x, x_dst);
+
+        const float* y_src = ys_.data() + indices[i] * sample_size_y;
+        float* y_dst = y_batch.data() + i * sample_size_y;
+        std::copy(y_src, y_src + sample_size_y, y_dst);
+    }
+
+    return {std::move(x_batch), std::move(y_batch)};
+}
+
 DataLoader::DataLoader(const Dataset& dataset, size_t batch_size, bool shuffle, unsigned int seed)
     : dataset_(dataset), batch_size_(batch_size), shuffle_(shuffle), current_(0), rng_(seed) {
     if (batch_size_ == 0) {
@@ -151,15 +184,7 @@ std::pair<Tensor, Tensor> DataLoader::next_batch() {
         return dataset_.get_batch(first, first + batch_indices.size());
     }
 
-    std::vector<Tensor> x_samples, y_samples;
-    x_samples.reserve(batch_indices.size());
-    y_samples.reserve(batch_indices.size());
-    for (size_t idx : batch_indices) {
-        auto [x, y] = dataset_.get(idx);
-        x_samples.push_back(std::move(x));
-        y_samples.push_back(std::move(y));
-    }
-    return {stack_samples(x_samples), stack_samples(y_samples)};
+    return dataset_.get_indices(batch_indices);
 }
 
 bool DataLoader::has_next() const {
@@ -251,6 +276,39 @@ std::pair<Tensor, Tensor> SyntheticRegression::get_batch(size_t start, size_t en
         std::copy(x_src, x_src + sample_size_x, x_dst);
 
         const float* y_src = ys_.data() + (start + i) * sample_size_y;
+        float* y_dst = y_batch.data() + i * sample_size_y;
+        std::copy(y_src, y_src + sample_size_y, y_dst);
+    }
+
+    return {std::move(x_batch), std::move(y_batch)};
+}
+
+std::pair<Tensor, Tensor> SyntheticRegression::get_indices(const std::vector<size_t>& indices) const {
+    if (indices.empty()) {
+        return {Tensor(std::vector<int>{0}), Tensor(std::vector<int>{0})};
+    }
+
+    size_t batch_size = indices.size();
+    auto xs_shape = xs_.shape();
+    auto ys_shape = ys_.shape();
+
+    std::vector<int> x_batch_shape = xs_shape;
+    x_batch_shape[0] = static_cast<int>(batch_size);
+    Tensor x_batch(std::move(x_batch_shape));
+
+    std::vector<int> y_batch_shape = ys_shape;
+    y_batch_shape[0] = static_cast<int>(batch_size);
+    Tensor y_batch(std::move(y_batch_shape));
+
+    size_t sample_size_x = xs_.numel() / xs_.shape().front();
+    size_t sample_size_y = ys_.numel() / ys_.shape().front();
+
+    for (size_t i = 0; i < batch_size; ++i) {
+        const float* x_src = xs_.data() + indices[i] * sample_size_x;
+        float* x_dst = x_batch.data() + i * sample_size_x;
+        std::copy(x_src, x_src + sample_size_x, x_dst);
+
+        const float* y_src = ys_.data() + indices[i] * sample_size_y;
         float* y_dst = y_batch.data() + i * sample_size_y;
         std::copy(y_src, y_src + sample_size_y, y_dst);
     }
@@ -416,7 +474,40 @@ std::pair<Tensor, Tensor> CSVDataset::get_batch(size_t start, size_t end) const 
     return {std::move(x_batch), std::move(y_batch)};
 }
 
-MNISTDataset::MNISTDataset(const std::string& filepath, size_t max_samples)
+std::pair<Tensor, Tensor> CSVDataset::get_indices(const std::vector<size_t>& indices) const {
+    if (indices.empty()) {
+        return {Tensor(std::vector<int>{0}), Tensor(std::vector<int>{0})};
+    }
+
+    size_t batch_size = indices.size();
+    auto xs_shape = xs_.shape();
+    auto ys_shape = ys_.shape();
+
+    std::vector<int> x_batch_shape = xs_shape;
+    x_batch_shape[0] = static_cast<int>(batch_size);
+    Tensor x_batch(std::move(x_batch_shape));
+
+    std::vector<int> y_batch_shape = ys_shape;
+    y_batch_shape[0] = static_cast<int>(batch_size);
+    Tensor y_batch(std::move(y_batch_shape));
+
+    size_t sample_size_x = xs_.numel() / xs_.shape().front();
+    size_t sample_size_y = ys_.numel() / ys_.shape().front();
+
+    for (size_t i = 0; i < batch_size; ++i) {
+        const float* x_src = xs_.data() + indices[i] * sample_size_x;
+        float* x_dst = x_batch.data() + i * sample_size_x;
+        std::copy(x_src, x_src + sample_size_x, x_dst);
+
+        const float* y_src = ys_.data() + indices[i] * sample_size_y;
+        float* y_dst = y_batch.data() + i * sample_size_y;
+        std::copy(y_src, y_src + sample_size_y, y_dst);
+    }
+
+    return {std::move(x_batch), std::move(y_batch)};
+}
+
+MNISTDataset::MNISTDataset(const std::string& filepath, size_t max_samples, std::vector<int> sample_shape)
     : xs_(std::vector<int>{0}), ys_(std::vector<int>{0}), len_(0) {
     std::ifstream file(filepath);
     if (!file.is_open()) {
@@ -474,6 +565,19 @@ MNISTDataset::MNISTDataset(const std::string& filepath, size_t max_samples)
     }
 
     len_ = num_samples;
+
+    if (!sample_shape.empty()) {
+        int product = 1;
+        for (int d : sample_shape) product *= d;
+        if (product != num_pixels) {
+            throw torc::ShapeError(std::format(
+                "MNISTDataset: sample_shape product {} does not match pixel count {}",
+                product, num_pixels));
+        }
+        std::vector<int> full_shape = sample_shape;
+        full_shape.insert(full_shape.begin(), static_cast<int>(num_samples));
+        xs_ = xs_.reshape(std::move(full_shape));
+    }
 }
 
 size_t MNISTDataset::len() const {
@@ -539,6 +643,39 @@ std::pair<Tensor, Tensor> MNISTDataset::get_batch(size_t start, size_t end) cons
         std::copy(x_src, x_src + sample_size_x, x_dst);
 
         const float* y_src = ys_.data() + (start + i) * sample_size_y;
+        float* y_dst = y_batch.data() + i * sample_size_y;
+        std::copy(y_src, y_src + sample_size_y, y_dst);
+    }
+
+    return {std::move(x_batch), std::move(y_batch)};
+}
+
+std::pair<Tensor, Tensor> MNISTDataset::get_indices(const std::vector<size_t>& indices) const {
+    if (indices.empty()) {
+        return {Tensor(std::vector<int>{0}), Tensor(std::vector<int>{0})};
+    }
+
+    size_t batch_size = indices.size();
+    auto xs_shape = xs_.shape();
+    auto ys_shape = ys_.shape();
+
+    std::vector<int> x_batch_shape = xs_shape;
+    x_batch_shape[0] = static_cast<int>(batch_size);
+    Tensor x_batch(std::move(x_batch_shape));
+
+    std::vector<int> y_batch_shape = ys_shape;
+    y_batch_shape[0] = static_cast<int>(batch_size);
+    Tensor y_batch(std::move(y_batch_shape));
+
+    size_t sample_size_x = xs_.numel() / xs_.shape().front();
+    size_t sample_size_y = ys_.numel() / ys_.shape().front();
+
+    for (size_t i = 0; i < batch_size; ++i) {
+        const float* x_src = xs_.data() + indices[i] * sample_size_x;
+        float* x_dst = x_batch.data() + i * sample_size_x;
+        std::copy(x_src, x_src + sample_size_x, x_dst);
+
+        const float* y_src = ys_.data() + indices[i] * sample_size_y;
         float* y_dst = y_batch.data() + i * sample_size_y;
         std::copy(y_src, y_src + sample_size_y, y_dst);
     }

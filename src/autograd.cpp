@@ -604,6 +604,13 @@ Variable conv2d(const Variable& a, const Variable& b, int stride, int padding) {
         entry.backward = [a_data, b_data, stride, padding](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
             Tensor da(a_data.shape());
             Tensor db(b_data.shape());
+
+            const float* a_ptr = a_data.data();
+            const float* b_ptr = b_data.data();
+            const float* grad_ptr = grad_output.data();
+            float* da_ptr = da.data();
+            float* db_ptr = db.data();
+
             int N = a_data.shape()[0];
             int C_in = a_data.shape()[1];
             int H = a_data.shape()[2];
@@ -615,20 +622,39 @@ Variable conv2d(const Variable& a, const Variable& b, int stride, int padding) {
             int H_out = grad_output.shape()[2];
             int W_out = grad_output.shape()[3];
 
+            const int a_n_stride = C_in * H * W, a_c_stride = H * W;
+            const int b_co_stride = C_in_w * KH * KW, b_ci_stride = KH * KW;
+            const int da_n_stride = C_in * H * W, da_c_stride = H * W;
+            const int db_co_stride = C_in_w * KH * KW;
+            const int grad_n_stride = C_out * H_out * W_out, grad_co_stride = H_out * W_out;
+
             for (int n = 0; n < N; ++n) {
+                const float* a_n = a_ptr + n * a_n_stride;
+                const float* grad_n = grad_ptr + n * grad_n_stride;
+                float* da_n = da_ptr + n * da_n_stride;
                 for (int co = 0; co < C_out; ++co) {
+                    const float* b_co = b_ptr + co * b_co_stride;
+                    const float* grad_co = grad_n + co * grad_co_stride;
+                    float* da_co = da_n;
+                    float* db_co = db_ptr + co * db_co_stride;
                     for (int i = 0; i < H_out; ++i) {
                         for (int j = 0; j < W_out; ++j) {
-                            float g = grad_output[n, co, i, j];
+                            float g = grad_co[i * W_out + j];
                             for (int ci = 0; ci < C_in_w; ++ci) {
+                                const float* a_c = a_n + ci * a_c_stride;
+                                const float* b_ci = b_co + ci * b_ci_stride;
+                                float* da_c = da_co + ci * da_c_stride;
                                 for (int ki = 0; ki < KH; ++ki) {
+                                    int ii = i * stride + ki - padding;
+                                    if (ii < 0 || ii >= H) continue;
+                                    const float* a_row = a_c + ii * W;
+                                    const float* b_row = b_ci + ki * KW;
+                                    float* da_row = da_c + ii * W;
                                     for (int kj = 0; kj < KW; ++kj) {
-                                        int ii = i * stride + ki - padding;
                                         int jj = j * stride + kj - padding;
-                                        if (0 <= ii && ii < H && 0 <= jj && jj < W) {
-                                            da[n, ci, ii, jj] += b_data[co, ci, ki, kj] * g;
-                                            db[co, ci, ki, kj] += a_data[n, ci, ii, jj] * g;
-                                        }
+                                        if (jj < 0 || jj >= W) continue;
+                                        da_row[jj] += b_row[kj] * g;
+                                        db_co[ci * KH * KW + ki * KW + kj] += a_row[jj] * g;
                                     }
                                 }
                             }
@@ -636,6 +662,7 @@ Variable conv2d(const Variable& a, const Variable& b, int stride, int padding) {
                     }
                 }
             }
+
             input_grads[0] = std::move(da);
             input_grads[1] = std::move(db);
         };

@@ -322,23 +322,39 @@ Tensor Tensor::conv2d(const Tensor& weight, int stride, int padding) const {
     std::vector<int> out_shape = {N, C_out, H_out, W_out};
     Tensor out(out_shape);
 
+    const float* in_ptr = storage_.data();
+    const float* w_ptr = weight.data();
+    float* out_ptr = out.data();
+
+    const int in_n_stride = C_in * H * W, in_c_stride = H * W;
+    const int w_co_stride = C_in_w * KH * KW, w_ci_stride = KH * KW;
+    const int out_n_stride = C_out * H_out * W_out, out_co_stride = H_out * W_out;
+
     for (int n = 0; n < N; ++n) {
+        const float* in_n = in_ptr + n * in_n_stride;
+        float* out_n = out_ptr + n * out_n_stride;
         for (int co = 0; co < C_out; ++co) {
+            const float* w_co = w_ptr + co * w_co_stride;
+            float* out_co = out_n + co * out_co_stride;
             for (int i = 0; i < H_out; ++i) {
                 for (int j = 0; j < W_out; ++j) {
                     float acc = 0.0f;
                     for (int ci = 0; ci < C_in; ++ci) {
+                        const float* in_c = in_n + ci * in_c_stride;
+                        const float* w_ci = w_co + ci * w_ci_stride;
                         for (int ki = 0; ki < KH; ++ki) {
+                            int ii = i * stride + ki - padding;
+                            if (ii < 0 || ii >= H) continue;
+                            const float* in_row = in_c + ii * W;
+                            const float* w_row = w_ci + ki * KW;
                             for (int kj = 0; kj < KW; ++kj) {
-                                int ii = i * stride + ki - padding;
                                 int jj = j * stride + kj - padding;
-                                if (0 <= ii && ii < H && 0 <= jj && jj < W) {
-                                    acc += (*this)[n, ci, ii, jj] * weight[co, ci, ki, kj];
-                                }
+                                if (jj < 0 || jj >= W) continue;
+                                acc += in_row[jj] * w_row[kj];
                             }
                         }
                     }
-                    out[n, co, i, j] = acc;
+                    out_co[i * W_out + j] = acc;
                 }
             }
         }

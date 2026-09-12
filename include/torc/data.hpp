@@ -28,6 +28,17 @@ public:
         }
         return {stack_samples(xs), stack_samples(ys)};
     }
+    virtual std::pair<Tensor, Tensor> get_indices(const std::vector<size_t>& indices) const {
+        std::vector<Tensor> xs, ys;
+        xs.reserve(indices.size());
+        ys.reserve(indices.size());
+        for (size_t idx : indices) {
+            auto [x, y] = get(idx);
+            xs.push_back(std::move(x));
+            ys.push_back(std::move(y));
+        }
+        return {stack_samples(xs), stack_samples(ys)};
+    }
 };
 
 class TensorDataset : public Dataset {
@@ -36,6 +47,7 @@ public:
     size_t len() const override;
     std::pair<Tensor, Tensor> get(size_t idx) const override;
     std::pair<Tensor, Tensor> get_batch(size_t start, size_t end) const override;
+    std::pair<Tensor, Tensor> get_indices(const std::vector<size_t>& indices) const override;
 
 private:
     Tensor xs_;
@@ -48,6 +60,7 @@ public:
     size_t len() const override;
     std::pair<Tensor, Tensor> get(size_t idx) const override;
     std::pair<Tensor, Tensor> get_batch(size_t start, size_t end) const override;
+    std::pair<Tensor, Tensor> get_indices(const std::vector<size_t>& indices) const override;
 
 private:
     Tensor xs_;
@@ -68,6 +81,7 @@ public:
     size_t len() const override;
     std::pair<Tensor, Tensor> get(size_t idx) const override;
     std::pair<Tensor, Tensor> get_batch(size_t start, size_t end) const override;
+    std::pair<Tensor, Tensor> get_indices(const std::vector<size_t>& indices) const override;
 
     static std::vector<std::string> split_line(const std::string& line, char delimiter);
     static float parse_float(const std::string& token);
@@ -79,10 +93,11 @@ private:
 
 class MNISTDataset : public Dataset {
 public:
-    MNISTDataset(const std::string& filepath, size_t max_samples = 0);
+    MNISTDataset(const std::string& filepath, size_t max_samples = 0, std::vector<int> sample_shape = {});
     size_t len() const override;
     std::pair<Tensor, Tensor> get(size_t idx) const override;
     std::pair<Tensor, Tensor> get_batch(size_t start, size_t end) const override;
+    std::pair<Tensor, Tensor> get_indices(const std::vector<size_t>& indices) const override;
 
 private:
     Tensor xs_;

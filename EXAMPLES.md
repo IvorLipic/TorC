@@ -13,8 +13,8 @@ optimized with `AdamW` and `CrossEntropyLoss` for 20 epochs (batch size 128, lea
 `per_class_accuracy.csv`.
 
 ```bash
-./build/mnist_mlp_example              # full training run
-./build/mnist_mlp_example 100          # cap to 100 samples (truncates BOTH train and test)
+./build/Release/mnist_mlp_example              # full training run
+./build/Release/mnist_mlp_example 100          # cap to 100 samples (truncates BOTH train and test)
 ```
 
 The MNIST CSVs are **not bundled** with the repo — only the conversion script
@@ -56,9 +56,14 @@ optimized with `AdamW` and `CrossEntropyLoss` for 10 epochs (batch size 128, lea
 `per_class_accuracy.csv`.
 
 ```bash
-./build/mnist_cnn_example              # full training run
-./build/mnist_cnn_example 100          # cap to 100 samples (truncates BOTH train and test)
+./build/Release/mnist_cnn_example              # full training run
+./build/Release/mnist_cnn_example 100          # cap to 100 samples (truncates BOTH train and test)
 ```
 
 The MNIST CSV setup is identical to the MLP example above — see the MNIST MLP section for the
 `convert_to_csv.py` instructions.
+
+![Per-class test accuracy per epoch](examples/mnist_cnn/per_class_accuracy.png)
+
+The optional helper `python examples/mnist_cnn/plot_results.py` regenerates the plots from the
+CSV files.
