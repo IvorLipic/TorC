@@ -34,7 +34,8 @@ static std::pair<std::vector<int>, std::vector<int>> evaluate(const Sequential& 
     while (loader.has_next()) {
         auto [x_batch, y_batch] = loader.next_batch();
         Variable x(x_batch, false);
-        Variable out = model(x);
+        Variable x_reshaped = torc::reshape(x, std::vector<int>{static_cast<int>(x_batch.shape().front()), 1, 28, 28});
+        Variable out = model(x_reshaped);
 
         for (size_t i = 0; i < x_batch.shape().front(); ++i) {
             float max_logit = -1e30f;
@@ -87,12 +88,14 @@ int main(int argc, char** argv) {
         MNISTDataset test_dataset(test_path, max_samples);
 
         std::cout << "Building the model..." << "\n";
+        std::cout << "\tInput: [N, 1, 28, 28]\n";
+        std::cout << "\tFormula: H_out = (H_in + 2*padding - kernel_size) / stride + 1\n";
         Sequential model;
-        model.add(std::make_unique<Conv2d>(1, 8, 3, 2, 1));
+        model.add(std::make_unique<Conv2d>(/*in_channels=*/1, /*out_channels=*/8, /*kernel_size=*/3, /*stride=*/2, /*padding=*/1));  // (28+2-3)/2+1 = 14
         model.add(std::make_unique<ReLU>());
-        model.add(std::make_unique<Conv2d>(8, 16, 3, 2, 1));
+        model.add(std::make_unique<Conv2d>(/*in_channels=*/8, /*out_channels=*/16, /*kernel_size=*/3, /*stride=*/2, /*padding=*/1));  // (14+2-3)/2+1 = 7
         model.add(std::make_unique<ReLU>());
-        model.add(std::make_unique<Flatten>());
+        model.add(std::make_unique<Flatten>());                // [N, 16*7*7] = [N, 784]
         model.add(std::make_unique<torc::nn::Linear>(16 * 7 * 7, 10));
 
         auto params = model.parameters();
