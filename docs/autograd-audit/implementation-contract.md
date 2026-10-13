@@ -37,16 +37,18 @@ differences (h = 1e-2, tolerance 1e-2 per `docs/DESIGN.md`) for: exp, log, sqrt,
 variants), neg, mul, div, sub, sum/mean (axis ≥ 0), max/min, transpose, reshape, matmul, broadcast add/mul,
 MSELoss, CrossEntropyLoss.
 
-## 3. Suspected / confirmed defects (not fixed; core untouched)
+## 3. Defects
+Status update: D1 and D2 (plus D6, a double normalisation in `Tensor::mean(axis)` found while fixing) were fixed on `main` via PR #1 (reviewed; 328/328 tests pass under clang 18) and merged into `web`. The table records the state at audit time.
+
 | ID | Severity | Summary | Evidence |
 |---|---|---|---|
 | D1 | Medium, reproduced | `slice` backward computes strides from `grad_output.shape()` instead of the input shape → wrong scatter whenever a trailing sliced dim is narrower than the input and the leading extent is > 1 (a plain 2-D crop, no offset needed; confirmed by an independent reviewer). `a=[[1,2,3],[4,5,6]]`, `slice(a,{{0,2},{1,3}})`, `sum().backward()` gives `[0 1 1 1 1 0]`, expected `[0 1 1 0 1 1]`; `slice(a,{{0,2},{0,2}})` gives `[1 1 1 1 0 0]`, expected `[1 1 0 1 1 0]` | `autograd.cpp` ~743–750 |
 | D2 | Low–medium, reproduced | Negative `axis` in autograd `sum/mean/max/min(x, axis)` is not normalised (forward is). `sum(x,-1)` → all-zero grad; `max(x,-1)` → out-of-bounds read | `autograd.cpp` ~373, 414, 495, 532 |
 | D3 | Low, design quirk | `backward()` on an intermediate permanently cuts the graph above it for later losses (no `retain_graph`) | repro |
 | D4 | Low | Root `.grad()` never set | repro |
-| D5 | Doc/minor | `-0` shows in grads; `parameters()` order unspecified; "process-global" vs `thread_local`; recursive `build_topo` | various |
+| D5 | Doc/minor | `-0` shows in grads; `parameters()` order unspecified (tests relying on it fixed in PR #1); "process-global" vs `thread_local` (doc fixed in PR #1); recursive `build_topo` | various |
 
-The visualizations avoid D1/D2 and say nothing that depends on them. They are reported to the user for decision.
+The visualizations never depended on D1/D2.
 
 ## 4. Confirmed limitations
 No differentiable `pow`, `abs`, `tanh`, `clamp`, concat, indexing. float32 only. Graph is non-owning (lifetime rules above).
