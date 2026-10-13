@@ -18,6 +18,8 @@ message(STATUS "Building traces against TorC @ ${TORC_REF}")
 # older commits ignore them).
 set(TORC_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(TORC_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+# Portable scalar/baseline code so the output does not depend on the CPU of whoever (or whatever CI runner) generates it.
+set(TORC_NATIVE_ARCH OFF CACHE BOOL "" FORCE)
 
 include(FetchContent)
 FetchContent_Declare(torc GIT_REPOSITORY ${TORC_REPOSITORY} GIT_TAG ${TORC_REF})
