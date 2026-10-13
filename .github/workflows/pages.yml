@@ -1,0 +1,45 @@
+# Deploys the prebuilt static site in site/ to GitHub Pages (https://<user>.github.io/TorC/).
+# Manual trigger only (workflow_dispatch): nothing deploys automatically, and never from main.
+# The site is built beforehand (see visualizations/README.md); this workflow only uploads site/.
+name: Deploy site
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  # The single branch this workflow may deploy from. Change deliberately when the site branch is chosen.
+  ALLOWED_BRANCH: claude/vigilant-fermat-qbzq3t
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Refuse to run from any other branch
+        run: |
+          if [ "${GITHUB_REF_NAME}" != "${ALLOWED_BRANCH}" ]; then
+            echo "Deployment is only allowed from ${ALLOWED_BRANCH}, got ${GITHUB_REF_NAME}"; exit 1
+          fi
+      - uses: actions/checkout@v4
+      - name: Check required site files exist
+        run: |
+          for f in index.html audit.html style.css app.js data/autograd_trace.json media/ReuseScene.mp4 media/ChainScene.mp4 media/MlpScene.mp4; do
+            test -s "site/$f" || { echo "missing site/$f"; exit 1; }
+          done
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4

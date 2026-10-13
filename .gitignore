@@ -85,3 +85,9 @@ datasets/**
 !datasets/**/
 !datasets/**/*.py
 benchmark_results.json
+build-viz/
+build-clang/
+visualizations/media/
+.venv-viz/
+site/dist/
+__pycache__/
