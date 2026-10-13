@@ -126,7 +126,8 @@ Each step must pass tests before proceeding.
       metadata (`find_package(torc CONFIG)`), plus `TORC_BUILD_TESTS`/`TORC_BUILD_EXAMPLES`/
       `TORC_NATIVE_ARCH` options so consumers don't build tests or require `-march=native`
 - [x] Versioned releases: `v0.1.0` tagged (see `CHANGELOG.md`)
-- [ ] CI (GitHub Actions: build + `ctest` on push)
+- [x] CI (GitHub Actions: build + `ctest` on push) — `.github/workflows/ci.yml`: clang-18 and gcc-14
+      build/test matrix, install + `find_package`/FetchContent consumer smoke test, ASan + UBSan job
 
 ## Review-derived hardening backlog
 
@@ -188,6 +189,9 @@ primitives would make the eventual fixes more expensive.
 - [ ] Add Debug/Release sanitizer jobs (ASan/UBSan where supported), a clean compiler matrix, and
       CI that configures and rebuilds from scratch rather than relying on a pre-existing build
       directory. Keep at least one test target per logical suite in addition to the aggregate test.
+      *Partly done:* `.github/workflows/ci.yml` configures from scratch in every job, runs a
+      clang-18 / gcc-14 matrix and a clang-18 Debug ASan+UBSan job. Still open: a Release
+      sanitizer job, a macOS/MSVC leg, and per-suite test targets (one aggregate `TorcTests` today).
 - [ ] Add property/fuzz tests for broadcasting, matmul batch promotion, malformed losses/data, and
       empty/zero-sized shapes; the current example-oriented tests do not cover these hazards.
 - [x] Add an install target and package/version metadata (`torcConfig.cmake`,

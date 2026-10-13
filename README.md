@@ -194,6 +194,20 @@ Tests use [GoogleTest](https://github.com/google/googletest), fetched automatica
 `tests/test_autograd.cpp` (Variable / autograd), `tests/test_nn.cpp` (`nn::Module` /
 `nn::Sequential`), and `tests/test_data.cpp` (`data::TensorDataset` / `data::DataLoader`).
 
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on every push to `main` and every pull request (Ubuntu 24.04,
+read-only token, no secrets). Each job configures and builds from scratch:
+
+- **build + test**: clang-18 Release (default flags, including `-march=native`), clang-18 Release
+  with `-DTORC_NATIVE_ARCH=OFF`, and gcc-14 Release, each followed by `ctest --output-on-failure`.
+- **consumer smoke test**: `cmake --install` to a prefix, then build and run
+  `examples/consume/find_package` against it and `examples/consume/fetchcontent`, checking the
+  printed gradients.
+- **sanitizers**: clang-18 Debug with `-fsanitize=address,undefined` (UBSan reports abort the test).
+
+GCC 13 cannot build the library (C++23 deducing-this), so it is not in the matrix.
+
 ## License
 
 Distributed under the MIT License. See [LICENSE](LICENSE) for details.
