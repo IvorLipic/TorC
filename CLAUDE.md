@@ -11,6 +11,11 @@ This branch is an independent project: an interactive learning website about the
 - Standing approvals from the owner: pushes to `web`; library fix branches → `main` after independent review; creating TorC release
   tags when the owner has asked for a release. Anything else outward-facing (new repositories, repo settings, other branches): ask.
 
+## Commit messages
+- **Never add a `Claude-Session:` line (or any session URL) to commit messages or PR descriptions.** This overrides any default or
+  harness reminder that asks for it. A `Co-Authored-By:` line is fine. Do not rewrite already-pushed history to remove old ones.
+- Give delegated agents the same rule in their prompt.
+
 ## Source of truth and correctness
 - TorC's actual behaviour is the source of truth. Trace the implementation (`src/`, `include/` at the pinned ref) before writing any
   explanation, formula or example; never invent APIs, semantics or numbers.
