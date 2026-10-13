@@ -1,0 +1,151 @@
+name: CI
+
+# Library CI: every job configures and builds from scratch in a fresh runner workspace (no
+# restored build directory), then runs the full GoogleTest suite through ctest.
+# GoogleTest is fetched over the network by CMake's FetchContent (see ROADMAP.md, dependency
+# strategy item), so a transient network failure can fail a job; re-run it.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# One run per ref; a newer push or PR update cancels the superseded run.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Read-only token, no secrets anywhere in this workflow.
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    name: build + test (${{ matrix.name }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # clang-18 with the project defaults (top-level build: Release, -march=native).
+          - name: clang-18 Release
+            cxx: clang++-18
+            packages: clang-18
+            cmake_args: ""
+          # Same compiler, portable binaries: only the ISA flag is dropped.
+          - name: clang-18 Release, native arch off
+            cxx: clang++-18
+            packages: clang-18
+            cmake_args: -DTORC_NATIVE_ARCH=OFF
+          # gcc-14 verified locally (14.2.0): compiles and passes all tests.
+          # gcc-13 is intentionally NOT in the matrix: tensor.hpp uses C++23 deducing-this,
+          # which gcc 13 cannot compile.
+          - name: gcc-14 Release
+            cxx: g++-14
+            packages: g++-14
+            cmake_args: ""
+    env:
+      CXX: ${{ matrix.cxx }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends cmake ninja-build ${{ matrix.packages }}
+
+      - name: Show tool versions
+        run: |
+          cmake --version
+          "$CXX" --version
+
+      - name: Configure (from scratch)
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release ${{ matrix.cmake_args }}
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+  consumer:
+    name: consumer smoke test (install + find_package, FetchContent)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      CXX: clang++-18
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends cmake ninja-build clang-18
+
+      # Library-only install: tests and examples are off, so googletest is never fetched.
+      - name: Configure, build and install the library
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DTORC_NATIVE_ARCH=OFF \
+            -DTORC_BUILD_TESTS=OFF -DTORC_BUILD_EXAMPLES=OFF \
+            -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/torc-install"
+          cmake --build build
+          cmake --install build
+
+      - name: Installed prefix contains no googletest files
+        run: |
+          find "$RUNNER_TEMP/torc-install" -type f | sort
+          if find "$RUNNER_TEMP/torc-install" | grep -i -E 'gtest|gmock'; then
+            echo "googletest leaked into the install prefix" >&2
+            exit 1
+          fi
+
+      - name: Build and run the find_package consumer
+        run: |
+          cmake -S examples/consume/find_package -B consume-fp -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/torc-install"
+          cmake --build consume-fp
+          ./consume-fp/app | tee fp.out
+          # Join the three printed lines into one and compare exactly.
+          actual=$(awk 'NR>1{printf ", "} {printf "%s", $0}' fp.out)
+          expected='y = 32, dy/da = 4 5 6, dy/db = 1 2 3'
+          test "$actual" = "$expected" || { echo "unexpected output: '$actual'" >&2; exit 1; }
+
+      - name: Build and run the FetchContent consumer
+        run: |
+          cmake -S examples/consume/fetchcontent -B consume-fc -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build consume-fc
+          ./consume-fc/app | tee fc.out
+          actual=$(awk 'NR>1{printf ", "} {printf "%s", $0}' fc.out)
+          expected='y = 32, dy/da = 4 5 6, dy/db = 1 2 3'
+          test "$actual" = "$expected" || { echo "unexpected output: '$actual'" >&2; exit 1; }
+
+  sanitizers:
+    name: ASan + UBSan (clang-18 Debug)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CXX: clang++-18
+      # -fno-sanitize-recover=all makes any UBSan report abort the test (non-zero exit) instead of
+      # only printing "runtime error: ..." and continuing.
+      SAN_FLAGS: -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer
+      ASAN_OPTIONS: detect_leaks=1:strict_string_checks=1:detect_stack_use_after_return=1
+      UBSAN_OPTIONS: print_stacktrace=1
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends cmake ninja-build clang-18 libclang-rt-18-dev
+
+      - name: Configure (from scratch)
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_CXX_FLAGS="$SAN_FLAGS" -DCMAKE_EXE_LINKER_FLAGS="$SAN_FLAGS"
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure

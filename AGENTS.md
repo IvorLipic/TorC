@@ -28,6 +28,8 @@ torc/
 ├── AGENTS.md                   # this file
 ├── ROADMAP.md                   # milestone checklist, updated frequently
 ├── .gitignore
+├── .github/
+│   └── workflows/ci.yml        # GitHub Actions: build+ctest matrix, consumer smoke test, ASan/UBSan
 ├── docs/
 │   ├── DESIGN.md                # design decisions + planned future structure
 │   ├── AUTOGRAD.md              # autograd algorithm details
@@ -215,7 +217,9 @@ each with gradient checks against central finite differences where applicable. S
 
 ## 5. Known issues
 
-1. No CI configured — build + `ctest` only run locally, no GitHub Actions workflow yet.
+1. CI (`.github/workflows/ci.yml`) covers Linux only (clang-18, gcc-14, Debug ASan+UBSan);
+   there is no macOS/Windows leg and no Release-mode sanitizer job yet. CI jobs fetch GoogleTest
+   over the network, so a transient network failure can fail a run.
 2. `Variable`'s tape (`TapeEntry.inputs`) retains raw, non-owning `Variable*` pointers. Weak
    lifetime tokens now detect destroyed tracked ancestors and make backward throw `TorcError`,
    but the graph is still not ownership-retaining; callers must keep tracked ancestors alive.

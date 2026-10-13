@@ -4,6 +4,12 @@ All notable changes to `torc` are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow semantic versioning
 (0.x releases may still change the API).
 
+## [Unreleased]
+
+### Added
+- GitHub Actions CI (`.github/workflows/ci.yml`): clang-18/gcc-14 build + `ctest` matrix, install and
+  consumer smoke test, and an ASan + UBSan job.
+
 ## [0.1.0] - 2026-10-13
 
 First packaged version of the library (tag `v0.1.0`).
