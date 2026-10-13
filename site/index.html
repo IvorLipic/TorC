@@ -1,54 +1,54 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark"><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%276%27 fill=%27%230e1116%27/%3E%3Ctext x=%2716%27 y=%2723%27 font-size=%2720%27 text-anchor=%27middle%27 fill=%27%2358c4dd%27%3E%E2%88%87%3C/text%3E%3C/svg%3E"><link rel="stylesheet" href="style.css"><title>TorC autograd, animated</title></head><body>
-<header class="site"><nav><a class="brand" href="index.html">TorC · autograd</a>
-<a class="nav" href="index.html#reuse" >Scenes</a><a class="nav" href="audit.html" >Audit</a><a class="nav" href="https://github.com/IvorLipic/TorC">GitHub</a></nav></header>
-<main>
-<h1>How TorC's autograd actually works</h1>
-<p class="lead">TorC is a from-scratch C++ tensor library. These animations were generated from <em>real runs of the library</em>: every number and every edge below comes from the program's own output, and the gradient of every parameter and input (each leaf) is cross-checked against central finite differences. Intermediate gradients were checked by hand.</p>
-<div class="card">
-<span class="tag obs">observed</span> what the code does (traced in source and run) &nbsp;
-<span class="tag math">math</span> what calculus says &nbsp;
-<span class="tag bug">suspected bug</span> where the two disagree — see the <a href="audit.html">audit</a>.
-</div>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="description" content="Step through backpropagation by hand: an interactive walk-through of TorC's autograd, with the real numbers and the math of every step.">
+<title>TorC · Backpropagation, step by step</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%276%27 fill=%27%230e1116%27/%3E%3Ctext x=%2716%27 y=%2723%27 font-size=%2720%27 text-anchor=%27middle%27 fill=%27%2358c4dd%27%3E%E2%88%87%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="vendor/katex/katex.min.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site"><nav>
+  <a class="brand" href="#top">TorC · backprop</a>
+  <a class="nav" href="#lab">Try it</a>
+  <a class="nav" href="https://github.com/IvorLipic/TorC">GitHub</a>
+</nav></header>
 
-<h2>The idea in four sentences</h2>
-<p>Each operation (<code>torc::mul</code>, <code>torc::add</code>, …) computes its result immediately and attaches a <code>TapeEntry</code> to the <em>output</em> <code>Variable</code>: raw pointers to its inputs and a closure that maps the incoming gradient to a gradient per input. <code>backward()</code> topologically sorts the graph from the root, seeds it with 1, and runs the closures in reverse order. Each closure's result is <em>added</em> into every input's <code>grad</code>, so a variable that is used several times gets the sum of its contributions. Broadcasting is undone centrally in <code>backward_with_grad</code> (<code>reduce_sum_to_shape</code>) by summing the gradient down to the input's shape; <code>matmul</code> does the same inside its own closure.</p>
+<main id="top">
+  <section class="hero">
+    <h1>Backpropagation, one step at a time</h1>
+    <p class="lead">Learn how a neural network works out <em>which way to nudge each number</em>. Step through a small computation forward, then backward, and see exactly what is multiplied by what — with the real numbers computed by <a href="https://github.com/IvorLipic/TorC">TorC</a>, a from-scratch C++ tensor library.</p>
+    <p><a class="btn primary big" href="#lab">Start the walk-through ↓</a></p>
+  </section>
 
-<section id="reuse" data-scene="reuse">
-<h2>1 · One variable, several uses</h2>
-<video controls preload="metadata" playsinline><source src="media/ReuseScene.webm" type="video/webm"><source src="media/ReuseScene.mp4" type="video/mp4"></video>
-<p><code>y = x*x + x</code> at <code>x = 3</code>. Math: <code>dy/dx = 2x + 1 = 7</code>. <code>x</code> is an input of <code>mul</code> twice and of <code>add</code> once, so three contributions (3 + 3 + 1) are accumulated into <code>x.grad</code>.</p>
-<pre><code>Variable x(Tensor({3.0f}, {1}), true);
-Variable m = mul(x, x);
-Variable y = add(m, x);
-y.backward();          // x.grad() == 7</code></pre>
-<div class="values hint">loading values…</div><p class="fd"></p>
-</section>
+  <section aria-labelledby="ideas">
+    <h2 id="ideas">Three ideas are enough</h2>
+    <div class="cards" id="concepts"></div>
+  </section>
 
-<section id="chain" data-scene="chain">
-<h2>2 · The chain rule, and a gradient that stops</h2>
-<video controls preload="metadata" playsinline><source src="media/ChainScene.webm" type="video/webm"><source src="media/ChainScene.mp4" type="video/mp4"></video>
-<p><code>f = sum(relu(a*b + c))</code>. Each node multiplies the incoming gradient by its <em>local derivative</em>: <code>sum</code> passes 1 to every element, <code>relu</code> passes it where its input was positive and blocks it otherwise, <code>add</code> copies, and <code>mul</code> swaps the factors (<code>da = g·b</code>, <code>db = g·a</code>). The third element has <code>a*b+c = −2 &lt; 0</code>, so everything upstream of it gets 0.</p>
-<pre><code>Variable ab = mul(a, b);
-Variable z  = add(ab, c);
-Variable r  = relu(z);
-Variable f  = sum(r);
-f.backward();</code></pre>
-<div class="values hint">loading values…</div><p class="fd"></p>
-</section>
-
-<section id="mlp" data-scene="mlp">
-<h2>3 · A tiny network</h2>
-<video controls preload="metadata" playsinline><source src="media/MlpScene.webm" type="video/webm"><source src="media/MlpScene.mp4" type="video/mp4"></video>
-<p><code>L = mse(relu(x@W1 + b1)@W2 + b2, t)</code> with a batch of one. The bias <code>b1</code> (shape <code>{2}</code>) is broadcast over the batch in <code>add</code>; <code>backward_with_grad</code> sums the gradient back down to <code>{2}</code> (<code>reduce_sum_to_shape</code>). The second hidden unit is negative before ReLU, so <code>W1</code>'s second column, <code>b1[1]</code> and <code>W2[1]</code> all receive zero gradient. It is written with explicit ops so each intermediate is visible; <code>nn::Linear</code> computes the same math as <code>x @ Wᵀ + b</code> (its <code>W</code> is stored as <code>{out, in}</code>) but keeps its intermediates private.</p>
-<div class="values hint">loading values…</div><p class="fd"></p>
-</section>
-
-<h2>Reproduce it</h2>
-<pre><code># needs clang++ ≥ 18 or GCC ≥ 14 (tensor.hpp uses C++23 deducing this)
-visualizations/examples/build_and_run.sh        # writes visualizations/generated/autograd_trace.json
-cd visualizations/manim &amp;&amp; manim -qm --media_dir ../media torc_scenes.py ReuseScene ChainScene MlpScene
-visualizations/build_site.sh                    # copies JSON + videos into site/</code></pre>
-<p class="hint">The page cannot run C++ or Manim: GitHub Pages serves static files, so values and videos were produced beforehand by the commands above.</p>
+  <section id="lab" aria-labelledby="lab-h">
+    <h2 id="lab-h">Try it</h2>
+    <p class="hint">Pick an example, then press <kbd>Next</kbd> (or use <kbd>←</kbd> <kbd>→</kbd>). Click any node to open its math window. Change the inputs to see how the gradients respond.</p>
+    <div id="lab-body">
+      <div id="scene-tabs" class="tabs" role="tablist" aria-label="Examples"></div>
+      <div id="scene-intro" class="scene-intro"></div>
+      <details id="inputs-details" class="inputs"><summary>✎ Edit the input numbers <span class="hint">(everything recomputes live)</span></summary><div id="inputs-inner"></div></details>
+      <div id="controls" class="controls"></div>
+      <div class="graph-wrap"><div id="graph" class="graph"></div></div>
+      <p class="hint swipe">Tip: on a narrow screen, swipe the graph sideways.</p>
+      <div id="window" class="win" aria-live="polite"></div>
+      <div id="takeaway" class="takeaway" hidden></div>
+    </div>
+  </section>
 </main>
-<footer>Generated from <a href="https://github.com/IvorLipic/TorC">IvorLipic/TorC</a>. Animation style is inspired by the general approach of dark, minimalist math videos; no third-party scenes or assets are used.</footer>
-<script src="app.js"></script></body></html>
+
+<footer>
+  <p>Every value and gradient shown for the preset inputs was printed by the real TorC library (<code>visualizations/examples/autograd_trace.cpp</code>) and cross-checked against finite differences; edited inputs are recomputed in your browser by a small JavaScript port of the same rules, which is tested against the C++ output. Source: <a href="https://github.com/IvorLipic/TorC">github.com/IvorLipic/TorC</a>.</p>
+</footer>
+<script src="vendor/katex/katex.min.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>
