@@ -40,7 +40,7 @@ MSELoss, CrossEntropyLoss.
 ## 3. Suspected / confirmed defects (not fixed; core untouched)
 | ID | Severity | Summary | Evidence |
 |---|---|---|---|
-| D1 | Medium, reproduced | `slice` backward computes strides from `grad_output.shape()` instead of the input shape → wrong scatter when a leading-dim offset ≠ 0. `a=[[1,2,3],[4,5,6]]`, `slice(a,{{0,2},{1,3}})`, `sum().backward()` gives `[0 1 1 1 1 0]`, expected `[0 1 1 0 1 1]` | `autograd.cpp` ~743–750 |
+| D1 | Medium, reproduced | `slice` backward computes strides from `grad_output.shape()` instead of the input shape → wrong scatter whenever a trailing sliced dim is narrower than the input and the leading extent is > 1 (a plain 2-D crop, no offset needed; confirmed by an independent reviewer). `a=[[1,2,3],[4,5,6]]`, `slice(a,{{0,2},{1,3}})`, `sum().backward()` gives `[0 1 1 1 1 0]`, expected `[0 1 1 0 1 1]`; `slice(a,{{0,2},{0,2}})` gives `[1 1 1 1 0 0]`, expected `[1 1 0 1 1 0]` | `autograd.cpp` ~743–750 |
 | D2 | Low–medium, reproduced | Negative `axis` in autograd `sum/mean/max/min(x, axis)` is not normalised (forward is). `sum(x,-1)` → all-zero grad; `max(x,-1)` → out-of-bounds read | `autograd.cpp` ~373, 414, 495, 532 |
 | D3 | Low, design quirk | `backward()` on an intermediate permanently cuts the graph above it for later losses (no `retain_graph`) | repro |
 | D4 | Low | Root `.grad()` never set | repro |

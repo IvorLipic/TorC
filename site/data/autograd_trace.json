@@ -38,7 +38,7 @@
     },
     {
       "id":"mlp","title":"A tiny network","expression":"L = mse( relu(x@W1 + b1)@W2 + b2, t )",
-      "note":"Built from explicit ops so every intermediate is visible. The second hidden unit is negative before ReLU, so its path receives zero gradient.",
+      "note":"Built from explicit ops so every intermediate is visible. The second hidden unit is negative before ReLU, so ReLU blocks it: h[1], W1's second column, b1[1] and W2[1] get zero gradient.",
       "root":"L",
       "root_has_grad":false,
       "nodes":[

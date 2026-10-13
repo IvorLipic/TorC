@@ -3,8 +3,9 @@
 // everything the visualizations need (graph edges taken from the real tape,
 // forward values, accumulated gradients, finite-difference check) as JSON.
 //
-// Output schema: see visualizations/README.md. Nothing in the Manim scenes or the
-// website hardcodes numbers: they all come from this file's output.
+// Output schema: see visualizations/README.md. The Manim scenes read every value and edge
+// from this output. (The website prose quotes a few of these numbers by hand; they were
+// checked against this output.)
 #include "torc/autograd.hpp"
 #include "torc/tensor.hpp"
 
@@ -205,7 +206,7 @@ int main() {
     {
         Scene s;
         s.id = "mlp"; s.title = "A tiny network"; s.expression = "L = mse( relu(x@W1 + b1)@W2 + b2, t )";
-        s.note = "Built from explicit ops so every intermediate is visible. The second hidden unit is negative before ReLU, so its path receives zero gradient.";
+        s.note = "Built from explicit ops so every intermediate is visible. The second hidden unit is negative before ReLU, so ReLU blocks it: h[1], W1's second column, b1[1] and W2[1] get zero gradient.";
         s.leaves = {{"x",  Tensor({1.0f, 2.0f}, {1, 2})},
                     {"W1", Tensor({0.5f, -1.0f, 0.25f, 0.75f}, {2, 2})},
                     {"b1", Tensor({0.1f, -0.8f}, {2})},

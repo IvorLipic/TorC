@@ -3,7 +3,7 @@
 <a class="nav" href="index.html#reuse" >Scenes</a><a class="nav" href="audit.html" >Audit</a><a class="nav" href="https://github.com/IvorLipic/TorC">GitHub</a></nav></header>
 <main>
 <h1>How TorC's autograd actually works</h1>
-<p class="lead">TorC is a from-scratch C++ tensor library. These animations were generated from <em>real runs of the library</em>: every number and every edge below comes from the program's own output, and every gradient is cross-checked against finite differences.</p>
+<p class="lead">TorC is a from-scratch C++ tensor library. These animations were generated from <em>real runs of the library</em>: every number and every edge below comes from the program's own output, and the gradient of every parameter and input (each leaf) is cross-checked against central finite differences. Intermediate gradients were checked by hand.</p>
 <div class="card">
 <span class="tag obs">observed</span> what the code does (traced in source and run) &nbsp;
 <span class="tag math">math</span> what calculus says &nbsp;
@@ -11,7 +11,7 @@
 </div>
 
 <h2>The idea in four sentences</h2>
-<p>Each operation (<code>torc::mul</code>, <code>torc::add</code>, …) computes its result immediately and attaches a <code>TapeEntry</code> to the <em>output</em> <code>Variable</code>: raw pointers to its inputs and a closure that maps the incoming gradient to a gradient per input. <code>backward()</code> topologically sorts the graph from the root, seeds it with 1, and runs the closures in reverse order. Each closure's result is <em>added</em> into every input's <code>grad</code>, so a variable that is used several times gets the sum of its contributions. Broadcasting is undone in one place, by summing the gradient down to the input's shape.</p>
+<p>Each operation (<code>torc::mul</code>, <code>torc::add</code>, …) computes its result immediately and attaches a <code>TapeEntry</code> to the <em>output</em> <code>Variable</code>: raw pointers to its inputs and a closure that maps the incoming gradient to a gradient per input. <code>backward()</code> topologically sorts the graph from the root, seeds it with 1, and runs the closures in reverse order. Each closure's result is <em>added</em> into every input's <code>grad</code>, so a variable that is used several times gets the sum of its contributions. Broadcasting is undone centrally in <code>backward_with_grad</code> (<code>reduce_sum_to_shape</code>) by summing the gradient down to the input's shape; <code>matmul</code> does the same inside its own closure.</p>
 
 <section id="reuse" data-scene="reuse">
 <h2>1 · One variable, several uses</h2>
@@ -39,14 +39,14 @@ f.backward();</code></pre>
 <section id="mlp" data-scene="mlp">
 <h2>3 · A tiny network</h2>
 <video controls preload="metadata" playsinline><source src="media/MlpScene.webm" type="video/webm"><source src="media/MlpScene.mp4" type="video/mp4"></video>
-<p><code>L = mse(relu(x@W1 + b1)@W2 + b2, t)</code> with a batch of one. The bias <code>b1</code> (shape <code>{2}</code>) is broadcast over the batch in <code>add</code>; <code>backward_with_grad</code> sums the gradient back down to <code>{2}</code> (<code>reduce_sum_to_shape</code>). The second hidden unit is negative before ReLU, so <code>W1</code>'s second column, <code>b1[1]</code> and <code>W2[1]</code> all receive zero gradient. It is written with explicit ops so each intermediate is visible; <code>nn::Linear</code> computes the same thing but keeps its intermediates private.</p>
+<p><code>L = mse(relu(x@W1 + b1)@W2 + b2, t)</code> with a batch of one. The bias <code>b1</code> (shape <code>{2}</code>) is broadcast over the batch in <code>add</code>; <code>backward_with_grad</code> sums the gradient back down to <code>{2}</code> (<code>reduce_sum_to_shape</code>). The second hidden unit is negative before ReLU, so <code>W1</code>'s second column, <code>b1[1]</code> and <code>W2[1]</code> all receive zero gradient. It is written with explicit ops so each intermediate is visible; <code>nn::Linear</code> computes the same math as <code>x @ Wᵀ + b</code> (its <code>W</code> is stored as <code>{out, in}</code>) but keeps its intermediates private.</p>
 <div class="values hint">loading values…</div><p class="fd"></p>
 </section>
 
 <h2>Reproduce it</h2>
 <pre><code># needs clang++ ≥ 18 or GCC ≥ 14 (tensor.hpp uses C++23 deducing this)
 visualizations/examples/build_and_run.sh        # writes visualizations/generated/autograd_trace.json
-cd visualizations/manim &amp;&amp; manim -qm torc_scenes.py ReuseScene ChainScene MlpScene
+cd visualizations/manim &amp;&amp; manim -qm --media_dir ../media torc_scenes.py ReuseScene ChainScene MlpScene
 visualizations/build_site.sh                    # copies JSON + videos into site/</code></pre>
 <p class="hint">The page cannot run C++ or Manim: GitHub Pages serves static files, so values and videos were produced beforehand by the commands above.</p>
 </main>

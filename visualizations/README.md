@@ -11,7 +11,7 @@ examples/autograd_trace.cpp ──(real torc run)──► generated/autograd_tr
 JSON schema: `scenes[] = {id,title,expression,note,root,root_has_grad,nodes[],finite_difference}`;
 `nodes[] = {name,op,role("leaf"|"op"),requires_grad,inputs[] (read from the real TapeEntry),value{shape,values},grad{shape,values}|null}`;
 `finite_difference = {h,atol,leaves[{name,numerical[],analytic[],max_abs_err,ok}]}`.
-Manim files contain layout only, no numbers.
+Manim files contain layout only; scene values, edges and notes come from the JSON. The site prose quotes a few values by hand (checked, not generated).
 
 ## Commands
 ```bash
@@ -32,3 +32,5 @@ All site URLs are relative, so the same files work at `/` and `/TorC/`.
 2. Settings → Environments → `github-pages` → deployment branches: allow only the chosen branch.
 3. Set `ALLOWED_BRANCH` in `.github/workflows/pages.yml` to that branch, then run the "Deploy site" workflow manually.
 Nothing deploys automatically.
+
+Note: GitHub only lists a `workflow_dispatch` workflow in the Actions tab when the file exists on the default branch. Running this one therefore requires the workflow file to reach `main` (via a reviewed merge), or temporarily adding a `push:` trigger limited to the chosen branch. That is a decision for the repository owner; it was not done here.

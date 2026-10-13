@@ -1,7 +1,7 @@
 # TorC Autograd Visualization Project Rules
 
 ## Repository safety
-- Work only on the designated session branch (`claude/vigilant-fermat-qbzq3t`; the user chose it for this cloud session in place of `autograd-visualizations`) unless the user explicitly chooses another branch.
+- Work only on the branch the user designated for this task (`claude/vigilant-fermat-qbzq3t` for the initial cloud session, used in place of the starter pack's `autograd-visualizations`) unless the user explicitly chooses another branch.
 - Never checkout, modify, commit to, or push `main`.
 - Before making changes, inspect `git status` and `git branch --show-current`. Stop if the worktree has unrelated changes or the current branch is not the dedicated work branch.
 - Do not merge, open a pull request, or push to a remote without explicit user approval.

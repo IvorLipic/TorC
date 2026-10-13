@@ -75,7 +75,7 @@ class TraceScene(Scene):
                     arr = Arrow(a.get_center(), b.get_center(), buff=0.6, stroke_width=3, color=MUTED, max_tip_length_to_length_ratio=0.15)
                 else:  # same input used twice by one op: draw a second, curved edge
                     if abs(a.get_center()[1] - b.get_center()[1]) < 0.5:
-                        arr = CurvedArrow(a.get_top() + 0.15 * RIGHT, b.get_top() + 0.15 * LEFT, angle=-2.0, stroke_width=3, color=MUTED)
+                        arr = CurvedArrow(a.get_top() + 0.15 * RIGHT, b.get_top() + 0.15 * LEFT, angle=-2.0, stroke_width=3, color=MUTED, tip_length=0.2)
                     else:
                         arr = CurvedArrow(a.get_top(), b.get_left() + 0.12 * UP, angle=-0.5, stroke_width=3, color=MUTED)
                 arr.set_z_index(0)

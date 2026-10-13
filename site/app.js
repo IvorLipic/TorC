@@ -29,7 +29,7 @@ fetch('data/autograd_trace.json').then(r => r.json()).then(data => {
     const worst = Math.max(...s.finite_difference.leaves.map(l => l.max_abs_err));
     const ok = s.finite_difference.leaves.every(l => l.ok);
     fd.replaceChildren(el('span', ok ? 'ok' : 'warn',
-      (ok ? '✓ ' : '✗ ') + 'finite differences (h=' + s.finite_difference.h + ') agree with autograd: max |Δ| = ' + worst.toExponential(1) + ' (tolerance ' + s.finite_difference.atol + ')'));
+      (ok ? '✓ ' : '✗ ') + 'finite differences (h=' + Number(s.finite_difference.h.toPrecision(3)) + ') agree with autograd: max |Δ| = ' + worst.toExponential(1) + ' (tolerance ' + s.finite_difference.atol + ')'));
   }
 }).catch(err => {
   for (const e of document.querySelectorAll('.values')) e.textContent = 'Could not load data/autograd_trace.json (serve the site over HTTP, not file://): ' + err;
