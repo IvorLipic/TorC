@@ -131,7 +131,7 @@ cmake --build build --config Release
 | `TORC_BUILD_TESTS` | ON if top-level, else OFF | Build `torc_tests` (fetches GoogleTest only when ON) |
 | `TORC_BUILD_EXAMPLES` | ON if top-level, else OFF | Build the example executables |
 | `TORC_INSTALL` | ON if top-level, else OFF | Generate `cmake --install` and package-config rules |
-| `TORC_NATIVE_ARCH` | ON | Release builds of the library use `-march=native` (`/arch:AVX2` on MSVC) |
+| `TORC_NATIVE_ARCH` | ON if top-level, else OFF | Release builds of the library use `-march=native` (`/arch:AVX2` on MSVC) |
 | `BUILD_BENCHMARKS` | OFF | Build `torc_benchmarks` (fetches Google Benchmark) |
 | `USE_OPENMP` | OFF | Parallelize elementwise/reduction ops with OpenMP |
 
@@ -139,7 +139,10 @@ cmake --build build --config Release
 inner loop are guarded by the compiler's `__AVX2__` macro). With `-DTORC_NATIVE_ARCH=OFF` the
 library is compiled without any ISA flag, so those paths fall back to scalar loops: the result
 runs on any CPU the compiler's baseline targets, but `matmul` and the elementwise ops are slower.
-Turn it OFF when building a copy of the library that will be installed or redistributed.
+It defaults to ON only when torc is the top-level project (developer and benchmark builds), so
+copies consumed via `add_subdirectory`/FetchContent are portable and reproducible across machines
+by default; pass `-DTORC_NATIVE_ARCH=ON` to opt in. Also pass `-DTORC_NATIVE_ARCH=OFF` when
+installing from a top-level build that will be redistributed.
 
 ## Using torc from another CMake project
 
@@ -151,7 +154,7 @@ cmake --build build && cmake --install build
 ```
 
 ```cmake
-find_package(torc 0.1 CONFIG REQUIRED)          # add -DCMAKE_PREFIX_PATH=/opt/torc
+find_package(torc 0.1 CONFIG REQUIRED)          # add -DCMAKE_PREFIX_PATH=/opt/torc; 0.1.x only
 add_executable(app main.cpp)
 target_link_libraries(app PRIVATE torc::torc)   # brings the include dirs and the C++23 requirement
 ```
@@ -170,8 +173,15 @@ target_link_libraries(app PRIVATE torc::torc)
 
 Complete runnable projects live in `examples/consume/find_package/` and
 `examples/consume/fetchcontent/`. Consumers need a C++23 compiler (Clang 18+ or GCC 14+) and
-CMake 3.20+. Remember that tracked `Variable`s must outlive `backward()` (see the known
-constraint under Autograd above).
+CMake 3.20+.
+
+- Consumers choose their own `CMAKE_BUILD_TYPE`: the library's `-O3`/`-funroll-loops` flags (and
+  `-march=native` when enabled) apply only in `Release`, so FetchContent consumers should
+  configure with `-DCMAKE_BUILD_TYPE=Release` (torc only forces Release as a top-level project).
+- Tracked `Variable`s must outlive `backward()` (see the known constraint under Autograd above).
+  That is why the consumer examples bind intermediates to named variables
+  (`Variable prod = torc::mul(a, b); Variable y = torc::sum(prod);`) instead of nesting
+  temporaries like `torc::sum(torc::mul(a, b))`, which throws `TorcError` at `backward()`.
 
 ## Run tests
 

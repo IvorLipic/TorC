@@ -96,7 +96,7 @@ When `BUILD_BENCHMARKS=ON`, CMake adds the optional `torc_benchmarks` target fro
 C++23 (`target_compile_features(torc PUBLIC cxx_std_23)`, hence CMake 3.20+). The project is
 `torc` 0.1.0 and exports `torc::torc` via `cmake --install` (see `README.md` for the
 find_package / FetchContent snippets and the `TORC_*` options, including `TORC_NATIVE_ARCH`,
-which controls `-march=native`). GoogleTest (`v1.14.0`) is pulled in for tests via `FetchContent`; Google Benchmark
+which controls `-march=native` and defaults to ON only for top-level builds). GoogleTest (`v1.14.0`) is pulled in for tests via `FetchContent`; Google Benchmark
 (`v1.8.0`) is pulled in for benchmarks via `FetchContent` when `BUILD_BENCHMARKS=ON`. There are
 no other dependencies.
 

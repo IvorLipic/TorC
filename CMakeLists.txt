@@ -22,7 +22,7 @@ endif()
 option(TORC_BUILD_TESTS "Build the GoogleTest suite (fetches googletest)" ${TORC_IS_TOP_LEVEL})
 option(TORC_BUILD_EXAMPLES "Build the example executables" ${TORC_IS_TOP_LEVEL})
 option(TORC_INSTALL "Generate install and package-config rules" ${TORC_IS_TOP_LEVEL})
-option(TORC_NATIVE_ARCH "Release builds of the library use -march=native (/arch:AVX2 on MSVC)" ON)
+option(TORC_NATIVE_ARCH "Release builds of the library use -march=native (/arch:AVX2 on MSVC)" ${TORC_IS_TOP_LEVEL})
 option(BUILD_BENCHMARKS "Build benchmarks" OFF)
 option(USE_OPENMP "Enable OpenMP parallelization" OFF)
 
@@ -169,7 +169,7 @@ if(TORC_INSTALL)
     write_basic_package_version_file(
         ${CMAKE_CURRENT_BINARY_DIR}/torcConfigVersion.cmake
         VERSION ${PROJECT_VERSION}
-        COMPATIBILITY SameMajorVersion
+        COMPATIBILITY SameMinorVersion
     )
     install(FILES
         ${CMAKE_CURRENT_BINARY_DIR}/torcConfig.cmake

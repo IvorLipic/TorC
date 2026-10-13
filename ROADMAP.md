@@ -191,7 +191,7 @@ primitives would make the eventual fixes more expensive.
 - [ ] Add property/fuzz tests for broadcasting, matmul batch promotion, malformed losses/data, and
       empty/zero-sized shapes; the current example-oriented tests do not cover these hazards.
 - [x] Add an install target and package/version metadata (`torcConfig.cmake`,
-      `torcConfigVersion.cmake`, SameMajorVersion). Consumers (`add_subdirectory`/FetchContent)
+      `torcConfigVersion.cmake`, SameMinorVersion). Consumers (`add_subdirectory`/FetchContent)
       no longer fetch GoogleTest.
 - [ ] Dependency strategy for developer builds: a clean top-level build still fetches GoogleTest
       (and Google Benchmark with `BUILD_BENCHMARKS=ON`) over the network via `FetchContent`; add

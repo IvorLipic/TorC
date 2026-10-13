@@ -26,11 +26,12 @@ First packaged version of the library (not yet tagged).
 ### Packaging
 - `cmake --install` installs the `torc` static library, the public headers under
   `include/torc/` (including `nn/`), and `torcConfig.cmake` / `torcConfigVersion.cmake`
-  (`SameMajorVersion`); consume with `find_package(torc CONFIG)` and link `torc::torc`.
+  (`SameMinorVersion`: `find_package(torc 0.1)` accepts 0.1.x only, since 0.x minors may break); consume with `find_package(torc CONFIG)` and link `torc::torc`.
 - `torc::torc` is also available when torc is added with `add_subdirectory`/FetchContent.
 - New CMake options: `TORC_BUILD_TESTS`, `TORC_BUILD_EXAMPLES`, `TORC_INSTALL` (all default ON only
-  for a top-level build) and `TORC_NATIVE_ARCH` (default ON; OFF drops `-march=native` and the
-  AVX2 paths that depend on it).
+  for a top-level build) and `TORC_NATIVE_ARCH` (default ON for a top-level build, OFF when
+  consumed via `add_subdirectory`/FetchContent; OFF drops `-march=native` and the AVX2 paths that
+  depend on it, giving portable, reproducible consumer builds).
 - GoogleTest is fetched only when `TORC_BUILD_TESTS=ON`.
 - Public usage requirement `cxx_std_23`; minimum CMake raised from 3.16 to 3.20 (the first
   version that knows `cxx_std_23`; 3.16 could not select C++23 at all).
