@@ -78,3 +78,28 @@ Independent replica (plain NumPy float64, script run during this work, not commi
 ## 5. Test hooks suggested by the data
 
 (a) JS `buildGraph/runBackward` on scene `why` equals `grid[*].{L,grad}` (rel 1e-5). (b) `w -= lr*g` in double reproduces `trajectories[*].states[k].w` within `1e-5 (1+|w|)`; diverging runs (lr 0.3) grow to `4e3`, relative agreement still `1e-6`. (c) `grad == 8(w-3)` on all grid points. (d) `secants[*].expected_slope` equals `4h-24`; `|slope + 24|` decreases monotonically with `h` even in the float32 record (4, 2, 0.4000, 0.03989, 0.00556), but the `h = 0.001` float32 value misses the exact secant (-23.996) by 0.0016, so assert the exact formula only on the JS (double) value, and compare the float32 record with a tolerance of about `1e-2` there. (e) `stable_predicted` vs sign of `L_8 - L_0`. (f) Quoted numbers (36, -24, 12.96, 7.2, -12, -0.2396) bound to paths: `scenes[0].nodes[L].value`, `scenes[0].nodes[w].grad`, `trajectories[0].states[1].L`, `trajectories[0].states[0].tangent_L_next`, `scenes[0].nodes[e].grad`, `nudge.stages[2].change`.
+
+## 6. Lesson status (as built; written by the lesson author, not yet reviewed)
+
+Files: `site/js/lessons/why-gradients.js` (text, predict/check, widget wiring), `why-gradients.scenes.js` (graph-lab layout and text for scene `why`, built with `T()`),
+`site/js/widgets/landscape-model.js` (pure model: curve, secants, steps, nudge, factor; all through `engine.buildGraph/runBackward` and the op registry),
+`landscape-tex.js` (every paper-work LaTeX string, pure so the tests can render them), `landscape1d.js` (knob, slope/secant, stepper, step-size widgets, shared UI helpers),
+`why-gears.js` (chain rule as gears), `site/test/why-gradients.test.mjs`.
+
+**Storyboard as built** (differs from plan 3.1 only where noted)
+1. *A knob and a score*: text with the three TorC lines (`mul`, `sub`, `mul`, `backward()`), a **predict** (left or right at w = 0), then the knob widget (slider, jump buttons for four recorded probes, live `p`, `e`, `L` as paper work, "lowest score so far", curve table).
+2. *Slope*: secant widget (knob slider + `h` slider over eight stops, five of which TorC recorded), tangent from `backward()`, units and sign stated, the float32 `h = 0.001` fact shown honestly (TorC printed -23.9944, double gives -23.996).
+3. *Step against the slope*: manual stepper (lr slider, Step, Reset, step table, tangent promise vs actual, status line in an `aria-live` region). Badge says when the steps equal TorC's recorded `optim::SGD` run.
+4. *Step size*: a **predict** (lr = 0.25), then presets for the five recorded learning rates plus a free slider, live factor `1 - 8 lr` (the 8 is `2 x^2` computed from the scene), a learning-rate number line, the 8-step table with a ratio column that shows the constant factor, w-against-step plot. Plan change: the explanation is "a step covers a fraction `8 lr` of the distance to the bottom".
+5. *Chain rule as gears*: nudge widget (delta slider -0.5..0.5, four cards joined by local slopes, stage table, product = `w.grad`, second-order term `4 delta^2`), then the shared graph lab on scene `why` with its own layout and text (single tab hidden by CSS in the lesson).
+6. *Recap*: four bullets, four mix-up cards (misconceptions 1-4 of section 4 above), three **check** sections (sign at w = 6; why lr = 1/8 is special; the three slopes and the two contributions to `e`), bridge to `backprop-lab` and `sgd-step`.
+Misconception 6 (float32 secant) is in widget 2. Misconception 5 is the paragraph "The slope is a direction, not an address" and the sign check.
+
+**Definition of done (content-plan section 5)**
+- [x] (1) this note, symbols and Observed/Expected/Suspected (sections 1-5).
+- [~] (2) trace program and JSON existed before this lesson; the lesson author did not re-run `tools/trace/run.sh --check`.
+- [x] (3) tests: model vs `grid`/`probes`, identity `8(w-3)`, trajectories, secants, stability predicate vs the five runs, nudge, prose-number binding and a digit lint, KaTeX `throwOnError` over thousands of strings, widget import without a DOM (`site/test/why-gradients.test.mjs`).
+- [x] (4) `node --test site/test/` green; browser checks at 360, 390, 768, 1280 and 1366 px under a `/TorC/` prefix server, no console errors, no horizontal page overflow.
+- [~] (5) accessibility: keyboard path walked with Tab/arrows/Enter/Space; focus kept after Step and preset clicks (`keepFocus`); `aria-live` status for steps; no animation or autoplay in the new widgets; table view for every plot; not colour-only (dash, markers, text verdicts). Contrast was only spot-checked on the design tokens, and no screen reader was used.
+- [ ] (6) independent read-only review and an outside reader: not done.
+- [x] (7) no audit talk on the page.
