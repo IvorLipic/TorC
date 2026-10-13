@@ -94,7 +94,7 @@ The aggregate GoogleTest target does not replace sanitizer, fuzz/property, malfo
 clean-build coverage. New hardening work should add those checks and keep the documented test
 command reproducible from a fresh build directory.
 
-The project currently has no install/package metadata, CI, serialization/state-dict API, or
+The project currently has no CI, serialization/state-dict API, or
 train/eval mode. These are scope decisions, not accidental PyTorch compatibility: documentation
 and examples should call torc a small CPU reference/educational library until those capabilities
 are designed.

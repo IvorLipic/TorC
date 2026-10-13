@@ -104,10 +104,10 @@ and the project's known issues).
 
 ## Requirements
 
-- CMake 3.16+
+- CMake 3.20+
 - A C++23 compiler: GCC 14+, Clang 18+, or MSVC 19.36+ (the code uses deducing-`this`
   and `std::format`, which require recent compiler versions)
-- Git (for fetching GoogleTest / Google Benchmark during the build)
+- Git (for fetching GoogleTest when `TORC_BUILD_TESTS=ON`, and Google Benchmark with `BUILD_BENCHMARKS=ON`)
 - Optional: OpenMP (enable with `-DUSE_OPENMP=ON` for parallelized elementwise/reduction ops)
 
 ## Build
@@ -123,6 +123,55 @@ For benchmarks (includes the `torc_benchmarks` target):
 cmake -S . -B build -DBUILD_BENCHMARKS=ON
 cmake --build build --config Release
 ```
+
+### CMake options
+
+| Option | Default | Effect |
+| --- | --- | --- |
+| `TORC_BUILD_TESTS` | ON if top-level, else OFF | Build `torc_tests` (fetches GoogleTest only when ON) |
+| `TORC_BUILD_EXAMPLES` | ON if top-level, else OFF | Build the example executables |
+| `TORC_INSTALL` | ON if top-level, else OFF | Generate `cmake --install` and package-config rules |
+| `TORC_NATIVE_ARCH` | ON | Release builds of the library use `-march=native` (`/arch:AVX2` on MSVC) |
+| `BUILD_BENCHMARKS` | OFF | Build `torc_benchmarks` (fetches Google Benchmark) |
+| `USE_OPENMP` | OFF | Parallelize elementwise/reduction ops with OpenMP |
+
+`TORC_NATIVE_ARCH` is what turns on the AVX2 code paths (`src/simd_ops.hpp` and the `matmul`
+inner loop are guarded by the compiler's `__AVX2__` macro). With `-DTORC_NATIVE_ARCH=OFF` the
+library is compiled without any ISA flag, so those paths fall back to scalar loops: the result
+runs on any CPU the compiler's baseline targets, but `matmul` and the elementwise ops are slower.
+Turn it OFF when building a copy of the library that will be installed or redistributed.
+
+## Using torc from another CMake project
+
+Either install it and use `find_package`:
+
+```bash
+cmake -S . -B build -DCMAKE_INSTALL_PREFIX=/opt/torc
+cmake --build build && cmake --install build
+```
+
+```cmake
+find_package(torc 0.1 CONFIG REQUIRED)          # add -DCMAKE_PREFIX_PATH=/opt/torc
+add_executable(app main.cpp)
+target_link_libraries(app PRIVATE torc::torc)   # brings the include dirs and the C++23 requirement
+```
+
+or fetch it directly (tests and examples, and therefore GoogleTest, are off by default when torc
+is not the top-level project):
+
+```cmake
+include(FetchContent)
+FetchContent_Declare(torc
+    GIT_REPOSITORY https://github.com/IvorLipic/TorC.git
+    GIT_TAG        main)                         # pin a release tag once one is published
+FetchContent_MakeAvailable(torc)
+target_link_libraries(app PRIVATE torc::torc)
+```
+
+Complete runnable projects live in `examples/consume/find_package/` and
+`examples/consume/fetchcontent/`. Consumers need a C++23 compiler (Clang 18+ or GCC 14+) and
+CMake 3.20+. Remember that tracked `Variable`s must outlive `backward()` (see the known
+constraint under Autograd above).
 
 ## Run tests
 

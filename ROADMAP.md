@@ -122,7 +122,10 @@ Each step must pass tests before proceeding.
 
 ## Milestone 7 — Bindings & packaging
 - [ ] Python bindings (pybind11) once the C++ API has stabilized
-- [ ] Versioned releases / install target (`cmake --install`)
+- [x] Install target (`cmake --install`) exporting `torc::torc` with package config + version
+      metadata (`find_package(torc CONFIG)`), plus `TORC_BUILD_TESTS`/`TORC_BUILD_EXAMPLES`/
+      `TORC_NATIVE_ARCH` options so consumers don't build tests or require `-march=native`
+- [ ] Versioned releases (tag and publish `v0.1.0`; see `CHANGELOG.md`)
 - [ ] CI (GitHub Actions: build + `ctest` on push)
 
 ## Review-derived hardening backlog
@@ -187,8 +190,12 @@ primitives would make the eventual fixes more expensive.
       directory. Keep at least one test target per logical suite in addition to the aggregate test.
 - [ ] Add property/fuzz tests for broadcasting, matmul batch promotion, malformed losses/data, and
       empty/zero-sized shapes; the current example-oriented tests do not cover these hazards.
-- [ ] Add an install target, package/version metadata, and a dependency strategy that does not
-      require an implicit network fetch for every clean build.
+- [x] Add an install target and package/version metadata (`torcConfig.cmake`,
+      `torcConfigVersion.cmake`, SameMajorVersion). Consumers (`add_subdirectory`/FetchContent)
+      no longer fetch GoogleTest.
+- [ ] Dependency strategy for developer builds: a clean top-level build still fetches GoogleTest
+      (and Google Benchmark with `BUILD_BENCHMARKS=ON`) over the network via `FetchContent`; add
+      a `find_package(GTest)`/offline option.
 - [x] Reconcile roadmap/design status with the implementation after each performance change;
       matmul AVX2 status, sparsity-loop status, and numerical-validation performance notes are
       kept in sync with the implementation and benchmark record.
