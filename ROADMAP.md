@@ -18,9 +18,12 @@ Status legend: `[x]` done · `[~]` in progress · `[ ]` planned. The detailed cu
 - [ ] CI: trace drift check + Node tests on every push/PR (`verify.yml`)
 
 ## M2 — Course scaffolding
-- [ ] Home / course-map page, lesson template, shared UI modules, lesson data format
-- [ ] Per-lesson routing under `/TorC/`, progress persistence (localStorage)
-- [ ] Move Backprop lab into the template as lesson 1
+- [x] Home / course-map page (`site/index.html` from `course.json`: parts, lesson cards, filter box, done ticks), lesson template (committed shells + `lesson-boot.js`), shared UI modules (`js/core/`, `js/widgets/`), lesson data format (`js/lessons/<id>.js` with `text`/`widget`/`gotcha`/`predict`/`check` sections and `T('scene.path')` bound numbers)
+- [x] Per-lesson routing under `/TorC/` (relative URLs only, old `#mlp/9` links redirected), progress persistence (localStorage `torc:v1`, works with storage blocked)
+- [x] Move Backprop lab into the template as lesson 1 (`backprop-lab`)
+- [x] Op registry: one module per op in `site/js/ops/` (incl. `transpose`, `mse`); engine and explain are generic consumers; every registered op must appear in a trace scene
+- [x] `tools/check_site.mjs` (course.json, shells, modules, trace files, no root-absolute URLs, asset references) runs in `pages.yml` and `verify.yml`
+- [ ] Op-card reference page (`site/ref/ops/`, generated from the registry) and API index (`site/ref/api/`, built from `symbols`)
 
 ## M3 — First lessons (see content plan for specs)
 - [ ] Intro: why following gradients works (slope, chain rule intuition)
