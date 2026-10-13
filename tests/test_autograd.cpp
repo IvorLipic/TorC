@@ -1136,6 +1136,106 @@ TEST(ViewAutograd, GradCheckSlice) {
         expect_near(a.grad().data()[i], num_grad.data()[i]);
 }
 
+// Slice backward must scatter using the INPUT strides and per-dim offsets.
+static Tensor iota_tensor(const std::vector<int>& shape, float step = 1.0f) {
+    Tensor t(shape);
+    for (int i = 0; i < t.numel(); ++i) t.data()[i] = (float)(i + 1) * step;
+    return t;
+}
+
+// Central finite differences of sum(slice(a) * w) w.r.t. a.
+static Tensor numerical_grad_slice_weighted(const Tensor& a, const std::vector<std::pair<int, int>>& slices,
+                                            const Tensor& w) {
+    Tensor g(a.shape());
+    float h = 1e-2f;
+    std::vector<Tensor::Slice> ts;
+    for (auto& p : slices) ts.push_back({p.first, p.second});
+    for (int i = 0; i < a.numel(); ++i) {
+        Tensor a_ph = a; a_ph.data()[i] += h;
+        Tensor a_mh = a; a_mh.data()[i] -= h;
+        float f_ph = a_ph.slice(ts).mul(w).sum();
+        float f_mh = a_mh.slice(ts).mul(w).sum();
+        g.data()[i] = (f_ph - f_mh) / (2.0f * h);
+    }
+    return g;
+}
+
+static void expect_grad_eq(const Tensor& actual, const std::vector<float>& expected) {
+    ASSERT_EQ(actual.numel(), (int)expected.size());
+    for (int i = 0; i < actual.numel(); ++i)
+        EXPECT_FLOAT_EQ(actual.data()[i], expected[i]) << "at flat index " << i;
+}
+
+TEST(SliceAutograd, TrailingDimNarrowerThanInput) {
+    Variable a(iota_tensor({2, 3}), true);
+    torc::sum(torc::slice(a, {{0, 2}, {1, 3}})).backward();
+    expect_grad_eq(a.grad(), {0, 1, 1, 0, 1, 1});
+}
+
+TEST(SliceAutograd, LeadingColumnsOnly) {
+    Variable a(iota_tensor({2, 3}), true);
+    torc::sum(torc::slice(a, {{0, 2}, {0, 2}})).backward();
+    expect_grad_eq(a.grad(), {1, 1, 0, 1, 1, 0});
+}
+
+TEST(SliceAutograd, NonZeroRowOffsetWithWeightedGrad) {
+    Variable a(iota_tensor({2, 3}), true);
+    Variable c = torc::slice(a, {{1, 2}, {1, 3}});
+    c.backward(Tensor({10.0f, 20.0f}, std::vector<int>{1, 2}));
+    expect_grad_eq(a.grad(), {0, 0, 0, 0, 10, 20});
+}
+
+TEST(SliceAutograd, ThreeDimNonZeroOffsetsInEveryDim) {
+    Variable a(iota_tensor({3, 4, 5}), true);
+    Variable c = torc::slice(a, {{1, 3}, {1, 3}, {2, 4}});
+    ASSERT_EQ(c.data().shape(), std::vector<int>({2, 2, 2}));
+    torc::sum(c).backward();
+    std::vector<float> expected(60, 0.0f);
+    for (int i = 1; i < 3; ++i)
+        for (int j = 1; j < 3; ++j)
+            for (int k = 2; k < 4; ++k)
+                expected[i * 20 + j * 5 + k] = 1.0f;
+    expect_grad_eq(a.grad(), expected);
+}
+
+TEST(SliceAutograd, ThreeDimMiddleDimOnly) {
+    Variable a(iota_tensor({2, 3, 4}), true);
+    torc::sum(torc::slice(a, {{0, 2}, {1, 2}, {0, 4}})).backward();
+    std::vector<float> expected(24, 0.0f);
+    for (int i = 0; i < 2; ++i)
+        for (int k = 0; k < 4; ++k)
+            expected[i * 12 + 1 * 4 + k] = 1.0f;
+    expect_grad_eq(a.grad(), expected);
+}
+
+TEST(SliceAutograd, OneDim) {
+    Variable a(iota_tensor({5}), true);
+    torc::sum(torc::slice(a, {{2, 4}})).backward();
+    expect_grad_eq(a.grad(), {0, 0, 1, 1, 0});
+}
+
+TEST(SliceAutograd, GradCheckWeighted2D) {
+    Tensor a_data = iota_tensor({3, 4}, 0.37f);
+    std::vector<std::pair<int, int>> slices = {{1, 3}, {1, 3}};
+    Tensor w({0.5f, -1.5f, 2.0f, 3.25f}, std::vector<int>{2, 2});
+    Variable a(a_data, true);
+    torc::sum(torc::mul(torc::slice(a, slices), Variable(w, false))).backward();
+    Tensor num_grad = numerical_grad_slice_weighted(a_data, slices, w);
+    for (int i = 0; i < a_data.numel(); ++i)
+        expect_near(a.grad().data()[i], num_grad.data()[i]);
+}
+
+TEST(SliceAutograd, GradCheckWeighted3DNonZeroOffsets) {
+    Tensor a_data = iota_tensor({3, 4, 5}, 0.21f);
+    std::vector<std::pair<int, int>> slices = {{1, 3}, {1, 4}, {2, 4}};
+    Tensor w = iota_tensor({2, 3, 2}, 0.7f);
+    Variable a(a_data, true);
+    torc::sum(torc::mul(torc::slice(a, slices), Variable(w, false))).backward();
+    Tensor num_grad = numerical_grad_slice_weighted(a_data, slices, w);
+    for (int i = 0; i < a_data.numel(); ++i)
+        expect_near(a.grad().data()[i], num_grad.data()[i]);
+}
+
 // ============================================================
 // Step 7: detach() and set_grad_enabled(bool)
 // ============================================================

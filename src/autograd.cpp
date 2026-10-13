@@ -743,10 +743,11 @@ Variable slice(const Variable& a, std::vector<std::pair<int, int>> slices) {
             int rank = (int)a_data.shape().size();
             std::vector<int> out_indices(rank, 0);
             std::vector<int> strides(rank);
+            // Strides of the INPUT tensor: the scatter target is a_data, not the sliced grad.
             if (rank > 0) {
                 strides[rank - 1] = 1;
                 for (int i = rank - 2; i >= 0; --i)
-                    strides[i] = strides[i + 1] * grad_output.shape()[i + 1];
+                    strides[i] = strides[i + 1] * a_data.shape()[i + 1];
             }
 
             for (int out_flat = 0; out_flat < grad_output.numel(); ++out_flat) {
