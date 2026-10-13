@@ -837,6 +837,102 @@ TEST(MaxMinAutograd, GradCheckMaxAxis1) {
 }
 
 // ============================================================
+// Negative axis in the sum/mean/max/min autograd wrappers
+// ============================================================
+
+namespace {
+
+enum class RedOp { Sum, Mean, Max, Min };
+
+Variable apply_reduction(RedOp op, const Variable& a, int axis) {
+    switch (op) {
+        case RedOp::Sum:  return torc::sum(a, axis);
+        case RedOp::Mean: return torc::mean(a, axis);
+        case RedOp::Max:  return torc::max(a, axis);
+        case RedOp::Min:  return torc::min(a, axis);
+    }
+    return a;
+}
+
+// Distinct, non-monotonic values so argmax/argmin are unique and non-trivial.
+Tensor scrambled_tensor(const std::vector<int>& shape) {
+    Tensor t(shape);
+    for (int i = 0; i < t.numel(); ++i) t.data()[i] = (float)((i * 37) % 101) * 0.37f;
+    return t;
+}
+
+// Gradient of sum(reduce(a, axis) * w) w.r.t. a, via autograd.
+Tensor reduction_grad(RedOp op, const Tensor& a_data, int axis, const Tensor& w) {
+    Variable a(a_data, true);
+    torc::sum(torc::mul(apply_reduction(op, a, axis), Variable(w, false))).backward();
+    return a.grad();
+}
+
+void check_negative_axis(RedOp op, const std::vector<int>& shape, int neg_axis) {
+    int rank = (int)shape.size();
+    Tensor a_data = scrambled_tensor(shape);
+    Tensor reduced = apply_reduction(op, Variable(a_data, false), neg_axis + rank).data();
+    Tensor w(reduced.shape());
+    for (int i = 0; i < w.numel(); ++i) w.data()[i] = 0.5f + 0.75f * (float)i;
+
+    Tensor g_neg = reduction_grad(op, a_data, neg_axis, w);
+    Tensor g_pos = reduction_grad(op, a_data, neg_axis + rank, w);
+    ASSERT_EQ(g_neg.shape(), a_data.shape());
+    for (int i = 0; i < a_data.numel(); ++i)
+        EXPECT_FLOAT_EQ(g_neg.data()[i], g_pos.data()[i]) << "axis " << neg_axis << " flat " << i;
+
+    // Central finite differences (values are >= 0.37 apart, so h=1e-2 never swaps an argmax).
+    float h = 1e-2f;
+    auto f = [&](const Tensor& t) {
+        return apply_reduction(op, Variable(t, false), neg_axis).data().mul(w).sum();
+    };
+    for (int i = 0; i < a_data.numel(); ++i) {
+        Tensor a_ph = a_data; a_ph.data()[i] += h;
+        Tensor a_mh = a_data; a_mh.data()[i] -= h;
+        expect_near(g_neg.data()[i], (f(a_ph) - f(a_mh)) / (2.0f * h));
+    }
+}
+
+}  // namespace
+
+TEST(NegativeAxisAutograd, Sum) {
+    for (int axis : {-1, -2}) check_negative_axis(RedOp::Sum, {3, 4}, axis);
+    for (int axis : {-1, -2, -3}) check_negative_axis(RedOp::Sum, {2, 3, 4}, axis);
+}
+
+TEST(NegativeAxisAutograd, Mean) {
+    for (int axis : {-1, -2}) check_negative_axis(RedOp::Mean, {3, 4}, axis);
+    for (int axis : {-1, -2, -3}) check_negative_axis(RedOp::Mean, {2, 3, 4}, axis);
+}
+
+TEST(NegativeAxisAutograd, Max) {
+    for (int axis : {-1, -2}) check_negative_axis(RedOp::Max, {3, 4}, axis);
+    for (int axis : {-1, -2, -3}) check_negative_axis(RedOp::Max, {2, 3, 4}, axis);
+}
+
+TEST(NegativeAxisAutograd, Min) {
+    for (int axis : {-1, -2}) check_negative_axis(RedOp::Min, {3, 4}, axis);
+    for (int axis : {-1, -2, -3}) check_negative_axis(RedOp::Min, {2, 3, 4}, axis);
+}
+
+TEST(NegativeAxisAutograd, SumKnownGradient) {
+    Variable a(Tensor({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, std::vector<int>{2, 3}), true);
+    torc::sum(a, -1).backward(Tensor({1.0f, 1.0f}, std::vector<int>{2}));
+    Tensor expected({1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f}, std::vector<int>{2, 3});
+    EXPECT_TRUE(a.grad() == expected);
+}
+
+TEST(NegativeAxisAutograd, OutOfRangeAxisThrows) {
+    for (RedOp op : {RedOp::Sum, RedOp::Mean, RedOp::Max, RedOp::Min}) {
+        Variable a(scrambled_tensor({2, 3}), true);
+        EXPECT_THROW(apply_reduction(op, a, 2), ShapeError);
+        EXPECT_THROW(apply_reduction(op, a, -3), ShapeError);
+        EXPECT_THROW(apply_reduction(op, a, 100), ShapeError);
+        EXPECT_THROW(apply_reduction(op, a, -100), ShapeError);
+    }
+}
+
+// ============================================================
 // Step 5: matmul backward (2D + batched, batch-broadcast)
 // ============================================================
 
