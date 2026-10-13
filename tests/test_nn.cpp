@@ -570,10 +570,9 @@ TEST(SGD, StepWithoutMomentumUpdatesParams) {
     auto params = linear.parameters();
     ASSERT_EQ(params.size(), 2);
 
-    std::vector<float> initial_W;
-    for (size_t i = 0; i < params[0]->data().numel(); ++i) {
-        initial_W.push_back(params[0]->data().data()[i]);
-    }
+    // Module::parameters() order is unspecified (unordered_map); look parameters up by name.
+    const Tensor& W_init = linear.named_parameters().at("weight").data();
+    std::vector<float> initial_W(W_init.data(), W_init.data() + W_init.numel());
 
     Tensor x_data({1.0f, 2.0f}, std::vector<int>{1, 2});
     Variable x(x_data, true);
@@ -605,11 +604,14 @@ TEST(SGD, StepWithMomentumAccumulatesVelocity) {
     Variable loss = torc::sum(out);
     loss.backward();
 
+    float initial_w0 = linear.named_parameters().at("weight").data().data()[0];
+
     SGD optimizer(params, 0.1f, 0.9f);
     optimizer.step();
 
+    // d(sum(out))/dW[0][0] = x[0] = 1, and the first momentum step is plain SGD.
     const Tensor& W = linear.named_parameters().at("weight").data();
-    expect_near(W.data()[0], 0.01f - 0.1f * 1.0f);
+    expect_near(W.data()[0], initial_w0 - 0.1f * 1.0f);
 }
 
 TEST(SGD, ZeroGradClearsAllParamGrads) {
@@ -690,10 +692,9 @@ TEST(SGD, SkipsParamsWithoutGrad) {
     Linear linear(2, 3, 0.0f, seed);
     auto params = linear.parameters();
 
-    std::vector<float> initial_weights;
-    for (size_t i = 0; i < params[0]->data().numel(); ++i) {
-        initial_weights.push_back(params[0]->data().data()[i]);
-    }
+    // Module::parameters() order is unspecified (unordered_map); look the weight up by name.
+    const Tensor& W0 = linear.named_parameters().at("weight").data();
+    std::vector<float> initial_weights(W0.data(), W0.data() + W0.numel());
 
     SGD optimizer(params, 0.1f);
     optimizer.step();
@@ -710,14 +711,11 @@ TEST(Adam, StepUpdatesParams) {
     auto params = linear.parameters();
     ASSERT_EQ(params.size(), 2);
 
-    std::vector<float> initial_W;
-    for (size_t i = 0; i < params[0]->data().numel(); ++i) {
-        initial_W.push_back(params[0]->data().data()[i]);
-    }
-    std::vector<float> initial_b;
-    for (size_t i = 0; i < params[1]->data().numel(); ++i) {
-        initial_b.push_back(params[1]->data().data()[i]);
-    }
+    // Module::parameters() order is unspecified (unordered_map); look parameters up by name.
+    const Tensor& W_init = linear.named_parameters().at("weight").data();
+    std::vector<float> initial_W(W_init.data(), W_init.data() + W_init.numel());
+    const Tensor& b_init = linear.named_parameters().at("bias").data();
+    std::vector<float> initial_b(b_init.data(), b_init.data() + b_init.numel());
 
     Tensor x_data({1.0f, 2.0f}, std::vector<int>{1, 2});
     Variable x(x_data, true);
@@ -763,10 +761,9 @@ TEST(Adam, SkipsParamsWithoutGrad) {
     Linear linear(2, 3, 0.0f, seed);
     auto params = linear.parameters();
 
-    std::vector<float> initial_weights;
-    for (size_t i = 0; i < params[0]->data().numel(); ++i) {
-        initial_weights.push_back(params[0]->data().data()[i]);
-    }
+    // Module::parameters() order is unspecified (unordered_map); look the weight up by name.
+    const Tensor& W0 = linear.named_parameters().at("weight").data();
+    std::vector<float> initial_weights(W0.data(), W0.data() + W0.numel());
 
     Adam optimizer(params, 0.1f);
     optimizer.step();
@@ -782,14 +779,11 @@ TEST(AdamW, StepWithoutWeightDecayBehavesLikeAdam) {
     Linear linear(2, 3, 0.0f, seed);
     auto params = linear.parameters();
 
-    std::vector<float> initial_W;
-    for (size_t i = 0; i < params[0]->data().numel(); ++i) {
-        initial_W.push_back(params[0]->data().data()[i]);
-    }
-    std::vector<float> initial_b;
-    for (size_t i = 0; i < params[1]->data().numel(); ++i) {
-        initial_b.push_back(params[1]->data().data()[i]);
-    }
+    // Module::parameters() order is unspecified (unordered_map); look parameters up by name.
+    const Tensor& W_init = linear.named_parameters().at("weight").data();
+    std::vector<float> initial_W(W_init.data(), W_init.data() + W_init.numel());
+    const Tensor& b_init = linear.named_parameters().at("bias").data();
+    std::vector<float> initial_b(b_init.data(), b_init.data() + b_init.numel());
 
     Tensor x_data({1.0f, 2.0f}, std::vector<int>{1, 2});
     Variable x(x_data, true);
@@ -815,14 +809,11 @@ TEST(AdamW, StepWithWeightDecayUpdatesParams) {
     Linear linear(2, 3, 0.0f, seed);
     auto params = linear.parameters();
 
-    std::vector<float> initial_W;
-    for (size_t i = 0; i < params[0]->data().numel(); ++i) {
-        initial_W.push_back(params[0]->data().data()[i]);
-    }
-    std::vector<float> initial_b;
-    for (size_t i = 0; i < params[1]->data().numel(); ++i) {
-        initial_b.push_back(params[1]->data().data()[i]);
-    }
+    // Module::parameters() order is unspecified (unordered_map); look parameters up by name.
+    const Tensor& W_init = linear.named_parameters().at("weight").data();
+    std::vector<float> initial_W(W_init.data(), W_init.data() + W_init.numel());
+    const Tensor& b_init = linear.named_parameters().at("bias").data();
+    std::vector<float> initial_b(b_init.data(), b_init.data() + b_init.numel());
 
     Tensor x_data({1.0f, 2.0f}, std::vector<int>{1, 2});
     Variable x(x_data, true);
@@ -868,10 +859,9 @@ TEST(AdamW, SkipsParamsWithoutGrad) {
     Linear linear(2, 3, 0.0f, seed);
     auto params = linear.parameters();
 
-    std::vector<float> initial_weights;
-    for (size_t i = 0; i < params[0]->data().numel(); ++i) {
-        initial_weights.push_back(params[0]->data().data()[i]);
-    }
+    // Module::parameters() order is unspecified (unordered_map); look the weight up by name.
+    const Tensor& W0 = linear.named_parameters().at("weight").data();
+    std::vector<float> initial_weights(W0.data(), W0.data() + W0.numel());
 
     AdamW optimizer(params, 0.1f, 0.01f);
     optimizer.step();
@@ -944,10 +934,15 @@ TEST(Sequential, MnistArchitectureBackwardPopulatesGrads) {
 }
 
 TEST(Sequential, SingleTrainingStepUpdatesParams) {
+    // Fixed seeds keep the (ReLU-dependent) gradient flow deterministic.
+    auto first = std::make_unique<Linear>(4, 8, 0.0f, 1u);
+    const Tensor& w0 = first->named_parameters().at("weight").data();
+    std::vector<float> initial_w0(w0.data(), w0.data() + w0.numel());
+
     Sequential model;
-    model.add(std::make_unique<Linear>(4, 8));
+    model.add(std::move(first));
     model.add(std::make_unique<ReLU>());
-    model.add(std::make_unique<Linear>(8, 2));
+    model.add(std::make_unique<Linear>(8, 2, 0.0f, 2u));
 
     Tensor x_data({1.0f, 2.0f, 3.0f, 4.0f}, std::vector<int>{1, 4});
     Variable x(x_data, true);
@@ -963,8 +958,12 @@ TEST(Sequential, SingleTrainingStepUpdatesParams) {
     loss.backward();
     optimizer.step();
 
-    auto& w0 = model.parameters()[0]->data();
-    EXPECT_NE(w0.data()[0], 0.01f);
+    // The first layer's weight must differ from its snapshot (parameters() order is unspecified,
+    // so use the Linear's own named parameter; w0 aliases it).
+    bool changed = false;
+    for (size_t i = 0; i < initial_w0.size(); ++i)
+        if (w0.data()[i] != initial_w0[i]) changed = true;
+    EXPECT_TRUE(changed);
 }
 
 TEST(MSELoss, BackwardScalesWithGradOutput) {
