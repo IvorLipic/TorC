@@ -112,3 +112,22 @@
   .win-body{grid-template-columns:1fr}
   .goal{min-height:0}
 }
+
+/* plot.js */
+.plot{display:block;width:100%;height:auto;max-height:46vh}
+.plot text{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.plot-frame{stroke:var(--border);stroke-width:1}
+.plot-grid{stroke:var(--border);stroke-width:.5;opacity:.5}
+.plot-tick{fill:var(--muted);font-size:11px}
+.plot-label{fill:var(--muted);font-size:12px}
+.plot-curve{stroke:var(--fwd);stroke-width:2.5}
+.plot-tangent{stroke:var(--bwd);stroke-width:2;stroke-dasharray:6 4}
+.plot-line{stroke:var(--muted);stroke-width:1.5}
+.plot-dot{fill:var(--fg);stroke:var(--bg);stroke-width:2}
+.plot-text{fill:var(--fg);font-size:12px}
+.plot-arrow{fill:var(--bwd)}
+.plot-table{margin:.4rem 0}
+.plot-table table{width:100%;border-collapse:collapse;font-size:.85rem;margin-top:.4rem}
+.plot-table caption{text-align:left;color:var(--muted);padding-bottom:.2rem}
+.plot-table th,.plot-table td{border-bottom:1px solid var(--border);padding:.2rem .5rem;text-align:right;font-family:ui-monospace,monospace}
+.plot-table th{color:var(--muted);font-weight:600}

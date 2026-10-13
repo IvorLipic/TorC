@@ -7,15 +7,91 @@
       "title": "The big idea",
       "lessons": [
         {
+          "id": "why-gradients",
+          "title": "Why following gradients works",
+          "outcome": "Read a derivative as loss change per unit weight change, predict a step, see why a big step fails, and meet the chain rule as multiplied local slopes.",
+          "prereqs": [],
+          "symbols": [
+            "Variable::backward",
+            "optim::SGD",
+            "mul",
+            "sub"
+          ],
+          "trace": [
+            "why-gradients.json"
+          ],
+          "est_minutes": 15,
+          "status": "draft"
+        },
+        {
           "id": "backprop-lab",
           "title": "Backprop lab",
           "outcome": "Step through forward and backward passes by hand with TorC’s real numbers, and see gradients add where a value is reused and multiply along a chain.",
           "prereqs": [],
-          "symbols": ["Variable", "TapeEntry", "Variable::backward_with_grad", "accumulate_grad"],
-          "trace": ["autograd_trace.json"],
+          "symbols": [
+            "Variable",
+            "TapeEntry",
+            "Variable::backward_with_grad",
+            "accumulate_grad"
+          ],
+          "trace": [
+            "autograd_trace.json"
+          ],
           "est_minutes": 15,
           "status": "published",
-          "legacy_hashes": ["reuse", "chain", "mlp", "lab"]
+          "legacy_hashes": [
+            "reuse",
+            "chain",
+            "mlp",
+            "lab"
+          ]
+        },
+        {
+          "id": "sgd-step",
+          "title": "The SGD update step",
+          "outcome": "Perform one parameter update by hand with real numbers, say what step() reads and writes, and see learning-rate instability, zero_grad and momentum.",
+          "prereqs": [
+            "why-gradients",
+            "backprop-lab"
+          ],
+          "symbols": [
+            "optim::SGD",
+            "optim::SGD::step",
+            "optim::SGD::zero_grad",
+            "nn::MSELoss",
+            "Variable::zero_grad"
+          ],
+          "trace": [
+            "optim.json"
+          ],
+          "est_minutes": 20,
+          "status": "draft"
+        }
+      ]
+    },
+    {
+      "id": "building-blocks",
+      "title": "Building blocks",
+      "lessons": [
+        {
+          "id": "linear-layer",
+          "title": "nn::Linear: a layer as matmul plus bias",
+          "outcome": "Predict every shape from (in, out, batch), compute y = xWᵀ + b by hand, derive the gradients, count parameters and explain Kaiming initialisation.",
+          "prereqs": [
+            "backprop-lab"
+          ],
+          "symbols": [
+            "nn::Linear",
+            "nn::Linear::forward",
+            "kaiming_normal_std",
+            "matmul",
+            "transpose"
+          ],
+          "trace": [
+            "linear.json"
+          ],
+          "est_minutes": 20,
+          "status": "draft"
         }
       ]
     }
