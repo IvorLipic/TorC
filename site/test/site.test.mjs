@@ -73,7 +73,8 @@ test('check_site: examples inside comments are not mistaken for code', () => wit
 
 test('check_site: lesson problems (missing shell/module/trace, drifted shell, bad prereq, duplicate id, no title)', () => withCopy(async (d) => {
   const c = JSON.parse(readFileSync(path.join(d, 'course.json'), 'utf8'));
-  const base = c.parts[0].lessons[0];
+  const base = c.parts[0].lessons.find((l) => l.id === 'backprop-lab');   // the one published lesson
+  const ghost = () => c.parts[0].lessons.find((l) => l.id === 'ghost');
   c.parts[0].lessons.push({ ...base, id: 'ghost', title: 'Ghost', prereqs: ['nope'], trace: ['missing.json'], legacy_hashes: [] });   // published, nothing on disk
   c.parts[0].lessons.push({ ...base, id: 'backprop-lab' });                                                          // duplicate id
   writeFileSync(path.join(d, 'course.json'), JSON.stringify(c));
@@ -81,14 +82,14 @@ test('check_site: lesson problems (missing shell/module/trace, drifted shell, ba
   assert.match(m, /duplicate lesson id "backprop-lab"/);
   assert.match(m, /prereq "nope"/);
   // fix the structural errors to reach the on-disk checks
-  c.parts[0].lessons.pop(); c.parts[0].lessons[1].prereqs = [];
+  c.parts[0].lessons.pop(); ghost().prereqs = [];
   writeFileSync(path.join(d, 'course.json'), JSON.stringify(c));
   m = await messages(d);
   assert.match(m, /published lesson "ghost" has no shell/);
   assert.match(m, /published lesson "ghost" has no module/);
   assert.match(m, /trace file data\/missing\.json is missing/);
   // a draft lesson with nothing yet is only a warning
-  c.parts[0].lessons[1].status = 'draft';
+  ghost().status = 'draft';
   writeFileSync(path.join(d, 'course.json'), JSON.stringify(c));
   const r = await checkSite(d);
   assert.deepEqual(r.errors, []);
