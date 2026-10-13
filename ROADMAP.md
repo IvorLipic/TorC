@@ -11,7 +11,8 @@ Status legend: `[x]` done · `[~]` in progress · `[ ]` planned. The detailed cu
 
 ## M1 — Project foundation (this branch as its own project)
 - [x] Library removed from this branch; TorC consumed at a pinned ref (`tools/trace/TORC_REF`)
-- [~] TorC packaged for consumption on `main` (CMake install/export, options, version, tag) — then pin to the tag
+- [x] TorC packaged on `main` (CMake install/export, options, version; TorC PRs 2–3), `tools/trace` pinned to its merge commit
+- [ ] Create the `v0.1.0` tag/release on TorC (needs the owner: tag pushes are blocked for the agent), then set `TORC_REF` to `v0.1.0`
 - [x] Project docs: README, architecture, authoring guide, decisions, content plan
 - [x] Compact lab (fits one laptop screen), auto-play removed
 - [ ] CI: trace drift check + Node tests on every push/PR (`verify.yml`)

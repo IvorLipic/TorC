@@ -12,7 +12,7 @@ TorC @ pinned ref ──► tools/trace/*.cpp (real run) ──► site/data/*.j
                                                   site/scenes.js: layout + teaching text only (never numbers)
 ```
 - **Trace programs** (`tools/trace/`) build against TorC fetched by CMake `FetchContent` at the ref in `tools/trace/TORC_REF`
-  (a release tag once TorC ships one; a commit SHA until then). `run.sh --check` regenerates and fails on drift.
+  (a release tag, or the commit SHA the tag points to). `run.sh --check` regenerates and fails on drift.
 - **JSON schema** (`autograd_trace.json`): `scenes[] = {id,title,expression,note,root,root_has_grad,nodes[],finite_difference}`;
   `nodes[] = {name,op,role("leaf"|"op"),requires_grad,inputs[],value{shape,values},grad{shape,values}|null}`. `inputs` are read
   from the real `TapeEntry`; `finite_difference` holds numerical vs. analytic gradients (h=1e-2, atol=1e-2).

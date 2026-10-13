@@ -1,2 +1,3 @@
 # The TorC release tag (or commit) the site is built against. Bump deliberately; see docs/architecture.md.
-5416a872a806a9ae7f59c02459032aa28fc29bf3
+# Pinned to the merge commit of TorC v0.1.0; switch this to the tag name `v0.1.0` once the tag exists (same commit).
+4c1eabe9d43b5d705138217f5f6f54f1ff5052c4
