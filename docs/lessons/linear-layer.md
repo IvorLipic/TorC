@@ -80,3 +80,39 @@ Weights are `{in, out}` (they are `{out, in}`; the error message shows the trans
 
 ## 5. Test hooks suggested by the data
 Engine equals scenes `linear` and `linear-dx` (values and grads, `1e-5 (1+|b|)`); parity flags true; `param_counts[*].total == sum(in*out+out)` (and for conv `out*in*k*k+out`) using `layers[*].params`; `init_stats[*].std` within 5 % of `expected_std` when `numel >= 1000`; `shape_errors[*].what` matches `/inner dimensions must match/` for the width cases and `/rank >= 2/` for the rank-1 case; `x.grad` rows equal column sums of `W`; `example.gW_equals_dYT_x_max_abs_diff < 1e-5`; FD present and `ok`; `signal` consumers read the table, never recompute it; quoted numbers bound to paths (4.6, -0.7, 0.3125 in `scenes[0]`, 25120 and 26506 in `param_counts`, shipped stds in `init_stats`).
+
+## Lesson status (as built; module `site/js/lessons/linear-layer.js`, still `draft` in course.json)
+
+**Storyboard as built.** Hero → (1) *Shapes first*: `widgets/shape-explorer.js` (steppers in/out/B, to-scale diagram x · Wᵀ + b = y with the inner
+dimension checked, shape table, live `in·out + out`, "Break it" + four recorded runs; pure logic in `linear-shapes.js`) + the real-message
+gotcha → (2) *One neuron is one row of W*: `matmul-grid.js` (editable x, W, b of the lesson example; hover/focus/click an output; paper work;
+"b = 0", "copy neuron 1 into 2" twins demo) → (3) *Three operations*: the shared graph lab on scenes `linear` and `linear-dx` with own layout/text
+(`linear-layer.scenes.js`) and the parity badge → (4) *Backward*: prose with the real dY, gW, gb + `linear-backward.js` (pick gW, gb or dX entries,
+mse and sum scenes, verdict against TorC's stored grads) + predict (dX = column sums of W) → (5) *Why initialise like that*: `init-signal.js`
+`mountWeightHistogram` (six recorded cases, expected bell curve, table) and `mountInitSignal` (Kaiming / 0.01 / 1.0 / all on a log axis, seed band,
+table) with the √(2/in) derivation labelled *Expected* → six misconception cards → recap → three checks (shapes of Linear(784,32), edited b, why {out,in}).
+
+**Observed / expected / precomputed, as labelled on the page.** Live in the browser: shapes, parameter count, predicted error (explorer); all
+arithmetic of the grid and of the gradient sums; the graph lab (engine). Recorded from TorC: every `what()` text (shown with a "Recorded" badge
+only when the learner's numbers equal a recorded call, otherwise "Predicted with the recorded message template"), the parameter counts, the
+histograms and the six-layer table (a browser cannot reproduce C++'s RNG). Amber numbers in prose are arithmetic on recorded numbers (`CALCS`).
+
+**Content decisions.** Indices are 1-based in paper work. The recorded Linear(784, 32) / Linear(32, 32) / Linear(32, 10) counts light a badge in
+the explorer. Integers above 9999 and very small/large std values use their own bound span (`class="rec"`) because the shared `T()` rounds to 4
+significant digits (it would print 26510 for 26506 and 25090 for 25088); `linear-layer.test.mjs` re-resolves every one. Zero weights are taught
+only as far as verified: equal rows give identical output columns (shown live); no claim about gradients of equal neurons beyond "the forward pass
+gives them no reason to differ". "Bigger init learns faster? No" is shown through the forward signal only; the backward statement is labelled
+*expected, not measured*. Not in the lesson: rank-3 inputs, anything about `MSELoss` with a broadcast target.
+
+**Definition of done (content-plan §5).**
+- [x] (1) This note, with V/NV tags.
+- [x] (2) Trace program and JSON exist (not touched here). `tools/trace/run.sh --check` was **not** re-run by the lesson author (no change under `tools/` or `data/`).
+- [x] (3) Engine == scenes `linear`, `linear-dx` (values, grads); FD present and ok; parity flags true; `Σ(in·out+out)` for every layer and total; init std within 5 % (n ≥ 1000);
+  shape-error texts reproduced by the explorer's predictor; dX = W column sums; KaTeX `throwOnError` for all paper work and all prose formulas; prose numbers bound
+  (`T`, `rec`, `calc` each re-checked by `site/test/linear-layer.test.mjs`).
+- [x] (4) `node --test site/test/` green; browser: laptop 1366×768 and phone 390×844 for every step of every widget (see the report of the session); `/TorC/` prefix server;
+  page-overflow check at 320, 360, 390, 768, 1024, 1366, 1920 px.
+- [x] (5) Keyboard path through every widget, focus kept on re-render, `aria-live` status, no autoplay, `prefers-reduced-motion` honoured (CSS; page loaded and used under emulation),
+  no colour-only encoding (shape, dash, text and underline cues), a table view for both plots. text colours computed against their backgrounds with the WCAG formula (not a browser audit): muted 5.3–6.2, accent colours 5.8–9.5, body text 10.8–14.8, all ≥ 4.5:1; decorative cell borders are not text.
+- [ ] (6) Independent read-only review and an outside reader: **not done** (lead).
+- [x] (7) No audit talk on the page (a test greps for it).
