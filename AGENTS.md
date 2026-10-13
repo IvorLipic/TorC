@@ -20,6 +20,9 @@ conventions to follow. It should change rarely.
 ```
 torc/
 ├── CMakeLists.txt
+├── cmake/
+│   └── torcConfig.cmake.in     # template for the installed package config
+├── CHANGELOG.md
 ├── LICENSE                    # MIT
 ├── README.md
 ├── AGENTS.md                   # this file
@@ -59,12 +62,15 @@ torc/
 │   ├── linear_regression/
 │   │   ├── linear_regression.cpp   # end-to-end training script (Step 5.11)
 │   │   └── plot_results.py         # optional matplotlib visualization
-│   └── mnist_mlp/
+│   ├── mnist_mlp/
 │       ├── mnist_mlp.cpp           # 3-layer MLP on MNIST (Step 5.12)
 │       └── plot_results.py         # optional matplotlib visualization
-│   └── mnist_cnn/
+│   ├── mnist_cnn/
 │       ├── mnist_cnn.cpp           # CNN on MNIST (Step 5.13)
 │       └── plot_results.py         # optional matplotlib visualization
+│   └── consume/                # standalone consumer projects (not in the default build)
+│       ├── find_package/       # find_package(torc CONFIG) against an installed prefix
+│       └── fetchcontent/       # FetchContent consumer
 └── tests/
     ├── test_tensor.cpp         # GoogleTest suite for Tensor
     ├── test_autograd.cpp       # GoogleTest suite for Variable / autograd
@@ -72,7 +78,8 @@ torc/
     └── test_data.cpp           # GoogleTest suite for data::Dataset / DataLoader
 ```
 
-Four default build targets:
+Default build targets (top-level build; examples and tests are gated by `TORC_BUILD_EXAMPLES` /
+`TORC_BUILD_TESTS`, which default to OFF when torc is consumed via `add_subdirectory`/FetchContent):
 - **`torc`** — library built from `src/tensor.cpp`, `src/autograd.cpp`, `src/nn.cpp`,
   `src/nn/conv.cpp`, `src/nn/linear.cpp`, `src/nn/activations.cpp`, `src/nn/losses.cpp`,
   `src/optim.cpp`, `src/data.cpp`
@@ -86,7 +93,10 @@ Four default build targets:
 When `BUILD_BENCHMARKS=ON`, CMake adds the optional `torc_benchmarks` target from
 `benchmarks/bench_tensor.cpp`.
 
-C++23. GoogleTest (`v1.14.0`) is pulled in for tests via `FetchContent`; Google Benchmark
+C++23 (`target_compile_features(torc PUBLIC cxx_std_23)`, hence CMake 3.20+). The project is
+`torc` 0.1.0 and exports `torc::torc` via `cmake --install` (see `README.md` for the
+find_package / FetchContent snippets and the `TORC_*` options, including `TORC_NATIVE_ARCH`,
+which controls `-march=native` and defaults to ON only for top-level builds). GoogleTest (`v1.14.0`) is pulled in for tests via `FetchContent`; Google Benchmark
 (`v1.8.0`) is pulled in for benchmarks via `FetchContent` when `BUILD_BENCHMARKS=ON`. There are
 no other dependencies.
 
@@ -98,6 +108,12 @@ no other dependencies.
 cmake -S . -B build
 cmake --build build --config Release
 ctest --test-dir build --output-on-failure -C Release   # runs TorcTests (Tensor + Variable + nn + data suites)
+```
+
+Install (library, `include/torc/**`, `torcConfig*.cmake`):
+
+```bash
+cmake --install build --prefix /some/prefix
 ```
 
 ---
@@ -165,6 +181,9 @@ each with gradient checks against central finite differences where applicable. S
 ---
 
 ## 4. Conventions
+
+- **Commit messages**: do not add a `Claude-Session:` line (or session URL) to commit messages or PR descriptions;
+  a `Co-Authored-By:` line is fine. Do not rewrite pushed history to remove old ones.
 
 - **Single dtype**: `float32` only, hardcoded. Don't introduce a `dtype` enum or templated
   storage without an explicit design decision in `docs/DESIGN.md`.
