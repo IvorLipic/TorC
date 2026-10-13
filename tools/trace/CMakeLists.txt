@@ -11,6 +11,8 @@ endif()
 
 file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/TORC_REF" TORC_REF_LINES REGEX "^[^#]")
 list(GET TORC_REF_LINES 0 TORC_REF)
+# Re-run CMake when the pin changes so the ref baked into the JSON envelope is never stale.
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/TORC_REF")
 set(TORC_REPOSITORY "https://github.com/IvorLipic/TorC.git" CACHE STRING "TorC git repository")
 message(STATUS "Building traces against TorC @ ${TORC_REF}")
 
@@ -25,5 +27,16 @@ include(FetchContent)
 FetchContent_Declare(torc GIT_REPOSITORY ${TORC_REPOSITORY} GIT_TAG ${TORC_REF})
 FetchContent_MakeAvailable(torc)
 
-add_executable(autograd_trace autograd_trace.cpp)
-target_link_libraries(autograd_trace PRIVATE torc)
+# What the JSON envelope records as library.flags (informational; compare.mjs does not compare it).
+string(TOUPPER "${CMAKE_BUILD_TYPE}" TORC_TRACE_BT)
+string(STRIP "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_${TORC_TRACE_BT}} -std=c++23 TORC_NATIVE_ARCH=OFF" TORC_TRACE_FLAGS)
+
+# One executable per trace program; each writes its JSON to stdout (tools/trace/run.sh maps it to site/data/<file>.json).
+set(TRACE_TARGETS autograd_trace trace_why trace_optim trace_linear)
+foreach(t IN LISTS TRACE_TARGETS)
+  if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${t}.cpp")
+    add_executable(${t} ${t}.cpp trace_util.hpp)
+    target_link_libraries(${t} PRIVATE torc)
+    target_compile_definitions(${t} PRIVATE "TORC_TRACE_REF=\"${TORC_REF}\"" "TORC_TRACE_FLAGS=\"${TORC_TRACE_FLAGS}\"")
+  endif()
+endforeach()

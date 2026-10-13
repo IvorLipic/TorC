@@ -1,9 +1,14 @@
 {
-  "library":"torc",
+  "schema":"torc-trace/1",
+  "library":{"ref":"v0.1.0","compiler":"clang 18.1.3 (libstdc++ 14)","flags":"-O3 -DNDEBUG -std=c++23 TORC_NATIVE_ARCH=OFF"},
   "generator":"tools/trace/autograd_trace.cpp",
+  "kind":"autograd",
+  "lesson":"backprop-lab",
   "scenes":[
     {
-      "id":"reuse","title":"One variable, two uses","expression":"y = x*x + x",
+      "id":"reuse",
+      "title":"One variable, two uses",
+      "expression":"y = x*x + x",
       "note":"x feeds both inputs of mul and the add, so backward accumulates one contribution per use into x.grad.",
       "root":"y",
       "root_has_grad":false,
@@ -12,12 +17,12 @@
         {"name":"m","op":"mul","role":"op","requires_grad":true,"inputs":["x","x"],"value":{"shape":[1],"values":[9]},"grad":{"shape":[1],"values":[1]}},
         {"name":"y","op":"add","role":"op","requires_grad":true,"inputs":["m","x"],"value":{"shape":[1],"values":[12]},"grad":null}
       ],
-      "finite_difference":{"h":0.00999999978,"atol":0.01,"leaves":[
-        {"name":"x","numerical":[7.00001717],"analytic":[7],"max_abs_err":1.71661377e-05,"ok":true}
-      ]}
+      "finite_difference":{"h":0.00999999978,"atol":0.01,"leaves":[{"name":"x","numerical":[7.00001717],"analytic":[7],"max_abs_err":1.71661377e-05,"ok":true}]}
     },
     {
-      "id":"chain","title":"Chain rule through ReLU","expression":"f = sum(relu(a*b + c))",
+      "id":"chain",
+      "title":"Chain rule through ReLU",
+      "expression":"f = sum(relu(a*b + c))",
       "note":"The third element has a*b+c < 0, so relu blocks its gradient (local derivative 0).",
       "root":"f",
       "root_has_grad":false,
@@ -30,14 +35,20 @@
         {"name":"r","op":"relu","role":"op","requires_grad":true,"inputs":["z"],"value":{"shape":[3],"values":[2.5,1,0]},"grad":{"shape":[3],"values":[1,1,1]}},
         {"name":"f","op":"sum","role":"op","requires_grad":true,"inputs":["r"],"value":{"shape":[1],"values":[3.5]},"grad":null}
       ],
-      "finite_difference":{"h":0.00999999978,"atol":0.01,"leaves":[
-        {"name":"a","numerical":[1.99999809,1.99999809,0],"analytic":[2,2,0],"max_abs_err":1.90734863e-06,"ok":true},
-        {"name":"b","numerical":[0.999999046,-1.99999809,0],"analytic":[1,-2,0],"max_abs_err":1.90734863e-06,"ok":true},
-        {"name":"c","numerical":[0.999999046,1.00002289,0],"analytic":[1,1,0],"max_abs_err":2.28881836e-05,"ok":true}
-      ]}
+      "finite_difference":{
+        "h":0.00999999978,
+        "atol":0.01,
+        "leaves":[
+          {"name":"a","numerical":[1.99999809,1.99999809,0],"analytic":[2,2,0],"max_abs_err":1.90734863e-06,"ok":true},
+          {"name":"b","numerical":[0.999999046,-1.99999809,0],"analytic":[1,-2,0],"max_abs_err":1.90734863e-06,"ok":true},
+          {"name":"c","numerical":[0.999999046,1.00002289,0],"analytic":[1,1,0],"max_abs_err":2.28881836e-05,"ok":true}
+        ]
+      }
     },
     {
-      "id":"mlp","title":"A tiny network (batch of 2)","expression":"L = mse( relu(x@W1 + b1)@W2 + b2, t )",
+      "id":"mlp",
+      "title":"A tiny network (batch of 2)",
+      "expression":"L = mse( relu(x@W1 + b1)@W2 + b2, t )",
       "note":"Built from explicit ops so every intermediate is visible. Two entries of h (h[0][1] and h[1][0]) are negative, so ReLU blocks them: zero gradient for those entries.",
       "root":"L",
       "root_has_grad":false,
@@ -57,12 +68,16 @@
         {"name":"q","op":"mul","role":"op","requires_grad":true,"inputs":["d","d"],"value":{"shape":[2,1],"values":[0.0100000044,0.225624993]},"grad":{"shape":[2,1],"values":[0.5,0.5]}},
         {"name":"L","op":"mean","role":"op","requires_grad":true,"inputs":["q"],"value":{"shape":[1],"values":[0.117812499]},"grad":null}
       ],
-      "finite_difference":{"h":0.00999999978,"atol":0.01,"leaves":[
-        {"name":"W1","numerical":[0.0999998301,-0.237499923,0.200000033,0.237499923],"analytic":[0.100000024,-0.237499997,0.200000048,0.237499997],"max_abs_err":1.93715096e-07,"ok":true},
-        {"name":"b1","numerical":[0.0999998301,0.237499923],"analytic":[0.100000024,0.237499997],"max_abs_err":1.93715096e-07,"ok":true},
-        {"name":"W2","numerical":[0.110000372,0.451250017],"analytic":[0.110000029,0.451249987],"max_abs_err":3.42726707e-07,"ok":true},
-        {"name":"b2","numerical":[0.57499969],"analytic":[0.575000048],"max_abs_err":3.57627869e-07,"ok":true}
-      ]}
+      "finite_difference":{
+        "h":0.00999999978,
+        "atol":0.01,
+        "leaves":[
+          {"name":"W1","numerical":[0.0999998301,-0.237499923,0.200000033,0.237499923],"analytic":[0.100000024,-0.237499997,0.200000048,0.237499997],"max_abs_err":1.93715096e-07,"ok":true},
+          {"name":"b1","numerical":[0.0999998301,0.237499923],"analytic":[0.100000024,0.237499997],"max_abs_err":1.93715096e-07,"ok":true},
+          {"name":"W2","numerical":[0.110000372,0.451250017],"analytic":[0.110000029,0.451249987],"max_abs_err":3.42726707e-07,"ok":true},
+          {"name":"b2","numerical":[0.57499969],"analytic":[0.575000048],"max_abs_err":3.57627869e-07,"ok":true}
+        ]
+      }
     }
   ]
 }
