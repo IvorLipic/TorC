@@ -62,10 +62,10 @@ torc/
 │   ├── linear_regression/
 │   │   ├── linear_regression.cpp   # end-to-end training script (Step 5.11)
 │   │   └── plot_results.py         # optional matplotlib visualization
-│   └── mnist_mlp/
+│   ├── mnist_mlp/
 │       ├── mnist_mlp.cpp           # 3-layer MLP on MNIST (Step 5.12)
 │       └── plot_results.py         # optional matplotlib visualization
-│   └── mnist_cnn/
+│   ├── mnist_cnn/
 │       ├── mnist_cnn.cpp           # CNN on MNIST (Step 5.13)
 │       └── plot_results.py         # optional matplotlib visualization
 │   └── consume/                # standalone consumer projects (not in the default build)
@@ -181,6 +181,9 @@ each with gradient checks against central finite differences where applicable. S
 ---
 
 ## 4. Conventions
+
+- **Commit messages**: do not add a `Claude-Session:` line (or session URL) to commit messages or PR descriptions;
+  a `Co-Authored-By:` line is fine. Do not rewrite pushed history to remove old ones.
 
 - **Single dtype**: `float32` only, hardcoded. Don't introduce a `dtype` enum or templated
   storage without an explicit design decision in `docs/DESIGN.md`.
