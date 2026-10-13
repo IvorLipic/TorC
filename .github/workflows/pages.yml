@@ -1,9 +1,14 @@
 # Deploys the prebuilt static site in site/ to GitHub Pages (https://<user>.github.io/TorC/).
-# Manual trigger only (workflow_dispatch): nothing deploys automatically, and never from main.
+# Deploys on push to `web` (when the site or this workflow changes) or manually; never from any other branch.
 # The site is built beforehand (see visualizations/README.md); this workflow only uploads site/.
 name: Deploy site
 
 on:
+  push:
+    branches: [web]
+    paths:
+      - "site/**"
+      - ".github/workflows/pages.yml"
   workflow_dispatch:
 
 permissions:
@@ -17,7 +22,7 @@ concurrency:
 
 env:
   # The single branch this workflow may deploy from. Change deliberately when the site branch is chosen.
-  ALLOWED_BRANCH: claude/vigilant-fermat-qbzq3t
+  ALLOWED_BRANCH: web
 
 jobs:
   deploy:

@@ -27,10 +27,8 @@ Fast preview while iterating: `manim -ql ...` (480p15).
 ## Base path
 All site URLs are relative, so the same files work at `/` and `/TorC/`.
 
-## GitHub Pages setup (needs the repo owner)
-1. Settings → Pages → Source: **GitHub Actions**.
-2. Settings → Environments → `github-pages` → deployment branches: allow only the chosen branch.
-3. Set `ALLOWED_BRANCH` in `.github/workflows/pages.yml` to that branch, then run the "Deploy site" workflow manually.
-Nothing deploys automatically.
+## GitHub Pages
+Pages source: **GitHub Actions**; deployment branch: `web`. `.github/workflows/pages.yml` deploys `site/` on every push to `web`
+that changes `site/**` (or the workflow), and can be run manually; it fails on any other branch. Site URL: https://ivorlipic.github.io/TorC/
 
-Note: GitHub only lists a `workflow_dispatch` workflow in the Actions tab when the file exists on the default branch. Running this one therefore requires the workflow file to reach `main` (via a reviewed merge), or temporarily adding a `push:` trigger limited to the chosen branch. That is a decision for the repository owner; it was not done here.
+Branch flow: library fixes → their own branch → review → `main`; then `main` is merged into `web`. Site and visualization work is committed on `web`.

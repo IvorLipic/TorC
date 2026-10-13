@@ -1,10 +1,11 @@
 # TorC Autograd Visualization Project Rules
 
-## Repository safety
-- Work only on the branch the user designated for this task (`claude/vigilant-fermat-qbzq3t` for the initial cloud session, used in place of the starter pack's `autograd-visualizations`) unless the user explicitly chooses another branch.
-- Never checkout, modify, commit to, or push `main`.
-- Before making changes, inspect `git status` and `git branch --show-current`. Stop if the worktree has unrelated changes or the current branch is not the dedicated work branch.
-- Do not merge, open a pull request, or push to a remote without explicit user approval.
+## Repository safety and branches
+- `web` is the site branch: it holds `site/`, `visualizations/`, `docs/autograd-audit/`, `.github/workflows/pages.yml` and this file. Every push to `web` that touches the site deploys it to GitHub Pages.
+- `main` is the library branch. Library (`include/`, `src/`, `tests/`) changes are made on a separate branch, reviewed, merged to `main`, and then `main` is merged into `web` (merge commit, never rebase or force-push `web`).
+- Never change library code directly on `web`. Report suspected bugs with a minimal reproduction; fix them via `main`.
+- Before making changes, inspect `git status` and `git branch --show-current`; stop if the worktree has unrelated changes.
+- Do not open pull requests, merge, or push to branches other than the one the user named for the task without approval. (Standing approval from the user: fix branches → `main`, `main` → `web`, and pushes to `web`.)
 - Preserve the existing library build, tests, and public APIs unless the user explicitly authorizes a separate core fix.
 
 ## Source of truth and correctness
@@ -35,6 +36,12 @@
 - Report exactly what was tested, what passed, what failed, and what remains unverified.
 
 ## GitHub Pages
-- Use GitHub Actions only after verifying the workflow triggers exclusively from the chosen deployment branch.
+- `.github/workflows/pages.yml` deploys `site/` on push to `web` (path-filtered) or manually, and refuses to run from any other branch.
 - Do not change repository settings through external services without user approval.
-- Do not deploy or push without user approval.
+
+## Working method (orchestration)
+1. Audit first (read-only `autograd-auditor`), recorded in `docs/autograd-audit/implementation-contract.md`.
+2. Executable ground truth: `visualizations/examples/autograd_trace.cpp` emits JSON (edges from the real tape, values, grads, finite-difference check); scenes consume it and never hardcode numbers.
+3. Plan scenes in `docs/autograd-audit/visualization-plan.md`; one verified vertical slice before expanding.
+4. Implementation specialists own separate directories (`visualizations/manim/` vs `site/`); the lead integrates.
+5. Independent read-only review (`independent-reviewer`) before anything merges; fix substantiated findings.
