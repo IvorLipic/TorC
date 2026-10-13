@@ -507,8 +507,8 @@ void Tensor::fill(float val) {
 }
 
 Tensor Tensor::mean(int axis) const {
+    Tensor s = sum(axis);  // validates and normalises axis
     if (axis < 0) axis += (int)shape_.size();
-    Tensor s = sum(axis);
     std::ranges::transform(s.storage_, s.storage_.begin(),
                             [n = shape_[axis]](float x) { return x / n; });
     return s;

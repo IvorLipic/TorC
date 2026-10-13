@@ -449,6 +449,14 @@ TEST(TensorReductions, NegativeAxisWorks) {
     EXPECT_FLOAT_EQ(t.min(-1).data()[0], 1.0f);
 }
 
+TEST(TensorReductions, NegativeAxisOutOfRangeThrows) {
+    Tensor t({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, {2, 3});
+    EXPECT_THROW(t.sum(-3), torc::ShapeError);
+    EXPECT_THROW(t.mean(-3), torc::ShapeError);  // used to wrap to axis 1 via double normalisation
+    EXPECT_THROW(t.max(-3), torc::ShapeError);
+    EXPECT_THROW(t.min(-3), torc::ShapeError);
+}
+
 TEST(TensorReductions, AxisEmptyThrows) {
     Tensor t(std::vector<int>{0});
     EXPECT_THROW(t.sum(0), torc::ShapeError);
