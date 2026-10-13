@@ -608,7 +608,11 @@ PR. *(Check ROADMAP.md for actual checkbox state — not duplicated here.)*
   cannot satisfy `Module::forward(const Variable& x)`. They are lightweight callables with
   `forward(input, target)` and `operator()(input, target)` instead.
 - `MSELoss`: `mean((input - target)^2)`. Backward = `2 * (input - target) / n` to `input`,
-  negated to `target`.
+  negated to `target`. `input` and `target` may broadcast; the mean is taken over the
+  *broadcast* result, so `n` is the broadcast element count (an `(N, 1)` input against an `(N)`
+  target is an `(N, N)` comparison with `n = N*N`). The backward closure returns the gradient at
+  the broadcast shape and the central `reduce_sum_to_shape` in `Variable::backward_with_grad`
+  sums it to each operand's shape. For equal shapes, `n` is just the element count.
 - `CrossEntropyLoss`: validates rank/shape/domain constraints, computes per-row probabilities
   with a stable max-shifted softmax, and evaluates negative log-likelihood from log-sum-exp.
   The loss averages over the batch. Backward = `(softmax - one_hot(target)) / batch_size` per row.
