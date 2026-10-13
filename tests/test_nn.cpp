@@ -459,6 +459,157 @@ TEST(MSELoss, BackwardMatchesChainRule) {
     expect_near(input.grad().data()[2], -1.0f / 3.0f);
 }
 
+// Central-difference gradient of MSELoss w.r.t. one operand (which = 0: prediction, 1: target),
+// evaluated on the library's own loss. The loss is quadratic, so central differences are exact up
+// to float rounding for any step; a large step (1e-2) keeps that rounding well below GRAD_ATOL.
+static Tensor numerical_grad_mse(const Tensor& pred, const Tensor& target, int which) {
+    MSELoss loss_fn;
+    const Tensor& wrt = which == 0 ? pred : target;
+    Tensor g(wrt.shape());
+    const float h = 1e-2f;
+    for (int i = 0; i < wrt.numel(); ++i) {
+        Tensor plus = wrt;  plus.data()[i] += h;
+        Tensor minus = wrt; minus.data()[i] -= h;
+        float f_plus = which == 0 ? loss_fn(Variable(plus, false), Variable(target, false)).data().data()[0]
+                                  : loss_fn(Variable(pred, false), Variable(plus, false)).data().data()[0];
+        float f_minus = which == 0 ? loss_fn(Variable(minus, false), Variable(target, false)).data().data()[0]
+                                   : loss_fn(Variable(pred, false), Variable(minus, false)).data().data()[0];
+        g.data()[i] = (f_plus - f_minus) / (2.0f * h);
+    }
+    return g;
+}
+
+// MSELoss forward is the mean over the *broadcast* result, so backward must scale by
+// 2 / (broadcast numel) and let the central reduction sum back to each operand's shape.
+TEST(MSELoss, BroadcastColumnPredictionVsRankOneTarget) {
+    MSELoss loss_fn;
+    Tensor pred_data({1.0f, 2.0f, 3.0f}, std::vector<int>{3, 1});
+    Tensor target_data({3.0f, 5.0f, 7.0f}, std::vector<int>{3});
+    Variable pred(pred_data, true);
+    Variable target(target_data, false);
+
+    Variable loss = loss_fn(pred, target);
+    // pred - target is 3x3, squares sum to 111, mean over 9 elements.
+    expect_near(loss.data().data()[0], 111.0f / 9.0f);
+    loss.backward();
+
+    ASSERT_TRUE(pred.has_grad());
+    ASSERT_EQ(pred.grad().shape(), (std::vector<int>{3, 1}));
+    // grad_i = 2/9 * sum_j (pred_i - target_j) = 2/9 * [-12, -9, -6]
+    expect_near(pred.grad().data()[0], -24.0f / 9.0f);
+    expect_near(pred.grad().data()[1], -18.0f / 9.0f);
+    expect_near(pred.grad().data()[2], -12.0f / 9.0f);
+    Tensor num = numerical_grad_mse(pred_data, target_data, 0);
+    for (int i = 0; i < 3; ++i) expect_near(pred.grad().data()[i], num.data()[i]);
+}
+
+TEST(MSELoss, BroadcastRankOnePredictionVsColumnTarget) {
+    MSELoss loss_fn;
+    Tensor pred_data({3.0f, 5.0f, 7.0f}, std::vector<int>{3});
+    Tensor target_data({1.0f, 2.0f, 3.0f}, std::vector<int>{3, 1});
+    Variable pred(pred_data, true);
+    Variable target(target_data, false);
+
+    Variable loss = loss_fn(pred, target);
+    expect_near(loss.data().data()[0], 111.0f / 9.0f);
+    loss.backward();
+
+    ASSERT_TRUE(pred.has_grad());
+    ASSERT_EQ(pred.grad().shape(), (std::vector<int>{3}));
+    // grad_j = 2/9 * sum_i (pred_j - target_i) = 2/9 * [3, 9, 15]
+    expect_near(pred.grad().data()[0], 6.0f / 9.0f);
+    expect_near(pred.grad().data()[1], 18.0f / 9.0f);
+    expect_near(pred.grad().data()[2], 30.0f / 9.0f);
+    Tensor num = numerical_grad_mse(pred_data, target_data, 0);
+    for (int i = 0; i < 3; ++i) expect_near(pred.grad().data()[i], num.data()[i]);
+}
+
+TEST(MSELoss, BroadcastBothSidesGradientsReduceToEachShape) {
+    MSELoss loss_fn;
+    Tensor pred_data({1.0f, 2.0f, 3.0f}, std::vector<int>{3, 1});
+    Tensor target_data({0.0f, 1.0f, 2.0f, 3.0f}, std::vector<int>{1, 4});
+    Variable pred(pred_data, true);
+    Variable target(target_data, true);
+
+    Variable loss = loss_fn(pred, target);
+    // pred - target is 3x4; squares sum to 6 + 6 + 14 = 26, mean over 12 elements.
+    expect_near(loss.data().data()[0], 26.0f / 12.0f);
+    loss.backward();
+
+    ASSERT_TRUE(pred.has_grad());
+    ASSERT_TRUE(target.has_grad());
+    ASSERT_EQ(pred.grad().shape(), (std::vector<int>{3, 1}));
+    ASSERT_EQ(target.grad().shape(), (std::vector<int>{1, 4}));
+    // d/d pred_i = 2/12 * sum_j (pred_i - target_j) = 2/12 * [-2, 2, 6]
+    const float expected_pred[3] = {-4.0f / 12.0f, 4.0f / 12.0f, 12.0f / 12.0f};
+    // d/d target_j = -2/12 * sum_i (pred_i - target_j) = -2/12 * [6, 3, 0, -3]
+    const float expected_target[4] = {-12.0f / 12.0f, -6.0f / 12.0f, 0.0f, 6.0f / 12.0f};
+    for (int i = 0; i < 3; ++i) expect_near(pred.grad().data()[i], expected_pred[i]);
+    for (int j = 0; j < 4; ++j) expect_near(target.grad().data()[j], expected_target[j]);
+    Tensor num_pred = numerical_grad_mse(pred_data, target_data, 0);
+    Tensor num_target = numerical_grad_mse(pred_data, target_data, 1);
+    for (int i = 0; i < 3; ++i) expect_near(pred.grad().data()[i], num_pred.data()[i]);
+    for (int j = 0; j < 4; ++j) expect_near(target.grad().data()[j], num_target.data()[j]);
+}
+
+TEST(MSELoss, BroadcastRequiresGradTargetGetsTargetShapedGradient) {
+    MSELoss loss_fn;
+    Tensor pred_data({1.0f, 2.0f, 3.0f}, std::vector<int>{3, 1});
+    Tensor target_data({3.0f, 5.0f, 7.0f}, std::vector<int>{3});
+    Variable pred(pred_data, false);
+    Variable target(target_data, true);
+
+    Variable loss = loss_fn(pred, target);
+    loss.backward();
+
+    EXPECT_FALSE(pred.has_grad());
+    ASSERT_TRUE(target.has_grad());
+    ASSERT_EQ(target.grad().shape(), (std::vector<int>{3}));
+    // d/d target_j = -2/9 * sum_i (pred_i - target_j) = -2/9 * [-3, -9, -15]
+    expect_near(target.grad().data()[0], 6.0f / 9.0f);
+    expect_near(target.grad().data()[1], 18.0f / 9.0f);
+    expect_near(target.grad().data()[2], 30.0f / 9.0f);
+    Tensor num = numerical_grad_mse(pred_data, target_data, 1);
+    for (int i = 0; i < 3; ++i) expect_near(target.grad().data()[i], num.data()[i]);
+}
+
+TEST(MSELoss, BroadcastBackwardScalesWithGradOutput) {
+    MSELoss loss_fn;
+    Variable pred(Tensor({1.0f, 2.0f, 3.0f}, std::vector<int>{3, 1}), true);
+    Variable target(Tensor({3.0f, 5.0f, 7.0f}, std::vector<int>{3}), false);
+
+    Variable loss = loss_fn(pred, target);
+    loss.backward(Tensor({2.0f}, std::vector<int>{1}));
+
+    ASSERT_TRUE(pred.has_grad());
+    expect_near(pred.grad().data()[0], 2.0f * -24.0f / 9.0f);
+    expect_near(pred.grad().data()[1], 2.0f * -18.0f / 9.0f);
+    expect_near(pred.grad().data()[2], 2.0f * -12.0f / 9.0f);
+}
+
+// Same-shape inputs must be unaffected by the broadcast fix: exact (bit-for-bit) values.
+TEST(MSELoss, SameShapeValuesAreExact) {
+    MSELoss loss_fn;
+    Tensor pred_data({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, std::vector<int>{2, 3});
+    Tensor target_data({1.5f, 2.0f, 2.0f, 4.25f, 7.0f, 6.0f}, std::vector<int>{2, 3});
+    Variable pred(pred_data, true);
+    Variable target(target_data, true);
+
+    Variable loss = loss_fn(pred, target);
+    // squares: 0.25, 0, 1, 0.0625, 4, 0 -> 5.3125 / 6, all exactly representable until the division
+    EXPECT_EQ(loss.data().data()[0], 5.3125f / 6.0f);
+    loss.backward();
+
+    ASSERT_TRUE(pred.has_grad());
+    ASSERT_TRUE(target.has_grad());
+    const float scale = 2.0f / 6.0f;
+    for (int i = 0; i < 6; ++i) {
+        float diff = pred_data.data()[i] - target_data.data()[i];
+        EXPECT_EQ(pred.grad().data()[i], diff * scale) << "i=" << i;
+        EXPECT_EQ(target.grad().data()[i], -(diff * scale)) << "i=" << i;
+    }
+}
+
 TEST(CrossEntropyLoss, ForwardMatchesHandComputed) {
     CrossEntropyLoss loss_fn;
     // 2 samples, 3 classes
