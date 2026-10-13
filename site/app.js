@@ -30,7 +30,7 @@ function keepFocus(fn) {
   if (key) { const t = document.querySelector(`[data-key="${key}"]`); if (t && !t.disabled) t.focus({ preventScroll: true }); }
 }
 
-const state = { data: null, sceneId: 'reuse', overrides: {}, step: 0, sel: null, tab: null, playing: false, timer: null, pop: false };
+const state = { data: null, sceneId: 'reuse', overrides: {}, step: 0, sel: null, tab: null, pop: false };
 const NODE_W = 96, NODE_H = 44;
 
 // ---- derived data -------------------------------------------------------------------
@@ -52,19 +52,20 @@ function renderTabs() {
   }, s.tab)));
 }
 function selectScene(id) {
-  stopPlay();
   state.sceneId = id; state.step = 0; state.sel = null; state.tab = null;
   refresh(true);
 }
 
 function renderInputs() {
   const box = $('#inputs-inner');
+  const editedNow = Object.keys(state.overrides[state.sceneId] ?? {}).length > 0;
+  $('#inputs-btn').classList.toggle('edited', editedNow);
   const leaves = D.graph.nodes.filter((n) => n.role === 'leaf');
   const edited = Object.keys(state.overrides[state.sceneId] ?? {}).length > 0;
   box.replaceChildren(
     el('div', { class: 'inputs-head' },
       el('strong', {}, 'Inputs'),
-      el('span', { class: 'hint' }, ' — type new numbers and everything recomputes instantly.'),
+      el('span', { class: 'hint' }, ' — type new numbers; everything recomputes.'),
       el('span', { class: 'badge ' + (edited ? 'warn' : 'ok'), id: 'match-badge', title: edited ? 'You changed the inputs: values are recomputed in your browser by a JavaScript port of TorC’s rules.' : 'With the preset inputs, every value and gradient on this page equals what the real TorC C++ library printed.' },
         edited ? 'your values (recomputed in browser)' : '✓ matches the real TorC run'),
       edited ? el('button', { class: 'link', onclick: () => { delete state.overrides[state.sceneId]; refresh(); } }, 'reset') : null),
@@ -140,7 +141,7 @@ function renderGraph() {
       if (k === 0) { a = clip(p, q); b = clip(q, p); d = `M${a[0]},${a[1]} L${b[0]},${b[1]}`; mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]; }
       else {
         const cx = (p[0] + q[0]) / 2, cy = (p[1] + q[1]) / 2, dx = q[0] - p[0], dy = q[1] - p[1], len = Math.hypot(dx, dy) || 1;
-        const ctrl = [cx - (dy / len) * 70 * k, cy + (dx / len) * 70 * k];
+        const ctrl = [cx + (dy / len) * 70 * k, cy - (dx / len) * 70 * k];   // second arc bows upward, away from the value/gradient labels
         a = clip(p, ctrl); b = clip(q, ctrl); d = `M${a[0]},${a[1]} Q${ctrl[0]},${ctrl[1]} ${b[0]},${b[1]}`;
         mid = [(a[0] + 2 * ctrl[0] + b[0]) / 4, (a[1] + 2 * ctrl[1] + b[1]) / 4];
       }
@@ -199,14 +200,6 @@ function syncSelection() {
   const n = D.graph.byName[t.node];
   state.tab = n.role === 'leaf' ? 'grad' : t.kind;
 }
-function stopPlay() { state.playing = false; clearInterval(state.timer); }
-function togglePlay() {
-  if (state.playing) { stopPlay(); renderControls(); return; }
-  if (state.step >= D.tl.length - 1) go(0);
-  state.playing = true;
-  state.timer = setInterval(() => { if (state.step >= D.tl.length - 1) { stopPlay(); renderControls(); } else go(state.step + 1); }, 4500);
-  renderControls();
-}
 function renderControls() {
   const tl = D.tl, box = $('#controls');
   const chips = [];
@@ -215,20 +208,14 @@ function renderControls() {
     const p = t.kind === 'inputs' ? 'start' : t.kind;
     if (p !== phase) { phase = p; chips.push(el('span', { class: 'phase ' + p }, p === 'start' ? '' : p === 'forward' ? 'Forward →' : '← Backward')); }
     const label = t.kind === 'inputs' ? 'Start' : t.node;
-    chips.push(el('button', { class: `chip ${t.kind} ${i === state.step ? 'on' : ''} ${i < state.step ? 'done' : ''}`, 'aria-current': i === state.step ? 'step' : false, 'data-key': 'chip:' + i, onclick: () => { stopPlay(); go(i); }, title: t.kind === 'inputs' ? 'Inputs' : `${t.kind}: ${t.node}` }, label));
+    chips.push(el('button', { class: `chip ${t.kind} ${i === state.step ? 'on' : ''} ${i < state.step ? 'done' : ''}`, 'aria-current': i === state.step ? 'step' : false, 'data-key': 'chip:' + i, onclick: () => { go(i); }, title: t.kind === 'inputs' ? 'Inputs' : `${t.kind}: ${t.node}` }, label));
   });
-  const L = D.layout;
-  const cur = tl[state.step];
-  const hint = cur.kind === 'inputs' ? 'Press <kbd>Next</kbd> (or <kbd>→</kbd>) to start the forward pass.' : cur.kind === 'forward' ? L.forwardHint : L.backwardHint;
   box.replaceChildren(
-    el('div', { class: 'ctl-row' },
-      el('button', { class: 'btn', 'data-key': 'restart', onclick: () => { stopPlay(); go(0); }, 'aria-label': 'Restart' }, '⏮'),
-      el('button', { class: 'btn', 'data-key': 'back', onclick: () => { stopPlay(); go(state.step - 1); }, disabled: state.step === 0, 'aria-label': 'Previous step' }, '◀ Back'),
-      el('button', { class: 'btn primary', 'data-key': 'next', onclick: () => { stopPlay(); go(state.step + 1); }, disabled: state.step === tl.length - 1, 'aria-label': 'Next step' }, 'Next ▶'),
-      el('button', { class: 'btn', 'data-key': 'play', onclick: togglePlay, 'aria-pressed': state.playing }, state.playing ? '⏸ Pause' : '▶ Auto-play'),
-      el('span', { class: 'counter' }, `step ${state.step} / ${tl.length - 1}`)),
-    el('div', { class: 'chips', role: 'group', 'aria-label': 'Steps (checkpoints)' }, chips),
-    el('p', { class: 'hint', html: hint }));
+    el('button', { class: 'btn', 'data-key': 'restart', onclick: () => go(0), 'aria-label': 'Restart', title: 'Restart' }, '⏮'),
+    el('button', { class: 'btn', 'data-key': 'back', onclick: () => go(state.step - 1), disabled: state.step === 0, 'aria-label': 'Previous step' }, '◀ Back'),
+    el('button', { class: 'btn primary', 'data-key': 'next', onclick: () => go(state.step + 1), disabled: state.step === tl.length - 1, 'aria-label': 'Next step' }, 'Next ▶'),
+    el('span', { class: 'counter' }, `${state.step}/${tl.length - 1}`),
+    el('div', { class: 'chips', role: 'group', 'aria-label': 'Steps (checkpoints)' }, chips));
 }
 
 // ---- math window --------------------------------------------------------------------------------
@@ -259,11 +246,9 @@ function renderWindow() {
     const L = D.layout;
     box.className = 'win intro' + (state.pop ? ' pop' : '');
     box.replaceChildren(
-      el('h3', {}, 'Math window'),
-      el('p', {}, 'This is where the arithmetic appears. Each step shows the rule, then the same rule with your numbers filled in. ',
-        'You can also click any node in the graph to open its window.'),
-      el('p', { html: `<strong>This scene:</strong> ${L.goal}` }),
-      el('div', { class: 'expr', html: math(exprTex(), true) }));
+      el('h3', {}, L.goal),
+      el('p', { html: L.intro }),
+      el('p', { class: 'hint', html: `Press <kbd>Next</kbd> (or <kbd>→</kbd>) to begin. ${L.forwardHint} ${L.backwardHint} Each step opens a <em>math window</em> here with the rule and the same rule with these numbers; you can also click any node.` }));
     state.pop = false; return;
   }
   const n = D.graph.byName[state.sel];
@@ -274,12 +259,12 @@ function renderWindow() {
     el('div', { class: 'win-head' },
       el('h3', {}, w.title),
       el('div', { class: 'win-tabs', role: 'tablist' }, tabs.map(([id, label]) => el('button', { class: 'wtab ' + id, 'data-key': 'wtab:' + id, role: 'tab', 'aria-selected': state.tab === id, onclick: () => { state.tab = id; state.pop = false; keepFocus(renderWindow); } }, label)))),
-    ...w.blocks.map((b, i) => el('section', { class: 'blk' },
+    el('div', { class: 'win-body' }, w.blocks.map((b) => el('section', { class: 'blk' },
       el('h4', {}, b.heading),
       b.html ? el('p', { html: b.html }) : null,
-      ...(b.latex ?? []).map((l) => el('div', { class: 'math', html: math(l) })))),
+      ...(b.latex ?? []).map((l) => el('div', { class: 'math', html: math(l) }))))),
     state.sel && D.tl[state.step].node !== state.sel ? el('p', { class: 'hint' }, 'You are exploring ', el('code', {}, state.sel), '. ', el('button', { class: 'link', onclick: () => { syncSelection(); state.pop = true; renderGraph(); renderWindow(); } }, 'Back to the current step')) : null].filter(Boolean));
-  box.querySelectorAll('a[data-focus]').forEach((a) => a.addEventListener('click', (e) => { e.preventDefault(); const d = $('#inputs-details'); if (d) d.open = true; $(`#in-${a.dataset.focus} input`)?.focus(); }));
+  box.querySelectorAll('a[data-focus]').forEach((a) => a.addEventListener('click', (e) => { e.preventDefault(); openInputs(true); $(`#in-${a.dataset.focus} input`)?.focus(); }));
   state.pop = false;
 }
 function exprTex() { return D.scene.expression.replace(/\*/g, '\\cdot ').replace(/relu/g, '\\mathrm{relu}').replace(/sum/g, '\\mathrm{sum}').replace(/mse/g, '\\mathrm{mse}').replace(/@/g, '\\,@\\,'); }
@@ -296,10 +281,15 @@ function ensureVisible() {
   if (chips && on && chips.scrollWidth > chips.clientWidth) chips.scrollLeft = on.offsetLeft - chips.clientWidth / 2 + on.offsetWidth / 2;
 }
 function renderIntro() {
-  const L = D.layout;
-  $('#scene-intro').innerHTML = `<h3>${L.goal}</h3><p>${L.intro}</p><div class="expr">${math(exprTex(), true)}</div>`;
-  $('#takeaway').innerHTML = D.tl[state.step] === D.tl[D.tl.length - 1] ? `<strong>Takeaway.</strong> ${L.takeaway}` : '';
-  $('#takeaway').hidden = state.step !== D.tl.length - 1;
+  const L = D.layout, last = state.step === D.tl.length - 1;
+  const g = $('#goal');
+  g.className = 'goal' + (last ? ' done' : '');
+  g.innerHTML = last ? `<strong>Takeaway.</strong> ${L.takeaway}` : `<strong>${L.goal}</strong> <span class="expr">${math(exprTex(), false)}</span>`;
+}
+// inputs popover
+function openInputs(open) {
+  const p = $('#inputs'), b = $('#inputs-btn');
+  p.hidden = !open; b.setAttribute('aria-expanded', String(open));
 }
 function refresh(full = false, keepInputs = false) {
   D = derive();
@@ -307,6 +297,7 @@ function refresh(full = false, keepInputs = false) {
   if (!keepInputs) renderInputs();
   else { // update the badge only, keep the focused input element
     const edited = Object.keys(state.overrides[state.sceneId] ?? {}).length > 0;
+    $('#inputs-btn').classList.toggle('edited', edited);
     const b = $('#match-badge'); b.className = 'badge ' + (edited ? 'warn' : 'ok'); b.textContent = edited ? 'your values (recomputed in browser)' : '✓ matches the real TorC run';
     if (!$('.inputs-head .link') && edited) $('.inputs-head').append(el('button', { class: 'link', onclick: () => { delete state.overrides[state.sceneId]; refresh(); } }, 'reset'));
   }
@@ -320,23 +311,25 @@ function readHash() {
   if (SCENES[id]) { state.sceneId = id; state.step = Math.max(0, parseInt(st ?? '0', 10) || 0); }
 }
 
-window.addEventListener('hashchange', () => { if (!state.data || !SCENES[location.hash.replace('#', '').split('/')[0]]) return; stopPlay(); readHash(); state.sel = null; refresh(true); });
-
-document.addEventListener('visibilitychange', () => { if (document.hidden && state.playing) { stopPlay(); if (D) renderControls(); } });
+window.addEventListener('hashchange', () => { if (!state.data || !SCENES[location.hash.replace('#', '').split('/')[0]]) return; readHash(); state.sel = null; refresh(true); });
 
 document.addEventListener('keydown', (e) => {
   if (!D || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.metaKey || e.ctrlKey || e.altKey) return;
-  if (e.key === 'ArrowRight') { stopPlay(); go(state.step + 1); e.preventDefault(); }
-  else if (e.key === 'ArrowLeft') { stopPlay(); go(state.step - 1); e.preventDefault(); }
+  if (e.key === 'ArrowRight') { go(state.step + 1); e.preventDefault(); }
+  else if (e.key === 'ArrowLeft') { go(state.step - 1); e.preventDefault(); }
 });
 
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('#inputs').hidden) { openInputs(false); $('#inputs-btn').focus(); } });
+document.addEventListener('click', (e) => { const p = $('#inputs'); if (p && !p.hidden && !p.contains(e.target) && !e.target.closest('#inputs-btn') && !e.target.closest('a[data-focus]')) openInputs(false); });
+
 (async function main() {
+  $('#inputs-btn').addEventListener('click', () => openInputs($('#inputs').hidden));
   const concepts = $('#concepts');
   concepts.replaceChildren(...CONCEPTS.map((c) => el('div', { class: 'card' }, el('h3', {}, c.h), el('p', { html: c.p }))));
   try {
     state.data = await (await fetch('data/autograd_trace.json')).json();
   } catch (err) {
-    $('#lab-body').textContent = 'Could not load data/autograd_trace.json — serve the site over HTTP (for example: python3 -m http.server -d site). ' + err;
+    $('#lab').textContent = 'Could not load data/autograd_trace.json — serve the site over HTTP (for example: python3 -m http.server -d site). ' + err;
     return;
   }
   readHash();

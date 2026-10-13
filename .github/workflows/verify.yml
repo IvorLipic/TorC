@@ -1,0 +1,24 @@
+# Checks that the committed trace JSON equals a fresh run of the pinned TorC, and that the site tests pass.
+name: Verify
+
+on:
+  push:
+    branches: [web]
+    paths: ["site/**", "tools/**", ".github/workflows/verify.yml"]
+  pull_request:
+    paths: ["site/**", "tools/**", ".github/workflows/verify.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Site tests (engine vs. real library output, LaTeX validity)
+        run: node --test site/test/engine.test.mjs
+      - name: Toolchain (clang 18 + CMake)
+        run: sudo apt-get update && sudo apt-get install -y clang-18 cmake
+      - name: Trace drift check against the pinned TorC
+        run: CXX=clang++-18 tools/trace/run.sh --check

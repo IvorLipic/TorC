@@ -1,197 +1,34 @@
-# torc — Roadmap
+# Roadmap — TorC Learn
 
-Milestone checklist. Update this file as work lands — it's expected to churn. For *why*
-decisions were made this way, see [docs/DESIGN.md](docs/DESIGN.md); for the autograd
-algorithm specifically, see [docs/AUTOGRAD.md](docs/AUTOGRAD.md). For stable orientation,
-see [AGENTS.md](AGENTS.md).
+Status legend: `[x]` done · `[~]` in progress · `[ ]` planned. The detailed curriculum lives in
+[docs/content-plan.md](docs/content-plan.md); this file tracks delivery.
 
----
+## M0 — Backprop lab (done)
+- [x] Real-library trace → JSON (graph edges from the tape, values, gradients, finite-difference check)
+- [x] Interactive graph, step timeline, per-node math window (rule + same rule with numbers), editable inputs
+- [x] JS port of the op rules, tested against the C++ output; KaTeX vendored; deployed to GitHub Pages
+- [x] Independent review (math, UX, accessibility) and fixes
 
-## Immediate next steps
+## M1 — Project foundation (this branch as its own project)
+- [x] Library removed from this branch; TorC consumed at a pinned ref (`tools/trace/TORC_REF`)
+- [~] TorC packaged for consumption on `main` (CMake install/export, options, version, tag) — then pin to the tag
+- [x] Project docs: README, architecture, authoring guide, decisions, content plan
+- [x] Compact lab (fits one laptop screen), auto-play removed
+- [ ] CI: trace drift check + Node tests on every push/PR (`verify.yml`)
 
-1. Milestone 4 is complete. See the Milestone 5 section below for next steps.
-2. Each subsequent step must pass gradient checks (central finite difference, eps=1e-4,
-   atol=1e-2 — see `docs/DESIGN.md`'s "Gradient checking" section for why atol is 1e-2, not
-   1e-4) before the next step begins.
+## M2 — Course scaffolding
+- [ ] Home / course-map page, lesson template, shared UI modules, lesson data format
+- [ ] Per-lesson routing under `/TorC/`, progress persistence (localStorage)
+- [ ] Move Backprop lab into the template as lesson 1
 
----
+## M3 — First lessons (see content plan for specs)
+- [ ] Intro: why following gradients works (slope, chain rule intuition)
+- [ ] SGD update step (and momentum)
+- [ ] `nn::Linear`: shapes, matmul + bias, init
 
-## Milestone 1 — Core tensor op completeness
-- [x] `sub`, `div`
-- [x] Unary negation (`operator-()`)
-- [x] Scalar ops (`Tensor + float`, etc.)
-- [x] `operator==`, `operator<<` (pretty-printing) for debugging/tests
-- [x] Reductions: `sum()`, `mean()`, `max()`, `min()` (whole-tensor first, axis-wise later)
-- [x] `reshape()` / `view()` — shape-changing copies (no stride metadata yet)
-- [x] Copy vs. move semantics review (rule of 5, or confirm defaults are sufficient)
+## M4+ — Remaining library coverage
+Tensors/shapes/broadcasting, nn activations & losses, optimizers (Adam/AdamW), data loading, conv2d, end-to-end examples
+(linear regression, MNIST MLP/CNN). Order and specs in the content plan.
 
-## Milestone 2 — Shape flexibility
-- [x] NumPy-style broadcasting for elementwise ops
-- [x] Multi-dimensional indexing helper (`operator[](i, j, ...)`)
-- [x] `transpose()` / axis permutation
-- [x] Slicing (basic contiguous-range slices)
-
-## Milestone 3 — Linear algebra
-- [x] `matmul()` for 2D tensors (cache-blocked tiling with 32×32×32 tiles, `i, k, j` loop order)
-- [x] Batched matmul for higher-rank tensors
-
-## Milestone 4 — Autograd (incremental, tested each step)
-
-Each step must pass both correctness tests and numerical gradient checks before proceeding.
-Do not implement multiple steps in one PR.
-
-- [x] Decide tape structure, ownership model, and broadcasting backward approach — see
-      `docs/DESIGN.md` (rationale) and `docs/AUTOGRAD.md` (the actual algorithm: topological
-      sort + raw-pointer graph, not per-Variable recursion)
-- [x] **Step 1**: `Variable` scaffold (`data_`, `grad_`, `requires_grad_`, `has_grad_`,
-      `tape_`) with `backward()`, `zero_grad()`
-- [x] **Step 2**: Scalar-only autograd (`add`, `sub`, `mul`, `div`, `neg`) — hand tests + grad
-      check (eps=1e-4, atol=1e-2)
-- [x] **Step 3**: Tensor-tensor elementwise + broadcasting backward (`reduce_sum_to_shape`
-      helper, applied centrally in `backward_with_grad`) — grad check on broadcast cases
-- [x] **Step 4**: Reduction ops backward (`sum`, `mean` whole-tensor and axis-wise) — grad check
-- [x] **Step 4b**: Initially deferred `max`/`min` backward until argmax tracking was added;
-      superseded by Step 9 below
-- [x] **Step 5**: `matmul` backward (2D + batched, **including batch-broadcast cases** — these
-      need their own reduce-over-batch-dims handling, not a direct reuse of
-      `reduce_sum_to_shape`) — hand test + grad check
-- [x] **Step 6**: View ops backward (`transpose` — true inverse permutation, not re-applying
-      `axes`; `reshape`/`view`; `slice` — zero-fill-and-scatter into original shape) — grad check
-- [x] **Step 7**: `detach()` and process-global `set_grad_enabled(bool)` mode
-- [x] **Step 8**: In-place ops forbidden for `requires_grad` Variables (throw `TorcError`) —
-      new guarded in-place API (`Tensor::fill`, `Variable::fill`) added; direct `data()`/`operator[]`
-      mutation remains unguarded
-- [x] **Step 9**: `max`/`min` backward with argmax tracking — grad check
-## Milestone 5 — nn / optim / data (basic ML)
-
-Each step must pass tests before proceeding.
-
-- [x] **Step 5.1**: `Tensor::exp()` — elementwise unary transcendental op; needed before any
-      activation that uses it (Sigmoid, Softmax)
-- [x] **Step 5.2**: `nn::Module` base class — parameter storage, `forward()` hook, and
-      PyTorch-style `torc::nn::Sequential` container
-- [x] **Step 5.3**: `nn::Linear` — `Linear(in, out)` with weight/bias parameters and a forward
-  that does `x @ W.T + b`. `Linear(in, out, init_std)` overload: when `init_std <= 0`,
-  weight is initialized with Kaiming normal (`std::sqrt(2 / fan_in)`); otherwise samples
-  weight from `N(0, init_std)`. Bias is always initialized to `0.0`.
-- [x] **Step 5.3a**: Fix `Module::forward` / `Module::operator()` API so intermediate `Variable`s
-       created inside `forward()` stay alive until after `backward()` completes. Solution:
-               `Module` owns a `mutable std::deque<Variable> forward_cache_`; `operator()()` clears it
-       before calling `forward()`, and each module's `forward()` appends intermediates via
-       `emplace_back` so their addresses are stable for tape-entry raw pointers.
-       `Sequential::forward()` calls each child's `operator()()` to prevent unbounded cache
-       growth.
-- [x] **Step 5.4**: Activation functions — `nn::ReLU`, `nn::Sigmoid`, `nn::Softmax` (each as a
-      `Module` with differentiable forward, gradient checks included)
-- [x] **Step 5.5**: Loss functions — `nn::MSELoss`, `nn::CrossEntropyLoss` (implemented as
-      standalone classes in `nn/losses.hpp` / `nn/losses.cpp` with `forward(input, target)`
-      signature and custom backward closures)
-- [x] **Step 5.6**: Optimizer — `optim::SGD` with momentum (`optim::SGD` takes
-      `std::vector<Variable*>&` and mutates `param->data()` in-place via `step()`; `zero_grad()`
-      clears all parameter gradients)
-- [x] **Step 5.7**: Optimizer — `optim::Adam` (with bias correction, `beta1=0.9`, `beta2=0.999`)
-- [x] **Step 5.8**: Optimizer — `optim::AdamW`
-- [x] **Step 5.9**: `data::Dataset` base + `data::DataLoader` (batching, shuffling)
-- [x] **Step 5.10**: Toy dataset loaders — synthetic regression dataset, then a small CSV-backed
-      classification dataset
-- [x] **Step 5.11**: End-to-end example — linear regression on a synthetic dataset
-- [x] **Step 5.12**: End-to-end example — small MLP on MNIST
-- [ ] **Step 5.13**: `nn::Conv2d` + end-to-end example — MNIST CNN
-- [ ] **Step 5.14**: `nn::LayerNorm` — per-row variance (`mean(x^2) - mean(x)^2`) using
-      existing `mul`/`mean(axis)`; test on `{batch, features}` tensors
-- [ ] **Step 5.15**: Embedding lookup / gather-by-index — `Tensor::slice()` is contiguous-range
-      only today, so this needs either an arbitrary-index gather primitive or a one-hot +
-      `matmul` workaround
-- [ ] **Step 5.16**: End-to-end example — minimal transformer block (multi-head self-attention +
-      feed-forward) on a toy sequence task; depends on `exp`, LayerNorm, embedding-lookup,
-      Softmax, `matmul`, and broadcasting all being in place
-
-## Milestone 6 — Performance & ergonomics
-
-- [x] Benchmark infrastructure (Google Benchmark, `BUILD_BENCHMARKS=OFF` default)
-- [x] Memoize `numel()` on first access (lazily, via `numel_valid_`) instead of recomputing each call
-- [x] SIMD or threaded elementwise ops (behind a flag, benchmark-gated)
-- [x] `matmul` cache-blocked tiling (32×32×32 tiles, `i, k, j` loop order) shipped in Milestone 3
-- [x] Contiguous same-shape fast paths for elementwise binary ops (dispatch to `simd::add`/`sub`/`mul`/`div` directly, bypassing index reconstruction)
-- [x] Vectorize matmul inner loop with AVX2/FMA-style AVX2 operations for dense throughput
-- [x] Remove sparsity early-exit from matmul inner loop (dense throughput prioritized)
-- [x] Replace `std::vector<int>` index reconstruction in hot loops with stack-allocated stride iteration
-- [x] `conv2d` forward/backward use raw-pointer/precomputed-stride loops matching `matmul`'s existing pattern (AVX2 inner-loop vectorization remains a follow-up)
-- [x] Eliminate per-batch reshape in CNN example by reshaping `MNISTDataset` once at load time via optional `sample_shape` parameter
-- [ ] Optional CUDA/Metal backend exploration (stretch goal, only after CPU path is solid)
-
-## Milestone 7 — Bindings & packaging
-- [ ] Python bindings (pybind11) once the C++ API has stabilized
-- [ ] Versioned releases / install target (`cmake --install`)
-- [ ] CI (GitHub Actions: build + `ctest` on push)
-
-## Review-derived hardening backlog
-
-Before treating the library as production-ready, the backlog below must be addressed. These items
-are separate from feature milestones: adding more layers on top of unsafe or numerically fragile
-primitives would make the eventual fixes more expensive.
-
-### Correctness and API safety
-
-- [x] **Make softmax axis-aware.** Added `Tensor::softmax(axis)` and `torc::softmax(a, axis)` with
-      stable per-axis forward/backward rules. `nn::Softmax(axis = -1)` now defaults to the last
-      axis, so `{batch, classes}` inputs normalize each row. The no-argument primitive remains
-      the documented flattened legacy behavior for compatibility. Batched forward and gradient
-      tests cover the new contract.
-- [x] **Harden `CrossEntropyLoss`.** The loss now requires rank-2, non-empty logits and rank-1
-      targets whose length matches the batch. It rejects non-finite logits, non-integral/NaN,
-      negative, and out-of-range targets before indexing. Forward uses per-row stable log-sum-exp
-      (with double-precision accumulation), and malformed-input/extreme-logit tests are covered.
-- [x] **Define numerical-domain and empty-tensor behavior.** `NumericalError` now rejects
-      non-finite values in domain-sensitive operations, non-positive `log` inputs, negative `sqrt`
-      inputs, and division by zero; ordinary add/subtract/multiply/negate and matmul preserve IEEE
-      propagation so dense hot paths do not pay an unconditional validation scan.
-      Empty `sum()` returns its additive identity (`0`); `mean`/`max`/`min`, axis reductions, and
-      softmax reject empty tensors with `ShapeError`. Regression tests cover each contract.
-- [x] **Remove raw-pointer graph lifetime UB.** `TapeEntry` inputs remain non-owning pointers for
-      the value-style API, but each is paired with a weak lifetime token and tracked-input flag.
-      Backward validates metadata before any pointer dereference and throws `TorcError` when a
-      tracked ancestor has expired. Destroyed-intermediate coverage prevents the former UB.
-- [ ] **Encapsulate `Variable` state.** Make `data_`, `grad_`, `requires_grad_`, `has_grad_`, and
-      `tape_` private and expose only invariant-preserving operations.
-- [ ] **Close tracked-mutation loopholes.** Prevent or version-check mutable `data()` and indexing
-      on tracked Variables; the current `fill()` guard does not protect direct writes after
-      forward. Add mutation-after-forward tests.
-- [x] **Make gradient mode scoped and thread-local.** Thread-local `g_grad_enabled` plus an RAII
-      `Variable::NoGradGuard` are implemented; see `NoGradGuardDisablesAndRestores` and
-      `NoGradGuardRestoresAfterException` in `tests/test_autograd.cpp`.
-- [ ] **Validate optimizers and parameter ownership.** Reject invalid learning rates, momentum,
-      beta, epsilon, and decay values; detect null/stale/shape-changing parameter pointers; and
-      define behavior when a module parameter map changes after optimizer construction.
-- [ ] **Validate dataset contracts.** Check sample-shape consistency in generic batching and guard
-      all `size_t`-to-`int` conversions and shape-product arithmetic against overflow. Align data
-      loader errors with the project's TorcError hierarchy.
-
-### Performance and portability
-
-- [ ] Replace per-output-element index-vector allocation in broadcast elementwise kernels with
-      stride/odometer iteration.
-- [ ] Reduce avoidable full-buffer copies from `reshape`/`view`, `transpose`, `slice`, optimizer
-      updates, and autograd saved tensors; introduce strides or an explicitly documented memory
-      budget before scaling model sizes.
-- [ ] Add a portable SIMD dispatch/build mode. `-march=native` and unconditional AVX2 options
-      currently make binaries dependent on the build CPU; retain optimized paths without making
-      the default artifact non-portable.
-- [ ] Add checked shape-product/element-count arithmetic so large shapes fail predictably instead
-      of overflowing `int` and producing invalid allocations or indexing.
-
-### Verification, packaging, and scope
-
-- [ ] Add Debug/Release sanitizer jobs (ASan/UBSan where supported), a clean compiler matrix, and
-      CI that configures and rebuilds from scratch rather than relying on a pre-existing build
-      directory. Keep at least one test target per logical suite in addition to the aggregate test.
-- [ ] Add property/fuzz tests for broadcasting, matmul batch promotion, malformed losses/data, and
-      empty/zero-sized shapes; the current example-oriented tests do not cover these hazards.
-- [ ] Add an install target, package/version metadata, and a dependency strategy that does not
-      require an implicit network fetch for every clean build.
-- [x] Reconcile roadmap/design status with the implementation after each performance change;
-      matmul AVX2 status, sparsity-loop status, and numerical-validation performance notes are
-      kept in sync with the implementation and benchmark record.
-- [ ] Decide and document the intended scope for train/eval modes, serialization/state dicts,
-      operator ergonomics, higher-order gradients, and device backends. Until then, describe torc
-      as a small educational CPU reference library rather than a general PyTorch replacement.
+## Open decisions
+Tracked in [docs/decisions.md](docs/decisions.md) ("Open").

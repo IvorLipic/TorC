@@ -13,35 +13,31 @@
 <body>
 <header class="site"><nav>
   <a class="brand" href="#top">TorC · backprop</a>
-  <a class="nav" href="#lab">Try it</a>
+  <a class="nav" href="#lab">Lab</a>
   <a class="nav" href="https://github.com/IvorLipic/TorC">GitHub</a>
 </nav></header>
 
 <main id="top">
   <section class="hero">
     <h1>Backpropagation, one step at a time</h1>
-    <p class="lead">Learn how a neural network works out <em>which way to nudge each number</em>. Step through a small computation forward, then backward, and see exactly what is multiplied by what — with the real numbers computed by <a href="https://github.com/IvorLipic/TorC">TorC</a>, a from-scratch C++ tensor library.</p>
-    <p><a class="btn primary big" href="#lab">Start the walk-through ↓</a></p>
+    <p class="lead">Step through a small computation forward, then backward, and see exactly what is multiplied by what, with the real numbers computed by <a href="https://github.com/IvorLipic/TorC">TorC</a>, a from-scratch C++ tensor library.</p>
   </section>
 
-  <section aria-labelledby="ideas">
+  <section id="lab" class="lab" aria-label="Interactive lab">
+    <div class="lab-top">
+      <div id="scene-tabs" class="tabs" role="tablist" aria-label="Examples"></div>
+      <button id="inputs-btn" class="btn small" aria-expanded="false" aria-controls="inputs" title="Edit the input numbers">✎ Inputs</button>
+    </div>
+    <div id="inputs" class="popover" role="dialog" aria-label="Edit the input numbers" hidden><div id="inputs-inner"></div></div>
+    <div id="goal" class="goal"></div>
+    <div id="controls" class="controls"></div>
+    <div class="graph-wrap"><div id="graph" class="graph"></div></div>
+    <div id="window" class="win" aria-live="polite"></div>
+  </section>
+
+  <section aria-labelledby="ideas" class="ideas">
     <h2 id="ideas">Three ideas are enough</h2>
     <div class="cards" id="concepts"></div>
-  </section>
-
-  <section id="lab" aria-labelledby="lab-h">
-    <h2 id="lab-h">Try it</h2>
-    <p class="hint">Pick an example, then press <kbd>Next</kbd> (or use <kbd>←</kbd> <kbd>→</kbd>). Click any node to open its math window. Change the inputs to see how the gradients respond.</p>
-    <div id="lab-body">
-      <div id="scene-tabs" class="tabs" role="tablist" aria-label="Examples"></div>
-      <div id="scene-intro" class="scene-intro"></div>
-      <details id="inputs-details" class="inputs"><summary>✎ Edit the input numbers <span class="hint">(everything recomputes live)</span></summary><div id="inputs-inner"></div></details>
-      <div id="controls" class="controls"></div>
-      <div class="graph-wrap"><div id="graph" class="graph"></div></div>
-      <p class="hint swipe">Tip: on a narrow screen, swipe the graph sideways.</p>
-      <div id="window" class="win" aria-live="polite"></div>
-      <div id="takeaway" class="takeaway" hidden></div>
-    </div>
   </section>
 </main>
 

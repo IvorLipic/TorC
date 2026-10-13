@@ -114,3 +114,43 @@ footer{max-width:1100px;margin:0 auto;padding:1.5rem 16px 3rem;color:var(--muted
   .chips{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px;margin-top:.4rem}
   .chip,.phase{flex:none}
 }
+
+/* ---- compact lab: the whole section fits one laptop screen ---- */
+.hero{padding:1.4rem 0 .6rem}
+.hero h1{font-size:clamp(1.6rem,3.6vw,2.3rem);margin-bottom:.4rem}
+.hero .lead{font-size:1.02rem;margin:0}
+.lab{position:relative;display:flex;flex-direction:column;gap:8px;height:calc(100vh - 84px);min-height:560px;max-height:940px;margin-top:.6rem}
+.lab-top{display:flex;gap:10px;align-items:center;justify-content:space-between}
+.lab-top .tabs{margin:0;flex-wrap:wrap}
+.tab{padding:.22rem .85rem;font-size:.92rem}
+.btn.small{padding:.22rem .7rem;font-size:.88rem;white-space:nowrap}
+.btn.small.edited{border-color:var(--warn);color:var(--warn)}
+.popover{position:absolute;z-index:40;right:0;top:44px;width:min(600px,100%);max-height:70%;overflow:auto;background:var(--panel);border:1px solid var(--fwd);border-radius:var(--r);padding:.7rem 1rem;box-shadow:0 12px 40px rgba(0,0,0,.6)}
+.popover[hidden]{display:none}
+.goal{font-size:.98rem;color:#c4ccd5;min-height:2.9em;display:flex;align-items:center;flex-wrap:wrap;gap:0 .8rem;line-height:1.4}
+.goal strong{color:var(--fg)}
+.goal .expr{margin:0;display:inline}
+.goal .expr .katex{font-size:1.05em}
+.goal.done{background:rgba(131,193,103,.08);border:1px solid rgba(131,193,103,.5);border-radius:10px;padding:.3rem .8rem;font-size:.92rem}
+.lab .controls{position:static;display:flex;gap:8px;align-items:center;padding:.4rem .6rem;margin:0;flex:none}
+.lab .controls .btn{padding:.25rem .75rem;font-size:.9rem;white-space:nowrap}
+.lab .controls .counter{margin:0 4px;font-size:.8rem}
+.lab .controls .chips{flex:1;flex-wrap:nowrap;overflow-x:auto;margin:0;padding:2px 0;scrollbar-width:thin}
+.chip,.phase{flex:none}
+.lab .graph-wrap{margin:0;flex:none}
+.lab .graph svg{max-height:min(34vh,330px)}
+.lab .win{margin:0;flex:1 1 0;min-height:200px;overflow:auto;padding:.7rem 1.1rem 1rem}
+.win-body{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));column-gap:28px}
+.win-head h3{font-size:1.1rem}
+.blk{break-inside:avoid}
+.blk h4{margin:.6rem 0 .1rem}
+.blk p{font-size:.93rem;margin:.1rem 0 .2rem}
+.ideas{margin-top:2.5rem}
+@media(max-width:900px){
+  .lab{height:auto;max-height:none;min-height:0}
+  .lab .win{flex:none;overflow:visible}
+  .lab .graph svg{max-height:none}
+  .lab .controls{position:sticky;top:46px;z-index:20;background:rgba(14,17,22,.95)}
+  .win-body{grid-template-columns:1fr}
+  .goal{min-height:0}
+}

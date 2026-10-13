@@ -1,47 +1,38 @@
-# TorC Autograd Visualization Project Rules
+# TorC Learn — guide for agents and contributors (branch `web`)
 
-## Repository safety and branches
-- `web` is the site branch: it holds `site/`, `visualizations/`, `docs/autograd-audit/`, `.github/workflows/pages.yml` and this file. Every push to `web` that touches the site deploys it to GitHub Pages.
-- `main` is the library branch. Library (`include/`, `src/`, `tests/`) changes are made on a separate branch, reviewed, merged to `main`, and then `main` is merged into `web` (merge commit, never rebase or force-push `web`).
-- Never change library code directly on `web`. Report suspected bugs with a minimal reproduction; fix them via `main`.
-- Before making changes, inspect `git status` and `git branch --show-current`; stop if the worktree has unrelated changes.
-- Do not open pull requests, merge, or push to branches other than the one the user named for the task without approval. (Standing approval from the user: fix branches → `main`, `main` → `web`, and pushes to `web`.)
-- Preserve the existing library build, tests, and public APIs unless the user explicitly authorizes a separate core fix.
+This branch is an independent project: an interactive learning website about the TorC library. Read `README.md`, then
+`docs/architecture.md`, `ROADMAP.md`, `docs/content-plan.md`, `docs/authoring.md`.
+
+## Branches and repository safety
+- `web` holds the site (`site/`), the trace tooling (`tools/trace/`), `docs/`, `.github/`, `.claude/`. **No library source here.**
+- `main` is the TorC library. Library changes (including bug fixes) are made on a branch from `main`, independently reviewed, and
+  merged to `main` — never edited on `web`. Then bump `tools/trace/TORC_REF` here. **Do not merge `main` into `web`.**
+- Never force-push or rebase `web`. Before changing anything: `git status`, `git branch --show-current`; stop if unrelated changes.
+- Standing approvals from the owner: pushes to `web`; library fix branches → `main` after independent review; creating TorC release
+  tags when the owner has asked for a release. Anything else outward-facing (new repositories, repo settings, other branches): ask.
 
 ## Source of truth and correctness
-- The existing TorC code is the source of truth for claims about current behavior.
-- Trace the real implementation before writing explanations, equations, examples, or animations. Cite relevant repository file paths and symbols in the internal behavior notes.
-- Never invent APIs, supported operations, broadcasting behavior, graph lifetime semantics, gradient-reset semantics, or other implementation details.
-- Distinguish three things in all reports:
-  1. **Observed behavior:** directly traced to the implementation and/or an executable test.
-  2. **Expected mathematical behavior:** independently derived from mathematics.
-  3. **Suspected discrepancy/bug:** implementation appears inconsistent with expected mathematics or documented intent.
-- Do not silently “fix” the core library to make an animation work. Report discrepancies with a minimal reproduction and evidence. Ask the user before changing core behavior.
-- Prefer executable C++ examples that produce actual forward values and gradients. Where practical, make the animation pipeline consume their generated outputs instead of hardcoding numerical results independently.
-- For gradient correctness, use analytical derivatives and finite differences where appropriate. State numerical tolerances and limitations. Finite differences are evidence, not a replacement for code tracing.
-- If behavior cannot be established, label it **unknown / not verified** and do not present it as fact.
+- TorC's actual behaviour is the source of truth. Trace the implementation (`src/`, `include/` at the pinned ref) before writing any
+  explanation, formula or example; never invent APIs, semantics or numbers.
+- Report three things separately: **observed** (traced/executed), **expected mathematics**, **suspected discrepancy**. If it cannot be
+  established, say "not verified".
+- Numbers on lesson pages come from `tools/trace` output, never typed by hand. Prose that quotes a number needs a test that checks it.
+- Do not "fix" the library to make a lesson work: reproduce minimally, fix on `main` with tests, bump the pin.
+- Audit/bug talk belongs in `docs/library-audit/`, not on lesson pages. Lesson pages are educational and easy to learn from.
 
-## Architecture and ownership
-- Keep website/Manim assets isolated from the existing C++ library and build system.
-- Before parallel implementation, the orchestrator must define directory ownership and a shared interface for examples, generated values, and media paths.
-- Avoid two agents editing the same files concurrently.
-- Prefer a static website; GitHub Pages cannot execute the C++ library or render Manim scenes on the server at request time.
-- Ensure project-site paths work under `/TorC/`, not just at a domain root.
+## Verification before anything ships
+- `node --test site/test/` and `tools/trace/run.sh --check` must pass (CI runs both).
+- Load the site locally under `/TorC/` (`python3 -m http.server -d …` with a `TorC` symlink), check every step of a changed scene at
+  laptop (1366×768) and phone (390×844) width, keyboard use, no console errors.
+- Substantive changes get an independent read-only review (`independent-reviewer`) whose findings are fixed or answered.
+- Report exactly what was run, what passed, what failed, what is unverified.
 
-## Verification
-- Inspect existing build/test instructions before running commands.
-- Run the existing tests and relevant new tests; do not claim success for commands that were not run.
-- Render at least one low-quality Manim preview early and inspect it before producing all final videos.
-- Build the website locally and check navigation, media URLs, responsive layout, and the `/TorC/` base path.
-- Report exactly what was tested, what passed, what failed, and what remains unverified.
+## Working method
+1. Plan in `docs/content-plan.md` / `ROADMAP.md`; one verified vertical slice before expanding.
+2. Audit new library features read-only (`autograd-auditor`) before teaching them.
+3. Executable ground truth first (trace → JSON), then engine/explain/scenes, then UI.
+4. Give parallel agents disjoint files; the lead integrates.
 
-## GitHub Pages
-- `.github/workflows/pages.yml` deploys `site/` on push to `web` (path-filtered) or manually, and refuses to run from any other branch.
-- Do not change repository settings through external services without user approval.
-
-## Working method (orchestration)
-1. Audit first (read-only `autograd-auditor`), recorded in `docs/autograd-audit/implementation-contract.md`.
-2. Executable ground truth: `visualizations/examples/autograd_trace.cpp` emits JSON (edges from the real tape, values, grads, finite-difference check); scenes consume it and never hardcode numbers.
-3. Plan scenes in `docs/autograd-audit/visualization-plan.md`; one verified vertical slice before expanding.
-4. Implementation specialists own separate directories (`visualizations/manim/` vs `site/`); the lead integrates.
-5. Independent read-only review (`independent-reviewer`) before anything merges; fix substantiated findings.
+## Deployment
+`.github/workflows/pages.yml` deploys `site/` on push to `web` (path-filtered) and refuses any other branch. Do not change
+repository settings without the owner's approval.

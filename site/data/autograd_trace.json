@@ -1,6 +1,6 @@
 {
   "library":"torc",
-  "generator":"visualizations/examples/autograd_trace.cpp",
+  "generator":"tools/trace/autograd_trace.cpp",
   "scenes":[
     {
       "id":"reuse","title":"One variable, two uses","expression":"y = x*x + x",

@@ -4,8 +4,8 @@
 export const SCENES = {
   reuse: {
     tab: '1 · Reuse',
-    view: [900, 300], minWidth: 640,
-    pos: { x: [150, 160], m: [450, 80], y: [750, 160] },
+    view: [900, 210], minWidth: 600,
+    pos: { x: [150, 130], m: [450, 55], y: [750, 130] },
     goal: 'What if the same variable is used more than once?',
     intro: 'Here <code>x</code> is used <strong>twice</strong> in the multiplication and <strong>once more</strong> in the addition. Watch how its gradient is the <em>sum</em> of what each use sends back.',
     forwardHint: 'Forward: compute the value of every node, left to right.',
@@ -14,8 +14,8 @@ export const SCENES = {
   },
   chain: {
     tab: '2 · Chain rule',
-    view: [1000, 380], minWidth: 760,
-    pos: { a: [100, 90], b: [100, 270], ab: [330, 180], c: [330, 40], z: [560, 110], r: [760, 110], f: [930, 110] },
+    view: [1000, 290], minWidth: 760,
+    pos: { a: [100, 70], b: [100, 215], ab: [330, 150], c: [330, 35], z: [560, 95], r: [760, 95], f: [930, 95] },
     goal: 'How does a gradient travel through several operations?',
     intro: 'A short chain: multiply, add, ReLU, sum. At every node the gradient arriving from the right is <strong>multiplied by that node’s local slope</strong> and passed to the left. ReLU blocks the gradient wherever its input was negative.',
     forwardHint: 'Forward: each node computes its output from its inputs.',
@@ -24,10 +24,10 @@ export const SCENES = {
   },
   mlp: {
     tab: '3 · A tiny network',
-    view: [1280, 360], minWidth: 1000,
+    view: [1280, 300], minWidth: 1000,
     above: ['x', 'W1', 'b1', 'W2', 'b2', 't'],
-    pos: { x: [70, 100], W1: [230, 100], b1: [420, 100], W2: [590, 100], b2: [740, 100], t: [900, 100],
-           xW1: [110, 270], h: [300, 270], a: [490, 270], aW2: [655, 270], o: [800, 270], d: [960, 270], q: [1100, 270], L: [1210, 270] },
+    pos: { x: [70, 85], W1: [230, 85], b1: [420, 85], W2: [590, 85], b2: [740, 85], t: [900, 85],
+           xW1: [110, 225], h: [300, 225], a: [490, 225], aW2: [655, 225], o: [800, 225], d: [960, 225], q: [1100, 225], L: [1210, 225] },
     goal: 'What does one training step of a small network compute?',
     intro: 'A one-hidden-layer network on a <strong>batch of two examples</strong> (the two rows of <code>x</code>), with a mean-squared-error loss. The gradients of the <strong>weights and biases</strong> are what an optimizer uses to improve them.',
     forwardHint: 'Forward: the prediction and the loss.',

@@ -1,6 +1,6 @@
 ---
 name: autograd-auditor
-description: Read-only specialist for tracing TorC's actual autograd implementation, checking mathematical behavior, and identifying possible bugs. Invoke before designing or coding any autograd visualization.
+description: Read-only specialist for tracing TorC's actual autograd implementation, checking mathematical behavior, and identifying possible bugs. Invoke before designing or coding any lesson about it.
 tools: Read, Grep, Glob, Bash
 model: inherit
 ---
@@ -27,4 +27,4 @@ Return a compact report with:
 7. Potential defects ranked by severity, each with evidence and reproduction.
 8. Questions that remain unanswered.
 
-Do not start writing animations or site code. The lead agent owns integration and the audit contract.
+Do not start writing lesson or site code. The lead agent owns integration and the audit contract.

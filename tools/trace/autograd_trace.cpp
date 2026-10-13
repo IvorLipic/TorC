@@ -3,7 +3,7 @@
 // everything the visualizations need (graph edges taken from the real tape,
 // forward values, accumulated gradients, finite-difference check) as JSON.
 //
-// Output schema: see visualizations/README.md. The Manim scenes read every value and edge
+// Output schema: see docs/architecture.md. The Manim scenes read every value and edge
 // from this output. (The website prose quotes a few of these numbers by hand; they were
 // checked against this output.)
 #include "torc/autograd.hpp"
@@ -227,7 +227,7 @@ int main() {
         scenes.push_back(std::move(s));
     }
 
-    std::string out = "{\n  \"library\":\"torc\",\n  \"generator\":\"visualizations/examples/autograd_trace.cpp\",\n  \"scenes\":[\n";
+    std::string out = "{\n  \"library\":\"torc\",\n  \"generator\":\"tools/trace/autograd_trace.cpp\",\n  \"scenes\":[\n";
     for (size_t i = 0; i < scenes.size(); ++i) out += run_scene(scenes[i], i + 1 == scenes.size());
     out += "  ]\n}\n";
     std::fputs(out.c_str(), stdout);
