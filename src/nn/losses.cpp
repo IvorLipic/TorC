@@ -23,13 +23,14 @@ Variable MSELoss::forward(const Variable& input, const Variable& target) const {
         TapeEntry entry;
         entry.set_inputs({ const_cast<Variable*>(&input), const_cast<Variable*>(&target) });
 
-        Tensor input_data = input.data();
-        Tensor target_data = target.data();
+        // The loss is the mean over the broadcast result, so each element of (input - target)
+        // contributes 2 * diff / N_broadcast. The closure returns the gradient at the broadcast
+        // shape; Variable::backward_with_grad sums it down to each operand's own shape.
+        Tensor diff_copy = diff_data;
 
-        entry.backward = [input_data, target_data](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
-            float n = static_cast<float>(input_data.numel());
-            Tensor grad = input_data.sub(target_data);
-            grad = grad.mul(2.0f / n);
+        entry.backward = [diff_copy](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
+            float n = static_cast<float>(diff_copy.numel());
+            Tensor grad = diff_copy.mul(2.0f / n);
             input_grads[0] = grad.mul(grad_output);
             input_grads[1] = grad.mul(-1.0f).mul(grad_output);
         };
