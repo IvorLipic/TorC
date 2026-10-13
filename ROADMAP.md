@@ -125,7 +125,7 @@ Each step must pass tests before proceeding.
 - [x] Install target (`cmake --install`) exporting `torc::torc` with package config + version
       metadata (`find_package(torc CONFIG)`), plus `TORC_BUILD_TESTS`/`TORC_BUILD_EXAMPLES`/
       `TORC_NATIVE_ARCH` options so consumers don't build tests or require `-march=native`
-- [ ] Versioned releases (tag and publish `v0.1.0`; see `CHANGELOG.md`)
+- [x] Versioned releases: `v0.1.0` tagged (see `CHANGELOG.md`)
 - [ ] CI (GitHub Actions: build + `ctest` on push)
 
 ## Review-derived hardening backlog

@@ -4,9 +4,9 @@ All notable changes to `torc` are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow semantic versioning
 (0.x releases may still change the API).
 
-## [0.1.0] - Unreleased
+## [0.1.0] - 2026-10-13
 
-First packaged version of the library (not yet tagged).
+First packaged version of the library (tag `v0.1.0`).
 
 ### Library
 - `torc::Tensor`: `float32` tensors with NumPy-style broadcasting elementwise ops, reductions

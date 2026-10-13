@@ -166,7 +166,7 @@ is not the top-level project):
 include(FetchContent)
 FetchContent_Declare(torc
     GIT_REPOSITORY https://github.com/IvorLipic/TorC.git
-    GIT_TAG        main)                         # pin a release tag once one is published
+    GIT_TAG        v0.1.0)                       # a release tag (or a commit SHA)
 FetchContent_MakeAvailable(torc)
 target_link_libraries(app PRIVATE torc::torc)
 ```
