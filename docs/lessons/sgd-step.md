@@ -77,3 +77,32 @@ The optimizer does not compute gradients (it only reads `.grad`); `step()` alone
 
 ## 5. Test hooks suggested by the data
 JS reproduces every `runs[*].steps[*]` field and `final` within `1e-5 (1+|b|)`; `parity` flags true; engine `mse` and `transpose` equal the `sgd` scene values and gradients (same-shape only); accumulation test `k*g` (`accumulate_only`); skipped-step cases (`changed:false`); `analysis.stable_predicted` equals `!observed_diverged` for all six runs (V: `stable_predicted` is false and `observed_diverged` true for lr 0.2 only; mu 0.9 is stable but oscillating, so test divergence, not monotonic decrease); the surface points equal the JS loss; quoted numbers bound to paths (27.667 `scenes[0].nodes[L]`, -22.667 `scenes[0].nodes[W].grad`, 1.1333 `runs[0].steps[1].w`, 5.4885 `runs[0].steps[1].loss`, 0.180 `hessian.critical_lr`).
+
+## Lesson status (as built; draft until the lead flips `status` in `site/course.json`)
+
+**Storyboard as built** (`site/js/lessons/sgd-step.js`; every prose number goes through `T()`; widgets in `site/js/widgets/`):
+setup text (line fit, loss formula) -> 1 graph lab, scene `sgd` with its own layout and text (`sgd-step.scenes.js`) -> 2 "who touches what": table of the three calls,
+`sgd-lifecycle.js` sandbox (backward / step / zero_grad on W, b; real C++ shown in `sgd-code.js` with the executed line highlighted) -> 3 the update on paper: predict, then
+`sgd-update-window.js` (rule, numbers, before | grad | step | after table, updates 1-4 of the recorded lr 0.05 run) -> 4 `lr-lab.js` mode `step` (live `contour2d.js` heat map and contour lines over (w, b), dashed arrow to the next step,
+Step / Back / Reset / Run all, trail, table) -> 5 predict, `lr-lab.js` mode `lr` (slider, number box with TorC's own ctor message for lr <= 0, presets 0.05 / 0.1 / 0.15 / 0.2, critical rate marked and labelled derived, loss curve with TorC's recorded losses as open circles,
+Hessian derivation in a `<details>`) -> 6 `loop-timeline.js` (ten iterations, zero_grad toggle, what W.grad / W.data hold after each call, gradient bars and loss curve for both loops), predict, gotcha ("parameters never move, TorC says nothing", with the recorded skipped-step results and the
+real ctor messages), check -> 7 momentum text with the real library lines, `lr-lab.js` mode `momentum`, check -> final check and "five things to remember". Predict/check ids: `p-update`, `p-lr`, `p-zero`, `c-zero`, `c-mom`, `c-params`.
+
+**Honest labelling.** "Precomputed from TorC": the update window (before values and gradients are recorded; the after column is recomputed and equals the next recorded state) and all text numbers.
+"Recomputed in your browser": sandbox, landscape, lr lab, loop, momentum lab (JS port `site/js/optim.js`; where the settings equal a recorded run, TorC's losses are drawn as open circles; float32 vs double can differ in the last printed digit).
+"Derived": Hessian, eigenvalues, critical learning rate `2(1+mu)/lambda_max`, stability factors (labelled in the widget and in the text; not a library claim).
+
+**Tests** (`site/test/optim.test.mjs`, `site/test/sgd-step.test.mjs`, plus the shared `lessons.test.mjs` and `engine.test.mjs`): `sgdStep` formulas, skip, ctor messages; every `runs[]` row (steps and final, tolerance `1e-5 (1+|b|)`); training loop with and without `zero_grad`
+(measured max relative difference 1e-6 on the gradient); accumulation `k*g`; no-`zero_grad` loop == momentum 1; Hessian/eigenvalues/critical lr == data; `stable_predicted == !observed_diverged` and a sweep of learning rates; surface conformance (25 points);
+hand formulas for `mse`/`transpose`; marching-squares segment ends lie on their level; every claim the prose makes about the presets (overshoot once, zig-zag shrinking, diverging swings growing, momentum rises at update 3, first update identical for every mu);
+update-window LaTeX under KaTeX `throwOnError`; sandbox transitions equal the recorded `skipped_step` cases; loop ledger/narration vs the recorded loop; quoted C++ lines equal the fetched library source (skipped when `build/trace/_deps/torc-src` is absent) and the inline quotes are drawn from `SOURCES`;
+graph-lab text and concept cards bind every number; widget modules import in Node without a DOM.
+
+**Definition of done (content-plan section 5)**
+- [x] 1. lesson note with symbols and Observed / Expected / Suspected (this file; sections 1-5 above, written before the lesson)
+- [x] 2. trace program + JSON + schema check (`tools/trace/trace_optim.cpp`, `docs/trace-schema.md`); `tools/trace/run.sh --check` run against the pinned ref: all four files match
+- [x] 3. engine/explain tests vs the C++ run (`sgd` scene in `engine.test.mjs`), finite differences, KaTeX strict on every generated string and on the update window, prose-number binding (`lessons.test.mjs`)
+- [~] 4. `node --test site/test/` green and `node tools/check_site.mjs` ok; browser pass under a `/TorC/` prefix at 1366x768, 390x844 and (overflow and console only) 360, 768, 1280, 1920: every interaction exercised with Playwright, no console errors, no horizontal page overflow. Not run: Firefox/Safari, a real touch device.
+- [~] 5. accessibility: keyboard path (every control is a native button, range, number box or checkbox with a label; Tab order checked; Enter on Step kept focus on Step for nine presses), no focus loss (controls are never re-rendered; `aria-disabled` instead of `disabled`), `aria-live` status lines, `aria-valuetext` on the lr slider, no motion added (`prefers-reduced-motion` emulated, nothing to disable), table view for every plot (`tableToggle`, wrapped to scroll on a phone), no colour-only encoding (marker shapes and labels, contour numbers, dashed vs solid lines, values in text). Contrast of the widget text colours computed (>= 5.6:1 for the muted text, >= 8 for the rest); heat-map colours carry no information that is not also in a number. Not done: screen-reader pass.
+- [ ] 6. independent read-only review, and an outside reader doing the lesson cold (owner / lead)
+- [x] 7. no audit talk on the page (nothing about library quirks; the MSELoss broadcasting suspicion stays in this note)
