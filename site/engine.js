@@ -125,7 +125,9 @@ export function buildGraph(scene, overrides = {}) {
   return { nodes, byName, root: scene.root };
 }
 
-// Mirrors Variable::backward_with_grad: visit nodes in reverse construction order; each node's
+// Follows Variable::backward_with_grad: the library visits nodes in reverse DFS post-order, this visits them in reverse
+// construction order. For the scenes here the order of the operations is identical (only where leaves are visited can
+// differ, and leaves do no work). Visit nodes in reverse construction order; each node's
 // gradient is the SUM of everything its consumers sent; each op's rule then sends raw gradients to
 // its inputs, which are reduced to the input shape and accumulated.
 export function runBackward(graph) {

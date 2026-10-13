@@ -205,14 +205,14 @@ int main() {
     // Scene 3 — tiny MLP: 2 -> 2 (ReLU) -> 1, MSE loss, batch of 1.
     {
         Scene s;
-        s.id = "mlp"; s.title = "A tiny network"; s.expression = "L = mse( relu(x@W1 + b1)@W2 + b2, t )";
-        s.note = "Built from explicit ops so every intermediate is visible. The second hidden unit is negative before ReLU, so ReLU blocks it: h[1], W1's second column, b1[1] and W2[1] get zero gradient.";
-        s.leaves = {{"x",  Tensor({1.0f, 2.0f}, {1, 2})},
+        s.id = "mlp"; s.title = "A tiny network (batch of 2)"; s.expression = "L = mse( relu(x@W1 + b1)@W2 + b2, t )";
+        s.note = "Built from explicit ops so every intermediate is visible. Two entries of h (h[0][1] and h[1][0]) are negative, so ReLU blocks them: zero gradient for those entries.";
+        s.leaves = {{"x",  Tensor({1.0f, 2.0f, -1.0f, 1.0f}, {2, 2})},
                     {"W1", Tensor({0.5f, -1.0f, 0.25f, 0.75f}, {2, 2})},
                     {"b1", Tensor({0.1f, -0.8f}, {2})},
                     {"W2", Tensor({1.0f, 0.5f}, {2, 1})},
                     {"b2", Tensor({0.0f}, {1})},
-                    {"t",  Tensor({1.0f}, {1, 1})}};
+                    {"t",  Tensor({1.0f, 0.0f}, {2, 1})}};
         s.constants = {"x", "t"};
         s.build = [](Graph& g, std::map<std::string, Variable*>& L) -> Variable& {
             Variable& xw = g.op("xW1", "matmul", matmul(*L["x"], *L["W1"]));

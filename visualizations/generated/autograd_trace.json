@@ -37,31 +37,31 @@
       ]}
     },
     {
-      "id":"mlp","title":"A tiny network","expression":"L = mse( relu(x@W1 + b1)@W2 + b2, t )",
-      "note":"Built from explicit ops so every intermediate is visible. The second hidden unit is negative before ReLU, so ReLU blocks it: h[1], W1's second column, b1[1] and W2[1] get zero gradient.",
+      "id":"mlp","title":"A tiny network (batch of 2)","expression":"L = mse( relu(x@W1 + b1)@W2 + b2, t )",
+      "note":"Built from explicit ops so every intermediate is visible. Two entries of h (h[0][1] and h[1][0]) are negative, so ReLU blocks them: zero gradient for those entries.",
       "root":"L",
       "root_has_grad":false,
       "nodes":[
-        {"name":"x","op":"leaf","role":"leaf","requires_grad":false,"inputs":[],"value":{"shape":[1,2],"values":[1,2]},"grad":null},
-        {"name":"W1","op":"leaf","role":"leaf","requires_grad":true,"inputs":[],"value":{"shape":[2,2],"values":[0.5,-1,0.25,0.75]},"grad":{"shape":[2,2],"values":[0.200000048,0,0.400000095,0]}},
-        {"name":"b1","op":"leaf","role":"leaf","requires_grad":true,"inputs":[],"value":{"shape":[2],"values":[0.100000001,-0.800000012]},"grad":{"shape":[2],"values":[0.200000048,0]}},
-        {"name":"W2","op":"leaf","role":"leaf","requires_grad":true,"inputs":[],"value":{"shape":[2,1],"values":[1,0.5]},"grad":{"shape":[2,1],"values":[0.220000058,0]}},
-        {"name":"b2","op":"leaf","role":"leaf","requires_grad":true,"inputs":[],"value":{"shape":[1],"values":[0]},"grad":{"shape":[1],"values":[0.200000048]}},
-        {"name":"t","op":"leaf","role":"leaf","requires_grad":false,"inputs":[],"value":{"shape":[1,1],"values":[1]},"grad":null},
-        {"name":"xW1","op":"matmul","role":"op","requires_grad":true,"inputs":["x","W1"],"value":{"shape":[1,2],"values":[1,0.5]},"grad":{"shape":[1,2],"values":[0.200000048,0]}},
-        {"name":"h","op":"add","role":"op","requires_grad":true,"inputs":["xW1","b1"],"value":{"shape":[1,2],"values":[1.10000002,-0.300000012]},"grad":{"shape":[1,2],"values":[0.200000048,0]}},
-        {"name":"a","op":"relu","role":"op","requires_grad":true,"inputs":["h"],"value":{"shape":[1,2],"values":[1.10000002,0]},"grad":{"shape":[1,2],"values":[0.200000048,0.100000024]}},
-        {"name":"aW2","op":"matmul","role":"op","requires_grad":true,"inputs":["a","W2"],"value":{"shape":[1,1],"values":[1.10000002]},"grad":{"shape":[1,1],"values":[0.200000048]}},
-        {"name":"o","op":"add","role":"op","requires_grad":true,"inputs":["aW2","b2"],"value":{"shape":[1,1],"values":[1.10000002]},"grad":{"shape":[1,1],"values":[0.200000048]}},
-        {"name":"d","op":"sub","role":"op","requires_grad":true,"inputs":["o","t"],"value":{"shape":[1,1],"values":[0.100000024]},"grad":{"shape":[1,1],"values":[0.200000048]}},
-        {"name":"q","op":"mul","role":"op","requires_grad":true,"inputs":["d","d"],"value":{"shape":[1,1],"values":[0.0100000044]},"grad":{"shape":[1,1],"values":[1]}},
-        {"name":"L","op":"mean","role":"op","requires_grad":true,"inputs":["q"],"value":{"shape":[1],"values":[0.0100000044]},"grad":null}
+        {"name":"x","op":"leaf","role":"leaf","requires_grad":false,"inputs":[],"value":{"shape":[2,2],"values":[1,2,-1,1]},"grad":null},
+        {"name":"W1","op":"leaf","role":"leaf","requires_grad":true,"inputs":[],"value":{"shape":[2,2],"values":[0.5,-1,0.25,0.75]},"grad":{"shape":[2,2],"values":[0.100000024,-0.237499997,0.200000048,0.237499997]}},
+        {"name":"b1","op":"leaf","role":"leaf","requires_grad":true,"inputs":[],"value":{"shape":[2],"values":[0.100000001,-0.800000012]},"grad":{"shape":[2],"values":[0.100000024,0.237499997]}},
+        {"name":"W2","op":"leaf","role":"leaf","requires_grad":true,"inputs":[],"value":{"shape":[2,1],"values":[1,0.5]},"grad":{"shape":[2,1],"values":[0.110000029,0.451249987]}},
+        {"name":"b2","op":"leaf","role":"leaf","requires_grad":true,"inputs":[],"value":{"shape":[1],"values":[0]},"grad":{"shape":[1],"values":[0.575000048]}},
+        {"name":"t","op":"leaf","role":"leaf","requires_grad":false,"inputs":[],"value":{"shape":[2,1],"values":[1,0]},"grad":null},
+        {"name":"xW1","op":"matmul","role":"op","requires_grad":true,"inputs":["x","W1"],"value":{"shape":[2,2],"values":[1,0.5,-0.25,1.75]},"grad":{"shape":[2,2],"values":[0.100000024,0,0,0.237499997]}},
+        {"name":"h","op":"add","role":"op","requires_grad":true,"inputs":["xW1","b1"],"value":{"shape":[2,2],"values":[1.10000002,-0.300000012,-0.150000006,0.949999988]},"grad":{"shape":[2,2],"values":[0.100000024,0,0,0.237499997]}},
+        {"name":"a","op":"relu","role":"op","requires_grad":true,"inputs":["h"],"value":{"shape":[2,2],"values":[1.10000002,0,0,0.949999988]},"grad":{"shape":[2,2],"values":[0.100000024,0.0500000119,0.474999994,0.237499997]}},
+        {"name":"aW2","op":"matmul","role":"op","requires_grad":true,"inputs":["a","W2"],"value":{"shape":[2,1],"values":[1.10000002,0.474999994]},"grad":{"shape":[2,1],"values":[0.100000024,0.474999994]}},
+        {"name":"o","op":"add","role":"op","requires_grad":true,"inputs":["aW2","b2"],"value":{"shape":[2,1],"values":[1.10000002,0.474999994]},"grad":{"shape":[2,1],"values":[0.100000024,0.474999994]}},
+        {"name":"d","op":"sub","role":"op","requires_grad":true,"inputs":["o","t"],"value":{"shape":[2,1],"values":[0.100000024,0.474999994]},"grad":{"shape":[2,1],"values":[0.100000024,0.474999994]}},
+        {"name":"q","op":"mul","role":"op","requires_grad":true,"inputs":["d","d"],"value":{"shape":[2,1],"values":[0.0100000044,0.225624993]},"grad":{"shape":[2,1],"values":[0.5,0.5]}},
+        {"name":"L","op":"mean","role":"op","requires_grad":true,"inputs":["q"],"value":{"shape":[1],"values":[0.117812499]},"grad":null}
       ],
       "finite_difference":{"h":0.00999999978,"atol":0.01,"leaves":[
-        {"name":"W1","numerical":[0.199999854,0,0.399999708,0],"analytic":[0.200000048,0,0.400000095,0],"max_abs_err":3.87430191e-07,"ok":true},
-        {"name":"b1","numerical":[0.199999854,0],"analytic":[0.200000048,0],"max_abs_err":1.93715096e-07,"ok":true},
-        {"name":"W2","numerical":[0.220000848,0],"analytic":[0.220000058,0],"max_abs_err":7.89761543e-07,"ok":true},
-        {"name":"b2","numerical":[0.199999854],"analytic":[0.200000048],"max_abs_err":1.93715096e-07,"ok":true}
+        {"name":"W1","numerical":[0.0999998301,-0.237499923,0.200000033,0.237499923],"analytic":[0.100000024,-0.237499997,0.200000048,0.237499997],"max_abs_err":1.93715096e-07,"ok":true},
+        {"name":"b1","numerical":[0.0999998301,0.237499923],"analytic":[0.100000024,0.237499997],"max_abs_err":1.93715096e-07,"ok":true},
+        {"name":"W2","numerical":[0.110000372,0.451250017],"analytic":[0.110000029,0.451249987],"max_abs_err":3.42726707e-07,"ok":true},
+        {"name":"b2","numerical":[0.57499969],"analytic":[0.575000048],"max_abs_err":3.57627869e-07,"ok":true}
       ]}
     }
   ]

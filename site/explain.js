@@ -15,7 +15,8 @@ const isScalar = (t) => numel(t.shape) === 1;
 
 export function tex(name) {                                     // W1 -> W_1, xW1 -> xW_1
   const m = /^([A-Za-z]+)(\d+)$/.exec(name);
-  return m ? `{\\mathit{${m[1]}}_{${m[2]}}}` : `\\mathit{${name}}`;
+  const base = name.length === 1 ? `\\mathit{${name}}` : `\\texttt{${name}}`;   // multi-letter node names are code names, not a product of variables
+  return m ? (m[1].length === 1 ? `{\\mathit{${m[1]}}_{${m[2]}}}` : `{\\texttt{${m[1]}}_{${m[2]}}}`) : base;
 }
 const bar = (name) => `\\overline{${tex(name)}}`;
 const txt = (s) => `\\text{${s}}`;
@@ -71,7 +72,7 @@ const BACKWARD_RULE = {
 const BACKWARD_WHY = {
   add: 'Nudge either input by a tiny amount δ and the sum moves by exactly δ. The slope is 1, so the chain rule hands the incoming gradient on unchanged.',
   sub: 'Nudging the first input by δ moves the result by +δ (slope 1); nudging the second moves it by −δ (slope −1).',
-  mul: 'If a grows by δ, the product grows by (other factor)·δ. So the slope with respect to one input is the <em>other</em> input, and the chain rule multiplies it by the gradient that arrived.',
+  mul: 'If one factor grows by δ, the product grows by (the other factor)·δ. So the slope with respect to one input is the <em>other</em> input, and the chain rule multiplies it by the gradient that arrived.',
   relu: 'ReLU is a straight line of slope 1 for positive inputs and flat (slope 0) for negative ones, so the gradient passes only where the input was positive. At exactly 0 TorC uses slope 0.',
   sum: 'Every element is added exactly once, so each has slope 1: all elements receive the same gradient.',
   mean: 'Every element is added once and then divided by N, so each has slope 1/N.',
@@ -159,7 +160,7 @@ export function backwardWindow(graph, bw, name) {
   // 1. what has arrived
   if (step.isRoot) {
     blocks.push({ heading: 'Where backward starts', latex: [`${bar(name)} = \\dfrac{\\partial ${tex(name)}}{\\partial ${tex(name)}} = ${mat(step.G)}`],
-      html: `<code>${name}</code> is the number we are differentiating, so its gradient with respect to itself is 1. TorC seeds the backward pass with this 1 (it is not stored on the variable afterwards).` });
+      html: `<code>${name}</code> is the number we are differentiating, so its gradient with respect to itself is 1. TorC seeds the backward pass with this 1 (it is not stored on the variable afterwards). <strong>Notation:</strong> ${IM(bar(name))} means ${IM('\\partial\\,\\text{out}/\\partial\\,' + tex(name))}, how much the final result changes per unit change in <code>${name}</code>; every node gets such a gradient, written with a bar.` });
   } else {
     const many = step.incoming.length > 1;
     blocks.push({ heading: 'Gradient that has arrived here', latex: contributionLines(step, graph),
@@ -169,6 +170,7 @@ export function backwardWindow(graph, bw, name) {
   }
   // 2. the rule
   blocks.push({ heading: 'Local rule (chain rule)', latex: BACKWARD_RULE[n.op](name, n.inputs), html: BACKWARD_WHY[n.op] +
+    (n.inputs.length === 2 && n.inputs[0] === n.inputs[1] ? ` <br><strong>Both inputs are the same variable <code>${n.inputs[0]}</code></strong>, so both lines apply to it and both results are added to its gradient.` : '') +
     ' <br><em>Chain rule: (gradient arriving at the output) × (local slope).</em>' });
   // 3. numbers per input
   const G = step.G;
@@ -177,7 +179,7 @@ export function backwardWindow(graph, bw, name) {
     const rows = [];
     const label = `Gradient for ${s.to} (${ordinal(s.arg)} input)`;
     if (!s.tracked) {
-      blocks.push({ heading: label, html: `<code>${s.to}</code> is a constant (<code>requires_grad = false</code>), so TorC does not compute or store a gradient for it.`, latex: [] });
+      blocks.push({ heading: label, html: `<code>${s.to}</code> is a constant (<code>requires_grad = false</code>), so TorC discards what would be sent here: nothing is accumulated for it.`, latex: [] });
       return;
     }
     const other = graph.byName[n.inputs[1 - s.arg]];

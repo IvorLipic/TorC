@@ -74,8 +74,8 @@ button:focus-visible,a:focus-visible,input:focus-visible,.node:focus-visible{out
 .node.current.b rect{stroke:var(--bwd);stroke-width:3;fill:#3a1a18}
 .nname{font-size:16px;fill:var(--fg);font-weight:600}
 .nop{font-size:11px;fill:var(--fwd)}
-.nval{font-size:13px;fill:var(--fwd)}
-.ngrad{font-size:13px;fill:var(--bwd)}
+.nval{font-size:12px;fill:var(--fwd)}
+.ngrad{font-size:12px;fill:var(--bwd)}
 .edge{fill:none;stroke:#566172;stroke-width:2}
 .edge.const{stroke-dasharray:4 4;opacity:.6}
 .edge.fwd-active{stroke:var(--fwd);stroke-width:3;stroke-dasharray:8 5;animation:flow 1s linear infinite}
@@ -104,3 +104,13 @@ footer{max-width:1100px;margin:0 auto;padding:1.5rem 16px 3rem;color:var(--muted
 @media(max-width:640px){body{font-size:16px}h2{font-size:1.4rem}.controls{position:static}.win{padding:.8rem 1rem}}
 
 .swipe{display:none;margin:-6px 0 6px}@media(max-width:1100px){.swipe{display:block}}
+
+.in-vals{flex-direction:column}.in-row{display:flex;gap:6px}
+.in-vals input.bad{border-color:var(--bwd);background:#2b1513}
+.node.const rect{stroke-dasharray:5 3}
+@media(max-width:640px){
+  .controls{position:sticky;top:46px;padding:.45rem .6rem}
+  .controls .hint{display:none}
+  .chips{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px;margin-top:.4rem}
+  .chip,.phase{flex:none}
+}

@@ -24,15 +24,15 @@ export const SCENES = {
   },
   mlp: {
     tab: '3 · A tiny network',
-    view: [1300, 360], minWidth: 1040,
+    view: [1280, 360], minWidth: 1000,
     above: ['x', 'W1', 'b1', 'W2', 'b2', 't'],
-    pos: { x: [70, 100], W1: [230, 100], b1: [420, 100], W2: [600, 100], b2: [770, 100], t: [940, 100],
-           xW1: [130, 270], h: [320, 270], a: [500, 270], aW2: [670, 270], o: [830, 270], d: [980, 270], q: [1120, 270], L: [1240, 270] },
+    pos: { x: [70, 100], W1: [230, 100], b1: [420, 100], W2: [590, 100], b2: [740, 100], t: [900, 100],
+           xW1: [110, 270], h: [300, 270], a: [490, 270], aW2: [655, 270], o: [800, 270], d: [960, 270], q: [1100, 270], L: [1210, 270] },
     goal: 'What does one training step of a small network compute?',
-    intro: 'A one-hidden-layer network with a mean-squared-error loss: <code>L = (relu(x·W1 + b1)·W2 + b2 − t)²</code>. The gradients of the <strong>weights and biases</strong> are what an optimizer uses to improve them.',
+    intro: 'A one-hidden-layer network on a <strong>batch of two examples</strong> (the two rows of <code>x</code>), with a mean-squared-error loss. The gradients of the <strong>weights and biases</strong> are what an optimizer uses to improve them.',
     forwardHint: 'Forward: the prediction and the loss.',
     backwardHint: 'Backward: from the loss back to every weight and bias.',
-    takeaway: 'Matrix products and broadcasting follow the same two rules as everything else: multiply by the local slope, and add up what arrives. The second hidden unit is negative before ReLU, so it receives no gradient — change <code>b1</code> to revive it.',
+    takeaway: 'Matrix products and broadcasting follow the same two rules as everything else: multiply by the local slope, and add up what arrives. The bias <code>b1</code> was copied to both rows of the batch, so its gradient is the <strong>sum over the rows</strong>. ReLU blocked the gradient wherever <code>h</code> was negative — try changing <code>b1</code> or <code>x</code> and watch which entries switch on and off.',
   },
 };
 

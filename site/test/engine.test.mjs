@@ -51,8 +51,18 @@ test('editing an input recomputes (relu unit revived by raising b1)', () => {
   const scene = data.scenes.find((s) => s.id === 'mlp');
   const g = buildGraph(scene, { b1: [0.1, 0.2] });
   const bw = runBackward(g);
-  assert.ok(bw.grad.W1.v.every((x) => x !== 0 || true));
   assert.notEqual(bw.grad.b1.v[1], 0, 'second hidden unit should now receive gradient');
+});
+
+test('explanations contain the numbers a learner would write on paper', () => {
+  const reuse = buildGraph(data.scenes.find((s) => s.id === 'reuse')), bwr = runBackward(reuse);
+  const lw = leafWindow(reuse, bwr, 'x');
+  assert.ok(lw.blocks[0].latex.some((l) => l.includes('1 + 3 + 3 = 7')), 'x.grad = 1 + 3 + 3 = 7');
+  const mlp = buildGraph(data.scenes.find((s) => s.id === 'mlp')), bwm = runBackward(mlp);
+  const bb = backwardWindow(mlp, bwm, 'a').blocks.map((b) => (b.latex ?? []).join(' ')).join(' ');
+  assert.match(bb, /slope/, 'relu window shows the slope mask');
+  const bo = backwardWindow(mlp, bwm, 'o').blocks.map((b) => (b.latex ?? []).join(' ')).join(' ');
+  assert.match(bo, /shrink back to the shape/, 'broadcast reduction shown with numbers for b2');
 });
 
 test('fmt', () => { assert.equal(fmt(-0), '0'); assert.equal(fmt(0.22000006), '0.22'); assert.equal(fmt(1.1000000238), '1.1'); });
