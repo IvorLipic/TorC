@@ -605,11 +605,14 @@ TEST(SGD, StepWithMomentumAccumulatesVelocity) {
     Variable loss = torc::sum(out);
     loss.backward();
 
+    float initial_w0 = linear.named_parameters().at("weight").data().data()[0];
+
     SGD optimizer(params, 0.1f, 0.9f);
     optimizer.step();
 
+    // d(sum(out))/dW[0][0] = x[0] = 1, and the first momentum step is plain SGD.
     const Tensor& W = linear.named_parameters().at("weight").data();
-    expect_near(W.data()[0], 0.01f - 0.1f * 1.0f);
+    expect_near(W.data()[0], initial_w0 - 0.1f * 1.0f);
 }
 
 TEST(SGD, ZeroGradClearsAllParamGrads) {
@@ -690,10 +693,9 @@ TEST(SGD, SkipsParamsWithoutGrad) {
     Linear linear(2, 3, 0.0f, seed);
     auto params = linear.parameters();
 
-    std::vector<float> initial_weights;
-    for (size_t i = 0; i < params[0]->data().numel(); ++i) {
-        initial_weights.push_back(params[0]->data().data()[i]);
-    }
+    // Module::parameters() order is unspecified (unordered_map); look the weight up by name.
+    const Tensor& W0 = linear.named_parameters().at("weight").data();
+    std::vector<float> initial_weights(W0.data(), W0.data() + W0.numel());
 
     SGD optimizer(params, 0.1f);
     optimizer.step();
@@ -763,10 +765,9 @@ TEST(Adam, SkipsParamsWithoutGrad) {
     Linear linear(2, 3, 0.0f, seed);
     auto params = linear.parameters();
 
-    std::vector<float> initial_weights;
-    for (size_t i = 0; i < params[0]->data().numel(); ++i) {
-        initial_weights.push_back(params[0]->data().data()[i]);
-    }
+    // Module::parameters() order is unspecified (unordered_map); look the weight up by name.
+    const Tensor& W0 = linear.named_parameters().at("weight").data();
+    std::vector<float> initial_weights(W0.data(), W0.data() + W0.numel());
 
     Adam optimizer(params, 0.1f);
     optimizer.step();
@@ -868,10 +869,9 @@ TEST(AdamW, SkipsParamsWithoutGrad) {
     Linear linear(2, 3, 0.0f, seed);
     auto params = linear.parameters();
 
-    std::vector<float> initial_weights;
-    for (size_t i = 0; i < params[0]->data().numel(); ++i) {
-        initial_weights.push_back(params[0]->data().data()[i]);
-    }
+    // Module::parameters() order is unspecified (unordered_map); look the weight up by name.
+    const Tensor& W0 = linear.named_parameters().at("weight").data();
+    std::vector<float> initial_weights(W0.data(), W0.data() + W0.numel());
 
     AdamW optimizer(params, 0.1f, 0.01f);
     optimizer.step();
