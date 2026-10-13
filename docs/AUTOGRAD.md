@@ -292,7 +292,7 @@ dz/dx = zero_fill(x.shape); dz/dx[offset + slice_indices] = grad_output
 The backward closure zero-fills a tensor of the original shape, then scatters `grad_output`
 values into the sliced region. This is implemented with inline odometer-style index
 incrementing over `grad_output.shape()`, computing the corresponding flat index in the
-original tensor from the stored slice offsets.
+original tensor from the stored slice offsets and the *input* tensor's row-major strides.
 
 ### Max/Min: z = x.max() / x.min()
 ```
@@ -396,7 +396,7 @@ Variable c = torc::add(a, b);   // c.requires_grad() == false, tape is empty
 Variable::set_grad_enabled(true);
 ```
 
-A process-global flag checked by arithmetic ops at the start of forward. When disabled, those ops still
+A `thread_local` flag (per-thread, not process-global) checked by arithmetic ops at the start of forward. When disabled, those ops still
 compute their forward output, but they return plain `Variable`s with `requires_grad=false` and
 empty tapes — no `TapeEntry` is recorded. Defaults to `true`. This is useful for inference
 sections of a training loop without manually detaching each intermediate.

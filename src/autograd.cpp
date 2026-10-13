@@ -130,6 +130,16 @@ Tensor reduce_sum_to_shape(const Tensor& grad, const std::vector<int>& target_sh
     return result;
 }
 
+// Resolves a possibly-negative axis against `shape`, throwing ShapeError if out of range.
+// Matches Tensor::reduce_axis so wrappers and backward closures see the same axis forward used.
+static int normalize_axis(int axis, const std::vector<int>& shape) {
+    int rank = (int)shape.size();
+    int resolved = axis < 0 ? axis + rank : axis;
+    if (resolved < 0 || resolved >= rank)
+        throw ShapeError(std::format("Invalid axis {} for tensor with shape {}", axis, shape_to_string(shape)));
+    return resolved;
+}
+
 Tensor expand_grad_along_axis(const Tensor& grad_output, int axis, int axis_size, const std::vector<int>& input_shape) {
     Tensor result(input_shape);
     int outer_stride = shape_product(std::span<const int>(input_shape).subspan(axis + 1));
@@ -362,6 +372,7 @@ Variable sum(const Variable& a) {
 }
 
 Variable sum(const Variable& a, int axis) {
+    axis = normalize_axis(axis, a.data().shape());
     bool needs_grad = a.requires_grad() && Variable::grad_enabled();
     Tensor out_data = a.data().sum(axis);
     Variable out(std::move(out_data), needs_grad);
@@ -403,6 +414,7 @@ Variable mean(const Variable& a) {
 }
 
 Variable mean(const Variable& a, int axis) {
+    axis = normalize_axis(axis, a.data().shape());
     bool needs_grad = a.requires_grad() && Variable::grad_enabled();
     Tensor out_data = a.data().mean(axis);
     Variable out(std::move(out_data), needs_grad);
@@ -484,6 +496,7 @@ Variable min(const Variable& a) {
 }
 
 Variable max(const Variable& a, int axis) {
+    axis = normalize_axis(axis, a.data().shape());
     bool needs_grad = a.requires_grad() && Variable::grad_enabled();
     Tensor out_data = a.data().max(axis);
     Variable out(std::move(out_data), needs_grad);
@@ -521,6 +534,7 @@ Variable max(const Variable& a, int axis) {
 }
 
 Variable min(const Variable& a, int axis) {
+    axis = normalize_axis(axis, a.data().shape());
     bool needs_grad = a.requires_grad() && Variable::grad_enabled();
     Tensor out_data = a.data().min(axis);
     Variable out(std::move(out_data), needs_grad);
@@ -743,10 +757,11 @@ Variable slice(const Variable& a, std::vector<std::pair<int, int>> slices) {
             int rank = (int)a_data.shape().size();
             std::vector<int> out_indices(rank, 0);
             std::vector<int> strides(rank);
+            // Strides of the INPUT tensor: the scatter target is a_data, not the sliced grad.
             if (rank > 0) {
                 strides[rank - 1] = 1;
                 for (int i = rank - 2; i >= 0; --i)
-                    strides[i] = strides[i + 1] * grad_output.shape()[i + 1];
+                    strides[i] = strides[i + 1] * a_data.shape()[i + 1];
             }
 
             for (int out_flat = 0; out_flat < grad_output.numel(); ++out_flat) {

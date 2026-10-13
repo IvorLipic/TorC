@@ -837,6 +837,102 @@ TEST(MaxMinAutograd, GradCheckMaxAxis1) {
 }
 
 // ============================================================
+// Negative axis in the sum/mean/max/min autograd wrappers
+// ============================================================
+
+namespace {
+
+enum class RedOp { Sum, Mean, Max, Min };
+
+Variable apply_reduction(RedOp op, const Variable& a, int axis) {
+    switch (op) {
+        case RedOp::Sum:  return torc::sum(a, axis);
+        case RedOp::Mean: return torc::mean(a, axis);
+        case RedOp::Max:  return torc::max(a, axis);
+        case RedOp::Min:  return torc::min(a, axis);
+    }
+    return a;
+}
+
+// Distinct, non-monotonic values so argmax/argmin are unique and non-trivial.
+Tensor scrambled_tensor(const std::vector<int>& shape) {
+    Tensor t(shape);
+    for (int i = 0; i < t.numel(); ++i) t.data()[i] = (float)((i * 37) % 101) * 0.37f;
+    return t;
+}
+
+// Gradient of sum(reduce(a, axis) * w) w.r.t. a, via autograd.
+Tensor reduction_grad(RedOp op, const Tensor& a_data, int axis, const Tensor& w) {
+    Variable a(a_data, true);
+    torc::sum(torc::mul(apply_reduction(op, a, axis), Variable(w, false))).backward();
+    return a.grad();
+}
+
+void check_negative_axis(RedOp op, const std::vector<int>& shape, int neg_axis) {
+    int rank = (int)shape.size();
+    Tensor a_data = scrambled_tensor(shape);
+    Tensor reduced = apply_reduction(op, Variable(a_data, false), neg_axis + rank).data();
+    Tensor w(reduced.shape());
+    for (int i = 0; i < w.numel(); ++i) w.data()[i] = 0.5f + 0.75f * (float)i;
+
+    Tensor g_neg = reduction_grad(op, a_data, neg_axis, w);
+    Tensor g_pos = reduction_grad(op, a_data, neg_axis + rank, w);
+    ASSERT_EQ(g_neg.shape(), a_data.shape());
+    for (int i = 0; i < a_data.numel(); ++i)
+        EXPECT_FLOAT_EQ(g_neg.data()[i], g_pos.data()[i]) << "axis " << neg_axis << " flat " << i;
+
+    // Central finite differences (values are >= 0.37 apart, so h=1e-2 never swaps an argmax).
+    float h = 1e-2f;
+    auto f = [&](const Tensor& t) {
+        return apply_reduction(op, Variable(t, false), neg_axis).data().mul(w).sum();
+    };
+    for (int i = 0; i < a_data.numel(); ++i) {
+        Tensor a_ph = a_data; a_ph.data()[i] += h;
+        Tensor a_mh = a_data; a_mh.data()[i] -= h;
+        expect_near(g_neg.data()[i], (f(a_ph) - f(a_mh)) / (2.0f * h));
+    }
+}
+
+}  // namespace
+
+TEST(NegativeAxisAutograd, Sum) {
+    for (int axis : {-1, -2}) check_negative_axis(RedOp::Sum, {3, 4}, axis);
+    for (int axis : {-1, -2, -3}) check_negative_axis(RedOp::Sum, {2, 3, 4}, axis);
+}
+
+TEST(NegativeAxisAutograd, Mean) {
+    for (int axis : {-1, -2}) check_negative_axis(RedOp::Mean, {3, 4}, axis);
+    for (int axis : {-1, -2, -3}) check_negative_axis(RedOp::Mean, {2, 3, 4}, axis);
+}
+
+TEST(NegativeAxisAutograd, Max) {
+    for (int axis : {-1, -2}) check_negative_axis(RedOp::Max, {3, 4}, axis);
+    for (int axis : {-1, -2, -3}) check_negative_axis(RedOp::Max, {2, 3, 4}, axis);
+}
+
+TEST(NegativeAxisAutograd, Min) {
+    for (int axis : {-1, -2}) check_negative_axis(RedOp::Min, {3, 4}, axis);
+    for (int axis : {-1, -2, -3}) check_negative_axis(RedOp::Min, {2, 3, 4}, axis);
+}
+
+TEST(NegativeAxisAutograd, SumKnownGradient) {
+    Variable a(Tensor({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, std::vector<int>{2, 3}), true);
+    torc::sum(a, -1).backward(Tensor({1.0f, 1.0f}, std::vector<int>{2}));
+    Tensor expected({1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f}, std::vector<int>{2, 3});
+    EXPECT_TRUE(a.grad() == expected);
+}
+
+TEST(NegativeAxisAutograd, OutOfRangeAxisThrows) {
+    for (RedOp op : {RedOp::Sum, RedOp::Mean, RedOp::Max, RedOp::Min}) {
+        Variable a(scrambled_tensor({2, 3}), true);
+        EXPECT_THROW(apply_reduction(op, a, 2), ShapeError);
+        EXPECT_THROW(apply_reduction(op, a, -3), ShapeError);
+        EXPECT_THROW(apply_reduction(op, a, 100), ShapeError);
+        EXPECT_THROW(apply_reduction(op, a, -100), ShapeError);
+    }
+}
+
+// ============================================================
 // Step 5: matmul backward (2D + batched, batch-broadcast)
 // ============================================================
 
@@ -1132,6 +1228,106 @@ TEST(ViewAutograd, GradCheckSlice) {
     Tensor ones({1.0f, 1.0f}, std::vector<int>{1, 2});
     c.backward(ones);
     Tensor num_grad = numerical_grad_slice(a_data, slices);
+    for (int i = 0; i < a_data.numel(); ++i)
+        expect_near(a.grad().data()[i], num_grad.data()[i]);
+}
+
+// Slice backward must scatter using the INPUT strides and per-dim offsets.
+static Tensor iota_tensor(const std::vector<int>& shape, float step = 1.0f) {
+    Tensor t(shape);
+    for (int i = 0; i < t.numel(); ++i) t.data()[i] = (float)(i + 1) * step;
+    return t;
+}
+
+// Central finite differences of sum(slice(a) * w) w.r.t. a.
+static Tensor numerical_grad_slice_weighted(const Tensor& a, const std::vector<std::pair<int, int>>& slices,
+                                            const Tensor& w) {
+    Tensor g(a.shape());
+    float h = 1e-2f;
+    std::vector<Tensor::Slice> ts;
+    for (auto& p : slices) ts.push_back({p.first, p.second});
+    for (int i = 0; i < a.numel(); ++i) {
+        Tensor a_ph = a; a_ph.data()[i] += h;
+        Tensor a_mh = a; a_mh.data()[i] -= h;
+        float f_ph = a_ph.slice(ts).mul(w).sum();
+        float f_mh = a_mh.slice(ts).mul(w).sum();
+        g.data()[i] = (f_ph - f_mh) / (2.0f * h);
+    }
+    return g;
+}
+
+static void expect_grad_eq(const Tensor& actual, const std::vector<float>& expected) {
+    ASSERT_EQ(actual.numel(), (int)expected.size());
+    for (int i = 0; i < actual.numel(); ++i)
+        EXPECT_FLOAT_EQ(actual.data()[i], expected[i]) << "at flat index " << i;
+}
+
+TEST(SliceAutograd, TrailingDimNarrowerThanInput) {
+    Variable a(iota_tensor({2, 3}), true);
+    torc::sum(torc::slice(a, {{0, 2}, {1, 3}})).backward();
+    expect_grad_eq(a.grad(), {0, 1, 1, 0, 1, 1});
+}
+
+TEST(SliceAutograd, LeadingColumnsOnly) {
+    Variable a(iota_tensor({2, 3}), true);
+    torc::sum(torc::slice(a, {{0, 2}, {0, 2}})).backward();
+    expect_grad_eq(a.grad(), {1, 1, 0, 1, 1, 0});
+}
+
+TEST(SliceAutograd, NonZeroRowOffsetWithWeightedGrad) {
+    Variable a(iota_tensor({2, 3}), true);
+    Variable c = torc::slice(a, {{1, 2}, {1, 3}});
+    c.backward(Tensor({10.0f, 20.0f}, std::vector<int>{1, 2}));
+    expect_grad_eq(a.grad(), {0, 0, 0, 0, 10, 20});
+}
+
+TEST(SliceAutograd, ThreeDimNonZeroOffsetsInEveryDim) {
+    Variable a(iota_tensor({3, 4, 5}), true);
+    Variable c = torc::slice(a, {{1, 3}, {1, 3}, {2, 4}});
+    ASSERT_EQ(c.data().shape(), std::vector<int>({2, 2, 2}));
+    torc::sum(c).backward();
+    std::vector<float> expected(60, 0.0f);
+    for (int i = 1; i < 3; ++i)
+        for (int j = 1; j < 3; ++j)
+            for (int k = 2; k < 4; ++k)
+                expected[i * 20 + j * 5 + k] = 1.0f;
+    expect_grad_eq(a.grad(), expected);
+}
+
+TEST(SliceAutograd, ThreeDimMiddleDimOnly) {
+    Variable a(iota_tensor({2, 3, 4}), true);
+    torc::sum(torc::slice(a, {{0, 2}, {1, 2}, {0, 4}})).backward();
+    std::vector<float> expected(24, 0.0f);
+    for (int i = 0; i < 2; ++i)
+        for (int k = 0; k < 4; ++k)
+            expected[i * 12 + 1 * 4 + k] = 1.0f;
+    expect_grad_eq(a.grad(), expected);
+}
+
+TEST(SliceAutograd, OneDim) {
+    Variable a(iota_tensor({5}), true);
+    torc::sum(torc::slice(a, {{2, 4}})).backward();
+    expect_grad_eq(a.grad(), {0, 0, 1, 1, 0});
+}
+
+TEST(SliceAutograd, GradCheckWeighted2D) {
+    Tensor a_data = iota_tensor({3, 4}, 0.37f);
+    std::vector<std::pair<int, int>> slices = {{1, 3}, {1, 3}};
+    Tensor w({0.5f, -1.5f, 2.0f, 3.25f}, std::vector<int>{2, 2});
+    Variable a(a_data, true);
+    torc::sum(torc::mul(torc::slice(a, slices), Variable(w, false))).backward();
+    Tensor num_grad = numerical_grad_slice_weighted(a_data, slices, w);
+    for (int i = 0; i < a_data.numel(); ++i)
+        expect_near(a.grad().data()[i], num_grad.data()[i]);
+}
+
+TEST(SliceAutograd, GradCheckWeighted3DNonZeroOffsets) {
+    Tensor a_data = iota_tensor({3, 4, 5}, 0.21f);
+    std::vector<std::pair<int, int>> slices = {{1, 3}, {1, 4}, {2, 4}};
+    Tensor w = iota_tensor({2, 3, 2}, 0.7f);
+    Variable a(a_data, true);
+    torc::sum(torc::mul(torc::slice(a, slices), Variable(w, false))).backward();
+    Tensor num_grad = numerical_grad_slice_weighted(a_data, slices, w);
     for (int i = 0; i < a_data.numel(); ++i)
         expect_near(a.grad().data()[i], num_grad.data()[i]);
 }
