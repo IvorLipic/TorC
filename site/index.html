@@ -4,47 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="dark">
-<meta name="description" content="Step through backpropagation by hand: an interactive walk-through of TorC's autograd, with the real numbers and the math of every step.">
-<title>TorC · Backpropagation, step by step</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%276%27 fill=%27%230e1116%27/%3E%3Ctext x=%2716%27 y=%2723%27 font-size=%2720%27 text-anchor=%27middle%27 fill=%27%2358c4dd%27%3E%E2%88%87%3C/text%3E%3C/svg%3E">
-<link rel="stylesheet" href="vendor/katex/katex.min.css">
-<link rel="stylesheet" href="style.css">
+<meta name="description" content="Interactive lessons on TorC, a from-scratch C++ tensor and autograd library: every number comes from a real run of the library.">
+<title>TorC Learn · Interactive lessons on a from-scratch C++ tensor library</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/home.css">
 </head>
-<body>
-<header class="site"><nav>
-  <a class="brand" href="#top">TorC · backprop</a>
-  <a class="nav" href="#lab">Lab</a>
-  <a class="nav" href="https://github.com/IvorLipic/TorC">GitHub</a>
-</nav></header>
-
-<main id="top">
-  <section class="hero">
-    <h1>Backpropagation, one step at a time</h1>
-    <p class="lead">Step through a small computation forward, then backward, and see exactly what is multiplied by what, with the real numbers computed by <a href="https://github.com/IvorLipic/TorC">TorC</a>, a from-scratch C++ tensor library.</p>
-  </section>
-
-  <section id="lab" class="lab" aria-label="Interactive lab">
-    <div class="lab-top">
-      <div id="scene-tabs" class="tabs" role="tablist" aria-label="Examples"></div>
-      <button id="inputs-btn" class="btn small" aria-expanded="false" aria-controls="inputs" title="Edit the input numbers">✎ Inputs</button>
-    </div>
-    <div id="inputs" class="popover" role="dialog" aria-label="Edit the input numbers" hidden><div id="inputs-inner"></div></div>
-    <div id="goal" class="goal"></div>
-    <div id="controls" class="controls"></div>
-    <div class="graph-wrap"><div id="graph" class="graph"></div></div>
-    <div id="window" class="win" aria-live="polite"></div>
-  </section>
-
-  <section aria-labelledby="ideas" class="ideas">
-    <h2 id="ideas">Three ideas are enough</h2>
-    <div class="cards" id="concepts"></div>
-  </section>
-</main>
-
-<footer>
-  <p>Every value and gradient shown for the preset inputs was printed by the real TorC library (<code>visualizations/examples/autograd_trace.cpp</code>) and cross-checked against finite differences; edited inputs are recomputed in your browser by a small JavaScript port of the same rules, which is tested against the C++ output. Source: <a href="https://github.com/IvorLipic/TorC">github.com/IvorLipic/TorC</a>.</p>
-</footer>
-<script src="vendor/katex/katex.min.js"></script>
-<script type="module" src="app.js"></script>
+<body class="home">
+<div id="app"><noscript><p class="load-error">The course map needs JavaScript.</p></noscript></div>
+<script type="module" src="js/home.js"></script>
 </body>
 </html>

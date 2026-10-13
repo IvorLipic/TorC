@@ -1,4 +1,4 @@
-# Checks that the committed trace JSON equals a fresh run of the pinned TorC, and that the site tests pass.
+# Checks the static site (check_site + Node tests) and that the committed trace JSON equals a fresh run of the pinned TorC.
 name: Verify
 
 on:
@@ -16,8 +16,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Site tests (engine vs. real library output, LaTeX validity)
-        run: node --test site/test/engine.test.mjs
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Site check (course.json, lesson shells, modules, trace files, relative URLs, assets)
+        run: node tools/check_site.mjs
+      - name: Site tests (engine vs. real library output, LaTeX validity, registry, lessons, store, site tooling)
+        run: node --test site/test/*.test.mjs
       - name: Toolchain (clang 18 + CMake)
         run: sudo apt-get update && sudo apt-get install -y clang-18 cmake
       - name: Trace drift check against the pinned TorC

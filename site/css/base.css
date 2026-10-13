@@ -1,0 +1,61 @@
+/* base.css — design tokens, typography, header, buttons, hero, footer, lesson furniture. Dark theme only (for now). */
+:root{--bg:#0e1116;--panel:#151a22;--panel2:#1b212b;--border:#2d3541;--fg:#e6edf3;--muted:#8b949e;--fwd:#58c4dd;--bwd:#fc6255;--ok:#83c167;--warn:#e3b341;--r:12px}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:70px}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
+body{margin:0;background:var(--bg);color:var(--fg);font:17px/1.65 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+a{color:var(--fwd)}
+code,kbd,pre{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.88em}
+code{background:var(--panel2);padding:.08em .35em;border-radius:4px}
+kbd{background:var(--panel2);border:1px solid var(--border);border-bottom-width:2px;border-radius:5px;padding:.05em .4em}
+header.site{position:sticky;top:0;z-index:30;background:rgba(14,17,22,.93);backdrop-filter:blur(6px);border-bottom:1px solid var(--border)}
+header.site nav{max-width:1100px;margin:0 auto;padding:.65rem 16px;display:flex;gap:1.2rem;align-items:center}
+.brand{font-weight:700;margin-right:auto;color:var(--fg);text-decoration:none}
+a.nav{color:var(--muted);text-decoration:none}a.nav:hover{color:var(--fg)}
+main{max-width:1100px;margin:0 auto;padding:0 16px 3rem}
+.hero{padding:3rem 0 1rem}
+h1{font-size:clamp(2rem,5vw,3.2rem);line-height:1.12;margin:0 0 1rem}
+h2{font-size:1.7rem;margin:3rem 0 .6rem}
+h3{margin:0 0 .3rem;font-size:1.15rem}
+h4{margin:1rem 0 .2rem;font-size:.9rem;font-weight:600;color:var(--muted)}
+.lead{font-size:1.2rem;color:#b6c0cb;max-width:46rem}
+.hint{color:var(--muted);font-size:.95rem}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:var(--r);padding:1rem 1.1rem}
+.card p{margin:.2rem 0 0;color:#c4ccd5;font-size:.97rem}
+.btn{font:inherit;font-size:.95rem;color:var(--fg);background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:.4rem .9rem;cursor:pointer}
+.btn:hover:not(:disabled){border-color:var(--fwd)}
+.btn:disabled{opacity:.4;cursor:default}
+.btn.primary{background:#1f6f86;border-color:#2b8ea9;color:#fff}
+.btn.big{display:inline-block;text-decoration:none;font-size:1.05rem;padding:.6rem 1.2rem}
+button.link{background:none;border:0;color:var(--fwd);cursor:pointer;font:inherit;text-decoration:underline;padding:0 .3rem}
+button:focus-visible,a:focus-visible,input:focus-visible,.node:focus-visible{outline:2px solid var(--fwd);outline-offset:2px}
+footer{max-width:1100px;margin:0 auto;padding:1.5rem 16px 3rem;color:var(--muted);border-top:1px solid var(--border);font-size:.88rem}
+.hero{padding:1.4rem 0 .6rem}
+.hero h1{font-size:clamp(1.6rem,3.6vw,2.3rem);margin-bottom:.4rem}
+.ideas{margin-top:2.5rem}
+@media(max-width:640px){body{font-size:16px}h2{font-size:1.4rem}}
+
+/* ---- site furniture ---- */
+.skip{position:absolute;left:8px;top:-60px;z-index:60;background:var(--panel2);color:var(--fg);border:1px solid var(--fwd);border-radius:8px;padding:.4rem .8rem;text-decoration:none}
+.skip:focus{top:8px}
+.sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+header.site a.nav[aria-current=page]{color:var(--fg)}
+.load-error{max-width:46rem;margin:2rem auto;padding:.8rem 1.1rem;border:1px solid var(--bwd);border-radius:var(--r);background:#2b1513;color:#ffb3ab}
+.num{font-variant-numeric:tabular-nums;color:var(--fwd)}
+
+/* ---- lesson sections (gotcha / predict / check) and the lesson footer navigation ---- */
+.gotcha,.predict,.check{background:var(--panel);border:1px solid var(--border);border-radius:var(--r);padding:.8rem 1.2rem;margin:18px 0}
+.gotcha{border-left:4px solid var(--warn)}
+.predict,.check{border-left:4px solid var(--fwd)}
+.gotcha h3,.predict h3,.check h3{font-size:1rem;margin:0 0 .4rem}
+.predict details,.check details{margin:.5rem 0}
+.predict summary,.check summary{cursor:pointer;color:var(--fwd)}
+.predict .answer,.check .answer{margin-top:.4rem;color:#c4ccd5}
+button[aria-pressed=true].btn{border-color:var(--ok);color:var(--ok)}
+.lesson-nav{display:flex;flex-wrap:wrap;gap:10px;align-items:stretch;justify-content:space-between;margin:2.2rem 0 0;padding-top:1rem;border-top:1px solid var(--border)}
+.lesson-nav .btn{text-decoration:none;display:inline-flex;flex-direction:column;justify-content:center;min-width:8rem}
+.lesson-nav .btn .t{color:var(--muted);font-size:.8rem}
+.lesson-nav .next{text-align:right;margin-left:auto}
+.lesson-nav .none{flex:0 0 0}
+.lesson-nav .done-toggle{flex-direction:row;align-items:center}

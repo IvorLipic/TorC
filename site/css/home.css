@@ -1,0 +1,22 @@
+/* home.css — the course map. Uses the tokens from base.css. */
+.course{margin-top:1.2rem}
+.course-head{display:flex;flex-wrap:wrap;gap:.2rem 1rem;align-items:baseline;justify-content:space-between}
+.course-head h2{margin:1.2rem 0 .3rem}
+.course-head .hint{margin:0}
+.filter{display:flex;flex-wrap:wrap;gap:.4rem .8rem;align-items:center;margin:.4rem 0 1rem}
+.filter label{color:var(--muted);font-size:.9rem}
+.filter input{flex:1 1 16rem;max-width:28rem;font:inherit;font-size:.95rem;color:var(--fg);background:var(--panel);border:1px solid var(--border);border-radius:9px;padding:.4rem .7rem}
+.filter .hint{margin:0}
+.part{margin:1.6rem 0}
+.part h2{font-size:1.25rem;margin:0 0 .6rem;color:var(--fg)}
+.lesson-grid{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+.lesson-card{position:relative;background:var(--panel);border:1px solid var(--border);border-radius:var(--r);padding:1rem 1.1rem;display:flex;flex-direction:column;gap:.3rem}
+.lesson-card:hover,.lesson-card:focus-within{border-color:var(--fwd)}
+.lesson-card.done{border-color:rgba(131,193,103,.55)}
+.lesson-link{color:var(--fg);text-decoration:none;display:flex;gap:.6rem;justify-content:space-between;align-items:baseline}
+.lesson-link::after{content:"";position:absolute;inset:0;border-radius:var(--r)}
+.lesson-title{font-size:1.1rem;font-weight:600}
+.tick{color:var(--ok);font-weight:700;white-space:nowrap}
+.lesson-outcome{margin:0;color:#c4ccd5;font-size:.95rem}
+.lesson-meta{margin:auto 0 0;padding-top:.3rem;color:var(--muted);font-size:.82rem}
+.empty{margin:1rem 0}

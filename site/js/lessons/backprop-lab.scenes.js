@@ -1,6 +1,6 @@
-// scenes.js — layout (where each named node is drawn) and the teaching text of each scene.
-// Numbers never live here: values, edges and gradients come from data/autograd_trace.json
-// (real TorC run) and from engine.js (live recomputation after the learner edits inputs).
+// backprop-lab.scenes.js — layout (where each named node is drawn) and the teaching text of each scene of the Backprop lab.
+// Numbers never live here: values, edges and gradients come from data/autograd_trace.json (real TorC run)
+// and from engine.js (live recomputation after the learner edits inputs).
 export const SCENES = {
   reuse: {
     tab: '1 · Reuse',

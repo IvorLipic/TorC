@@ -1,0 +1,23 @@
+{
+  "schema": "torc-course/1",
+  "title": "TorC Learn",
+  "parts": [
+    {
+      "id": "big-idea",
+      "title": "The big idea",
+      "lessons": [
+        {
+          "id": "backprop-lab",
+          "title": "Backprop lab",
+          "outcome": "Step through forward and backward passes by hand with TorC’s real numbers, and see gradients add where a value is reused and multiply along a chain.",
+          "prereqs": [],
+          "symbols": ["Variable", "TapeEntry", "Variable::backward_with_grad", "accumulate_grad"],
+          "trace": ["autograd_trace.json"],
+          "est_minutes": 15,
+          "status": "published",
+          "legacy_hashes": ["reuse", "chain", "mlp", "lab"]
+        }
+      ]
+    }
+  ]
+}

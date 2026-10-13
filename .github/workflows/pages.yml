@@ -1,6 +1,6 @@
 # Deploys the prebuilt static site in site/ to GitHub Pages (https://<user>.github.io/TorC/).
 # Deploys on push to `web` (when the site or this workflow changes) or manually; never from any other branch.
-# The site is built beforehand (see visualizations/README.md); this workflow only uploads site/.
+# There is no build step: site/ is checked (tools/check_site.mjs, Node tests) and uploaded as it is.
 name: Deploy site
 
 on:
@@ -37,13 +37,13 @@ jobs:
             echo "Deployment is only allowed from ${ALLOWED_BRANCH}, got ${GITHUB_REF_NAME}"; exit 1
           fi
       - uses: actions/checkout@v4
-      - name: Check required site files exist
-        run: |
-          for f in index.html style.css app.js engine.js explain.js scenes.js data/autograd_trace.json vendor/katex/katex.min.js vendor/katex/katex.min.css; do
-            test -s "site/$f" || { echo "missing site/$f"; exit 1; }
-          done
-      - name: Engine and explanations match the real TorC run
-        run: node --test site/test/engine.test.mjs
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Site check (course.json, lesson shells, modules, trace files, relative URLs, assets)
+        run: node tools/check_site.mjs
+      - name: Engine, explanations, lessons and site tooling match the real TorC run
+        run: node --test site/test/*.test.mjs
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

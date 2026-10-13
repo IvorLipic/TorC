@@ -1,18 +1,23 @@
 // Run: node --test site/test/
-// Checks the JS engine against the REAL TorC library run stored in data/autograd_trace.json.
+// Checks the JS engine against the REAL TorC library runs stored in data/*.json (tools/trace/ writes them).
+// Every trace file's top-level scenes[] is used; other top-level keys are ignored.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
-import { buildGraph, runBackward, timeline } from '../engine.js';
-import { forwardWindow, backwardWindow, leafWindow, fmt } from '../explain.js';
+import { buildGraph, runBackward, timeline } from '../js/engine.js';
+import { forwardWindow, backwardWindow, leafWindow, fmt } from '../js/explain.js';
+import { allScenes, close, renderStrictAll, katex } from './helpers.mjs';
 
-const data = JSON.parse(readFileSync(new URL('../data/autograd_trace.json', import.meta.url)));
-const katex = createRequire(import.meta.url)('../vendor/katex/katex.min.js');
-const close = (a, b, tol = 1e-5) => a.length === b.length && a.every((x, i) => Math.abs(x - b[i]) <= tol * (1 + Math.abs(b[i])));
+const scenes = allScenes();
+const autograd = scenes.filter((s) => s.file === 'autograd_trace.json').map((s) => s.scene);
 
-for (const scene of data.scenes) {
-  test(`${scene.id}: engine matches the real library (values and gradients)`, () => {
+test('trace files were found and contain scenes', () => {
+  assert.ok(scenes.length >= 3, `expected at least the 3 backprop-lab scenes, found ${scenes.length}`);
+  assert.deepEqual(autograd.map((s) => s.id), ['reuse', 'chain', 'mlp']);
+});
+
+for (const { file, scene } of scenes) {
+  const tag = `${file} / ${scene.id}`;
+  test(`${tag}: engine matches the real library (values and gradients)`, () => {
     const g = buildGraph(scene);
     const bw = runBackward(g);
     for (const n of scene.nodes) {
@@ -24,17 +29,17 @@ for (const scene of data.scenes) {
     }
   });
 
-  test(`${scene.id}: every generated LaTeX string renders in KaTeX without errors`, () => {
+  test(`${tag}: every generated LaTeX string renders in KaTeX without errors`, () => {
     const g = buildGraph(scene);
     const bw = runBackward(g);
-    const render = (s) => katex.renderToString(s, { throwOnError: true });
-    const walk = (w) => { for (const b of w.blocks) for (const l of b.latex ?? []) render(l); };
+    const walk = (w) => { for (const b of w.blocks) renderStrictAll(b.latex ?? []); };
     for (const n of g.nodes) if (n.role === 'op') walk(forwardWindow(g, n.name));
-    for (const s of bw.steps) walk(s.node && g.byName[s.node].role === 'op' ? backwardWindow(g, bw, s.node) : leafWindow(g, bw, s.node));
+    for (const s of bw.steps) walk(g.byName[s.node].role === 'op' ? backwardWindow(g, bw, s.node) : leafWindow(g, bw, s.node));
+    for (const n of g.nodes) if (n.role === 'leaf') walk(leafWindow(g, bw, n.name));
     assert.ok(timeline(g, bw).length > 3);
   });
 
-  test(`${scene.id}: finite differences of the JS engine agree with its own gradients`, () => {
+  test(`${tag}: finite differences of the JS engine agree with its own gradients`, () => {
     const g0 = buildGraph(scene), bw = runBackward(g0);
     const h = 1e-4;
     for (const leaf of g0.nodes.filter((n) => n.role === 'leaf' && n.requires_grad)) {
@@ -48,21 +53,31 @@ for (const scene of data.scenes) {
 }
 
 test('editing an input recomputes (relu unit revived by raising b1)', () => {
-  const scene = data.scenes.find((s) => s.id === 'mlp');
+  const scene = autograd.find((s) => s.id === 'mlp');
   const g = buildGraph(scene, { b1: [0.1, 0.2] });
   const bw = runBackward(g);
   assert.notEqual(bw.grad.b1.v[1], 0, 'second hidden unit should now receive gradient');
 });
 
 test('explanations contain the numbers a learner would write on paper', () => {
-  const reuse = buildGraph(data.scenes.find((s) => s.id === 'reuse')), bwr = runBackward(reuse);
+  const reuse = buildGraph(autograd.find((s) => s.id === 'reuse')), bwr = runBackward(reuse);
   const lw = leafWindow(reuse, bwr, 'x');
   assert.ok(lw.blocks[0].latex.some((l) => l.includes('1 + 3 + 3 = 7')), 'x.grad = 1 + 3 + 3 = 7');
-  const mlp = buildGraph(data.scenes.find((s) => s.id === 'mlp')), bwm = runBackward(mlp);
+  const mlp = buildGraph(autograd.find((s) => s.id === 'mlp')), bwm = runBackward(mlp);
   const bb = backwardWindow(mlp, bwm, 'a').blocks.map((b) => (b.latex ?? []).join(' ')).join(' ');
   assert.match(bb, /slope/, 'relu window shows the slope mask');
   const bo = backwardWindow(mlp, bwm, 'o').blocks.map((b) => (b.latex ?? []).join(' ')).join(' ');
   assert.match(bo, /shrink back to the shape/, 'broadcast reduction shown with numbers for b2');
 });
 
+test('the numbers quoted in the Backprop lab takeaways are the ones the engine computes', async () => {
+  // scenes.js says "(3, 3 and 1 with the preset numbers)" for the reuse scene: the contributions x receives.
+  const { SCENES } = await import('../js/lessons/backprop-lab.scenes.js');
+  assert.match(SCENES.reuse.takeaway, /3, 3 and 1/);
+  const g = buildGraph(autograd.find((s) => s.id === 'reuse')), bw = runBackward(g);
+  const sent = bw.steps.flatMap((s) => s.sends).filter((s) => s.to === 'x' && s.tracked).map((s) => s.tensor.v[0]).sort();
+  assert.deepEqual(sent, [1, 3, 3]);
+});
+
 test('fmt', () => { assert.equal(fmt(-0), '0'); assert.equal(fmt(0.22000006), '0.22'); assert.equal(fmt(1.1000000238), '1.1'); });
+test('katex is the vendored build', () => { assert.equal(typeof katex.renderToString, 'function'); });

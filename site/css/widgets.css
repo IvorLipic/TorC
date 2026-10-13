@@ -1,45 +1,10 @@
-:root{--bg:#0e1116;--panel:#151a22;--panel2:#1b212b;--border:#2d3541;--fg:#e6edf3;--muted:#8b949e;--fwd:#58c4dd;--bwd:#fc6255;--ok:#83c167;--warn:#e3b341;--r:12px}
-*{box-sizing:border-box}
-html{scroll-behavior:smooth;scroll-padding-top:70px}
-@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
-body{margin:0;background:var(--bg);color:var(--fg);font:17px/1.65 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-a{color:var(--fwd)}
-code,kbd,pre{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.88em}
-code{background:var(--panel2);padding:.08em .35em;border-radius:4px}
-kbd{background:var(--panel2);border:1px solid var(--border);border-bottom-width:2px;border-radius:5px;padding:.05em .4em}
-header.site{position:sticky;top:0;z-index:30;background:rgba(14,17,22,.93);backdrop-filter:blur(6px);border-bottom:1px solid var(--border)}
-header.site nav{max-width:1100px;margin:0 auto;padding:.65rem 16px;display:flex;gap:1.2rem;align-items:center}
-.brand{font-weight:700;margin-right:auto;color:var(--fg);text-decoration:none}
-a.nav{color:var(--muted);text-decoration:none}a.nav:hover{color:var(--fg)}
-main{max-width:1100px;margin:0 auto;padding:0 16px 3rem}
-.hero{padding:3rem 0 1rem}
-h1{font-size:clamp(2rem,5vw,3.2rem);line-height:1.12;margin:0 0 1rem}
-h2{font-size:1.7rem;margin:3rem 0 .6rem}
-h3{margin:0 0 .3rem;font-size:1.15rem}
-h4{margin:1rem 0 .2rem;font-size:.9rem;font-weight:600;color:var(--muted)}
-.lead{font-size:1.2rem;color:#b6c0cb;max-width:46rem}
-.hint{color:var(--muted);font-size:.95rem}
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
-.card{background:var(--panel);border:1px solid var(--border);border-radius:var(--r);padding:1rem 1.1rem}
-.card p{margin:.2rem 0 0;color:#c4ccd5;font-size:.97rem}
-.btn{font:inherit;font-size:.95rem;color:var(--fg);background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:.4rem .9rem;cursor:pointer}
-.btn:hover:not(:disabled){border-color:var(--fwd)}
-.btn:disabled{opacity:.4;cursor:default}
-.btn.primary{background:#1f6f86;border-color:#2b8ea9;color:#fff}
-.btn.big{display:inline-block;text-decoration:none;font-size:1.05rem;padding:.6rem 1.2rem}
-button.link{background:none;border:0;color:var(--fwd);cursor:pointer;font:inherit;text-decoration:underline;padding:0 .3rem}
-button:focus-visible,a:focus-visible,input:focus-visible,.node:focus-visible{outline:2px solid var(--fwd);outline-offset:2px}
+/* widgets.css — the interactive lab: scene tabs, step timeline, SVG graph, math window, inputs popover. */
 /* lab */
 .tabs{display:flex;gap:8px;flex-wrap:wrap;margin:1rem 0}
 .tab{font:inherit;color:var(--muted);background:transparent;border:1px solid var(--border);border-radius:99px;padding:.35rem 1rem;cursor:pointer}
 .tab[aria-selected=true]{color:var(--fg);border-color:var(--fwd);background:rgba(88,196,221,.1)}
-.scene-intro{background:var(--panel);border:1px solid var(--border);border-radius:var(--r);padding:.9rem 1.2rem}
-.scene-intro p{margin:.2rem 0 0;color:#c4ccd5}
 .expr{margin:.4rem 0 0;overflow-x:auto}
 .expr .katex{font-size:1.15em}
-.inputs{margin:12px 0;background:var(--panel);border:1px solid var(--border);border-radius:var(--r);padding:.7rem 1.1rem}
-.inputs summary{cursor:pointer;color:var(--fg)}
-.inputs summary .hint{margin-left:.4rem}
 .inputs-head{margin-top:.6rem;display:flex;flex-wrap:wrap;gap:.3rem .5rem;align-items:baseline}
 .badge{font-size:.78rem;border:1px solid;border-radius:99px;padding:.05rem .6rem;margin-left:auto}
 .badge.ok{color:var(--ok)}.badge.warn{color:var(--warn)}
@@ -51,7 +16,6 @@ button:focus-visible,a:focus-visible,input:focus-visible,.node:focus-visible{out
 .in-vals input{width:5.2rem;background:var(--bg);color:var(--fg);border:1px solid var(--border);border-radius:7px;padding:.25rem .4rem;font:.9rem ui-monospace,monospace}
 .in-shape{color:var(--muted);font-size:.75rem}
 .controls{position:sticky;top:52px;z-index:20;background:rgba(14,17,22,.95);backdrop-filter:blur(6px);border:1px solid var(--border);border-radius:var(--r);padding:.6rem .8rem;margin:12px 0}
-.ctl-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .counter{margin-left:auto;color:var(--muted);font-size:.85rem}
 .chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:.55rem}
 .phase{font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 2px 0 8px}
@@ -60,6 +24,9 @@ button:focus-visible,a:focus-visible,input:focus-visible,.node:focus-visible{out
 .chip.forward.done,.chip.forward.on{border-color:var(--fwd);color:var(--fwd)}
 .chip.backward.done,.chip.backward.on{border-color:var(--bwd);color:var(--bwd)}
 .chip.on{background:rgba(255,255,255,.08);font-weight:700}
+/* The Start chip has class "inputs" (its timeline kind). The previous stylesheet had an unrelated `.inputs{margin:12px 0}` rule that
+   leaked onto it, making the controls bar 16px taller. Kept explicitly so the lab is pixel-identical; drop it to reclaim 16px. */
+.chip.inputs{margin:12px 0}
 .controls .hint{margin:.5rem 0 0}
 .graph-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--r);background:var(--panel);margin:12px 0}
 .graph svg{display:block;width:100%;height:auto}
@@ -99,12 +66,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,.node:focus-visible{out
 .blk p{margin:.2rem 0 .3rem;color:#c4ccd5;font-size:.97rem}
 .math{overflow-x:auto;padding:.1rem 0}
 .math .katex-display{margin:.35em 0}
-.takeaway{background:rgba(131,193,103,.08);border:1px solid rgba(131,193,103,.5);border-radius:var(--r);padding:.8rem 1.2rem;margin:12px 0}
-footer{max-width:1100px;margin:0 auto;padding:1.5rem 16px 3rem;color:var(--muted);border-top:1px solid var(--border);font-size:.88rem}
-@media(max-width:640px){body{font-size:16px}h2{font-size:1.4rem}.controls{position:static}.win{padding:.8rem 1rem}}
-
-.swipe{display:none;margin:-6px 0 6px}@media(max-width:1100px){.swipe{display:block}}
-
+@media(max-width:640px){.controls{position:static}.win{padding:.8rem 1rem}}
 .in-vals{flex-direction:column}.in-row{display:flex;gap:6px}
 .in-vals input.bad{border-color:var(--bwd);background:#2b1513}
 .node.const rect{stroke-dasharray:5 3}
@@ -114,10 +76,7 @@ footer{max-width:1100px;margin:0 auto;padding:1.5rem 16px 3rem;color:var(--muted
   .chips{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px;margin-top:.4rem}
   .chip,.phase{flex:none}
 }
-
 /* ---- compact lab: the whole section fits one laptop screen ---- */
-.hero{padding:1.4rem 0 .6rem}
-.hero h1{font-size:clamp(1.6rem,3.6vw,2.3rem);margin-bottom:.4rem}
 .hero .lead{font-size:1.02rem;margin:0}
 .lab{position:relative;display:flex;flex-direction:column;gap:8px;height:calc(100vh - 84px);min-height:560px;max-height:940px;margin-top:.6rem}
 .lab-top{display:flex;gap:10px;align-items:center;justify-content:space-between}
@@ -145,7 +104,6 @@ footer{max-width:1100px;margin:0 auto;padding:1.5rem 16px 3rem;color:var(--muted
 .blk{break-inside:avoid}
 .blk h4{margin:.6rem 0 .1rem}
 .blk p{font-size:.93rem;margin:.1rem 0 .2rem}
-.ideas{margin-top:2.5rem}
 @media(max-width:900px){
   .lab{height:auto;max-height:none;min-height:0}
   .lab .win{flex:none;overflow:visible}
