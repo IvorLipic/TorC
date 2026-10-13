@@ -91,3 +91,4 @@ visualizations/media/
 .venv-viz/
 site/dist/
 __pycache__/
+.claude/worktrees/
