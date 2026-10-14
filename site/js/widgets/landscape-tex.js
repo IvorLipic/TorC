@@ -1,6 +1,12 @@
 // widgets/landscape-tex.js — the "paper work" (LaTeX) of the why-gradients widgets, as pure functions of the model, so the tests
 // can render every string with KaTeX throwOnError over many inputs. No DOM. The widgets only place these strings on the page.
-import { fmt, tex, par } from '../ops/texutil.js';
+import { fmt as fmtBase, tex } from '../ops/texutil.js';
+
+// Number display for the widgets: the shared 4-significant-digit format, but anything from 1e7 up (a diverging run) is always
+// shown in exponent form, never as 8219000000000000000 next to 2.93e21.
+export const fmtX = (x) => (Math.abs(x) >= 1e7 ? x.toExponential(3).replace(/\.?0+e/, 'e').replace('e+', 'e') : fmtBase(x));
+const fmt = fmtX;
+export const par = (x) => (x < 0 ? `(${fmt(x)})` : fmt(x));
 
 // More digits where the arithmetic on the page must visibly add up (a secant subtracts two nearly equal numbers).
 export const fmtN = (x, digits = 8) => (Object.is(x, -0) || Math.abs(x) < 1e-12 ? '0' : String(Number(x.toPrecision(digits))));

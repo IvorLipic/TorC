@@ -4,8 +4,8 @@
 // section kinds
 //   text    { kind:'text',   html:  (D, T) => '<section>…</section>' }            markup is used as given
 //   gotcha  { kind:'gotcha', title, html: (D, T) => … }                           a "Why did my X fail?" box
-//   predict { kind:'predict', id, prompt: (D, T) => …, reveal: (D, T) => … }       think first, then open the answer
-//   check   { kind:'check',  id, prompt: (D, T) => …, reveal: (D, T) => … }        like predict, plus an "I got it" mark (stored)
+//   predict { kind:'predict', id, title?, prompt: (D, T) => …, reveal: (D, T) => … }       think first, then open the answer
+//   check   { kind:'check',  id, title?, prompt: (D, T) => …, reveal: (D, T) => … }        like predict, plus an "I got it" mark (stored)
 //   widget  { kind:'widget', id, className?, label?, mount(host, D, ctx) }         interactive part; mount() runs in the browser
 // D = loaded trace data (see core/trace.js); T('scene.path') = a number from the trace, shown as <span class="num" data-trace>.
 import { makeT } from './trace.js';
@@ -24,7 +24,7 @@ export function sectionHtml(section, D, T = makeT(D)) {
     case 'check': {
       const check = section.kind === 'check';
       return `<section class="${section.kind}" data-section="${escapeHtml(section.id ?? '')}">`
-        + `<h3>${check ? 'Check yourself' : 'Predict, then reveal'}</h3><div class="prompt">${call(section.prompt, D, T)}</div>`
+        + `<h3>${escapeHtml(section.title ?? (check ? 'Check yourself' : 'Predict, then reveal'))}</h3><div class="prompt">${call(section.prompt, D, T)}</div>`
         + `<details><summary>Show the answer</summary><div class="answer">${call(section.reveal, D, T)}</div></details>`
         + (check ? `<button type="button" class="btn small" data-check="${escapeHtml(section.id)}" aria-pressed="false">I got it</button>` : '')
         + '</section>';

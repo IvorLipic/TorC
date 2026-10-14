@@ -7,13 +7,12 @@
 // graph lab. At delta = the recorded nudge (data/why-gradients.json `nudge`) the widget says so and shows TorC's float32 numbers.
 // The stage table is the text alternative of the picture. Defines functions only (no DOM at import time).
 import { el, keepFocus } from '../core/dom.js';
-import { fmt } from '../ops/texutil.js';
-import { gearsTex } from './landscape-tex.js';
+import { gearsTex, fmtX as fmt } from './landscape-tex.js';
 import { makeModel, sameNumber } from './landscape-model.js';
 import { injectStyles, uid, slider, eqLine, badgeEl, BADGE } from './landscape1d.js';
 
 const NAMES = { w: 'the knob', p: 'prediction', e: 'error', L: 'loss' };
-const signed = (v) => (v > 0 ? '+' : v < 0 ? '−' : '') + fmt(Math.abs(v));
+const signed = (v) => (v > 0 ? '+' : v < 0 ? '-' : '') + fmt(Math.abs(v));
 
 export function mountGears(host, D) {
   const files = D.files['why-gradients'], m = makeModel(D.scenes.why);
@@ -54,7 +53,7 @@ export function mountGears(host, D) {
       const rec = files.nudge;
       const onRecord = Math.abs(delta - rec.delta) < 1e-9 && Math.abs(m.w0 - rec.w0) < 1e-9;
       badge.set(onRecord && sameNumber(n.actualDL, rec.actual_dL, 1e-4)
-        ? BADGE.match(`δ = ${fmt(rec.delta)} is the nudge TorC recorded: its float32 run printed ΔL = ${fmt(rec.actual_dL)}, the browser agrees`)
+        ? BADGE.match(`δ = ${fmt(rec.delta)} is the nudge TorC recorded: the float32 recording gives ΔL = ${fmt(rec.actual_dL)}, the browser agrees`)
         : BADGE.browser('Recomputed in your browser (no TorC recording for this δ)'));
     }, host);
   }

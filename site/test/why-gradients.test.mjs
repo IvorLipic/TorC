@@ -7,9 +7,11 @@ import { buildGraph, runBackward } from '../js/engine.js';
 import { buildD, makeT } from '../js/core/trace.js';
 import { renderLesson, findUnboundNums, boundNums } from '../js/core/sections.js';
 import { makeModel, sameNumber, recordedPoint, recordedTrajectory, recordedSecant } from '../js/widgets/landscape-model.js';
+import { fmtX } from '../js/widgets/landscape-tex.js';
 import { knobTex, secantTex, updateTex, lastStepTex, factorTex, gearsTex } from '../js/widgets/landscape-tex.js';
 import { H_STOPS, PRESET_LRS, JUMPS, MAX_STEPS } from '../js/widgets/landscape1d.js';
 import { whyLayout } from '../js/lessons/why-gradients.scenes.js';
+import { DERIVED } from '../js/lessons/why-gradients.js';
 import { readJson, renderStrictAll, katex } from './helpers.mjs';
 
 const data = readJson('data/why-gradients.json');
@@ -211,8 +213,42 @@ test('the derived constants the prose prints as formulas (8 and 3) are the scene
   assert.equal(m.wMin, m.t / m.x);
   assert.equal(m.curvature, data.trajectories.length ? Math.round((1 - data.trajectories[0].factor) / data.trajectories[0].lr * 1e9) / 1e9 : NaN, 'curvature agrees with the recorded factor 1 - c*lr');
   // the learning-rate table lists every recorded run, in order
-  const rows = [...html.matchAll(/<tr><td><span class="num" data-trace="files\.why-gradients\.trajectories\.(\d)\.lr">/g)].map((x) => Number(x[1]));
+  const rows = [...html.matchAll(/<tr><td data-label="learning rate"><span class="num" data-trace="files\.why-gradients\.trajectories\.(\d)\.lr">/g)].map((x) => Number(x[1]));
   assert.deepEqual(rows, [0, 1, 2, 3, 4]);
+});
+
+test('numbers that are arithmetic on printed ones are marked as derived (dotted underline), printed ones are not', () => {
+  const all = renderLesson(lesson, D).map((p) => p.html).join('\n');
+  let derived = 0, printed = 0;
+  for (const mt of all.matchAll(/(<span class="dv"[^>]*>)?<span class="num" data-trace="([^"]*)">/g)) {
+    const isDerived = DERIVED.some((k) => mt[2].includes(k));
+    assert.equal(Boolean(mt[1]), isDerived, `${mt[2]} ${isDerived ? 'must be marked derived' : 'is printed by TorC and must not be marked'}`);
+    if (isDerived) derived++; else printed++;
+  }
+  assert.ok(derived >= 10 && printed >= 60, `${derived} derived, ${printed} printed`);
+  // the schema says which fields are derived: factor, critical_lr, tangent_L_next, predicted_dL, second_order_term, local_slope_product, w_min
+  for (const t of data.trajectories) assert.ok(tol(t.factor, 1 - 8 * t.lr, 1e-12));
+  assert.equal(data.setup.critical_lr, 2 / m.curvature);
+  assert.ok(tol(data.nudge.predicted_dL, data.nudge.local_slope_product * data.nudge.delta, 1e-6));
+  // footer and hero state the provenance honestly
+  assert.match(lesson.footer(D, T), /derived from those numbers/);
+  assert.match(all, /dotted underline/);
+  assert.doesNotMatch(lesson.footer(D, T), /Every number/);
+});
+
+test('the formulas the prose derives (L(w) = 4(w-3)^2, slope 8(w-3), local slopes) come from the scene and are true', () => {
+  const html = renderLesson(lesson, D).map((p) => p.html).join('\n');
+  assert.ok(html.includes(`L(w) = (${m.x}w-${m.t})^2 = ${m.x * m.x}(w-${m.wMin})^2`), 'L(w) written out');
+  assert.ok(html.includes(`2\\cdot ${m.curvature / 2}(w-${m.wMin})`), 'power rule line');
+  assert.equal(m.x * m.x, m.curvature / 2);
+  const [sp, se, sL] = m.localSlopes(m.w0).map((q) => q.slope);
+  assert.deepEqual([sp, se, sL], [m.x, 1, 2 * m.at(m.w0).e]);
+  for (const [i, v] of [sp, se, sL].entries()) assert.ok(html.includes(`data-trace="files.why-gradients.nudge.stages.${i}.local_slope">${v}<`), `local slope ${i} quoted`);
+  // the code snippet is faithful to the trace program: only w requires grad, and the API is w.grad()
+  assert.match(html, /Variable w\(Tensor\(\{<span[^>]*>0<\/span>\.0f\}, \{1\}\), true\)/);
+  assert.match(html, /Variable x\(Tensor\(\{<span[^>]*>2<\/span>\.0f\}, \{1\}\), false\)/);
+  assert.ok([m.w0, m.x, m.t].every(Number.isInteger), 'integer leaves, so "N.0f" is right');
+  assert.match(html, /w\.grad\(\) holds the slope/);
 });
 
 test('predict and check sections exist, are answered from the trace, and have unique ids', () => {
@@ -272,4 +308,16 @@ test('the widget modules import in Node without touching the DOM and export thei
 
 test('sameNumber is the mixed tolerance of docs/trace-schema.md', () => {
   assert.ok(sameNumber(33.6400032, 33.64) && !sameNumber(33.7, 33.64));
+});
+
+test('huge values from a diverging run are shown in exponent form, never as 8219000000000000000', () => {
+  assert.equal(fmtX(8.219e18), '8.219e18');
+  assert.equal(fmtX(-2.93e21), '-2.93e21');
+  assert.equal(fmtX(1.5e7), '1.5e7');
+  assert.equal(fmtX(7841.2), '7841');
+  assert.equal(fmtX(-24), '-24');
+  assert.equal(fmtX(0.01016), '0.01016');
+  const st = m.iterate(m.w0, 0.35, 40);
+  for (const s of st) for (const v of [s.w, s.L, s.grad]) assert.doesNotMatch(fmtX(v), /^-?\d{9,}$/, `${v}`);
+  renderStrictAll([fmtX(1e19), `${fmtX(-1e19)}`, ...st.slice(0, 41).map((s) => lastStepTex({ ...s, actual: m.lossAt(s.wNext) })).flat()]);
 });

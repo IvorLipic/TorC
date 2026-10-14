@@ -12,8 +12,7 @@
 // The module defines functions only: importing it in Node touches no DOM.
 import { el, svg, keepFocus } from '../core/dom.js';
 import { math } from '../core/katex.js';
-import { fmt } from '../ops/texutil.js';
-import { knobTex, secantTex, updateTex, lastStepTex, factorTex, fmtN } from './landscape-tex.js';
+import { knobTex, secantTex, updateTex, lastStepTex, factorTex, fmtN, fmtX as fmt } from './landscape-tex.js';
 import { createPlot, tableToggle, ticks } from './plot.js';
 import { makeModel, sameNumber, recordedPoint, recordedTrajectory, recordedSecant } from './landscape-model.js';
 
@@ -68,18 +67,21 @@ function legend(items) {
 }
 
 // the L(w) curve on [-1, 7], drawn by the engine at 161 weights; layer "live" is for whatever moves
-const isNarrow = () => typeof window !== 'undefined' && window.matchMedia?.('(max-width: 640px)').matches;   // plots are drawn in a narrower box on phones so their text stays legible
-function curvePlot(m, host, ariaLabel) {
-  const narrow = isNarrow();
-  const p = createPlot(host, { width: narrow ? 400 : 640, height: narrow ? 300 : 330, x: [-1, 7], y: [0, 72], xLabel: 'w  (the knob)', yLabel: 'L  (the score)', ariaLabel });
-  p.axes({ xTicks: ticks([-1, 7], 8), yTicks: [0, 20, 40, 60] });
-  p.curve(m.curve(-1, 7, 160).map((q) => [q.w, q.L]), { class: 'plot-curve', layer: 'curve' });
-  p.layer('live');
+// plot.js builds the plot at the host's width on a phone and calls onResize when the width changes (rotation): redraw everything.
+function curvePlot(m, host, ariaLabel, redraw) {
+  const pts = m.curve(-1, 7, 160).map((q) => [q.w, q.L]);
+  const draw = (pl) => {
+    pl.axes({ xTicks: ticks([-1, 7], 8), yTicks: [0, 20, 40, 60] });
+    pl.curve(pts, { class: 'plot-curve', layer: 'curve' });
+    pl.layer('live');
+  };
+  const p = createPlot(host, { width: 640, height: 330, x: [-1, 7], y: [0, 72], xLabel: 'w  (the knob)', yLabel: 'L  (the score)', ariaLabel, onResize: (pl) => { draw(pl); redraw?.(); } });
+  draw(p);
   return p;
 }
 function curveTable(m, host) {
   const rows = Array.from({ length: 33 }, (_, i) => m.at(-1 + i * 0.25)).map((q) => [q.w, q.p, q.e, q.L, q.grad]);
-  return tableToggle(host, { columns: ['w', 'p = w·x', 'e = p − t', 'L = e·e', 'slope dL/dw'], rows, caption: 'The curve above at w = −1, −0.75, …, 7 (computed by the same engine code as the graph lab)' });
+  return tableToggle(host, { columns: ['w', 'p = w·x', 'e = p − t', 'L = e·e', 'slope dL/dw'], rows, caption: 'The curve above at w = -1, -0.75, …, 7 (computed by the same engine code as the graph lab)' });
 }
 const sqMarker = (p, x, y) => svg('rect', { x: p.sx(x) - 4.5, y: p.sy(y) - 4.5, width: 9, height: 9, class: 'ls-sq' });
 const diamond = (p, x, y, r = 7) => svg('path', { d: `M${p.sx(x)},${p.sy(y) - r} L${p.sx(x) + r},${p.sy(y)} L${p.sx(x)},${p.sy(y) + r} L${p.sx(x) - r},${p.sy(y)} Z`, class: 'ls-diamond' });
@@ -105,7 +107,7 @@ export function mountKnob(host, D) {
   const { plotBox, side, foot } = frame(host, 'knob');
   const key = uid('k');
   let w = m.w0, best = null;
-  const p = curvePlot(m, plotBox, 'The score L as the knob w turns: a bowl-shaped curve.');
+  const p = curvePlot(m, plotBox, 'The score L as the knob w turns: a bowl-shaped curve.', () => update());
   plotBox.append(legend([['curve', 'L(w)'], ['dot', 'where the knob is now']]));
   curveTable(m, plotBox);
 
@@ -152,7 +154,7 @@ export function mountSlope(host, D) {
   const { plotBox, side, foot } = frame(host, 'slope');
   const key = uid('s');
   let w = m.w0, hi = H_STOPS.indexOf(1);
-  const p = curvePlot(m, plotBox, 'The loss curve with a tangent line and a secant line.');
+  const p = curvePlot(m, plotBox, 'The loss curve with a tangent line and a secant line.', () => update());
   plotBox.append(legend([['curve', 'L(w)'], ['dot', 'the knob'], ['tangent', 'tangent = the slope TorC’s backward() reports'], ['secant', 'secant through the knob and w + h']]));
 
   const slW = slider({
@@ -183,7 +185,7 @@ export function mountSlope(host, D) {
         : q.grad < 0 ? '↘ negative: turning w up lowers the score' : '↗ positive: turning w up raises the score';
       verdict.textContent = `The slope at w = ${fmt(w)} is ${fmtN(q.grad)} score units per unit of w, ${dir}. The secant says ${fmtN(s.slope)}; the gap is ${fmtN(s.gap, 6)}.`;
       const rec = Math.abs(w - m.w0) < 1e-9 ? recordedSecant(files, h) : null;
-      recorded.textContent = rec ? `TorC’s own float32 run of this secant at w = ${fmt(w)} printed ${fmtN(rec.slope, 6)}${Math.abs(rec.slope - s.slope) > 5e-4 ? ` (the browser, in double precision: ${fmtN(s.slope, 6)} — float32 keeps about seven digits, and a tiny h subtracts two nearly equal numbers)` : ''}.` : '';
+      recorded.textContent = rec ? `In TorC’s float32 recording this secant at w = ${fmt(w)} works out to ${fmtN(rec.slope, 6)} (the trace program divided the two losses TorC printed)${Math.abs(rec.slope - s.slope) > 5e-4 ? ` (the browser, in double precision: ${fmtN(s.slope, 6)} — float32 keeps about seven digits, and a tiny h subtracts two nearly equal numbers)` : ''}.` : '';
       p.clear('live');
       p.tangent(w, q.L, q.grad, { half: 1.6, layer: 'live' });
       const x1 = w - 0.5, x2 = w + h + 0.5;
@@ -212,7 +214,7 @@ export function mountStepper(host, D) {
   let lr = 0.05;
   let hist = [];                                      // completed steps: {k, w, L, grad, lr, wNext, promise, actual}
   const cur = () => (hist.length ? hist[hist.length - 1].wNext : m.w0);
-  const p = curvePlot(m, plotBox, 'The loss curve with the path of the steps taken.');
+  const p = curvePlot(m, plotBox, 'The loss curve with the path of the steps taken.', () => update());
   plotBox.append(legend([['curve', 'L(w)'], ['dot', 'where w is now'], ['step', 'earlier positions (numbered)'], ['tangent', 'tangent at the dot'], ['promise', 'what the tangent promised for the last step']]));
   curveTable(m, plotBox);
 
@@ -222,19 +224,20 @@ export function mountStepper(host, D) {
     onInput: (v) => { lr = v; update(); },
   });
   const stepBtn = el('button', { type: 'button', class: 'btn primary', 'data-key': `${key}:step`, onclick: () => { stepOnce(); } }, 'Step: w ← w − lr · slope');
-  const resetBtn = el('button', { type: 'button', class: 'btn', 'data-key': `${key}:reset`, onclick: () => { hist = []; update(); } }, 'Reset to w = 0');
+  const resetBtn = el('button', { type: 'button', class: 'btn', 'data-key': `${key}:reset`, onclick: () => { if (!hist.length) return; hist = []; update(); status.textContent = 'Reset: w is back at its start.'; } }, 'Reset to w = 0');
   const status = el('div', { class: 'sr', 'aria-live': 'polite' });
+  const limitMsg = el('p', { class: 'ls-hint' });
   const next = el('div', { class: 'ls-eqs' });
   const last = el('div', { class: 'ls-eqs' });
   const badge = badgeEl();
   const table = el('div', { class: 'ls-tablewrap', tabindex: 0, role: 'region', 'aria-label': 'Steps taken so far (scrollable)' });
-  side.append(el('div', { class: 'ls-panel' }, slLr.row, el('div', { class: 'ls-buttons' }, stepBtn, resetBtn), status),
+  side.append(el('div', { class: 'ls-panel' }, slLr.row, el('div', { class: 'ls-buttons' }, stepBtn, resetBtn), limitMsg, status),
     el('div', { class: 'ls-panel' }, el('h4', {}, 'Next step'), next, el('h4', {}, 'Last step'), last), badge);
   host.querySelector('.ls').append(table);                 // after the controls, so on a phone the Step button comes before the table
   foot.textContent = FOOT;
 
   function stepOnce() {
-    if (hist.length >= MAX_STEPS) return;
+    if (hist.length >= MAX_STEPS) { status.textContent = `Limit reached: ${MAX_STEPS} steps. Press Reset to start again.`; return; }
     const w = cur(), q = m.at(w), wNext = w - lr * q.grad;
     hist.push({ k: hist.length, w, L: q.L, grad: q.grad, lr, wNext, promise: q.L + q.grad * (wNext - w), actual: m.lossAt(wNext) });
     const h = hist[hist.length - 1];
@@ -245,8 +248,10 @@ export function mountStepper(host, D) {
   function update() {
     keepFocus(() => {
       const w = cur(), q = m.at(w), wNext = w - lr * q.grad;
-      stepBtn.disabled = hist.length >= MAX_STEPS;
-      resetBtn.disabled = hist.length === 0;
+      const atLimit = hist.length >= MAX_STEPS;          // the button stays focusable (aria-disabled) so focus is never lost
+      stepBtn.setAttribute('aria-disabled', String(atLimit));
+      limitMsg.textContent = atLimit ? `Limit reached: ${MAX_STEPS} steps. Press Reset to start again.` : '';
+      resetBtn.setAttribute('aria-disabled', String(hist.length === 0));
       next.replaceChildren(eqLine(updateTex(m, w, lr)));
       const l = hist[hist.length - 1];
       last.replaceChildren(...(l ? lastStepTex(l).map(eqLine) : [el('p', { class: 'ls-hint' }, 'Nothing yet — press Step.')]));
@@ -295,7 +300,7 @@ export function mountStepSize(host, D) {
   const { plotBox, side, foot } = frame(host, 'size');
   const key = uid('z');
   let lr = PRESET_LRS[0];
-  const p = curvePlot(m, plotBox, 'The loss curve with the positions of eight steps.');
+  const p = curvePlot(m, plotBox, 'The loss curve with the positions of eight steps.', () => update());
   const note = el('p', { class: 'ls-hint' });
   plotBox.append(legend([['curve', 'L(w)'], ['step', 'position after k steps (numbered)'], ['dot', 'start, k = 0']]), note);
   curveTable(m, plotBox);
@@ -369,7 +374,7 @@ export function mountStepSize(host, D) {
       const ws = st.map((s) => s.w), lo = Math.min(...ws, m.wMin), hiV = Math.max(...ws, m.wMin), pad = (hiV - lo) * 0.12 || 1;
       const yr = [lo - pad, hiV + pad];
       q2.querySelector('svg')?.remove();
-      const pp = createPlot(q2, { width: isNarrow() ? 400 : 640, height: isNarrow() ? 220 : 200, x: [0, STEPS], y: yr, xLabel: 'step k', yLabel: 'w', ariaLabel: `w against the step number at lr = ${fmt(lr)}: ${v.text}.` });
+      const pp = createPlot(q2, { width: 640, height: 200, x: [0, STEPS], y: yr, xLabel: 'step k', yLabel: 'w', ariaLabel: `w against the step number at lr = ${fmt(lr)}: ${v.text}.` });
       pp.axes({ xTicks: ticks([0, STEPS], 8), yTicks: ticks(yr, 4) });
       pp.line(0, m.wMin, STEPS, m.wMin, { class: 'ls-ref', layer: 'ref' });
       pp.polyline(st.map((s) => [s.k, s.w]), { class: 'ls-path', layer: 'path' });
@@ -422,6 +427,7 @@ p.ls-hint{margin:.3rem 0}
 .ls-verdict strong{color:var(--fg)}
 .ls-badge{display:inline-block;align-self:flex-start;font-size:.8rem;border:1px solid;border-radius:10px;padding:.15rem .7rem;line-height:1.4}
 .ls-badge.ok{color:var(--ok)}.ls-badge.warn{color:var(--warn)}
+.btn[aria-disabled=true]{opacity:.45;cursor:default}
 .ls-foot{font-size:.84rem;color:var(--muted);margin:.4rem 0 0}
 .ls-legend{display:flex;flex-wrap:wrap;gap:.1rem 1rem;font-size:.82rem;color:var(--muted);margin:.2rem 0}
 .ls-sw{vertical-align:middle;overflow:visible}
@@ -447,7 +453,7 @@ p.ls-hint{margin:.3rem 0}
 .ls-zone{stroke-width:1.5}.ls-zone.ok{fill:rgba(131,193,103,.14);stroke:var(--ok)}.ls-zone.bad{fill:rgba(252,98,85,.1);stroke:var(--bwd);stroke-dasharray:5 3}
 .ls-zl{fill:var(--fg);font-size:12px}.ls-tl{fill:var(--muted);font-size:12px}.ls-ml{fill:var(--fg);font-size:12px;font-weight:700}
 .ls-tick{stroke:var(--muted);stroke-width:1.5}.ls-mark{fill:var(--fg)}
-@media(max-width:860px){.ls{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:860px){.ls{grid-template-columns:minmax(0,1fr)}.ls-size .ls-side{order:-1}}
 @media(max-width:480px){.ls-panel{padding:.55rem .65rem}.ls-eq{font-size:.88rem}.ls-table{font-size:.78rem}.ls-table th,.ls-table td{padding:.2rem .3rem}}
 `;
 export function injectStyles() {
