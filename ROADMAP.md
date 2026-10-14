@@ -34,7 +34,7 @@ Status legend: `[x]` done · `[~]` in progress · `[ ]` planned. The detailed cu
 
 ## M3.5 — Concise lessons (owner review: less prose, fewer numbers and features; decisions 7-9)
 - [x] Style budget in `docs/authoring.md`; `tldr` section kind; standard one-line footer; plot tables are screen-reader only
-- [x] `why-gradients` rewritten as the pilot (one merged bowl widget + graph lab; ~400 words) — awaiting owner review
+- [x] `why-gradients` rewritten as the pilot (one merged bowl widget + graph lab; ~400 words) — approved by the owner
 - [x] `sgd-step`: one landscape widget (Step, lr and momentum presets) + a `zero_grad` checkbox; graph lab, sandbox, update window removed (~400 words)
 - [x] `linear-layer`: the matrix grid + the six-layer signal plot; shape explorer, graph lab, backward widget and histogram removed (~360 words)
 - [x] `backprop-lab` hero/footer trim (concept cards became the TL;DR); course outcomes ≤ 12 words; time estimates 6-7 min
