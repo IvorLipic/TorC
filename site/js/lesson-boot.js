@@ -4,7 +4,7 @@ import { $, el, escapeHtml } from './core/dom.js';
 import { SITE, siteUrl, headerHtml } from './core/chrome.js';
 import { loadCourse, lessonById, neighbors, lessonHref } from './core/course.js';
 import { loadTrace, makeT } from './core/trace.js';
-import { renderLesson, validateLesson } from './core/sections.js';
+import { renderLesson, validateLesson, defaultFooter } from './core/sections.js';
 import { store } from './core/store.js';
 
 function fail(app, message) {
@@ -66,7 +66,7 @@ function wireChecks(root, id) {
     for (const { section } of parts) if (section.kind === 'widget') section.mount($(`[data-widget="${CSS.escape(section.id)}"]`, main), D, { lessonId: id, store, makeT: () => makeT(D) });
     wireChecks(main, id);
     wireDone(id);
-    if (lesson.footer) app.append(el('footer', { html: lesson.footer(D, makeT(D)) }));
+    app.append(el('footer', { html: lesson.footer ? lesson.footer(D, makeT(D)) : defaultFooter(lesson, D) }));
     store.markVisited(id);
   } catch (err) {
     console.error(err);

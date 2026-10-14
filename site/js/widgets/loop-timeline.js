@@ -6,7 +6,7 @@
 // The loop is recomputed in the browser (optim.js trainingLoop, the library's formulas); TorC's own recorded loops (data/optim.json: the
 // lr 0.05 run, and no_zero_grad.training_loop) are drawn as open circles / checked by the tests. Pure helpers (narrate, ledger) are exported.
 import { el, svg } from '../core/dom.js';
-import { createPlot, tableToggle, ticks } from './plot.js';
+import { createPlot, srTable, ticks } from './plot.js';
 import { makeModel, trainingLoop } from '../optim.js';
 import { injectStyle, SHARED_CSS, badge, fmt, fitWidth, onResize, enhanceScrollers } from './sgd-ui.js';
 import { codePanel } from './sgd-code.js';
@@ -95,9 +95,9 @@ export function mountLoopTimeline(host, D) {
   const left = el('div'), right = el('div');
   left.append(el('h4', { class: 'sub' }, 'The loop body (lines quoted from TorC’s linear_regression example)'), codeHost, narr, ledgerHost);
   right.append(el('h4', { class: 'sub' }, 'The gradient step() read in each iteration'), barsHost, el('p', { class: 'hint', style: 'margin:.1rem 0 .3rem;font-size:.8rem' }, 'Filled bars: the loop as ticked above. Dashed outlines: the other version, for comparison.'));
-  const barsTable = tableToggle(right, { columns: ['iteration', 'W.grad read, with zero_grad()', 'W.grad read, without', 'TorC recorded, with', 'TorC recorded, without'], rows: [], caption: 'Gradient of W that step() reads' });
+  const barsTable = srTable(right, { columns: ['iteration', 'W.grad read, with zero_grad()', 'W.grad read, without', 'TorC recorded, with', 'TorC recorded, without'], rows: [], caption: 'Gradient of W that step() reads' });
   right.append(el('h4', { class: 'sub' }, 'Loss at the start of each iteration (log scale)'), lossHost, lossNote);
-  const lossTable = tableToggle(right, { columns: ['iteration', 'loss, with zero_grad()', 'loss, without', 'TorC recorded, with', 'TorC recorded, without'], rows: [], caption: 'Loss at the start of each iteration' });
+  const lossTable = srTable(right, { columns: ['iteration', 'loss, with zero_grad()', 'loss, without', 'TorC recorded, with', 'TorC recorded, without'], rows: [], caption: 'Loss at the start of each iteration' });
 
   const dev = Math.max(...recWith.map((r, i) => Math.abs(r.gw - withZ[i].gw) / (1 + Math.abs(r.gw))), ...recNo.map((r, i) => Math.abs(r.gw - noZ[i].gw) / (1 + Math.abs(r.gw))));
   root.append(

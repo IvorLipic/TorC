@@ -32,6 +32,14 @@ Status legend: `[x]` done · `[~]` in progress · `[ ]` planned. The detailed cu
 - [ ] Outside cold reader per lesson (definition-of-done item 6), screen-reader pass, Firefox/Safari check
 - [ ] Bump `TORC_REF` when TorC tags a release that includes the `MSELoss` broadcast-gradient fix (merged on `main`, not in v0.1.0)
 
+## M3.5 — Concise lessons (owner review: less prose, fewer numbers and features; decisions 7-9)
+- [x] Style budget in `docs/authoring.md`; `tldr` section kind; standard one-line footer; plot tables are screen-reader only
+- [x] `why-gradients` rewritten as the pilot (one merged bowl widget + graph lab; ~400 words) — awaiting owner review
+- [ ] `sgd-step`: one landscape widget (Step, lr presets, momentum on/off) + a `zero_grad` toggle; drop the graph lab and lifecycle sandbox
+- [ ] `linear-layer`: shape explorer with the matmul grid built in + the six-layer signal plot; drop graph lab, backward widget, histogram
+- [ ] `backprop-lab` hero/footer trim; course outcomes ≤ 12 words; time estimates 5-7 min
+- [ ] Generalise the budget test from `why-gradients.test.mjs` to `lessons.test.mjs` once every lesson meets it
+
 ## M4+ — Remaining library coverage
 Tensors/shapes/broadcasting, nn activations & losses, optimizers (Adam/AdamW), data loading, conv2d, end-to-end examples
 (linear regression, MNIST MLP/CNN). Order and specs in the content plan.

@@ -53,7 +53,7 @@ export function enhanceScroller(box, label) {
 export function enhanceScrollers(root) {
   if (typeof document === 'undefined') return;
   root ??= document;
-  root.querySelectorAll('.sgd-scroll, .sgd-w .math, .sgd-w .plot-table-scroll').forEach((b) => enhanceScroller(b, b.classList.contains('math') ? 'Equation' : undefined));
+  root.querySelectorAll('.sgd-scroll, .sgd-w .math').forEach((b) => enhanceScroller(b, b.classList.contains('math') ? 'Equation' : undefined));
 }
 
 export const approx = (a, b) => Math.abs(a - b) <= 1e-9 * (1 + Math.abs(b));
@@ -126,14 +126,13 @@ export const SHARED_CSS = `
 .sgd-tab .katex{font-size:1em}
 .sgd-tab th[scope=row]{white-space:nowrap}
 .sgd-tab.text th,.sgd-tab.text td{text-align:left}
-.sgd-scroll,.sgd-w .math,.sgd-w .plot-table-scroll{--cover:var(--panel);overflow-x:auto;
+.sgd-scroll,.sgd-w .math{--cover:var(--panel);overflow-x:auto;
 background:linear-gradient(to right,var(--cover) 30%,transparent) left center/28px 100% no-repeat local,
 linear-gradient(to left,var(--cover) 30%,transparent) right center/28px 100% no-repeat local,
 radial-gradient(farthest-side at 0 50%,rgba(255,255,255,.28),transparent) left center/12px 100% no-repeat scroll,
 radial-gradient(farthest-side at 100% 50%,rgba(255,255,255,.28),transparent) right center/12px 100% no-repeat scroll}
 .sgd-scroll.on-bg{--cover:var(--bg)}
-.sgd-scroll:focus-visible,.sgd-w .math:focus-visible,.sgd-w .plot-table-scroll:focus-visible{outline:2px solid var(--fwd);outline-offset:2px}
-.sgd-w .plot-table table{max-height:none}
+.sgd-scroll:focus-visible,.sgd-w .math:focus-visible{outline:2px solid var(--fwd);outline-offset:2px}
 .sgd-w details{margin:.5rem 0;color:#c4ccd5;font-size:.93rem}
 .sgd-w summary{cursor:pointer;color:var(--fwd)}
 @media(max-width:640px){.sgd-w{padding:.7rem .7rem .9rem}.sgd-field{min-width:100%}}

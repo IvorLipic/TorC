@@ -97,8 +97,8 @@ from the real loop bounds) and a benchmark bar chart quoting **one dated table**
 README table (it disagrees with the latest rerun, section 6). Judgement: include, but last, and only after a fresh single-machine rerun.
 
 ### New-widget notes
-Build on one shared SVG helper `plot.js` (axes, curves, scatter, a sampled heat/contour grid); no charting library. Every widget
-has a "show as table" toggle (accessibility and traceability). The load-bearing ones are `landscape1d`, `contour2d`,
+Build on one shared SVG helper `plot.js` (axes, curves, scatter, a sampled heat/contour grid); no charting library. Plots carry a
+screen-reader-only table (decision 9; the earlier visible "show as table" toggle was removed). The load-bearing ones are `landscape1d`, `contour2d`,
 `optimizer-race`, `shape-explorer` (reused by 5 lessons), `conv-window` and `train-playground`.
 
 ## 3. Detailed specs: the first three lessons

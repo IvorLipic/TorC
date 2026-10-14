@@ -9,7 +9,7 @@
         {
           "id": "why-gradients",
           "title": "Why following gradients works",
-          "outcome": "Read a derivative as loss change per unit weight change, predict a step, see why a big step fails, and meet the chain rule as multiplied local slopes.",
+          "outcome": "What a gradient is, how a step uses it, and why step size matters.",
           "prereqs": [],
           "symbols": [
             "Variable::backward",
@@ -20,7 +20,7 @@
           "trace": [
             "why-gradients.json"
           ],
-          "est_minutes": 15,
+          "est_minutes": 6,
           "status": "published"
         },
         {

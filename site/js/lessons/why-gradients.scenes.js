@@ -9,10 +9,9 @@ export function whyLayout(T) {
     above: ['x', 't'],
     pos: { w: [110, 175], x: [300, 82], t: [510, 82], p: [300, 175], e: [510, 175], L: [740, 175] },
     goal: 'Where does w.grad() come from?',
-    intro: 'The loss <code>L</code> depends on the knob <code>w</code> through three small operations: <code>p = w·x</code>, <code>e = p − t</code>, <code>L = e·e</code>. Each has its own <strong>local slope</strong>. The backward pass starts at <code>L</code> with a seed of one and multiplies by one local slope per step.',
-    forwardHint: 'Forward: compute p, e and L from the knob.',
-    backwardHint: 'Backward: from L back to w, one local slope at a time.',
-    takeaway: `With the preset inputs <code>w.grad()</code> is ${T('why.w.grad')}: the local slopes ${slope(0)} (p from w), ${slope(1)} (e from p) and ${slope(2)} (L from e) multiplied together. `
-      + `<code>e</code> is used twice in <code>e·e</code>, so it received two contributions, each equal to <code>e</code> = ${T('why.e.value')}, and they add up to ${T('why.e.grad')}. Change <code>w</code> in ✎ Inputs and the numbers follow.`,
+    intro: 'Backward starts at <code>L</code> with a seed of one and multiplies by one local slope per step.',
+    forwardHint: 'Forward: p, e, L from w.',
+    backwardHint: 'Backward: from L to w, one local slope per step.',
+    takeaway: `<code>w.grad()</code> = ${T('why.w.grad')} = ${slope(0)} · ${slope(1)} · ${slope(2)}. <code>e</code> is used twice, so its two contributions add up to ${T('why.e.grad')}.`,
   };
 }

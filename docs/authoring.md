@@ -3,6 +3,20 @@
 How to add a lesson, a scene or an operation. Architecture and file map: [architecture.md](architecture.md); what to teach and in
 which order: [content-plan.md](content-plan.md).
 
+## Style budget (every lesson)
+Lessons are short and dense. The interactive parts carry the lesson; the text only sets them up.
+- **Shape**: hero (`<h1>` + one-line lead) → `tldr` (3-4 bullets, ≤ 50 words) → the TorC code → 3-4 sections → checks → one "Next" line.
+  Each section title states the claim ("A step too big overshoots"); its body is ≤ 60 words with at most one equation. No follow-up
+  "what you should have seen" sections, no recap that repeats the TL;DR, no mix-up cards.
+- **Limits**: ≤ 800 words of prose, ≤ 25 numbers bound in the text, **≤ 2 widgets** (one main, one small), ≤ 1 predict + 2 checks,
+  a gotcha only where TorC really throws.
+- **Provenance is said once**, on the home page, plus the standard one-line footer (`Numbers: TorC <ref> · source`, added by
+  `lesson-boot.js` when the lesson has no `footer`). No badges, "recorded/recomputed/printed by TorC" labels, dotted underlines or
+  recorded-run overlays on lesson pages. The guarantee lives in the tests (`T()` binding, engine == trace), not in the prose.
+- **Widgets**: ≤ 2 controls plus Step/Reset; preset buttons instead of a slider where a slider adds nothing; a compact readout
+  instead of explanations inside the widget; no visible tables (`srTable` gives screen readers the values).
+- The lesson test asserts the budget with `lessonStats` (`site/test/helpers.mjs`); see `why-gradients.test.mjs`.
+
 ## Add a lesson
 1. **Trace data**: write the C++ trace program(s) (see "Add a scene"); the lesson lists the files it reads, e.g. `["why-gradients.json"]`.
 2. **`site/course.json`**: add the lesson to its part with `{id, title, outcome, prereqs, symbols, trace, est_minutes, status}`.
@@ -11,6 +25,7 @@ which order: [content-plan.md](content-plan.md).
    `/#reuse/3` links from the home page to this lesson.
 3. **Module `site/js/lessons/<id>.js`**: `export default {id, title, trace:[files], sections:[…], footer?: (D, T) => html}`.
    `id`, `title` and `trace` must equal the course.json entry (checked). Section kinds:
+   - `{kind:'tldr', items:(D, T) => ['…', …]}` — the TL;DR box; second section, right after the hero.
    - `{kind:'text', html:(D, T) => '<section>…</section>'}` — markup is used as given. `D` is the loaded trace data
      (`D.scenes[id]`, `D.files[file stem]`); `T` puts numbers from it into prose (below). Must not touch the DOM.
    - `{kind:'widget', id, className?, label?, mount(host, D, ctx)}` — an interactive part; `host` is an empty `<section>`.
@@ -69,8 +84,8 @@ lists every call. Rules for lessons:
 - **Ids are per plot** (clip path, and the arrow marker, which only exists when `line(…, {arrow: true})` is used), so any number of
   plots can share a page; do not strip or reference `plot-arrow`.
 - **`heat(grid)`** draws one rectangle per grid point; the cells tile the plot exactly (edge cells reach as far outward as inward).
-- **`tableToggle`** wraps its table in a horizontal scroll box (`.plot-table-scroll`), so wide tables scroll inside it on a phone;
-  no extra wrapper is needed. **`fmtTick`** gives 4 significant digits and exponent form (`1.5e6`, `2e-4`) beyond 1e6 / below 1e-3.
+- **`srTable(host, {columns, rows, caption})`** adds a screen-reader-only table of the plotted values (nothing on screen);
+  `update(rows)` refreshes it. **`fmtTick`** gives 4 significant digits and exponent form (`1.5e6`, `2e-4`) beyond 1e6 / below 1e-3.
 
 ## Add a scene
 1. **Trace**: in `tools/trace/` add a `Scene` (leaf values, a builder that registers every node with

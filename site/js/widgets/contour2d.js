@@ -2,14 +2,14 @@
 // for the move the next step() would make. Everything is computed in the browser from the engine's model (optim.js makeModel), so the
 // picture and the numbers cannot disagree; the tests compare it with the 25 loss values TorC printed (data/optim.json surface).
 //
-//   const c = mountContour2d(host, { model, base: {w: [-1, 4.5], b: [-1.5, 3]}, optimum: {w: 2, b: 1}, samples });
+//   const c = mountContour2d(host, { model, base: {w: [-1, 4.5], b: [-1.5, 3]}, optimum: {w: 2, b: 1} });
 //   c.draw({ trail: [{w, b, loss, gw, gb}, …], next: {w, b} | null, caption });
 //
 // Pure helpers are exported for the tests (gridFor, contourSegments, niceLevels, fitView, chooseView, heatColor); the module touches
-// the DOM only when mountContour2d runs. Accessibility: role="img" with a live description, every plotted number is also in the
-// "Show as table" views, markers differ by shape and label (not only by colour).
+// the DOM only when mountContour2d runs. Accessibility: role="img" with a live description, the trail is also in a screen-reader-only
+// table, markers differ by shape and label (not only by colour).
 import { svg, el } from '../core/dom.js';
-import { createPlot, tableToggle, ticks, fmtTick } from './plot.js';
+import { createPlot, srTable, ticks, fmtTick } from './plot.js';
 import { injectStyle, uid, fmt, fitWidth, onResize } from './sgd-ui.js';
 
 // ---- pure helpers --------------------------------------------------------------------------------------------
@@ -111,7 +111,7 @@ const CSS = `
 `;
 
 // ---- the widget -----------------------------------------------------------------------------------------------------
-export function mountContour2d(host, { model, base = { w: [-1, 4.5], b: [-1.5, 3] }, optimum = { w: 2, b: 1 }, samples = null, maxWidth = 560 }) {
+export function mountContour2d(host, { model, base = { w: [-1, 4.5], b: [-1.5, 3] }, optimum = { w: 2, b: 1 }, maxWidth = 560 }) {
   injectStyle('sgd-contour2d-css', CSS);
   const wrap = el('div', { class: 'c2d' });
   const plotHost = el('div');
@@ -127,18 +127,10 @@ export function mountContour2d(host, { model, base = { w: [-1, 4.5], b: [-1.5, 3
   const cache = new Map();                     // view key -> {grid, levels, segs}
   let built = null;                            // {key, plot, layers}
   let last = null;
-  const trailTable = tableToggle(wrap, {
+  const trailTable = srTable(wrap, {
     columns: ['update', 'w', 'b', 'loss', 'dL/dw', 'dL/db'], rows: [], caption: 'Positions on the trail (before each update; the last row is where the trail stands now)',
     fmt: (v) => (typeof v === 'number' ? fmtTick(v) : String(v)),
   });
-  let sampleTable = null;
-  if (samples) {
-    const ws = [...new Set(samples.map((p) => p.w))], bs = [...new Set(samples.map((p) => p.b))];
-    const rows = ws.map((w) => [`w = ${fmtTick(w)}`, ...bs.map((b) => samples.find((p) => p.w === w && p.b === b).loss)]);
-    sampleTable = tableToggle(wrap, { columns: ['loss printed by TorC', ...bs.map((b) => `b = ${fmtTick(b)}`)], rows, caption: 'The 25 loss values the real library computed (the heat map is recomputed in your browser and agrees with them)' });
-    sampleTable.wrap.querySelector('button').textContent = 'Show TorC’s 25 loss samples';
-    sampleTable.wrap.querySelector('button').addEventListener('click', function () { this.textContent = sampleTable.table.hidden ? 'Show TorC’s 25 loss samples' : 'Hide the samples'; });
-  }
 
   function legendItems(start) {
     const item = (icon, text) => el('li', {}, icon, text);

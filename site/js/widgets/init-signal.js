@@ -7,7 +7,7 @@
 // generator, so nothing is redrawn here; the learner chooses among the recorded cases. The only arithmetic done in the browser is drawing
 // the expected normal curve (a formula) next to the recorded counts. Every plot has a "show as table" toggle.
 import { el, svg } from '../core/dom.js';
-import { createPlot, ticks, tableToggle } from './plot.js';
+import { createPlot, ticks, srTable } from './plot.js';
 import { useBaseStyle, injectStyle, sourceBadge, segmented, uid } from './linear-ui.js';
 import { fmtShape } from './linear-shapes.js';
 import { histBins, statsLabel, fmtSci, signalSeries, signalTable, log10, decadeTicks, expLabel } from './linear-signal-data.js';
@@ -40,8 +40,6 @@ const CSS = `
 .lin-is .is-vals div{margin:.25rem 0;font-family:ui-monospace,monospace;font-size:.85rem;color:#c4ccd5;overflow-wrap:anywhere}
 .lin-is .is-vals b{font-family:system-ui;color:var(--fg)}
 .lin-is select{font:inherit;font-size:.95rem;color:var(--fg);background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:.3rem .5rem;max-width:100%}
-.lin-is .plot-table button{margin-top:.3rem}
-.lin-is .plot-table th,.lin-is .plot-table td{white-space:nowrap}
 `;
 
 const plotWidth = (host) => Math.max(300, Math.min(860, Math.round((host.clientWidth || 640) - 28)));
@@ -71,7 +69,7 @@ export function mountWeightHistogram(host, D) {
     el('div', { class: 'lin-head' }, el('h3', {}, 'The weights TorC drew'), sourceBadge('pre', 'Precomputed from the real TorC run · pick a recorded case')),
     el('div', { class: 'lin-row' }, el('label', { for: selId, class: 'lin-note dim', style: 'margin:0' }, 'Layer:'), select),
     plotBox, key, facts, extra);
-  const tbl = tableToggle(host, { columns: ['bin from', 'bin to', 'observed weights', 'expected weights'], rows: [], caption: 'Histogram bins (observed counts from TorC; expected counts from the normal curve)', fmt: (v) => (typeof v === 'number' ? fmtSci(v) : String(v)) });
+  const tbl = srTable(host, { columns: ['bin from', 'bin to', 'observed weights', 'expected weights'], rows: [], caption: 'Histogram bins (observed counts from TorC; expected counts from the normal curve)', fmt: (v) => (typeof v === 'number' ? fmtSci(v) : String(v)) });
 
   function draw() {
     const s = stats[cur];
@@ -136,7 +134,7 @@ export function mountInitSignal(host, D) {
     el('div', { class: 'lin-head' }, el('h3', {}, 'The signal through six layers'), sourceBadge('pre', 'Precomputed from the real TorC run · choose a recorded case')),
     seg.root, plotBox, keyBox, vals, el('p', { class: 'lin-note dim' }, setup));
   const t = signalTable(series);
-  const tbl = tableToggle(host, { columns: t.columns, rows: t.rows, caption: 'Standard deviation of the activations after each layer (layer 0 is the input itself)', fmt: (v) => String(v) });
+  const tbl = srTable(host, { columns: t.columns, rows: t.rows, caption: 'Standard deviation of the activations after each layer (layer 0 is the input itself)', fmt: (v) => String(v) });
 
   function shown() { return view === 'all' ? series : series.filter((s) => s.name === view); }
 

@@ -1,5 +1,5 @@
 // widgets/plot.js — a tiny SVG plotting helper (axes, curves, points, tangent lines, heat grids, legend-free) used by lessons.
-// No charting library. Every plot should offer a table view (`tableToggle`) for accessibility and traceability.
+// No charting library. A plot's values can go into a screen-reader-only table (`srTable`); nothing extra is shown on screen.
 //
 //   const p = createPlot(host, { width: 680, height: 340, x: [-1, 7], y: [0, 80], xLabel: 'w', yLabel: 'L(w)', ariaLabel: '…' });
 //   p.axes({ xTicks: [0, 2, 4, 6], yTicks: [0, 20, 40, 60] });
@@ -163,16 +163,12 @@ export function fmtTick(t) {
   return String(Number(t.toPrecision(4)));
 }
 
-// "Show as table" toggle: a button + a <table> built from the same rows the plot used (columns: [header,…], rows: [[…],…]).
-export function tableToggle(host, { columns, rows, caption = 'Plotted values', fmt = (v) => (typeof v === 'number' ? fmtTick(v) : String(v)) }) {
-  const wrap = el('div', { class: 'plot-table' });
+// Screen-reader-only <table> built from the same rows the plot used (columns: [header,…], rows: [[…],…]); not shown on screen.
+export function srTable(host, { columns, rows, caption = 'Plotted values', fmt = (v) => (typeof v === 'number' ? fmtTick(v) : String(v)) }) {
+  const body = (rs) => rs.map((r) => el('tr', {}, r.map((v) => el('td', {}, fmt(v)))));
   const table = el('table', {}, el('caption', {}, caption),
     el('thead', {}, el('tr', {}, columns.map((c) => el('th', { scope: 'col' }, c)))),
-    el('tbody', {}, rows.map((r) => el('tr', {}, r.map((v) => el('td', {}, fmt(v)))))));
-  table.hidden = true;
-  const btn = el('button', { type: 'button', class: 'btn small', 'aria-expanded': 'false', onclick: () => { table.hidden = !table.hidden; btn.setAttribute('aria-expanded', String(!table.hidden)); btn.textContent = table.hidden ? 'Show as table' : 'Hide table'; } }, 'Show as table');
-  const scroller = el('div', { class: 'plot-table-scroll' }, table);   // a wide table scrolls sideways inside this box, never the page
-  wrap.append(btn, scroller);
-  host.append(wrap);
-  return { wrap, table, scroller, update(newRows) { table.querySelector('tbody').replaceChildren(...newRows.map((r) => el('tr', {}, r.map((v) => el('td', {}, fmt(v)))))); } };
+    el('tbody', {}, body(rows)));
+  host.append(el('div', { class: 'sr' }, table));   // on a wrapper: a <table> ignores width:1px and would widen the page
+  return { table, update(newRows) { table.querySelector('tbody').replaceChildren(...body(newRows)); } };
 }

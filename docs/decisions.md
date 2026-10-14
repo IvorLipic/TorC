@@ -13,6 +13,13 @@ Lightweight decision log. Newest at the bottom of each section.
    into `web`. History before the split is shared and preserved (no force-push).
 6. **Auto-play removed**; learners control pace (Next/Back, keyboard, checkpoints).
 
+7. **Concise lessons** (owner review of the first three lessons): a TL;DR box, ≤ 800 words, ≤ 2 widgets per lesson, budget in
+   `authoring.md` and asserted by the lesson tests. Replaces the long storyboards of content-plan section 3.
+8. **Provenance stated once** (home page + a one-line footer), not on every widget; supersedes the per-widget badges and dotted
+   underlines. Correctness is still enforced by the tests.
+9. **No "show as table" toggles.** Plots keep a screen-reader-only table (`srTable`); supersedes the content plan's
+   "every widget has a table toggle".
+
 ## Open
 - Pin policy once TorC publishes a release tag: pin the tag (preferred) and bump via PR. Until then a commit SHA is pinned.
 - Whether lessons beyond autograd need more of the library ported to JS (e.g. conv2d) or should stay precomputed/static.
