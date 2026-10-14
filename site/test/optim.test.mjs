@@ -130,3 +130,21 @@ test('the predicate also separates a sweep of learning rates (100 updates), with
     }
   }
 });
+
+test('the stability verdict needs 0 <= mu < 1 as well as lr < 2(1+mu)/lambda_max (review fix: mu >= 1 is never stable)', () => {
+  const lam = eigenvalues2(hessian(model.x));
+  for (const mu of [0, 0.5, 0.9, 0.999, 1, 1.5]) {
+    const lr = 0.05;                                            // far below 2(1+mu)/lambda_max for every mu here
+    const a = analyze(lr, mu, lam);
+    assert.ok(lr < a.critical_lr, `mu ${mu}: the learning-rate condition alone holds`);
+    assert.equal(a.stable_predicted, mu < 1, `mu ${mu}`);
+    assert.equal(a.stable_predicted, a.spectral_radius < 1, `mu ${mu}: agrees with the spectral radius`);
+    if (mu >= 1) assert.ok(a.spectral_radius >= 1 - 1e-12);
+  }
+  assert.equal(analyze(0.05, -0.1, lam).stable_predicted, false, 'negative momentum is not a valid setting');
+  // and the simulation agrees: with mu = 1 (no decay) the loss keeps swinging, with mu = 1.5 it blows up
+  const tail = (mu) => simulate(model, { lr: 0.05, momentum: mu, steps: 400 }).steps.slice(-100).map((r) => r.loss);
+  assert.ok(Math.max(...tail(1)) > 1, 'mu = 1 does not settle');
+  assert.ok(Math.min(...tail(1.5)) > 1e3, 'mu = 1.5 diverges');
+  assert.ok(Math.max(...tail(0.9)) < 1e-6, 'mu = 0.9 does settle in the long run');
+});

@@ -90,9 +90,9 @@ const CSS = `
 .sgd-code figcaption a{color:var(--fwd)}
 .sgd-code figcaption code{word-break:break-all}
 .sgd-code pre{margin:0;padding:.35rem 0;overflow-x:auto;font-size:.82rem;line-height:1.5}
-.sgd-code pre code{display:block;background:none;padding:0;font-size:1em;min-width:max-content}
-.sgd-code .ln{display:block;padding:0 .8rem 0 0;white-space:pre;color:#c9d1d9}
-.sgd-code .ln i{display:inline-block;width:3.2em;padding-right:.9em;text-align:right;color:#8b949e;font-style:normal;user-select:none}
+.sgd-code pre code{display:block;background:none;padding:0;font-size:1em;}
+.sgd-code .ln{display:block;padding:0 .8rem 0 4.4em;text-indent:-4.4em;white-space:pre-wrap;overflow-wrap:anywhere;color:#c9d1d9}
+.sgd-code .ln i{display:inline-block;width:3.5em;padding-right:.9em;text-indent:0;text-align:right;color:#8b949e;font-style:normal;user-select:none}
 .sgd-code .ln.hl{background:rgba(88,196,221,.18);box-shadow:inset 3px 0 0 var(--fwd);color:#fff}
 .sgd-code .ln.off{text-decoration:line-through;color:#8b949e}
 .sgd-code .ln b{color:var(--warn);font-weight:600;margin-left:1em;font-family:system-ui,sans-serif;font-size:.78rem;text-decoration:none;display:inline-block}

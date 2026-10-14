@@ -254,7 +254,7 @@ test('the lesson text has every storyboard part, predict and check sections, and
   const widgetIds = lesson.sections.filter((s) => s.kind === 'widget').map((s) => s.id);
   assert.deepEqual(widgetIds, ['lab', 'lifecycle', 'update-window', 'landscape', 'lr-lab', 'loop', 'momentum']);
   const html = renderLesson(lesson, D).map((p) => p.html).join('\n');
-  for (const id of ['setup', 'graph', 'who', 'paper', 'land', 'lr', 'zg', 'mom', 'ideas']) assert.match(html, new RegExp(`id="${id}"`), `section ${id}`);
+  for (const id of ['setup', 'sec-graph', 'who', 'paper', 'land', 'lr', 'zg', 'mom', 'ideas']) assert.match(html, new RegExp(`id="${id}"`), `section ${id}`);
   assert.match(html, /never computes a gradient/);
   assert.match(html, /zero_grad\(\)<\/code> is not optional/);
   assert.match(html, /parameters are updated, inputs are not/);
@@ -271,4 +271,95 @@ test('widget modules import in Node without a DOM and expose their mount functio
     assert.equal(typeof m[fn], 'function', `${file} exports ${fn}`);
   }
   assert.equal(typeof document, 'undefined');
+});
+
+// ---- review fixes ---------------------------------------------------------------------------------------------------------------
+import { checkLrBox, checkMuBox, cmpWord } from '../js/widgets/lr-lab.js';
+import { fmt as sfmt, texNum, enhanceScroller, enhanceScrollers } from '../js/widgets/sgd-ui.js';
+
+test('number boxes: TorC checks first, then lab limits; momentum 1 or more is refused with a reason', () => {
+  assert.throws(() => checkLrBox(0), /SGD: lr must be positive/);
+  assert.throws(() => checkLrBox(-0.1), /SGD: lr must be positive/);
+  assert.throws(() => checkLrBox(0.31), /lab stops at/);
+  assert.doesNotThrow(() => checkLrBox(0.3));
+  assert.throws(() => checkMuBox(0.05, -0.5), /SGD: momentum must be non-negative/);
+  for (const mu of [1, 1.5, 10, 1e6, 1e308, Infinity]) assert.throws(() => checkMuBox(0.05, mu), /never settles/, `mu ${mu}`);
+  for (const mu of [0, 0.5, 0.9, 0.95, 0.999]) assert.doesNotThrow(() => checkMuBox(0.05, mu));
+});
+
+test('describeRun does not call a NaN or infinite run "lower than it started"', () => {
+  const opt = O.data.optimum;
+  const bad = describeRun([{ w: 0, loss: 27 }, { w: 3, loss: 30 }, { w: NaN, loss: NaN }], opt);
+  assert.equal(bad.finite, false); assert.equal(bad.diverging, true);
+  assert.equal(describeRun([{ w: 0, loss: 27 }, { w: 1e300, loss: Infinity }], opt).diverging, true);
+  assert.deepEqual(describeRun([{ w: 0, loss: 5 }, { w: 0, loss: 5 }], opt).rose, [], 'an unchanged loss did not rise');
+  assert.equal(describeRun(rowsOf(run('sgd-lr0.05')), opt).finite, true);
+});
+
+test('number formatting: exponent form for huge values (never 19 digits), words for non-finite ones, "just above" near the limit', () => {
+  assert.equal(sfmt(1.2345e18), '1.23e18');
+  assert.equal(sfmt(2614000), '2614000');
+  assert.equal(sfmt(27.67), '27.67');
+  assert.equal(sfmt(NaN), 'not a number');
+  assert.equal(texNum(4.17e31), '4.17\\times 10^{31}');
+  renderStrictAll([texNum(4.17e31), texNum(-1.5e9)]);
+  const crit = O.hessian.critical_lr;
+  assert.equal(cmpWord(0.2, crit), 'above'); assert.equal(cmpWord(0.05, crit), 'below');
+  assert.equal(cmpWord(crit + 1e-6, crit), 'just above'); assert.equal(cmpWord(crit - 1e-6, crit), 'just below');
+});
+
+test('scroll helpers are inert without a DOM', () => {
+  assert.doesNotThrow(() => { enhanceScroller({}); enhanceScrollers(); });
+});
+
+test('update window: the equations are two short lines each (aligned), parse in KaTeX, and large numbers use exponent form', () => {
+  const a = run('sgd-lr0.05').steps[0];
+  const d = updateWindowData({ lr: 0.05, params: [{ name: 'W', before: a.w, grad: a.gw, after: a.w - 0.05 * a.gw }, { name: 'b', before: 3e12, grad: -2e13, after: 4e12 }] });
+  const lines = d.blocks.at(-1).latex;
+  assert.equal(lines.length, 2);
+  assert.ok(lines.every((l) => l.startsWith('\\begin{aligned}') && l.includes('\\\\')));
+  renderStrictAll(lines);
+  assert.match(lines[1], /\\times 10\^\{13\}/);
+  assert.match(lines[0], /\+ 1\.133 = 1\.133/);
+});
+
+test('lesson prose after the review: the claims, the fresh-forward-pass sentence, bound counts, unique ids', () => {
+  const html = renderLesson(lesson, D).map((p) => p.html).join('\n');
+  const text = (h) => h.replace(/<[^>]+>/g, '');
+  assert.doesNotMatch(html, /id="graph"/); assert.match(html, /id="sec-graph"/); assert.match(html, /aria-labelledby="sec-graph"/);
+  assert.match(text(html), /uses up the graph it walks, so a second backward\(\) on the same forward pass does nothing/);
+  assert.ok(text(html).includes('(forward +) backward() twice')); assert.ok(!text(html).includes('; backward() twice'));
+  // mu = 1: the loop-without-zero_grad sentence is the only place that says mu = 1 and it says "no forgetting"
+  assert.match(text(html), /no forgetting at all, is exactly the momentum rule of section 7 with μ = 1/);
+  assert.doesNotMatch(text(html), /running blend/);
+  assert.match(text(html), /decaying sum/);
+  // "it does not settle steadily": the loss at mu 0.5 is up again at the last update
+  assert.ok(run('sgd-lr0.05-mu0.5').final.loss > run('sgd-lr0.05-mu0.5').steps[9].loss);
+  assert.match(text(html), /does not settle steadily/); assert.doesNotMatch(text(html), /settles down afterwards/);
+  // the checks ask for something the text does not state; the reveal works it out and the number is derived, not recorded
+  const sec = (id) => renderLesson(lesson, D).find((p) => p.section.id === id).html;
+  const lr = 0.05, gw3 = run('sgd-lr0.05').steps[0].gw * 3, gb3 = run('sgd-lr0.05').steps[0].gb * 3;
+  assert.match(text(sec('c-zero')), new RegExp(`= ${sfmt(-lr * gw3).replace('.', '\\.')} and`));
+  assert.equal(sfmt(-lr * gw3), '3.4'); assert.equal(sfmt(-lr * gb3), '1.5');
+  const r5 = run('sgd-lr0.05-mu0.9');
+  const v = 0.9 * r5.steps[0].gw + r5.steps[1].gw;
+  assert.ok(near(v, -30.49, 1e-3) && r5.steps[2].w - r5.steps[1].w > run('sgd-lr0.05').steps[2].w - run('sgd-lr0.05').steps[1].w, 'the second momentum update is longer than the plain one');
+  assert.match(text(sec('c-mom')), new RegExp(sfmt(-lr * v).replace('.', '\\.')));
+  assert.doesNotMatch(text(sec('c-mom')), /Is there a bug/);
+  // c-params: the intermediate nodes have a grad, the root has none (as the reveal says)
+  const withGrad = scene.nodes.filter((n) => n.grad).map((n) => n.name).sort();
+  assert.deepEqual(withGrad, ['W', 'Wt', 'b', 'xW', 'y']);
+  assert.match(text(sec('c-params')), /Wt<\/code>, <code>xW<\/code> and <code>y|Wt, xW and y/);
+  // the Hessian matrix comes through T() (bound spans)
+  assert.match(html, /<code>\[\[<span class="num" data-trace="files\.optim\.hessian\.matrix\.0\.0">/);
+  // counts are bound to the data: a recorded run with twelve updates would be called "twelve"
+  const D12 = structuredClone(D);
+  D12.files.optim.runs[0].steps.push(D12.files.optim.runs[0].steps[9], D12.files.optim.runs[0].steps[9]);
+  const html12 = renderLesson(lesson, D12).map((p) => p.html).join('\n');
+  assert.match(text(html12), /after twelve updates/); assert.doesNotMatch(text(html12), /\bten (updates|iterations)/);
+  assert.match(text(html), /after ten updates/);
+  // ids on the page are unique across the text sections
+  const ids = [...html.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]);
+  assert.equal(new Set(ids).size, ids.length, 'duplicate ids: ' + ids.filter((x, i) => ids.indexOf(x) !== i));
+  for (const bad of ['graph', 'window', 'controls', 'goal', 'scene-tabs', 'inputs']) assert.ok(!ids.includes(bad), `${bad} is an id of the graph lab`);
 });

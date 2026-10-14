@@ -8,9 +8,9 @@
 // the tests assert it equals the next recorded state.
 import { el } from '../core/dom.js';
 import { math } from '../core/katex.js';
-import { tex, bar, tn, par } from '../ops/texutil.js';
+import { tex } from '../ops/texutil.js';
 import { sgdStep, initialState } from '../optim.js';
-import { injectStyle, SHARED_CSS, badge, fmt } from './sgd-ui.js';
+import { injectStyle, SHARED_CSS, badge, fmt, texNum, texPar, enhanceScrollers } from './sgd-ui.js';
 
 // ---- pure: the window contents ----------------------------------------------------------------------------------------
 export function updateWindowData({ lr, momentum = 0, params }) {
@@ -27,8 +27,10 @@ export function updateWindowData({ lr, momentum = 0, params }) {
   const lines = [];
   for (const q of params) {
     const dir = mom ? q.vAfter : q.grad;
-    if (mom) lines.push(`v \\leftarrow ${tn(momentum)}\\cdot ${par(q.vBefore ?? 0)} + ${par(q.grad)} = ${tn(q.vAfter)}`);
-    lines.push(`${tex(q.name)} \\leftarrow ${tn(q.before)} - ${tn(lr)}\\cdot ${par(dir)} = ${tn(q.before)} ${lr * dir < 0 ? '+' : '-'} ${tn(Math.abs(lr * dir))} = ${tn(q.after)}`);
+    const step = lr * dir;
+    // two short lines per update (so it fits a phone): the rule with the numbers in, then the arithmetic
+    if (mom) lines.push(`v \\leftarrow ${texNum(momentum)}\\cdot ${texPar(q.vBefore ?? 0)} + ${texPar(q.grad)} = ${texNum(q.vAfter)}`);
+    lines.push(`\\begin{aligned}${tex(q.name)} &\\leftarrow ${texNum(q.before)} - ${texNum(lr)}\\cdot ${texPar(dir)} \\\\ &= ${texNum(q.before)} ${step < 0 ? '+' : '-'} ${texNum(Math.abs(step))} = ${texNum(q.after)}\\end{aligned}`);
   }
   blocks.push({ heading: `With our numbers: ${params.map((q) => q.name).join(' and ')}`, latex: lines, html: '' });
   const columns = mom ? ['parameter', 'before', '.grad', 'velocity v', 'step = lr × v', 'after'] : ['parameter', 'before', '.grad', 'step = lr × .grad', 'after'];
@@ -89,6 +91,7 @@ export function mountUpdateWindow(host, D) {
       { name: 'b', before: a.b, grad: a.gb, after: out.params[1][0] }] }));
     label.textContent = `Update ${u} of ${COUNT}`;
     loss.innerHTML = `Loss before this update: <strong class="mono">${fmt(a.loss)}</strong> → after it: <strong class="mono">${fmt(z.loss)}</strong> (TorC’s forward pass at the new parameters).`;
+    enhanceScrollers(root);
     prev.setAttribute('aria-disabled', String(u === 1)); next.setAttribute('aria-disabled', String(u === COUNT));
   }
   go(1);

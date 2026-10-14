@@ -134,7 +134,8 @@ export function eigenvalues2([[a, c], [, d]]) {
 
 // Plain gradient descent on a quadratic multiplies the error along an eigenvector by 1 - lr*lambda; with momentum the error obeys
 // r^2 - (1 + mu - lr*lambda) r + mu = 0 (largest root modulus = spectral radius). Stable iff the radius is below 1, i.e. iff
-// lr < 2 (1 + mu) / lambda_max.
+// 0 <= mu < 1 AND lr < 2 (1 + mu) / lambda_max (the product of the two roots is mu, so mu >= 1 can never be stable: at mu = 1 the
+// velocity never decays, which is what a loop without zero_grad() amounts to).
 export function analyze(lr, momentum, lambdas) {
   const radius = (lam) => {
     const tr = 1 + momentum - lr * lam, disc = tr * tr - 4 * momentum;
@@ -146,7 +147,7 @@ export function analyze(lr, momentum, lambdas) {
   return {
     critical_lr: critical,
     spectral_radius: spectral,
-    stable_predicted: lr < critical,
+    stable_predicted: momentum >= 0 && momentum < 1 && lr < critical,
     factors: lambdas.map((lam) => 1 - lr * lam),                 // per-step error factor along each eigenvector (no momentum)
     radii,
   };

@@ -6,7 +6,7 @@
 // ones (tests). Pure helper: lifecycleReduce(state, action, model, lr) -> {state, note, highlight, tab} (used by the tests).
 import { el } from '../core/dom.js';
 import { makeModel, sgdStep } from '../optim.js';
-import { injectStyle, SHARED_CSS, badge, fmt } from './sgd-ui.js';
+import { injectStyle, SHARED_CSS, badge, fmt, enhanceScrollers } from './sgd-ui.js';
 import { codePanel } from './sgd-code.js';
 
 export const START = { w: 0, b: 0, gw: null, gb: null, calls: [] };
@@ -76,7 +76,7 @@ export function mountLifecycle(host, D) {
   const act = (action) => { const r = lifecycleReduce(st, action, model, lr); st = r.state; view = { tab: r.tab, highlight: r.highlight, note: r.note, fresh: true }; render(); };
   const callBtn = (key, code, small, action, cls = '') => el('button', { type: 'button', class: `btn ${cls}`, 'data-key': key, onclick: () => act(action) }, el('code', {}, code), el('small', {}, small));
   const calls = el('div', { class: 'calls' },
-    callBtn('bw', 'loss.backward()', 'after a fresh forward pass', 'backward', 'primary'),
+    callBtn('bw', 'loss.backward()', 'after a fresh forward pass (the graph is used up)', 'backward', 'primary'),
     callBtn('st', 'optimizer.step()', `lr = ${lr}`, 'step'),
     callBtn('zg', 'optimizer.zero_grad()', 'clears .grad', 'zero_grad'),
     el('button', { type: 'button', class: 'btn small', 'data-key': 'reset', onclick: () => { st = { ...START, calls: [] }; view = { tab: 'step', highlight: [], note: 'Back to W = 0, b = 0 with no gradients.' }; render(); } }, 'Reset'));
@@ -102,7 +102,7 @@ export function mountLifecycle(host, D) {
     const cell = (v) => (v == null ? el('td', { class: 'empty' }, 'empty') : el('td', {}, fmt(v)));
     const tx = (a) => '[' + a.map(fmt).join(', ') + ']';
     stateHost.replaceChildren(el('table', { class: 'sgd-tab state' },
-      el('caption', {}, 'every tensor of the graph that you could look at'),
+      el('caption', {}, 'the parameters (W, b) and the data (x, t)'),
       el('thead', {}, el('tr', {}, ['tensor', '.data', '.grad (has_grad)'].map((c) => el('th', { scope: 'col' }, c)))),
       el('tbody', {},
         el('tr', {}, el('th', { scope: 'row' }, el('code', {}, 'W')), el('td', {}, fmt(st.w)), cell(st.gw)),
@@ -112,8 +112,9 @@ export function mountLifecycle(host, D) {
     history.replaceChildren('Calls so far: ', ...(st.calls.length ? st.calls.flatMap((c, i) => [i ? ' → ' : '', el('code', {}, c)]) : ['none']));
   }
   function render() {
-    status.innerHTML = view.note || 'Press the calls in any order. Try <code>step()</code> first, then <code>backward()</code> twice, then <code>step()</code>.';
+    status.innerHTML = view.note || 'Press the calls in any order. Try <code>step()</code> first, then (forward +) <code>backward()</code> twice, then <code>step()</code>.';
     drawState(); drawCode(); markTabs();
+    enhanceScrollers(document);
   }
   render();
   return { destroy() { root.remove(); }, get state() { return st; } };

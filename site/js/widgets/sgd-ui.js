@@ -3,7 +3,16 @@
 // (The graph lab only reacts to the arrow keys when focus is in the lab or nowhere, so widgets need no arrow-key isolation.)
 // Nothing here touches the DOM at import time (the lesson tests import every module in Node).
 import { el } from '../core/dom.js';
-export { fmt } from '../ops/texutil.js';
+import { fmt as baseFmt } from '../ops/texutil.js';
+
+// Numbers shown to learners: texutil's fmt, but anything of size 1e7 or more (or NaN / infinity) in exponent form, never 19 digits.
+export function fmt(x) {
+  if (!Number.isFinite(x)) return Number.isNaN(x) ? 'not a number' : (x > 0 ? 'infinity' : '-infinity');
+  return Math.abs(x) >= 1e7 ? Number(x.toPrecision(3)).toExponential().replace('e+', 'e') : baseFmt(x);
+}
+// the same as a TeX number (1.23e18 -> 1.23\\times 10^{18})
+export const texNum = (x) => { const t = fmt(x); const m = /^(-?[\d.]+)e(-?\d+)$/.exec(t); return m ? `${m[1]}\\times 10^{${m[2]}}` : t; };
+export const texPar = (x) => (x < 0 ? `(${texNum(x)})` : texNum(x));
 
 export function injectStyle(id, css) {
   if (typeof document === 'undefined' || document.getElementById(id)) return;
@@ -19,6 +28,32 @@ export function onResize(fn, signal) {
   if (typeof window === 'undefined') return;
   let raf = 0;
   window.addEventListener('resize', () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(fn); }, { signal });
+}
+
+// A horizontally scrolling box must be reachable without a pointer and must show that there is more: role=region + a name, tabindex=0
+// while the content is wider than the box (kept up to date by observers), and a shadow on the cut edge (CSS below).
+const watched = new WeakSet();
+export function enhanceScroller(box, label) {
+  if (typeof document === 'undefined' || watched.has(box)) return;
+  watched.add(box);
+  box.setAttribute('role', 'region');
+  const name = () => label ?? box.querySelector('caption')?.textContent ?? 'Scrollable content';
+  const sync = () => {
+    box.setAttribute('aria-label', name() + ' (scrolls sideways)');
+    if (box.scrollWidth > box.clientWidth + 1) box.setAttribute('tabindex', '0'); else box.removeAttribute('tabindex');
+  };
+  if (typeof ResizeObserver === 'function') {
+    const ro = new ResizeObserver(sync);
+    const watch = () => { ro.disconnect(); ro.observe(box); for (const c of box.children) ro.observe(c); };
+    new MutationObserver(() => { watch(); sync(); }).observe(box, { childList: true, subtree: true, attributes: true, attributeFilter: ['hidden'] });
+    watch();
+  }
+  sync();
+}
+export function enhanceScrollers(root) {
+  if (typeof document === 'undefined') return;
+  root ??= document;
+  root.querySelectorAll('.sgd-scroll, .sgd-w .math, .sgd-w .plot-table-scroll').forEach((b) => enhanceScroller(b, b.classList.contains('math') ? 'Equation' : undefined));
 }
 
 export const approx = (a, b) => Math.abs(a - b) <= 1e-9 * (1 + Math.abs(b));
@@ -89,8 +124,15 @@ export const SHARED_CSS = `
 .sgd-tab th{color:var(--muted);font-weight:600;font-family:inherit}
 .sgd-tab th:first-child,.sgd-tab td:first-child{text-align:left}
 .sgd-tab .katex{font-size:1em}
+.sgd-tab th[scope=row]{white-space:nowrap}
 .sgd-tab.text th,.sgd-tab.text td{text-align:left}
-.sgd-scroll{overflow-x:auto}
+.sgd-scroll,.sgd-w .math,.sgd-w .plot-table-scroll{--cover:var(--panel);overflow-x:auto;
+background:linear-gradient(to right,var(--cover) 30%,transparent) left center/28px 100% no-repeat local,
+linear-gradient(to left,var(--cover) 30%,transparent) right center/28px 100% no-repeat local,
+radial-gradient(farthest-side at 0 50%,rgba(255,255,255,.28),transparent) left center/12px 100% no-repeat scroll,
+radial-gradient(farthest-side at 100% 50%,rgba(255,255,255,.28),transparent) right center/12px 100% no-repeat scroll}
+.sgd-scroll.on-bg{--cover:var(--bg)}
+.sgd-scroll:focus-visible,.sgd-w .math:focus-visible,.sgd-w .plot-table-scroll:focus-visible{outline:2px solid var(--fwd);outline-offset:2px}
 .sgd-w .plot-table table{max-height:none}
 .sgd-w details{margin:.5rem 0;color:#c4ccd5;font-size:.93rem}
 .sgd-w summary{cursor:pointer;color:var(--fwd)}

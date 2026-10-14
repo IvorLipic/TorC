@@ -8,7 +8,7 @@
 import { el, svg } from '../core/dom.js';
 import { createPlot, tableToggle, ticks } from './plot.js';
 import { makeModel, trainingLoop } from '../optim.js';
-import { injectStyle, SHARED_CSS, badge, fmt, fitWidth, onResize } from './sgd-ui.js';
+import { injectStyle, SHARED_CSS, badge, fmt, fitWidth, onResize, enhanceScrollers } from './sgd-ui.js';
 import { codePanel } from './sgd-code.js';
 import { yRange } from './lr-lab.js';
 
@@ -63,6 +63,9 @@ const CSS = `
 .sgd-loop .lc-zero{stroke:var(--fg);stroke-width:1.2}
 .sgd-loop .ledger td.kept{color:var(--warn)}
 .sgd-loop .ledger th[scope=col]{font-size:.78rem}
+.sgd-loop .ledger th[scope=row]{white-space:nowrap}
+.sgd-loop .ledger td,.sgd-loop .ledger th[scope=col]{min-width:5.5em}
+.sgd-loop .ledger td{white-space:nowrap}
 .sgd-loop .narr{font-size:.93rem;margin:.4rem 0 .5rem;color:#d3dae2}
 @media(max-width:900px){.sgd-loop .grid2{grid-template-columns:minmax(0,1fr)}}
 `;
@@ -117,7 +120,7 @@ export function mountLoopTimeline(host, D) {
     const g = (x) => (x == null ? 'empty' : fmt(x));
     const kept = !state.zero;
     ledgerHost.replaceChildren(el('table', { class: 'sgd-tab ledger' },
-      el('caption', {}, `What the parameter W holds around each call, iteration ${state.k}`),
+      el("caption", {}, `W around each call, iteration ${state.k} (“empty” = has_grad() is false)`),
       el('thead', {}, el('tr', {}, ['', 'iteration starts', 'after backward()', 'after step()', 'after zero_grad()'].map((c) => el('th', { scope: 'col' }, c)))),
       el('tbody', {},
         el('tr', {}, el('th', { scope: 'row' }, el('code', {}, 'W.grad')), el('td', {}, g(L.cells.start.grad)), el('td', {}, g(L.cells.afterBackward.grad)), el('td', {}, g(L.cells.afterStep.grad)), el('td', { class: kept ? 'kept' : '' }, state.zero ? g(null) : `${fmt(L.cells.afterZeroGrad.grad)} (no call: kept)`)),
@@ -170,6 +173,7 @@ export function mountLoopTimeline(host, D) {
   function render() {
     itLabel.textContent = `${state.k} / ${N}`;
     drawCode(); drawLedger(); bars(); loss();
+    enhanceScrollers(root);
     prev.setAttribute('aria-disabled', String(state.k === 1)); next.setAttribute('aria-disabled', String(state.k === N));
   }
   chk.addEventListener('change', () => { state.zero = chk.checked; render(); });
