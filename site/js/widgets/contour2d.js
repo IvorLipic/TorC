@@ -137,10 +137,9 @@ export function mountContour2d(host, { model, base = { w: [-1, 4.5], b: [-1.5, 3
     const sv = (...k) => svg('svg', { viewBox: '0 0 18 14', 'aria-hidden': 'true' }, ...k);
     legend.replaceChildren(
       item(sv(svg('rect', { x: 3, y: 3, width: 9, height: 9, fill: '#0b0f14', stroke: '#fff', 'stroke-width': 2 })), `start (${fmtTick(start.w)}, ${fmtTick(start.b)})`),
-      item(sv(svg('circle', { cx: 9, cy: 7, r: 5, fill: '#fc6255', stroke: '#fff', 'stroke-width': 2 })), 'where the parameters are now'),
-      item(sv(svg('line', { x1: 1, y1: 7, x2: 17, y2: 7, stroke: '#fff', 'stroke-width': 2, 'stroke-dasharray': '4 3' })), 'the next step() would move here'),
-      item(sv(svg('polygon', { points: STAR(9, 7.5, 7), fill: '#fff', stroke: '#0b0f14' })), `minimum (${fmtTick(optimum.w)}, ${fmtTick(optimum.b)})`),
-      item(sv(svg('line', { x1: 1, y1: 7, x2: 17, y2: 7, stroke: '#cfd8e3', 'stroke-width': 1.3 })), 'contour line: equal loss (labelled)'));
+      item(sv(svg('circle', { cx: 9, cy: 7, r: 5, fill: '#fc6255', stroke: '#fff', 'stroke-width': 2 })), 'now'),
+      item(sv(svg('line', { x1: 1, y1: 7, x2: 17, y2: 7, stroke: '#fff', 'stroke-width': 2, 'stroke-dasharray': '4 3' })), 'next step()'),
+      item(sv(svg('polygon', { points: STAR(9, 7.5, 7), fill: '#fff', stroke: '#0b0f14' })), `minimum (${fmtTick(optimum.w)}, ${fmtTick(optimum.b)})`));
   }
 
   function buildBase(view) {

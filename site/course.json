@@ -49,7 +49,7 @@
         {
           "id": "sgd-step",
           "title": "The SGD update step",
-          "outcome": "Perform one parameter update by hand with real numbers, say what step() reads and writes, and see learning-rate instability, zero_grad and momentum.",
+          "outcome": "What step() reads and writes, learning rate, momentum, and zero_grad.",
           "prereqs": [
             "why-gradients",
             "backprop-lab"
@@ -64,7 +64,7 @@
           "trace": [
             "optim.json"
           ],
-          "est_minutes": 20,
+          "est_minutes": 7,
           "status": "published"
         }
       ]
