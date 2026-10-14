@@ -57,12 +57,12 @@ export function growthRatios(series) {
 // Rows for the "show as table" view: layer, then primary run and across-seed range for each init.
 export function signalTable(series) {
   const columns = ['layer'];
-  for (const s of series) { columns.push(`${s.label}: this run`); if (s.band.length) columns.push(`${s.label}: 10 other seeds, min – max`); }
+  for (const s of series) { columns.push(`${s.label}: first run`); if (s.band.length) columns.push(`${s.label}: other draws, mean (min – max)`); }
   const rows = series[0].points.map((p, idx) => {
     const r = [p.layer === 0 ? '0 (input)' : String(p.layer)];
     for (const s of series) {
       r.push(fmtSci(s.points[idx].std));
-      if (s.band.length) { const b = s.band.find((x) => x.layer === p.layer); r.push(b ? `${fmtSci(b.min)} – ${fmtSci(b.max)}` : '–'); }
+      if (s.band.length) { const b = s.band.find((x) => x.layer === p.layer); r.push(b ? `${fmtSci(b.mean)} (${fmtSci(b.min)} – ${fmtSci(b.max)})` : '–'); }
     }
     return r;
   });

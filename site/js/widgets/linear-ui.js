@@ -36,6 +36,9 @@ export const BASE_CSS = `
 .lin-stepper button:disabled{opacity:.4;cursor:default}
 .lin-stepper input{width:4.6rem;min-height:2.2rem;text-align:center;font:.98rem ui-monospace,monospace;color:var(--fg);background:var(--bg);border:1px solid var(--border);border-left:0;border-right:0;border-radius:0;padding:0 .2rem}
 .lin-stepper input[aria-invalid=true]{background:#2b1513;box-shadow:inset 0 -3px 0 var(--bwd)}
+.lin-err{color:#ff9d93;font-size:.8rem;line-height:1.3;max-width:16rem}
+.lin-err:empty{display:none}
+.lin-err::before{content:"\\2717  "}
 .lin-btns{display:flex;flex-wrap:wrap;gap:6px}
 .lin-seg{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .lin-seg .lin-lbl{font-size:.85rem;color:var(--muted);margin-right:.2rem}
@@ -82,26 +85,29 @@ export function sourceBadge(kind, text) {
 export function stepperField({ label, hint, min, max, value, onChange, key }) {
   const id = uid('lin-in');
   let cur = value;
-  const input = el('input', { type: 'number', id, min, max, step: 1, value: String(value), inputmode: 'numeric', 'data-key': key });
+  const errId = `${id}-err`;
+  const err = el('div', { class: 'lin-err', id: errId, 'aria-live': 'polite' });
+  const input = el('input', { type: 'number', id, min, max, step: 1, value: String(value), inputmode: 'numeric', 'data-key': key, 'aria-describedby': errId });
   const dec = el('button', { type: 'button', 'aria-label': `Decrease ${label}`, 'data-key': `${key}-dec` }, '−');
   const inc = el('button', { type: 'button', 'aria-label': `Increase ${label}`, 'data-key': `${key}-inc` }, '+');
   const valid = (v) => Number.isInteger(v) && v >= min && v <= max;
   const sync = () => { dec.disabled = cur <= min; inc.disabled = cur >= max; };
-  const commit = (v) => { cur = v; input.value = String(v); input.removeAttribute('aria-invalid'); sync(); onChange(v); };
+  const clearErr = () => { input.removeAttribute('aria-invalid'); err.textContent = ''; };
+  const commit = (v) => { cur = v; input.value = String(v); clearErr(); sync(); onChange(v); };
   input.addEventListener('input', () => {
     const v = input.value.trim() === '' ? NaN : Number(input.value);
-    if (valid(v)) { cur = v; input.removeAttribute('aria-invalid'); sync(); onChange(v); }
-    else input.setAttribute('aria-invalid', 'true');
+    if (valid(v)) { cur = v; clearErr(); sync(); onChange(v); }
+    else { input.setAttribute('aria-invalid', 'true'); err.textContent = `Enter a whole number from ${min} to ${max}; ${cur} is still in use.`; }
   });
-  input.addEventListener('change', () => { input.value = String(cur); input.removeAttribute('aria-invalid'); });
+  input.addEventListener('change', () => { input.value = String(cur); clearErr(); });
   dec.addEventListener('click', () => commit(Math.max(min, cur - 1)));
   inc.addEventListener('click', () => commit(Math.min(max, cur + 1)));
   sync();
   const root = el('div', { class: 'lin-field' },
     el('label', { for: id, html: label }),
     el('div', { class: 'lin-stepper' }, dec, input, inc),
-    hint ? el('div', { class: 'lin-note dim', style: 'margin:2px 0 0' }, hint) : null);
-  return { root, input, get value() { return cur; }, set(v) { cur = v; input.value = String(v); input.removeAttribute('aria-invalid'); sync(); } };
+    err, hint ? el('div', { class: 'lin-note dim', style: 'margin:2px 0 0' }, hint) : null);
+  return { root, input, get value() { return cur; }, set(v) { cur = v; input.value = String(v); clearErr(); sync(); } };
 }
 
 // A radio group drawn as pills (native radios: arrow keys, Tab, screen readers all work). Returns {root, set(value)}.

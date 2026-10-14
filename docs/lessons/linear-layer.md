@@ -117,3 +117,13 @@ gives them no reason to differ". "Bigger init learns faster? No" is shown throug
   no colour-only encoding (shape, dash, text and underline cues), a table view for both plots. text colours computed against their backgrounds with the WCAG formula (not a browser audit): muted 5.3–6.2, accent colours 5.8–9.5, body text 10.8–14.8, all ≥ 4.5:1; decorative cell borders are not text.
 - [ ] (6) Independent read-only review and an outside reader: **not done** (lead).
 - [x] (7) No audit talk on the page (a test greps for it).
+
+**Review fixes (round 1).** The Kaiming bullet and the myth card now quote the ten-draw average and layer-6 range (the first run, which ends above that band, is
+named as such; the plot draws the average as a white line and marks the first run); the std-versus-second-moment drop 0.998 -> 0.83 is explained with the
+quoted root-mean-square and the derived sqrt(1 - 1/pi); the gotcha lists Linear failures only (no MSELoss message on the page; `Linear(0, 2)` is explained);
+`predict-dx` precedes the gradient widget and no longer hints at its answer; the zero-weights card and bullets are scoped to a hidden layer; the seed paragraph
+names `std::random_device` and the standard library of the recorded run; N = 4 is stated; negative terms are parenthesised after a plus sign; ReLU, variance,
+normal distribution and log scale are explained at first use; the {out,in} layout is called a convention (the source gives no reason); the three signal curves
+are declared one experiment at three scales (Kaiming = std_1.0 x sqrt(2/256)^layer, checked to 1e-5 in the test); invalid stepper and grid entries show visible,
+`aria-live` text. Tests check the new prose (`review fixes` test). Checked: the graph lab scrolls horizontally inside its own box on a 390 px screen (940 px wide
+content, page overflow 0).

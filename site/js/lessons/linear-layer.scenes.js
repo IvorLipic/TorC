@@ -49,6 +49,12 @@ export const CALCS = {
   'shrink-hi': (D) => Math.max(...ratios(D, 'std_0.01')),
   // expected factor sqrt(width/2) * init_std  (Expected mathematics, see the derivation in docs/lessons/linear-layer.md)
   'grow-pred': (D) => Math.sqrt(sig(D, 'std_1.0').width / 2) * sig(D, 'std_1.0').init_std,
+  // N = number of outputs of y (batch x out) = the divisor of the mean squared error
+  'n-outputs': (D) => D.scenes.linear.nodes.find((n) => n.name === 'y').value.shape.reduce((a, b) => a * b, 1),
+  // expected std of ReLU(z) for z ~ N(0, 2): sqrt(1 - 1/pi)
+  'relu-std': () => Math.sqrt(1 - 1 / Math.PI),
+  // sqrt(2/width): the Kaiming std of Linear(width, width)
+  'kaiming-scale': (D) => Math.sqrt(2 / sig(D, 'kaiming').width),
   'shrink-pred': (D) => Math.sqrt(sig(D, 'std_0.01').width / 2) * sig(D, 'std_0.01').init_std,
 };
 

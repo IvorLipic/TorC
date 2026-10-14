@@ -161,7 +161,7 @@ export function mountShapeExplorer(host, D, ctx = {}) {
       el('div', { class: 'se-sum' }, `bias: out = ${p.bias}`),
       el('div', { class: 'se-total' }, `${p.total}`, el('span', { class: 'lin-note dim', style: 'font:.85rem system-ui;margin-left:.6rem' }, `= in·out + out, in ${p.tensors} tensors`)),
       el('div', { class: 'lin-note dim', style: 'margin-bottom:0' }, `The batch size B = ${B} does not appear: the same ${p.total} numbers serve any batch.`),
-      ...(known ? [el('div', { style: 'margin-top:.4rem' }, el('span', { class: 'lin-badge ok' }, `✓ TorC counted ${known.count} parameters for Linear(${inF}, ${outF}) (${known.source}, recorded)`))] : []));
+      ...(known ? [el('div', { style: 'margin-top:.4rem' }, el('span', { class: 'lin-badge ok' }, `✓ Recorded: TorC counted ${known.count} parameters for this layer${known.source === `Linear(${inF}, ${outF})` ? '' : ` (inside the ${known.source})`}`))] : []));
 
     // result of the call
     breakBtn.setAttribute('aria-pressed', String(st.broken));
@@ -188,7 +188,9 @@ export function mountShapeExplorer(host, D, ctx = {}) {
       el('pre', { class: 'se-msg' }, call.what),
       src];
     if (call.exception === 'ShapeError') {
-      lines.push(el('p', { class: 'lin-note' }, `Read the second shape: ${fmtShape([inF, outF])} is `, el('b', {}, 'Wᵀ'), ` = (in, out), not the weight itself, which is stored as ${fmtShape(sh.W)}. matmul sees x ${fmtShape(xs)} and Wᵀ ${fmtShape(sh.Wt)}; ${xs[1]} ≠ ${inF}.`));
+      lines.push(el('p', { class: 'lin-note' }, `Read the second shape: ${fmtShape(sh.Wt)} is `, el('b', {}, 'Wᵀ'), ' = (in, out)',
+        inF === outF ? ` (here in = out, so Wᵀ and the stored weight W, ${fmtShape(sh.W)}, happen to have the same shape; they are still different tensors).` : `, not the weight itself, which is stored as ${fmtShape(sh.W)}.`,
+        ` matmul sees x ${fmtShape(xs)} and Wᵀ ${fmtShape(sh.Wt)}; ${xs[1]} ≠ ${inF}.`));
     }
     return lines;
   }

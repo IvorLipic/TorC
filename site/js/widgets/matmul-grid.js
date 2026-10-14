@@ -30,15 +30,17 @@ export function mountMatmulGrid(host, D, ctx = {}) {
   const B = base.x.length, nIn = base.x[0].length, nOut = base.W.length;
   const st = { x: clone2(base.x), W: clone2(base.W), b: base.b.slice(), pin: { i: 0, k: 1 }, hover: null };
   const bad = new Set();
+  const badNote = el('div', { class: 'lin-err', id: 'mg-err', 'aria-live': 'polite' });
+  const MSG = 'Enter a number between −1,000,000 and 1,000,000; the last valid value is still in use.';
 
   const inputCell = (get, set, label) => {
-    const inp = el('input', { type: 'number', step: 'any', class: 'lin-cell', value: String(get()), 'aria-label': label });
+    const inp = el('input', { type: 'number', step: 'any', class: 'lin-cell', value: String(get()), 'aria-label': label, 'aria-describedby': 'mg-err' });
     inp.addEventListener('input', () => {
       const v = parseFloat(inp.value);
-      if (Number.isFinite(v) && Math.abs(v) <= 1e6) { bad.delete(inp); inp.removeAttribute('aria-invalid'); inp.removeAttribute('title'); set(v); update(); }
-      else { bad.add(inp); inp.setAttribute('aria-invalid', 'true'); inp.title = 'Enter a number between -1,000,000 and 1,000,000 (the last valid value is still in use).'; }
+      if (Number.isFinite(v) && Math.abs(v) <= 1e6) { bad.delete(inp); inp.removeAttribute('aria-invalid'); inp.removeAttribute('title'); if (!bad.size) badNote.textContent = ''; set(v); update(); }
+      else { bad.add(inp); inp.setAttribute('aria-invalid', 'true'); inp.title = MSG; badNote.textContent = MSG; }
     });
-    inp.addEventListener('change', () => { if (bad.has(inp)) { bad.delete(inp); inp.removeAttribute('aria-invalid'); inp.value = String(get()); } });
+    inp.addEventListener('change', () => { if (bad.has(inp)) { bad.delete(inp); inp.removeAttribute('aria-invalid'); inp.value = String(get()); if (!bad.size) badNote.textContent = ''; } });
     return inp;
   };
 
@@ -67,7 +69,7 @@ export function mountMatmulGrid(host, D, ctx = {}) {
     for (let i = 0; i < B; i++) for (let j = 0; j < nIn; j++) mx.cells[i][j].value = String(st.x[i][j]);
     for (let k = 0; k < nOut; k++) { for (let j = 0; j < nIn; j++) mw.cells[k][j].value = String(st.W[k][j]); mb.cells[0][k].value = String(st.b[k]); }
     for (const inp of bad) inp.removeAttribute('aria-invalid');
-    bad.clear();
+    bad.clear(); badNote.textContent = '';
     update();
   };
   const buttons = el('div', { class: 'lin-btns' },
@@ -78,7 +80,7 @@ export function mountMatmulGrid(host, D, ctx = {}) {
   host.replaceChildren(
     el('div', { class: 'lin-head' }, el('h3', {}, 'One output number = one neuron looking at one sample'), sourceBadge('live', 'Recomputed in your browser'), badge),
     el('div', { class: 'mg-mats' }, mx.root, el('span', { class: 'lin-op', 'aria-hidden': 'true' }, '·'), mw.root, el('span', { class: 'lin-op', 'aria-hidden': 'true' }, '+'), mb.root, el('span', { class: 'lin-op', 'aria-hidden': 'true' }, '='), my.root),
-    story, paper, twin,
+    badNote, story, paper, twin,
     el('p', { class: 'lin-note dim', style: 'margin:.2rem 0 .5rem' }, 'Edit any x, W or b box. We count from 1 in the maths: i = sample, k = neuron, j = input feature. Note the grid multiplies row k of W directly; TorC gets the same numbers by transposing W first (next section).'),
     buttons);
 

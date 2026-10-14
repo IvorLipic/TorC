@@ -29,6 +29,8 @@ const CSS = `
 .lin-is .is-band.s-std_0\\.01,.lin-is .is-marker.s-std_0\\.01{fill:var(--warn)}
 .lin-is .is-band.s-std_1\\.0,.lin-is .is-marker.s-std_1\\.0{fill:var(--bwd)}
 .lin-is .is-marker{stroke:var(--bg);stroke-width:1.5}
+.lin-is .is-mean{fill:none;stroke:var(--fg);stroke-width:1.6}
+.lin-is .sw.mean{width:22px;border-top:2px solid var(--fg);height:0}
 .lin-is .is-ylab{fill:var(--muted);font-size:11px;text-anchor:end}
 .lin-is dl.is-facts{display:grid;grid-template-columns:auto 1fr;gap:.15rem .9rem;margin:.4rem 0;font-size:.9rem}
 @media(min-width:900px){.lin-is dl.is-facts{grid-template-columns:auto 1fr auto 1fr;gap:.15rem 1.2rem}}
@@ -128,7 +130,7 @@ export function mountInitSignal(host, D) {
   const seg = segmented({ label: 'Show', name: 'is-view', value: view, options: views, onChange: (v) => { view = v; draw(); } });
   const plotBox = el('div'), keyBox = el('div', { class: 'is-key' }), vals = el('div', { class: 'is-vals' });
   const first = sig[0];
-  const setup = `Setup: a ${first.batch} × ${first.width} batch of N(0, 1) numbers goes through six copies of Linear(${first.width}, ${first.width}) + ReLU. The plotted number is the standard deviation of the ReLU output over all of its values. ` +
+  const setup = `Setup: a batch of ${first.batch} samples with ${first.width} random numbers each (drawn from a normal distribution with mean 0 and standard deviation 1) goes through six copies of Linear(${first.width}, ${first.width}) + ReLU, where ReLU replaces every negative number by 0. The plotted number is the standard deviation (the spread) of the ReLU output over all of its values; layer 0 is the input itself. The log scale puts equal multiplication factors at equal distances. ` +
     `Band: lowest to highest value over ${first.n_extra_seeds} other random draws of the weights.`;
   host.replaceChildren(
     el('div', { class: 'lin-head' }, el('h3', {}, 'The signal through six layers'), sourceBadge('pre', 'Precomputed from the real TorC run · choose a recorded case')),
@@ -165,6 +167,7 @@ export function mountInitSignal(host, D) {
         const bot = s.band.slice().reverse().map((b) => `${p.sx(b.layer).toFixed(1)},${p.sy(f(b.min)).toFixed(1)}`);
         p.layer('band').append(svg('path', { class: `is-band ${cls}`, d: `M${[...top, ...bot].join(' L')} Z` }));
       }
+      if (list.length === 1 && s.band.length) p.curve(s.band.map((b) => [b.layer, f(b.mean)]), { layer: 'lines', class: 'is-mean' });
       p.curve(s.points.map((q) => [q.layer, f(q.std)]), { layer: 'lines', class: `is-line ${cls}` });
       for (const q of s.points) {
         const x = p.sx(q.layer), y = p.sy(f(q.std));
@@ -174,9 +177,12 @@ export function mountInitSignal(host, D) {
       }
     }
     keyBox.replaceChildren(...[
-      ...list.map((s) => el('span', {}, el('span', { class: 'sw', style: `color:var(--${cssVar(s.name)})` }, MARK[s.name]), `${s.label}${s.name === 'kaiming' ? '' : s.name === 'std_0.01' ? ' (dashed line)' : ' (dotted line)'}`)),
+      ...list.map((s) => el('span', {}, el('span', { class: 'sw', style: `color:var(--${cssVar(s.name)})` }, MARK[s.name]), `${s.label}, first run${s.name === 'kaiming' ? '' : s.name === 'std_0.01' ? ' (dashed line)' : ' (dotted line)'}`)),
+      list.length === 1 && list[0].band.length ? el('span', {}, el('span', { class: 'sw mean' }), `white line: average of the ${first.n_extra_seeds} other draws`) : null,
       list.some((s) => s.band.length) ? el('span', { style: list.length === 1 ? `color:var(--${cssVar(list[0].name)})` : 'color:var(--muted)' }, el('span', { class: 'sw band' }), `shaded band${list.length > 1 ? 's' : ''}: lowest to highest over ${first.n_extra_seeds} other random draws`) : null].filter(Boolean));
-    vals.replaceChildren(...list.map((s) => el('div', {}, el('b', {}, `${s.label}: `), s.points.filter((q) => q.layer >= 1).map((q) => fmtSci(q.std)).join(' → '))));
+    vals.replaceChildren(...list.flatMap((s) => [
+      el('div', {}, el('b', {}, `${s.label}, first run: `), s.points.filter((q) => q.layer >= 1).map((q) => fmtSci(q.std)).join(' → ')),
+      list.length === 1 && s.band.length ? el('div', {}, el('b', {}, `${first.n_extra_seeds}-draw average: `), s.band.map((b) => fmtSci(b.mean)).join(' → ')) : null].filter(Boolean)));
   }
   draw();
   const stop = watchWidth(host, draw);

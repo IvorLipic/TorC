@@ -314,16 +314,74 @@ test('lesson text: quoted numbers are bound to the trace and the derived ones re
     'grow-lo': Math.min(...ratios('std_1.0')), 'grow-hi': Math.max(...ratios('std_1.0')),
     'shrink-lo': Math.min(...ratios('std_0.01')), 'shrink-hi': Math.max(...ratios('std_0.01')),
     'grow-pred': Math.sqrt(256 / 2) * 1.0, 'shrink-pred': Math.sqrt(256 / 2) * 0.01,
+    'n-outputs': 2 * 2, 'relu-std': Math.sqrt(1 - 1 / Math.PI), 'kaiming-scale': Math.sqrt(2 / 256),
   };
   assert.deepEqual(Object.keys(CALCS).sort(), Object.keys(expected).sort(), 'every derived number has an independent check');
   const spans = [...html.matchAll(/<span class="calc" data-calc="([^"]+)"[^>]*>([^<]*)<\/span>/g)];
-  assert.ok(spans.length >= 8, 'derived numbers are used in the lesson');
+  assert.ok(spans.length >= 12, 'derived numbers are used in the lesson');
+  for (const k of Object.keys(expected)) assert.ok(spans.some((m) => m[1] === k), `derived number ${k} is used in the prose`);
   for (const [, key, shown] of spans) assert.equal(shown, calcText(expected[key]), `derived ${key}`);
   // the human-readable claims behind them
   assert.equal(calcText(expected['edit-y12']), '0.3');
   assert.equal(calcText(expected['edit-y22']), '-1.2');
   assert.equal(calcText(expected['grow-pred']), '11.3');
+  assert.equal(calcText(expected['n-outputs']), '4');
+  assert.equal(calcText(expected['relu-std']), '0.826');
+  assert.equal(calcText(expected['kaiming-scale']), '0.0884');
   assert.ok(expected['grow-lo'] > 11 && expected['grow-hi'] < 12.5, 'growth per layer for init_std 1.0');
+});
+
+test('review fixes: the page says what the data supports', () => {
+  const html = renderLesson(lesson, D).map((p) => p.html).join('\n');
+  const text = html.replace(/<[^>]+>/g, ' ');
+  const sig = (name) => data.signal.find((s) => s.name === name);
+  // (3) the gotcha lists Linear failures only: no MSELoss broadcast message anywhere on the page
+  assert.doesNotMatch(html, /Cannot broadcast|MSELoss/);
+  assert.match(html, /matmul inner dimensions must match, got \(2, 2\) and \(3, 2\)/);
+  assert.match(html, /Linear features must be positive/);
+  assert.match(text, /zero inputs or zero outputs is refused/);
+  // (1) the Kaiming bullet quotes the ten-seed average and range, and admits that the first run ends higher
+  const k = sig('kaiming'), a6 = k.across_seeds[5];
+  assert.ok(k.layers[6].post_std > a6.post_std_max, 'the first run really does end above the band (the prose says so)');
+  for (const path of ['across_seeds.0.post_std_mean', 'across_seeds.5.post_std_mean', 'across_seeds.5.post_std_min', 'across_seeds.5.post_std_max']) assert.ok(html.includes(`data-trace="files.linear.signal.0.${path}"`), path);
+  assert.match(text, /happens to end higher/);
+  assert.doesNotMatch(text, /stays close to the same value|stay near/);
+  // (2) std versus second moment: the root-mean-square after layer 1 is quoted and the expected sqrt(1 - 1/pi) is labelled derived
+  assert.ok(html.includes('data-trace="files.linear.signal.0.layers.1.post_rms"'));
+  assert.ok(Math.abs(k.layers[1].post_std / Math.sqrt(1 - 1 / Math.PI) - 1) < 0.01, 'layer 1 std is within 1% of sqrt(1 - 1/pi)');
+  assert.ok(k.layers[1].post_rms > 0.99 && k.layers[1].post_rms < 1.01);
+  assert.match(text, /spread is smaller than their root-mean-square/);
+  // (4) the predict question does not give its answer away, and comes before the widget that would show it
+  const pi = lesson.sections.findIndex((s) => s.id === 'predict-dx'), wi = lesson.sections.findIndex((s) => s.id === 'linear-backward');
+  assert.ok(pi >= 0 && pi < wi, 'predict-dx comes before the gradient widget');
+  const predict = lesson.sections[pi];
+  assert.doesNotMatch(predict.prompt(D, makeT(D)), /column sums|sum loss|Switch the widget/i);
+  assert.match(predict.reveal(D, makeT(D)), /Switch the widget below/);
+  // (5) zero weights: scoped to a hidden layer
+  assert.match(text, /Not in a hidden layer/);
+  assert.match(text, /all-equal weights in a hidden layer/);
+  assert.doesNotMatch(text, /No\. Only the bias starts at zero|all-zero weights are not a safe start/);
+  // (6) the seed is explained, with the standard library the recorded run used
+  assert.match(text, /std::random_device/);
+  assert.ok(text.includes(data.library.compiler.replace(/&/g, '&amp;')) || text.includes(data.library.compiler), 'the compiler / standard library of the run is named');
+  assert.match(text, /another C\+\+ standard library may give different numbers/);
+  // LOW: N = 4 stated, parenthesised negatives after a plus sign, one experiment at three scales, convention wording
+  assert.match(text, /N\s*=\s*4/);
+  assert.doesNotMatch(text, /\+\s*-\d/, 'no "+ -0.1" in prose');
+  assert.match(text, /One experiment, three scales/);
+  assert.match(text, /nothing on this page trains a network/);
+  assert.doesNotMatch(text, /far outside anything a loss function/);
+  assert.doesNotMatch(text, /row-major storage keeps/);
+  assert.match(text, /convention/);
+  // the one-experiment claim itself: Kaiming and std 0.01 values are the std 1.0 values times scale^layer (up to float32 rounding)
+  const big = sig('std_1.0'), small = sig('std_0.01');
+  for (let l = 1; l <= 6; l++) {
+    assert.ok(Math.abs(k.layers[l].post_std / (big.layers[l].post_std * Math.sqrt(2 / 256) ** l) - 1) < 1e-5, `Kaiming layer ${l} is std 1.0 rescaled`);
+    assert.ok(Math.abs(small.layers[l].post_std / (big.layers[l].post_std * 0.01 ** l) - 1) < 1e-5, `std 0.01 layer ${l} is std 1.0 rescaled`);
+  }
+  // ReLU, variance, normal distribution are explained where they first appear
+  assert.match(text, /ReLU is a layer that replaces every negative number by 0/);
+  assert.match(text, /variance[^.]*\(the square of their standard deviation\)/);
 });
 
 test('lesson text: every LaTeX string in the prose parses (KaTeX throwOnError)', () => {
