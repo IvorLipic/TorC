@@ -20,7 +20,6 @@ const CSS = `
 .lin-is .sw.band{width:18px;height:12px;background:color-mix(in srgb,currentColor 25%,transparent);border:1px solid currentColor}
 .lin-is .ih-bar{fill:rgba(88,196,221,.55);stroke:var(--fwd);stroke-width:1}
 .lin-is .ih-exp{stroke:var(--warn);stroke-width:2.2;stroke-dasharray:6 4;fill:none}
-.lin-is .plot{max-height:none}
 .lin-is .is-line{fill:none;stroke-width:2.4}
 .lin-is .is-band{stroke:none;fill-opacity:.2}
 .lin-is .is-line.s-kaiming{stroke:var(--fwd)}
@@ -39,13 +38,10 @@ const CSS = `
 .lin-is .is-vals div{margin:.25rem 0;font-family:ui-monospace,monospace;font-size:.85rem;color:#c4ccd5;overflow-wrap:anywhere}
 .lin-is .is-vals b{font-family:system-ui;color:var(--fg)}
 .lin-is select{font:inherit;font-size:.95rem;color:var(--fg);background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:.3rem .5rem;max-width:100%}
-.lin-is .plot-table{max-width:100%;overflow-x:auto}
 .lin-is .plot-table button{margin-top:.3rem}
 .lin-is .plot-table th,.lin-is .plot-table td{white-space:nowrap}
 `;
 
-// plot.js gives every plot a <marker id="plot-arrow">; these plots draw no arrows, and two plots on one page would repeat the id.
-const dropUnusedDefs = (p) => p.root.querySelector('#plot-arrow')?.closest('defs')?.remove();
 const plotWidth = (host) => Math.max(300, Math.min(860, Math.round((host.clientWidth || 640) - 28)));
 const watchWidth = (host, redraw) => {
   if (typeof ResizeObserver === 'undefined') return () => {};
@@ -86,7 +82,6 @@ export function mountWeightHistogram(host, D) {
     const p = createPlot(plotBox, { width: w, height: Math.round(Math.max(w * 0.33 + 20, 250)), x: [s.histogram.lo, s.histogram.hi], y: [0, ymax], xLabel: 'weight value', yLabel: w < 480 ? 'count' : 'weights per bin',
       ariaLabel: `Histogram of the ${s.numel} weights of ${statsLabel(s)}; ${s.numel > 100 ? 'bell shaped, centred on zero' : 'a handful of values'}. A table view follows.`, margin: { l: 56 } });
     plotBox.replaceChildren(p.root);
-    dropUnusedDefs(p);
     p.axes({ xTicks: [-4, -2, 0, 2, 4].map((k) => k * sigma), yTicks: yt, fmt: fmtSci });
     const bars = p.layer('bars');
     for (const b of bins) if (b.count > 0) bars.append(svg('rect', { class: 'ih-bar', x: p.sx(b.lo) + 0.5, y: p.sy(b.count), width: Math.max(1, p.sx(b.hi) - p.sx(b.lo) - 1), height: p.sy(0) - p.sy(b.count) }));
@@ -157,7 +152,6 @@ export function mountInitSignal(host, D) {
     const p = createPlot(plotBox, { width: w, height: h, x: [-0.3, 6.3], y: yDom, xLabel: 'layer (0 = the input)', yLabel: w < 480 ? (logAxis ? 'std (log)' : 'std') : (logAxis ? 'std of the activations (log scale)' : 'std of the activations'), margin: { l: logAxis ? 62 : 56 },
       ariaLabel: `Standard deviation of the activations over six layers for ${list.map((s) => s.label).join(', ')}. A table view follows.` });
     plotBox.replaceChildren(p.root);
-    dropUnusedDefs(p);
     p.axes({ xTicks: [0, 1, 2, 3, 4, 5, 6], yTicks: logAxis ? [] : yTicks, fmt: (v) => String(Number(v.toPrecision(3))) });
     if (logAxis) {
       const g = svg('g', { class: 'plot-axes' });

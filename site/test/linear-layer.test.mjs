@@ -282,16 +282,17 @@ test('lesson text: quoted numbers are bound to the trace and the derived ones re
   const html = parts.map((p) => p.html).join('\n');
   // numbers the plan and the note promise to quote (bound by T, so a change of the trace changes the page)
   const bound = (path, shown) => { assert.ok(html.includes(`data-trace="${path}">${shown}<`), `${path} should appear as ${shown}`); assert.equal(T.text(path), shown); };
-  // exact integers (class "rec": the shared T() rounds to 4 significant digits, which would turn 26506 into 26510)
+  // exact integers: the shared T() keeps integers below 1e6 exact (it used to round 26506 to 26510); very small/large std values
+  // use their own bound span (class "rec", scientific form) and are re-resolved here
   const rec = [...html.matchAll(/<span class="rec" data-trace="([^"]+)"([^>]*)>([^<]*)<\/span>/g)];
-  assert.ok(rec.length >= 10);
+  assert.ok(rec.length >= 3);
   for (const [, path, attrs, shown] of rec) {
-    const v = resolvePath(D, path);
-    assert.equal(shown, /data-fmt="sci"/.test(attrs) ? fmtSci(v) : String(v), `${path} is shown as recorded`);
-    if (!/data-fmt="sci"/.test(attrs)) assert.ok(Number.isInteger(v), `${path} is an integer`);
+    assert.match(attrs, /data-fmt="sci"/);
+    assert.equal(shown, fmtSci(resolvePath(D, path)), `${path} is shown as recorded`);
   }
   for (const [path, shown] of [['files.linear.param_counts.0.total', '25120'], ['files.linear.param_counts.1.total', '26506'], ['files.linear.param_counts.0.layers.0.params.1.numel', '25088']]) {
-    assert.ok(html.includes(`data-trace="${path}" style="color:var(--fwd);font-variant-numeric:tabular-nums">${shown}<`), `${path} should appear as ${shown}`);
+    bound(path, shown);
+    assert.equal(resolvePath(D, path), Number(shown), `${path} is the recorded integer`);
   }
   bound('linear.y.value.0', '4.6');
   bound('linear.y.value.1', '-0.7');

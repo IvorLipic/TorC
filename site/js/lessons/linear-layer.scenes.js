@@ -15,7 +15,7 @@ export const SCENES = {
     intro: '<code>nn::Linear</code> hides three operations: <code>transpose</code> turns the (out, in) weight into (in, out), <code>matmul</code> multiplies the batch by it, and <code>add</code> adds the bias row to every sample. Here they are as separate nodes, followed by an <code>mse</code> loss so the backward pass has a starting point. <code>W</code> and <code>b</code> are the learnable parameters (solid outline); <code>x</code> and <code>t</code> are data (dashed outline).',
     forwardHint: 'Forward: transpose, then matmul, then add, then the loss.',
     backwardHint: 'Backward: the loss gives <code>y</code> its gradient; <code>add</code> splits it between <code>xWt</code> and <code>b</code> (adding up the samples for <code>b</code>); <code>matmul</code> and <code>transpose</code> carry it on to <code>W</code>.',
-    takeaway: '<span><code>b</code> was copied to every sample, so its gradient is the <strong>sum over the samples</strong> of the gradient at <code>y</code>. <code>W</code> receives <code>dYᵀ x</code>: matmul sends <code>xᵀ dY</code> back to <code>Wt</code>, and transpose turns it round into <code>W</code>’s (out, in) shape. <code>x</code> is data, so nothing is computed for it.</span>',
+    takeaway: '<code>b</code> was copied to every sample, so its gradient is the <strong>sum over the samples</strong> of the gradient at <code>y</code>. <code>W</code> receives <code>dYᵀ x</code>: matmul sends <code>xᵀ dY</code> back to <code>Wt</code>, and transpose turns it round into <code>W</code>’s (out, in) shape. <code>x</code> is data, so nothing is computed for it.',
   },
   'linear-dx': {
     tab: '2 · Gradient to the input',
@@ -26,7 +26,7 @@ export const SCENES = {
     intro: 'The same three operations with a different loss, <code>sum(y)</code>, and with <code>x</code> marked trainable, as if it were the output of an earlier layer. With a sum every output has a gradient of exactly one, so the arithmetic is easy to follow.',
     forwardHint: 'Forward: transpose, matmul, add, then the sum.',
     backwardHint: 'Backward: a unit gradient enters at <code>y</code>; <code>matmul</code> sends <code>dY · W</code> to <code>x</code>.',
-    takeaway: '<span>Every row of <code>x</code>’s gradient equals the <strong>column sums of <code>W</code></strong>: <code>dX = dY · W</code> with <code>dY</code> all ones. This is the gradient a layer hands to the layer before it.</span>',
+    takeaway: 'Every row of <code>x</code>’s gradient equals the <strong>column sums of <code>W</code></strong>: <code>dX = dY · W</code> with <code>dY</code> all ones. This is the gradient a layer hands to the layer before it.',
   },
 };
 
@@ -51,17 +51,6 @@ export const CALCS = {
   'grow-pred': (D) => Math.sqrt(sig(D, 'std_1.0').width / 2) * sig(D, 'std_1.0').init_std,
   'shrink-pred': (D) => Math.sqrt(sig(D, 'std_0.01').width / 2) * sig(D, 'std_0.01').init_std,
 };
-
-// Exact integers. The shared T() formats with 4 significant digits (core/trace.js -> ops/texutil.js fmt), which turns the recorded
-// counts 25088 and 26506 into 25090 and 26510. Counts must be exact on this page, so they get their own bound span (class "rec");
-// site/test/linear-layer.test.mjs re-resolves every one of them against the trace, like lessons.test.mjs does for class "num".
-export function makeExact(D) {
-  return (path) => {
-    const v = resolvePath(D, path);
-    if (!Number.isInteger(v)) throw new Error(`exact("${path}"): not an integer (${v})`);
-    return `<span class="rec" data-trace="${path}" style="color:var(--fwd);font-variant-numeric:tabular-nums">${v}</span>`;
-  };
-}
 
 // Very small and very large recorded numbers in scientific form (the shared T() would print 0.000002173 and 2173000).
 export function makeSci(D) {

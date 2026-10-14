@@ -10,7 +10,7 @@ import { el, keepFocus } from '../core/dom.js';
 import { fmt } from '../ops/texutil.js';
 import { gearsTex } from './landscape-tex.js';
 import { makeModel, sameNumber } from './landscape-model.js';
-import { injectStyles, uid, slider, eqLine, badgeEl, BADGE, isolateArrows } from './landscape1d.js';
+import { injectStyles, uid, slider, eqLine, badgeEl, BADGE } from './landscape1d.js';
 
 const NAMES = { w: 'the knob', p: 'prediction', e: 'error', L: 'loss' };
 const signed = (v) => (v > 0 ? '+' : v < 0 ? '−' : '') + fmt(Math.abs(v));
@@ -19,7 +19,6 @@ export function mountGears(host, D) {
   const files = D.files['why-gradients'], m = makeModel(D.scenes.why);
   injectStyles();
   injectGearStyles();
-  isolateArrows(host);
   host.classList.add('ls-host');
   const key = uid('g');
   let delta = files.nudge.delta;

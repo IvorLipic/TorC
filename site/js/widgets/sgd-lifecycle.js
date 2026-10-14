@@ -6,7 +6,7 @@
 // ones (tests). Pure helper: lifecycleReduce(state, action, model, lr) -> {state, note, highlight, tab} (used by the tests).
 import { el } from '../core/dom.js';
 import { makeModel, sgdStep } from '../optim.js';
-import { injectStyle, SHARED_CSS, badge, isolateArrows, fmt } from './sgd-ui.js';
+import { injectStyle, SHARED_CSS, badge, fmt } from './sgd-ui.js';
 import { codePanel } from './sgd-code.js';
 
 export const START = { w: 0, b: 0, gw: null, gb: null, calls: [] };
@@ -90,7 +90,6 @@ export function mountLifecycle(host, D) {
   root.append(badge('browser', 'You are driving a sandbox that uses the JavaScript port of TorC’s rules; the code on the right is the real library source (release ' + O.library.ref + '), and the first states match what TorC printed.'),
     status, el('div', { class: 'grid2' }, left, right));
   host.append(root);
-  isolateArrows(root);
 
   const markTabs = () => tabBtns.forEach(([id, b]) => b.setAttribute('aria-pressed', String(view.tab === id)));
   function drawCode() {

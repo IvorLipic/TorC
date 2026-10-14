@@ -37,11 +37,6 @@ export function badgeEl() {
   return b;
 }
 
-// keep ←/→ on this widget's controls from also stepping the graph lab further down the page (it listens on `document`)
-export function isolateArrows(host) {
-  host.addEventListener('keydown', (e) => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') e.stopPropagation(); });
-}
-
 export function slider({ key, label, min, max, step, value, onInput, show, valueText, hint }) {
   const id = uid('lsin');
   const input = el('input', { type: 'range', id, min, max, step, value, 'data-key': key });
@@ -92,7 +87,6 @@ const diamond = (p, x, y, r = 7) => svg('path', { d: `M${p.sx(x)},${p.sy(y) - r}
 function frame(host, name) {
   injectStyles();
   host.classList.add('ls-host');
-  isolateArrows(host);
   const root = el('div', { class: `ls ls-${name}` });
   const plotBox = el('div', { class: 'ls-plotbox' });
   const side = el('div', { class: 'ls-side' });
@@ -375,7 +369,7 @@ export function mountStepSize(host, D) {
       const ws = st.map((s) => s.w), lo = Math.min(...ws, m.wMin), hiV = Math.max(...ws, m.wMin), pad = (hiV - lo) * 0.12 || 1;
       const yr = [lo - pad, hiV + pad];
       q2.querySelector('svg')?.remove();
-      const pp = createPlot(document.createElement('div'), { width: isNarrow() ? 400 : 640, height: isNarrow() ? 220 : 200, x: [0, STEPS], y: yr, xLabel: 'step k', yLabel: 'w', ariaLabel: `w against the step number at lr = ${fmt(lr)}: ${v.text}.` });
+      const pp = createPlot(q2, { width: isNarrow() ? 400 : 640, height: isNarrow() ? 220 : 200, x: [0, STEPS], y: yr, xLabel: 'step k', yLabel: 'w', ariaLabel: `w against the step number at lr = ${fmt(lr)}: ${v.text}.` });
       pp.axes({ xTicks: ticks([0, STEPS], 8), yTicks: ticks(yr, 4) });
       pp.line(0, m.wMin, STEPS, m.wMin, { class: 'ls-ref', layer: 'ref' });
       pp.polyline(st.map((s) => [s.k, s.w]), { class: 'ls-path', layer: 'path' });
@@ -409,7 +403,6 @@ const CSS = `
 .ls-host{margin:14px 0}
 .ls{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(290px,1fr);gap:10px 22px;align-items:start}
 .ls-plotbox{min-width:0}
-.ls-plotbox .plot{max-height:min(46vh,340px)}
 .ls-side{display:flex;flex-direction:column;gap:10px;min-width:0}
 .ls-panel{background:var(--panel);border:1px solid var(--border);border-radius:var(--r);padding:.65rem .9rem;min-width:0}
 .ls-panel h4{margin:.5rem 0 .1rem}.ls-panel h4:first-child{margin-top:0}
@@ -454,7 +447,7 @@ p.ls-hint{margin:.3rem 0}
 .ls-zone{stroke-width:1.5}.ls-zone.ok{fill:rgba(131,193,103,.14);stroke:var(--ok)}.ls-zone.bad{fill:rgba(252,98,85,.1);stroke:var(--bwd);stroke-dasharray:5 3}
 .ls-zl{fill:var(--fg);font-size:12px}.ls-tl{fill:var(--muted);font-size:12px}.ls-ml{fill:var(--fg);font-size:12px;font-weight:700}
 .ls-tick{stroke:var(--muted);stroke-width:1.5}.ls-mark{fill:var(--fg)}
-@media(max-width:860px){.ls{grid-template-columns:minmax(0,1fr)}.ls-plotbox .plot{max-height:none}}
+@media(max-width:860px){.ls{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:480px){.ls-panel{padding:.55rem .65rem}.ls-eq{font-size:.88rem}.ls-table{font-size:.78rem}.ls-table th,.ls-table td{padding:.2rem .3rem}}
 `;
 export function injectStyles() {

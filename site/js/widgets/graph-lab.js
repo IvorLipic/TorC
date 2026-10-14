@@ -4,6 +4,9 @@
 //
 //   mountGraphLab(host, { scenes: {id: scene}, layouts: {id: layout}, defaultScene })  ->  { destroy() }
 //
+// Arrow keys step the lab only when focus is inside it, or nowhere (see labOwnsArrows). `goal`, `intro`, `takeaway` and the hints are
+// HTML fragments, in the lab and in the math window alike (docs/authoring.md).
+//
 // State lives here (one lab per page). View state is kept in the URL hash as "#<sceneId>/<step>".
 import { $, el, keepFocus } from '../core/dom.js';
 import { math } from '../core/katex.js';
@@ -25,10 +28,26 @@ const MARKUP = `
     <div class="graph-wrap"><div id="graph" class="graph"></div></div>
     <div id="window" class="win" aria-live="polite"></div>`;
 
+// Which keyboard events may step the lab? Pure (no DOM) so it can be tested: `d` describes the event target.
+//   tag / editable: the target is a form field (arrow keys move the caret or the value there, never the lab)
+//   inLab:          the target is inside this lab's host element
+//   atPage:         nothing is focused (the target is <body>/<html>) - the lab then owns the arrows, but only if it is the one lab
+//   labCount:       how many labs are on the page
+// A control of ANOTHER widget (a slider, a button, a table region ...) is neither inLab nor atPage, so its arrows are its own.
+export function labOwnsArrows({ tag = '', editable = false, inLab = false, atPage = false, labCount = 1 }) {
+  if (editable || /^(INPUT|TEXTAREA|SELECT)$/i.test(tag)) return false;
+  return inLab || (atPage && labCount === 1);
+}
+function describeTarget(t, host) {
+  const atPage = !t || t === document || t === document.body || t === document.documentElement;
+  return { tag: t?.tagName ?? '', editable: !!t?.isContentEditable, inLab: !!t && host.contains(t), atPage, labCount: document.querySelectorAll('[data-graph-lab]').length };
+}
+
 export function mountGraphLab(host, { scenes, layouts, defaultScene }) {
   const ac = new AbortController();
   const { signal } = ac;
   host.innerHTML = MARKUP;
+  host.setAttribute('data-graph-lab', '');
   const state = { sceneId: defaultScene, overrides: {}, step: 0, sel: null, tab: null, pop: false };
   let D = null;
   const q = (sel) => $(sel, host);
@@ -108,7 +127,9 @@ export function mountGraphLab(host, { scenes, layouts, defaultScene }) {
     const L = D.layout, last = state.step === D.tl.length - 1;
     const g = q('#goal');
     g.className = 'goal' + (last ? ' done' : '');
-    g.innerHTML = last ? `<strong>Takeaway.</strong> ${L.takeaway}` : `<strong>${L.goal}</strong> <span class="expr">${math(exprTex(), false)}</span>`;
+    // goal / takeaway are HTML fragments (code, bold ... allowed). Each sits in ONE .goal-text span: .goal is a flex row, so loose
+    // inline pieces would otherwise become separate flex items with gaps between them.
+    g.innerHTML = last ? `<span class="goal-text"><strong>Takeaway.</strong> ${L.takeaway}</span>` : `<span class="goal-text"><strong>${L.goal}</strong></span> <span class="expr">${math(exprTex(), false)}</span>`;
   }
   function render() {
     keepFocus(() => {
@@ -139,7 +160,7 @@ export function mountGraphLab(host, { scenes, layouts, defaultScene }) {
   }
   window.addEventListener('hashchange', () => { if (!D || !layouts[parseHash(location.hash).parts[0]]) return; readHash(); state.sel = null; refresh(true); }, { signal });
   document.addEventListener('keydown', (e) => {
-    if (!D || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (!D || e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || !labOwnsArrows(describeTarget(e.target, host))) return;
     if (e.key === 'ArrowRight') { go(state.step + 1); e.preventDefault(); }
     else if (e.key === 'ArrowLeft') { go(state.step - 1); e.preventDefault(); }
   }, { signal });
@@ -149,5 +170,5 @@ export function mountGraphLab(host, { scenes, layouts, defaultScene }) {
   syncSelection();
   render();
 
-  return { destroy: () => ac.abort(), state };
+  return { destroy: () => { ac.abort(); host.removeAttribute('data-graph-lab'); }, state };
 }

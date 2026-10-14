@@ -40,6 +40,38 @@ math window and inputs popover for any scenes in the trace format. A layout per 
 see `js/lessons/backprop-lab.scenes.js`. The four parts (`graph`, `stepper`, `math-window`, `inputs-popover`) can be used
 separately. There is one lab per page (it uses fixed element ids).
 
+- **Layout text is HTML.** `goal`, `intro`, `forwardHint`, `backwardHint` and `takeaway` are HTML fragments everywhere they appear
+  (the goal line, the takeaway box and the math window's intro heading all insert them as markup). Plain text works as it is; use
+  `<code>`, `<strong>`, `<em>` freely, with no wrapper element (the lab puts the goal/takeaway into one inline span itself, so
+  phones do not split it into separate flex items). Write `&amp;` and `&lt;` for a literal `&` or `<` that is not followed by a
+  space. Numbers still come from `T()` (or are covered by a test).
+- **Keyboard.** `←`/`→` step the lab only when focus is inside the lab, or when nothing is focused and the lab is the only one on the
+  page (`labOwnsArrows` in `graph-lab.js`, unit-tested). Controls of other widgets (sliders, buttons, tables) keep their arrow keys
+  without any `stopPropagation` in the widget; do not add one.
+- **Numbers on the graph.** `fmt` (shared by `T()`, the graph and the math window) prints integer-valued numbers below 1e6 exactly
+  (`25088`) and rounds everything else to 4 significant digits. A contribution pill on an edge is signed (`+3`, `-6`, `+0`), never
+  `+-6`; tensor contributions are labelled `c1`, `c2`, … and listed in the math window.
+
+### Plots (`widgets/plot.js`)
+`createPlot(host, {width, height, x, y, xLabel, yLabel, ariaLabel, margin?, responsive?, minWidth?, onResize?})` returns the plot API
+(`axes`, `curve`, `dot`, `line`, `tangent`, `text`, `heat`, `layer`, `clear`, `sx`, `sy`, `plotArea`, `destroy`); the header of the file
+lists every call. Rules for lessons:
+- **Create the plot inside the element it lives in** (not in a detached `div` that is inserted later): the width is measured from `host`
+  at creation. `width`/`height` are the design size; a host narrower than `width` (a phone) gets a plot built at the host's width, so the
+  11-12px text is never scaled down. A host wider than the design size scales the SVG up, capped at 78% of the viewport height (the
+  SVG's `max-width` is its aspect times that height), so a plot never letterboxes and never exceeds the screen. `responsive: false`
+  keeps the design size whatever the host is.
+- **Redraw on resize with `onResize(plot, {width, height})`.** When given, a `ResizeObserver` rebuilds the geometry when the host
+  width changes (rotating a phone, resizing a window): the plot clears its axes and all layers, updates `sx`, `sy`, `width`, `height`
+  and `plotArea` in place, and calls `onResize` - which must draw the content again (put the drawing in one function, call it
+  once after `createPlot` and pass it as `onResize`). Keep widget state (the slider value, the selection) outside the drawing function.
+  Without `onResize` the size is decided once at creation, which is fine for a plot that is rebuilt on every input anyway.
+- **Ids are per plot** (clip path, and the arrow marker, which only exists when `line(…, {arrow: true})` is used), so any number of
+  plots can share a page; do not strip or reference `plot-arrow`.
+- **`heat(grid)`** draws one rectangle per grid point; the cells tile the plot exactly (edge cells reach as far outward as inward).
+- **`tableToggle`** wraps its table in a horizontal scroll box (`.plot-table-scroll`), so wide tables scroll inside it on a phone;
+  no extra wrapper is needed. **`fmtTick`** gives 4 significant digits and exponent form (`1.5e6`, `2e-4`) beyond 1e6 / below 1e-3.
+
 ## Add a scene
 1. **Trace**: in `tools/trace/` add a `Scene` (leaf values, a builder that registers every node with
    `g.op(name, opName, <real torc op>)`, constants listed in `s.constants`). Keep every tracked `Variable` alive (the program

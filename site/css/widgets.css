@@ -64,7 +64,7 @@
 .wtab[aria-selected=true].forward,.wtab[aria-selected=true].input{color:var(--fwd);border-color:var(--fwd)}
 .wtab[aria-selected=true].backward,.wtab[aria-selected=true].grad{color:var(--bwd);border-color:var(--bwd)}
 .blk p{margin:.2rem 0 .3rem;color:#c4ccd5;font-size:.97rem}
-.math{overflow-x:auto;padding:.1rem 0}
+.math{overflow-x:auto;max-width:100%;padding:.1rem 0}
 .math .katex-display{margin:.35em 0}
 @media(max-width:640px){.controls{position:static}.win{padding:.8rem 1rem}}
 .in-vals{flex-direction:column}.in-row{display:flex;gap:6px}
@@ -88,6 +88,7 @@
 .popover[hidden]{display:none}
 .goal{font-size:.98rem;color:#c4ccd5;min-height:2.9em;display:flex;align-items:center;flex-wrap:wrap;gap:0 .8rem;line-height:1.4}
 .goal strong{color:var(--fg)}
+.goal-text{min-width:0}
 .goal .expr{margin:0;display:inline}
 .goal .expr .katex{font-size:1.05em}
 .goal.done{background:rgba(131,193,103,.08);border:1px solid rgba(131,193,103,.5);border-radius:10px;padding:.3rem .8rem;font-size:.92rem}
@@ -99,7 +100,8 @@
 .lab .graph-wrap{margin:0;flex:none}
 .lab .graph svg{max-height:min(34vh,330px)}
 .lab .win{margin:0;flex:1 1 0;min-height:200px;overflow:auto;padding:.7rem 1.1rem 1rem}
-.win-body{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));column-gap:28px}
+.win-body{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(360px,100%),1fr));column-gap:28px}
+.win-body>*{min-width:0}
 .win-head h3{font-size:1.1rem}
 .blk{break-inside:avoid}
 .blk h4{margin:.6rem 0 .1rem}
@@ -109,12 +111,12 @@
   .lab .win{flex:none;overflow:visible}
   .lab .graph svg{max-height:none}
   .lab .controls{position:sticky;top:46px;z-index:20;background:rgba(14,17,22,.95)}
-  .win-body{grid-template-columns:1fr}
+  .win-body{grid-template-columns:minmax(0,1fr)}
   .goal{min-height:0}
 }
 
 /* plot.js */
-.plot{display:block;width:100%;height:auto;max-height:46vh}
+.plot{display:block;width:100%;height:auto;margin-inline:auto}   /* plot.js caps max-width inline (aspect x viewport height): never taller than the viewport, and no letterboxing */
 .plot text{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
 .plot-frame{stroke:var(--border);stroke-width:1}
 .plot-grid{stroke:var(--border);stroke-width:.5;opacity:.5}
@@ -127,7 +129,9 @@
 .plot-text{fill:var(--fg);font-size:12px}
 .plot-arrow{fill:var(--bwd)}
 .plot-table{margin:.4rem 0}
+.plot-table-scroll{max-width:100%;overflow-x:auto}
 .plot-table table{width:100%;border-collapse:collapse;font-size:.85rem;margin-top:.4rem}
 .plot-table caption{text-align:left;color:var(--muted);padding-bottom:.2rem}
 .plot-table th,.plot-table td{border-bottom:1px solid var(--border);padding:.2rem .5rem;text-align:right;font-family:ui-monospace,monospace}
+.plot-table td{white-space:nowrap}
 .plot-table th{color:var(--muted);font-weight:600}

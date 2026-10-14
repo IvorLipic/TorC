@@ -80,4 +80,8 @@ test('the numbers quoted in the Backprop lab takeaways are the ones the engine c
 });
 
 test('fmt', () => { assert.equal(fmt(-0), '0'); assert.equal(fmt(0.22000006), '0.22'); assert.equal(fmt(1.1000000238), '1.1'); });
+test('fmt keeps integers below 1e6 exact and rounds the rest to 4 significant digits', () => {
+  assert.equal(fmt(25088), '25088'); assert.equal(fmt(26506), '26506'); assert.equal(fmt(-65536), '-65536'); assert.equal(fmt(999999), '999999');
+  assert.equal(fmt(12345.6), '12350'); assert.equal(fmt(1234.5678), '1235'); assert.equal(fmt(2173000), '2173000');
+});
 test('katex is the vendored build', () => { assert.equal(typeof katex.renderToString, 'function'); });

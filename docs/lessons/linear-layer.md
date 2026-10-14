@@ -98,8 +98,9 @@ only when the learner's numbers equal a recorded call, otherwise "Predicted with
 histograms and the six-layer table (a browser cannot reproduce C++'s RNG). Amber numbers in prose are arithmetic on recorded numbers (`CALCS`).
 
 **Content decisions.** Indices are 1-based in paper work. The recorded Linear(784, 32) / Linear(32, 32) / Linear(32, 10) counts light a badge in
-the explorer. Integers above 9999 and very small/large std values use their own bound span (`class="rec"`) because the shared `T()` rounds to 4
-significant digits (it would print 26510 for 26506 and 25090 for 25088); `linear-layer.test.mjs` re-resolves every one. Zero weights are taught
+the explorer. Very small/large std values use their own bound span (`class="rec"`, scientific form) because `T()` would print them in full; integers
+below 1e6 (25088, 26506) go through `T()`, which keeps them exact (`fmt` rounds only non-integers to 4 significant digits); `linear-layer.test.mjs`
+re-resolves every one. Zero weights are taught
 only as far as verified: equal rows give identical output columns (shown live); no claim about gradients of equal neurons beyond "the forward pass
 gives them no reason to differ". "Bigger init learns faster? No" is shown through the forward signal only; the backward statement is labelled
 *expected, not measured*. Not in the lesson: rank-3 inputs, anything about `MSELoss` with a broadcast target.

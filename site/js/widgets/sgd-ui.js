@@ -1,6 +1,6 @@
 // widgets/sgd-ui.js — small shared pieces for the sgd-step lesson widgets: one-time <style> injection, a labelled slider with a
-// number box, an honest "where do these numbers come from" badge, and arrow-key isolation (the graph lab listens for the arrow
-// keys on the whole document; widgets that use arrows themselves must not move the graph).
+// number box, an honest "where do these numbers come from" badge and a few sizing helpers.
+// (The graph lab only reacts to the arrow keys when focus is in the lab or nowhere, so widgets need no arrow-key isolation.)
 // Nothing here touches the DOM at import time (the lesson tests import every module in Node).
 import { el } from '../core/dom.js';
 export { fmt } from '../ops/texutil.js';
@@ -11,19 +11,6 @@ export function injectStyle(id, css) {
   s.id = id;
   s.textContent = css;
   document.head.append(s);
-}
-
-// Stop the arrow keys at the widget so the Backprop-lab style document listener does not also step the graph.
-export function isolateArrows(host) {
-  host.addEventListener('keydown', (e) => { if (e.key.startsWith('Arrow')) e.stopPropagation(); });
-}
-
-// plot.js' tableToggle table cannot scroll sideways on a phone: put it in a scroll container (the toggle keeps working on the table itself)
-export function scrollable(toggle) {
-  const box = el('div', { class: 'sgd-scroll' });
-  toggle.table.replaceWith(box);
-  box.append(toggle.table);
-  return toggle;
 }
 
 // width of a host in px, clamped (viewBox width for plots, so text keeps its size on a phone)
@@ -107,6 +94,5 @@ export const SHARED_CSS = `
 .sgd-w .plot-table table{max-height:none}
 .sgd-w details{margin:.5rem 0;color:#c4ccd5;font-size:.93rem}
 .sgd-w summary{cursor:pointer;color:var(--fwd)}
-.sgd-w .math{overflow-x:auto}
 @media(max-width:640px){.sgd-w{padding:.7rem .7rem .9rem}.sgd-field{min-width:100%}}
 `;

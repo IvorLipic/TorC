@@ -6,6 +6,11 @@ import { fmt, opTitle } from '../explain.js';
 
 export const NODE_W = 96, NODE_H = 44;
 export const vecTxt = (t) => (t.v.length === 1 ? fmt(t.v[0]) : '[' + t.v.map(fmt).join(', ') + ']');
+// A number as a *contribution* to a sum: always signed ("+2", "-6", "+0"), never "+-6". fmt() already prints the minus sign.
+export const signedTxt = (x) => { const s = fmt(x); return s.startsWith('-') ? s : '+' + s; };
+// Text of the pill on an edge that receives several contributions: the signed value for a single number, "c1", "c2", … for
+// a tensor (the math window lists those values; a pill is too small for them).
+export const pillTxt = (tensor, index) => (tensor.v.length === 1 ? signedTxt(tensor.v[0]) : 'c' + (index + 1));
 
 function clip(from, to, gap = 3) {
   const dx = to[0] - from[0], dy = to[1] - from[1];
@@ -51,7 +56,7 @@ export function renderGraph(root, { graph: g, bw, tl, layout: L, step, sel }, { 
       // contribution label after the consumer's backward step has happened
       if (send?.tracked && bwdIdx[n.name] !== undefined && step >= bwdIdx[n.name] && bw.steps.flatMap((st) => st.sends).filter((x) => x.to === src && x.tracked).length > 1) {
         const sendsTo = bw.steps.flatMap((st) => st.sends).filter((x) => x.to === src && x.tracked);
-        const txt = send.tensor.v.length === 1 ? '+' + vecTxt(send.tensor) : 'c' + (sendsTo.indexOf(send) + 1);
+        const txt = pillTxt(send.tensor, sendsTo.indexOf(send));
         const w = Math.max(30, txt.length * 7 + 12);
         pillLayer.append(svg('g', { class: 'contrib', transform: `translate(${mid[0]},${mid[1]})` },
           svg('rect', { x: -w / 2, y: -10, width: w, height: 20, rx: 10 }), svg('text', { 'text-anchor': 'middle', y: 4 }, txt)));

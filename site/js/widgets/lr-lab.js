@@ -14,7 +14,7 @@ import { math } from '../core/katex.js';
 import { createPlot, tableToggle } from './plot.js';
 import { mountContour2d } from './contour2d.js';
 import { makeModel, simulate, hessian, eigenvalues2, analyze, validateSGD } from '../optim.js';
-import { injectStyle, SHARED_CSS, badge, sliderField, isolateArrows, approx, round3, fmt, scrollable, fitWidth, onResize } from './sgd-ui.js';
+import { injectStyle, SHARED_CSS, badge, sliderField, approx, round3, fmt, fitWidth, onResize } from './sgd-ui.js';
 import { updateWindowData, updateTable } from './sgd-update-window.js';
 
 export const STEPS = 10;
@@ -99,10 +99,9 @@ export function mountDescent(host, D, { mode = 'step' } = {}) {
       : 'The runs below are recomputed live by the JavaScript port of TorC’s rules. When your settings equal a run TorC recorded, TorC’s losses appear as open circles on the loss curve. The critical learning rate is derived mathematics, not something TorC reports.'),
     ctl, status, el('div', { class: 'sgd-grid' }, left, right));
   host.append(root);
-  isolateArrows(root);
   const contour = mountContour2d(left, { model, base: { w: [-1, 5], b: [-1.5, 3] }, optimum: { w: optimum.w, b: optimum.b }, samples: O.surface.points });
   right.append(el('h4', { class: 'sub' }, 'Loss after each update (log scale, gridlines are powers of ten)'), chartHost, chartNote);
-  const chartTable = scrollable(tableToggle(right, { columns: ['update', 'loss (recomputed)', 'loss recorded by TorC'], rows: [], caption: 'Loss after each update' }));
+  const chartTable = tableToggle(right, { columns: ['update', 'loss (recomputed)', 'loss recorded by TorC'], rows: [], caption: 'Loss after each update' });
   right.append(updTitle, updHost);
   if (mode !== 'step') right.append(stab);
 

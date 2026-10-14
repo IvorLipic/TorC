@@ -10,7 +10,7 @@ import { el } from '../core/dom.js';
 import { math } from '../core/katex.js';
 import { tex, bar, tn, par } from '../ops/texutil.js';
 import { sgdStep, initialState } from '../optim.js';
-import { injectStyle, SHARED_CSS, badge, isolateArrows, fmt } from './sgd-ui.js';
+import { injectStyle, SHARED_CSS, badge, fmt } from './sgd-ui.js';
 
 // ---- pure: the window contents ----------------------------------------------------------------------------------------
 export function updateWindowData({ lr, momentum = 0, params }) {
@@ -79,7 +79,6 @@ export function mountUpdateWindow(host, D) {
   root.append(badge('torc', 'The “before” numbers and gradients are TorC’s; the “after” column is recomputed here with the same formula and equals TorC’s next state.'),
     el('div', { class: 'pick' }, prev, label, next), box, loss);
   host.append(root);
-  isolateArrows(root);
   function go(k) {
     u = Math.max(1, Math.min(COUNT, k));
     const a = rows[u - 1], z = rows[u];

@@ -13,7 +13,7 @@ export function makeLayouts(T) {
       intro: 'A line <code>y = w·x + b</code> is fitted to three points. <code>x</code> and <code>t</code> are <strong>data</strong> (dashed boxes: no gradient is wanted for them). <code>W</code> and <code>b</code> are the <strong>parameters</strong>, the numbers we want to improve. The graph computes the prediction <code>y</code> and the mean squared error <code>L</code>.',
       forwardHint: 'Forward: compute the prediction and the loss.',
       backwardHint: 'Backward: walk back from the loss and leave a gradient on <code>W</code> and <code>b</code>.',
-      takeaway: `<span>Backward left <code>W.grad</code> = ${T('sgd.W.grad')} and <code>b.grad</code> = ${T('sgd.b.grad')}. Now look at <code>W</code> and <code>b</code> themselves: still ${T('sgd.W.value')} and ${T('sgd.b.value')}. Computing a gradient changes nothing by itself; moving the parameters is the optimizer’s job.</span>`,
+      takeaway: `Backward left <code>W.grad</code> = ${T('sgd.W.grad')} and <code>b.grad</code> = ${T('sgd.b.grad')}. Now look at <code>W</code> and <code>b</code> themselves: still ${T('sgd.W.value')} and ${T('sgd.b.value')}. Computing a gradient changes nothing by itself; moving the parameters is the optimizer’s job.`,
     },
   };
 }

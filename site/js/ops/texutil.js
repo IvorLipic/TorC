@@ -1,8 +1,11 @@
 // ops/texutil.js — number/tensor formatting and LaTeX helpers used by every op's explanation text.
 import { numel } from './tensor.js';
 
+// Numbers shown to learners. Integer-valued numbers below 1e6 are exact (25088 stays 25088, never 25090); everything else is
+// rounded to 4 significant digits, switching to exponent form where JavaScript would (>= 1e21, < 1e-6).
 export function fmt(x) {
   if (Object.is(x, -0) || Math.abs(x) < 1e-9) return '0';
+  if (Number.isInteger(x) && Math.abs(x) < 1e6) return String(x);
   const s = Number(x.toPrecision(4)).toString();
   return s.includes('e') ? Number(x.toPrecision(3)).toExponential().replace('e+', 'e') : s;
 }

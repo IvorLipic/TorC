@@ -11,7 +11,7 @@ import { mountMatmulGrid } from '../widgets/matmul-grid.js';
 import { mountLinearBackward } from '../widgets/linear-backward.js';
 import { mountWeightHistogram, mountInitSignal } from '../widgets/init-signal.js';
 import { linearShapes, fmtShape } from '../widgets/linear-shapes.js';
-import { SCENES, makeCalc, makeExact, makeSci } from './linear-layer.scenes.js';
+import { SCENES, makeCalc, makeSci } from './linear-layer.scenes.js';
 
 const prose = (html) => `<section class="lin-prose" style="max-width:50rem">${html}</section>`;
 const tm = (latex) => math(latex, false);
@@ -29,9 +29,7 @@ const labCss = `
 .lin-parity .flag::before{content:"\\2713  ";color:var(--ok)}
 .lin-parity .flag.bad::before{content:"\\2717  ";color:var(--bwd)}
 .lin-labwrap{margin:0}
-/* the shared lab lets a wide formula stretch the one-column math window past a phone screen; let the grid track shrink instead */
 @media(min-width:901px){.lin-labwrap .lab{height:calc(100vh - 170px);min-height:560px}}
-@media(max-width:900px){.lin-labwrap .win-body{grid-template-columns:minmax(0,1fr)}}
 `;
 
 export default {
@@ -62,12 +60,12 @@ export default {
     },
     {
       kind: 'text',
-      html: (D, T) => { const X = makeExact(D); return prose(`<ul>
+      html: (D, T) => prose(`<ul>
       <li><strong>The width of <code>x</code> must equal <code>in</code>.</strong> It is the inner dimension of the matrix product, so it is where a mismatch shows up.</li>
       <li><strong>The batch size only changes the height of <code>x</code> and <code>y</code>.</strong> The parameters do not depend on it.</li>
-      <li><strong>Counting parameters is <code>in·out + out</code>.</strong> <code>Linear(784, 32)</code> has a weight of shape ${shp(T, `${WEIGHT}.shape`)}, which is ${X(`${WEIGHT}.numel`)} numbers, and a bias of ${T(`${BIAS}.numel`)} numbers: ${X(`${P}.param_counts.0.total`)} parameters in ${T(`${P}.param_counts.0.tensors`)} tensors. That is the count the real library reported for this layer.</li>
-      <li>The MNIST MLP of TorC’s examples is <code>Linear(784, 32)</code>, ReLU, <code>Linear(32, 32)</code>, ReLU, <code>Linear(32, 10)</code>: ${X(`${MLP}.layers.0.count`)} + ${X(`${MLP}.layers.2.count`)} + ${X(`${MLP}.layers.4.count`)} = ${X(`${MLP}.total`)} parameters in ${T(`${MLP}.tensors`)} tensors. Each ReLU adds ${T(`${MLP}.layers.1.count`)}: it has nothing to learn.</li>
-    </ul>`); },
+      <li><strong>Counting parameters is <code>in·out + out</code>.</strong> <code>Linear(784, 32)</code> has a weight of shape ${shp(T, `${WEIGHT}.shape`)}, which is ${T(`${WEIGHT}.numel`)} numbers, and a bias of ${T(`${BIAS}.numel`)} numbers: ${T(`${P}.param_counts.0.total`)} parameters in ${T(`${P}.param_counts.0.tensors`)} tensors. That is the count the real library reported for this layer.</li>
+      <li>The MNIST MLP of TorC’s examples is <code>Linear(784, 32)</code>, ReLU, <code>Linear(32, 32)</code>, ReLU, <code>Linear(32, 10)</code>: ${T(`${MLP}.layers.0.count`)} + ${T(`${MLP}.layers.2.count`)} + ${T(`${MLP}.layers.4.count`)} = ${T(`${MLP}.total`)} parameters in ${T(`${MLP}.tensors`)} tensors. Each ReLU adds ${T(`${MLP}.layers.1.count`)}: it has nothing to learn.</li>
+    </ul>`),
     },
     {
       kind: 'gotcha', title: 'Why did my Linear fail?',
@@ -156,7 +154,7 @@ export default {
     },
     {
       kind: 'text',
-      html: (D, T) => prose(`<p>For <code>Linear(784, 32)</code> the formula predicts a standard deviation of ${T(`${P}.init_stats.2.expected_std`)}; the ${makeExact(D)(`${P}.init_stats.2.numel`)} weights TorC drew have ${T(`${P}.init_stats.2.std`)}, and their mean is ${T(`${P}.init_stats.2.mean`)}, close to zero. Now pick the three <code>Linear(784, 32)</code> cases one after the other: the bars keep their shape and only the numbers on the horizontal axis change. <strong>The initialisation chooses the scale of the bell, nothing else.</strong> So which scale is right?</p>
+      html: (D, T) => prose(`<p>For <code>Linear(784, 32)</code> the formula predicts a standard deviation of ${T(`${P}.init_stats.2.expected_std`)}; the ${T(`${P}.init_stats.2.numel`)} weights TorC drew have ${T(`${P}.init_stats.2.std`)}, and their mean is ${T(`${P}.init_stats.2.mean`)}, close to zero. Now pick the three <code>Linear(784, 32)</code> cases one after the other: the bars keep their shape and only the numbers on the horizontal axis change. <strong>The initialisation chooses the scale of the bell, nothing else.</strong> So which scale is right?</p>
     <h3 style="margin-top:1.4rem">Why ${tm('\\sqrt{2/\\text{in}}')}?</h3>
     <p><em>Expected mathematics (not something TorC prints).</em> Every output is a sum of <code>in</code> products <code>w·a</code>. If the weights are independent with variance ${tm('s^2')}, that sum has variance about ${tm('\\text{in}\\cdot s^2\\cdot(\\text{typical }a^2)')}. ReLU then zeroes roughly half of the values, which halves the typical ${tm('a^2')}. Choosing ${tm('s^2 = 2/\\text{in}')} makes the two effects cancel: the typical size of the activations neither grows nor fades from layer to layer. With the default, about half of the ReLU outputs are exactly zero (${T(SIG(0, 1, 'frac_zero'))} of them after layer 1).</p>
     <p>Test it: send a batch through <strong>six</strong> layers of <code>Linear(256, 256)</code> + ReLU and look at the spread (standard deviation) of the numbers that come out of each layer.</p>`),
@@ -206,7 +204,7 @@ export default {
     {
       kind: 'check', id: 'check-shapes',
       prompt: () => `<p>You create <code>Linear(784, 32)</code> and feed it a batch of 8 samples. Predict the shapes of <code>W</code>, <code>b</code>, <code>x</code> and <code>y</code>, and the number of parameters. Then predict what TorC says if <code>x</code> has shape (8, 10) instead.</p>`,
-      reveal: (D, T) => { const s = linearShapes(784, 32, 8); return `<p><code>W</code> ${fmtShape(s.W)}, <code>b</code> ${fmtShape(s.b)}, <code>x</code> ${fmtShape(s.x)}, <code>y</code> ${fmtShape(s.y)}. Parameters: ${makeExact(D)(`${WEIGHT}.numel`)} + ${T(`${BIAS}.numel`)} = ${makeExact(D)(`${P}.param_counts.0.total`)}, whatever the batch size.</p>
+      reveal: (D, T) => { const s = linearShapes(784, 32, 8); return `<p><code>W</code> ${fmtShape(s.W)}, <code>b</code> ${fmtShape(s.b)}, <code>x</code> ${fmtShape(s.x)}, <code>y</code> ${fmtShape(s.y)}. Parameters: ${T(`${WEIGHT}.numel`)} + ${T(`${BIAS}.numel`)} = ${T(`${P}.param_counts.0.total`)}, whatever the batch size.</p>
       <p>With (8, 10), the recorded message is <code>${escapeHtml(recorded(D, 'linear-784x32-(8, 10)').what)}</code>: your input and then <code>Wᵀ</code> (784, 32); 10 ≠ 784.</p>`; },
     },
     {
