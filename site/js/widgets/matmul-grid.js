@@ -4,18 +4,17 @@
 //
 //   mountMatmulGrid(host, D, ctx) -> { destroy(), state }
 //
-// LIVE: every number is recomputed by JavaScript in the browser (plain arithmetic, linear-math.js). For the preset numbers the result is
-// compared with what TorC printed for the same inputs (scene `linear`, node y) and a badge says so.
+// Every number is recomputed in the browser (plain arithmetic, linear-math.js); site/test/linear-layer.test.mjs checks the preset
+// against what TorC printed for the same inputs (scene `linear`, node y).
 import { el } from '../core/dom.js';
 import { math } from '../core/katex.js';
 import { fmt } from '../ops/texutil.js';
-import { useBaseStyle, injectStyle, sourceBadge, matrixEl, clearMarks, markRow, markCell } from './linear-ui.js';
+import { useBaseStyle, injectStyle, matrixEl, clearMarks, markRow, markCell } from './linear-ui.js';
 import { exampleFromScene, linearForward, neuronTex, clone2, round7 } from './linear-math.js';
 
 const CSS = `
 .lin-mg .mg-mats{display:flex;flex-wrap:wrap;gap:14px 10px;align-items:flex-start;margin:.4rem 0}
 .lin-mg .lin-op{margin-top:2.6rem}
-.lin-mg .mg-story{font-size:.95rem;margin:.3rem 0;min-height:2.9em}
 .lin-mg .mg-twin{font-size:.9rem;margin:.3rem 0;color:var(--warn);min-height:1.4em}
 .lin-mg button.lin-y{background:var(--panel2)}
 @media(max-width:640px){.lin-mg .lin-op{margin-top:0;width:100%;text-align:center;font-size:1.2rem}}
@@ -26,7 +25,6 @@ export function mountMatmulGrid(host, D, ctx = {}) {
   injectStyle('lin-matmul-grid-style', CSS);
   host.classList.add('lin-mg');
   const base = exampleFromScene(D.scenes.linear);
-  const printed = base.y;                                    // what TorC printed for these inputs
   const B = base.x.length, nIn = base.x[0].length, nOut = base.W.length;
   const st = { x: clone2(base.x), W: clone2(base.W), b: base.b.slice(), pin: { i: 0, k: 1 }, hover: null };
   const bad = new Set();
@@ -60,10 +58,8 @@ export function mountMatmulGrid(host, D, ctx = {}) {
       return b;
     } });
 
-  const story = el('div', { class: 'mg-story', 'aria-live': 'polite' });
-  const paper = el('div', { class: 'lin-paper' });
+  const paper = el('div', { class: 'lin-paper', 'aria-live': 'polite' });
   const twin = el('div', { class: 'mg-twin', 'aria-live': 'polite' });
-  const badge = el('span');
 
   const refresh = () => {                                    // after buttons set many values at once
     for (let i = 0; i < B; i++) for (let j = 0; j < nIn; j++) mx.cells[i][j].value = String(st.x[i][j]);
@@ -73,16 +69,12 @@ export function mountMatmulGrid(host, D, ctx = {}) {
     update();
   };
   const buttons = el('div', { class: 'lin-btns' },
-    el('button', { type: 'button', class: 'btn small', onclick: () => { st.b = st.b.map(() => 0); refresh(); } }, 'Set b = 0 (TorC’s default)'),
-    el('button', { type: 'button', class: 'btn small', onclick: () => { st.W[1] = st.W[0].slice(); refresh(); } }, 'Copy neuron 1 into neuron 2'),
-    el('button', { type: 'button', class: 'btn small', onclick: () => { st.x = clone2(base.x); st.W = clone2(base.W); st.b = base.b.slice(); refresh(); } }, 'Reset to the real example'));
+    el('button', { type: 'button', class: 'btn small', onclick: () => { st.W[1] = st.W[0].slice(); st.b[1] = st.b[0]; refresh(); } }, 'Copy neuron 1 into neuron 2'),
+    el('button', { type: 'button', class: 'btn small', onclick: () => { st.x = clone2(base.x); st.W = clone2(base.W); st.b = base.b.slice(); refresh(); } }, 'Reset'));
 
   host.replaceChildren(
-    el('div', { class: 'lin-head' }, el('h3', {}, 'One output number = one neuron looking at one sample'), sourceBadge('live', 'Recomputed in your browser'), badge),
     el('div', { class: 'mg-mats' }, mx.root, el('span', { class: 'lin-op', 'aria-hidden': 'true' }, '·'), mw.root, el('span', { class: 'lin-op', 'aria-hidden': 'true' }, '+'), mb.root, el('span', { class: 'lin-op', 'aria-hidden': 'true' }, '='), my.root),
-    badNote, story, paper, twin,
-    el('p', { class: 'lin-note dim', style: 'margin:.2rem 0 .5rem' }, 'Edit any x, W or b box. We count from 1 in the maths: i = sample, k = neuron, j = input feature. Note the grid multiplies row k of W directly; TorC gets the same numbers by transposing W first (next section).'),
-    buttons);
+    badNote, paper, twin, buttons);
 
   function update() {
     const y = linearForward(st.x, st.W, st.b);
@@ -95,16 +87,10 @@ export function mountMatmulGrid(host, D, ctx = {}) {
     for (const m of [mx, mw, mb, my]) clearMarks(m);
     markRow(mx, act.i); markRow(mw, act.k); markCell(mb, 0, act.k); mb.colTags[act.k]?.classList.add('hl');
     markCell(my, act.i, act.k); my.rowTags[act.i]?.classList.add('hl'); my.colTags[act.k]?.classList.add('hl');
-    story.innerHTML = `Output <code>y[${act.i + 1},${act.k + 1}]</code> is the answer of <b>neuron ${act.k + 1}</b> (row ${act.k + 1} of <code>W</code>, plus its bias <code>b[${act.k + 1}]</code>) to <b>sample ${act.i + 1}</b> (row ${act.i + 1} of <code>x</code>): multiply the two rows entry by entry, add the products, add the bias.`;
     paper.innerHTML = math(neuronTex(st.x, st.W, st.b, act.i, act.k), true);
     // twin neurons: identical weights and biases give identical output columns
     const same = y.every((r) => Math.abs(r[0] - r[1]) < 1e-12);
-    twin.textContent = same ? 'Both columns of y are identical: two neurons with the same weights and the same bias answer every sample identically, so, in the forward pass, they are copies of each other.' : '';
-    // does the preset reproduce the real run?
-    const preset = st.x.every((r, i) => r.every((v, j) => v === base.x[i][j])) && st.W.every((r, k) => r.every((v, j) => v === base.W[k][j])) && st.b.every((v, k) => v === base.b[k]);
-    const agree = y.every((r, i) => r.every((v, k) => Math.abs(v - printed[i][k]) <= 1e-5 * (1 + Math.abs(printed[i][k]))));
-    badge.className = 'lin-badge ' + (preset ? (agree ? 'ok' : 'warn') : 'warn');
-    badge.textContent = preset ? (agree ? '✓ equals what the real TorC printed for these inputs' : '✗ differs from the real run') : 'your numbers (recomputed in the browser)';
+    twin.textContent = same ? 'The two columns of y are identical: the neurons are twins.' : '';
   }
 
   update();

@@ -35,9 +35,3 @@ export const SCENES = {
     takeaway: 'Matrix products and broadcasting follow the same two rules as everything else: multiply by the local slope, and add up what arrives. The bias <code>b1</code> was copied to both rows of the batch, so its gradient is the <strong>sum over the rows</strong>. ReLU blocked the gradient wherever <code>h</code> was negative — try changing <code>b1</code> or <code>x</code> and watch which entries switch on and off.',
   },
 };
-
-export const CONCEPTS = [
-  { h: '1 · Forward', p: 'Every operation computes its output from its inputs, and TorC remembers which operation produced what. That memory is the <em>computation graph</em>.' },
-  { h: '2 · Backward', p: 'Starting from the output (gradient 1), each node multiplies the gradient it received by its <em>local slope</em> and hands the result to its inputs. This is the chain rule.' },
-  { h: '3 · Accumulate', p: 'If a value was used in several places, each place sends a gradient back and TorC <em>adds</em> them. Nothing is overwritten.' },
-];

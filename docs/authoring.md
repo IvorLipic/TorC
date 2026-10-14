@@ -15,7 +15,7 @@ Lessons are short and dense. The interactive parts carry the lesson; the text on
   recorded-run overlays on lesson pages. The guarantee lives in the tests (`T()` binding, engine == trace), not in the prose.
 - **Widgets**: ≤ 2 controls plus Step/Reset; preset buttons instead of a slider where a slider adds nothing; a compact readout
   instead of explanations inside the widget; no visible tables (`srTable` gives screen readers the values).
-- The lesson test asserts the budget with `lessonStats` (`site/test/helpers.mjs`); see `why-gradients.test.mjs`.
+- `site/test/lessons.test.mjs` asserts the budget for every published lesson (`lessonStats` in `site/test/helpers.mjs`).
 
 ## Add a lesson
 1. **Trace data**: write the C++ trace program(s) (see "Add a scene"); the lesson lists the files it reads, e.g. `["why-gradients.json"]`.

@@ -36,9 +36,9 @@ Status legend: `[x]` done · `[~]` in progress · `[ ]` planned. The detailed cu
 - [x] Style budget in `docs/authoring.md`; `tldr` section kind; standard one-line footer; plot tables are screen-reader only
 - [x] `why-gradients` rewritten as the pilot (one merged bowl widget + graph lab; ~400 words) — awaiting owner review
 - [x] `sgd-step`: one landscape widget (Step, lr and momentum presets) + a `zero_grad` checkbox; graph lab, sandbox, update window removed (~400 words)
-- [ ] `linear-layer`: shape explorer with the matmul grid built in + the six-layer signal plot; drop graph lab, backward widget, histogram
-- [ ] `backprop-lab` hero/footer trim; course outcomes ≤ 12 words; time estimates 5-7 min
-- [ ] Generalise the budget test from `why-gradients.test.mjs` to `lessons.test.mjs` once every lesson meets it
+- [x] `linear-layer`: the matrix grid + the six-layer signal plot; shape explorer, graph lab, backward widget and histogram removed (~360 words)
+- [x] `backprop-lab` hero/footer trim (concept cards became the TL;DR); course outcomes ≤ 12 words; time estimates 6-7 min
+- [x] Budget test for every published lesson in `lessons.test.mjs`
 
 ## M4+ — Remaining library coverage
 Tensors/shapes/broadcasting, nn activations & losses, optimizers (Adam/AdamW), data loading, conv2d, end-to-end examples

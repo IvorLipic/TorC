@@ -26,7 +26,7 @@
         {
           "id": "backprop-lab",
           "title": "Backprop lab",
-          "outcome": "Step through forward and backward passes by hand with TorC’s real numbers, and see gradients add where a value is reused and multiply along a chain.",
+          "outcome": "Step through forward and backward passes; see gradients multiply and add.",
           "prereqs": [],
           "symbols": [
             "Variable",
@@ -37,7 +37,7 @@
           "trace": [
             "autograd_trace.json"
           ],
-          "est_minutes": 15,
+          "est_minutes": 7,
           "status": "published",
           "legacy_hashes": [
             "reuse",
@@ -76,7 +76,7 @@
         {
           "id": "linear-layer",
           "title": "nn::Linear: a layer as matmul plus bias",
-          "outcome": "Predict every shape from (in, out, batch), compute y = xWᵀ + b by hand, derive the gradients, count parameters and explain Kaiming initialisation.",
+          "outcome": "Shapes, one neuron per row of W, the backward formulas, and initialisation.",
           "prereqs": [
             "backprop-lab"
           ],
@@ -90,7 +90,7 @@
           "trace": [
             "linear.json"
           ],
-          "est_minutes": 20,
+          "est_minutes": 7,
           "status": "published"
         }
       ]

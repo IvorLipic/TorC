@@ -47,29 +47,5 @@ export function neuronTex(x, W, b, i, k) {
   ]);
 }
 
-export function gradWTex(dY, x, k, j) {
-  const B = dY.length, K = k + 1, J = j + 1;
-  const v = dY.reduce((s, r, i) => s + r[k] * x[i][j], 0);
-  return aligned([
-    `\\overline{W}_{${K}${J}} &= \\sum_{i=1}^{${B}} \\overline{y}_{i${K}}\\,x_{i${J}}`,
-    `&= ${joinPlus(dY.map((r, i) => `${par(r[k])}\\cdot ${par(x[i][j])}`))} = ${tn(v)}`,
-  ]);
-}
 
-export function gradBTex(dY, k) {
-  const B = dY.length, K = k + 1;
-  const v = dY.reduce((s, r) => s + r[k], 0);
-  return aligned([
-    `\\overline{b}_{${K}} &= \\sum_{i=1}^{${B}} \\overline{y}_{i${K}}`,
-    `&= ${joinPlus(dY.map((r) => par(r[k])))} = ${tn(v)}`,
-  ]);
-}
 
-export function gradXTex(dY, W, i, j) {
-  const out = W.length, I = i + 1, J = j + 1;
-  const v = dY[i].reduce((s, g, k) => s + g * W[k][j], 0);
-  return aligned([
-    `\\overline{x}_{${I}${J}} &= \\sum_{k=1}^{${out}} \\overline{y}_{${I}k}\\,W_{k${J}}`,
-    `&= ${joinPlus(dY[i].map((g, k) => `${par(g)}\\cdot ${par(W[k][j])}`))} = ${tn(v)}`,
-  ]);
-}

@@ -1,24 +1,20 @@
-// Tests of the `linear-layer` lesson: the recorded TorC data, the pure logic of its widgets (shape explorer, grid, backward sums,
-// initialisation data), the binding of every prose number, KaTeX validity of all paper work, and DOM-free imports of the widget modules.
+// Tests of the `linear-layer` lesson: the recorded TorC data, the formulas the page states (forward, backward, parameter count),
+// the signal data of the init widget, the binding of every prose number, the style budget, KaTeX validity and DOM-free imports.
 // Run: node --test site/test/
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildGraph, runBackward } from '../js/engine.js';
 import { buildD, makeT, resolvePath } from '../js/core/trace.js';
-import { renderLesson } from '../js/core/sections.js';
-import { readJson, close, katex } from './helpers.mjs';
+import { renderLesson, findUnboundNums, boundNums } from '../js/core/sections.js';
+import { readJson, close, katex, lessonStats } from './helpers.mjs';
 import lesson from '../js/lessons/linear-layer.js';
-import { SCENES, CALCS, calcText } from '../js/lessons/linear-layer.scenes.js';
-import {
-  LIMITS, fmtShape, linearShapes, paramCount, predictCall, findRecorded, recordedRuns, recordedLinearCounts, boxPx, sameShape,
-} from '../js/widgets/linear-shapes.js';
-import {
-  exampleFromScene, linearForward, gradW, gradB, gradX, colSums, rowsOf, neuronTex, gradWTex, gradBTex, gradXTex,
-} from '../js/widgets/linear-math.js';
-import { histBins, normalCdf, signalSeries, signalTable, growthRatios, fmtSci, statsLabel, decadeTicks, expLabel } from '../js/widgets/linear-signal-data.js';
+import { linearShapes, paramCount } from '../js/widgets/linear-shapes.js';
+import { exampleFromScene, linearForward, gradW, gradB, gradX, colSums, rowsOf, neuronTex } from '../js/widgets/linear-math.js';
+import { signalSeries, signalTable, growthRatios, fmtSci } from '../js/widgets/linear-signal-data.js';
 
 const data = readJson('data/linear.json');
 const D = buildD({ linear: data });
+const T = makeT(D);
 const scene = (id) => D.scenes[id];
 const node = (s, name) => s.nodes.find((n) => n.name === name);
 const sum = (a) => a.reduce((x, y) => x + y, 0);
@@ -108,32 +104,6 @@ test('parameter counts: every layer and every total equals the formula', () => {
   assert.equal(data.param_counts.find((e) => e.name === 'MNIST MLP').total, 26506);
 });
 
-test('init_stats: std within 5% of the expected value when n >= 1000; internal consistency of histograms', () => {
-  for (const s of data.init_stats) {
-    const expected = s.kaiming_default ? Math.sqrt(2 / s.in) : s.init_std;
-    assert.ok(Math.abs(s.expected_std - expected) <= 1e-6 * expected, `${statsLabel(s)}: expected_std is ${expected}`);
-    assert.equal(s.numel, s.in * s.out);
-    assert.equal(s.bias_all_zero, true);
-    const h = s.histogram;
-    assert.equal(sum(h.counts) + h.under + h.over, s.numel, `${statsLabel(s)}: histogram counts add up`);
-    assert.equal(h.counts.length, h.bins);
-    assert.ok(Math.abs(h.hi - 4 * s.expected_std) < 1e-5 * s.expected_std && Math.abs(h.lo + 4 * s.expected_std) < 1e-5 * s.expected_std, 'histogram spans +-4 expected std');
-    if (s.numel >= 1000) assert.ok(Math.abs(s.std / expected - 1) <= 0.05, `${statsLabel(s)}: std ${s.std} vs ${expected}`);
-    if (s.weights) {
-      const v = s.weights.values, m = sum(v) / v.length;
-      assert.equal(v.length, s.numel);
-      assert.ok(Math.abs(Math.sqrt(sum(v.map((x) => (x - m) ** 2)) / v.length) - s.std) < 1e-5 * s.std, `${statsLabel(s)}: shipped weights have the recorded std`);
-    }
-  }
-  assert.ok(data.init_stats.some((s) => s.in === 784 && s.out === 32 && s.kaiming_default));
-});
-
-test('the three Linear(784, 32) cases are the same draws rescaled (identical histogram counts)', () => {
-  const cases = data.init_stats.filter((s) => s.in === 784 && s.out === 32);
-  assert.equal(cases.length, 3);
-  for (const c of cases.slice(1)) assert.deepEqual(c.histogram.counts, cases[0].histogram.counts);
-});
-
 test('signal table: six layers per init, band over other seeds, Kaiming stays near its start and the others do not', () => {
   assert.deepEqual(data.signal.map((s) => s.name), ['kaiming', 'std_0.01', 'std_1.0']);
   const series = signalSeries(data.signal);
@@ -155,272 +125,64 @@ test('signal table: six layers per init, band over other seeds, Kaiming stays ne
   assert.ok(t.rows.every((r) => r.length === t.columns.length));
 });
 
-// ---------------------------------------------------------------------------------------------- shape logic
-test('shape logic: shapes, parameter counts and limits', () => {
+// ---------------------------------------------------------------------------------------------- widgets' pure parts
+test('shapes the check answers with, and the KaTeX of the grid (y[1,2] = -0.7 with the real numbers)', () => {
   assert.deepEqual(linearShapes(784, 32, 8), { x: [8, 784], W: [32, 784], Wt: [784, 32], b: [32], y: [8, 32] });
-  assert.deepEqual(paramCount(3, 2), { weight: 6, bias: 2, total: 8, tensors: 2 });
-  assert.equal(paramCount(784, 32).total, 25120);
-  assert.equal(paramCount(32, 32).total, 1056);
-  assert.equal(paramCount(32, 10).total, 330);
-  assert.equal(fmtShape([2, 2]), '(2, 2)');
-  assert.equal(fmtShape([3]), '(3)');
-  assert.ok(LIMITS.in.min >= 1 && LIMITS.batch.max >= 8);
-  assert.ok(boxPx(1) < boxPx(32) && boxPx(32) < boxPx(784) && boxPx(1024) <= 110);
-  // shapes agree with what the library recorded for the lesson example
-  const s = scene('linear');
-  const sh = linearShapes(3, 2, 2);
-  assert.deepEqual(node(s, 'x').value.shape, sh.x);
-  assert.deepEqual(node(s, 'W').value.shape, sh.W);
-  assert.deepEqual(node(s, 'Wt').value.shape, sh.Wt);
-  assert.deepEqual(node(s, 'b').value.shape, sh.b);
-  assert.deepEqual(node(s, 'y').value.shape, sh.y);
-  const lin = data.param_counts[0].layers[0];
-  assert.deepEqual(lin.params.find((p) => p.name === 'weight').shape, linearShapes(784, 32, 1).W);
-  assert.deepEqual(lin.params.find((p) => p.name === 'bias').shape, linearShapes(784, 32, 1).b);
-  assert.deepEqual(lin.output_shape, linearShapes(784, 32, 1).y);
-});
-
-test('error prediction reproduces every recorded Linear call (exception type, text, output shape)', () => {
-  const widthCases = data.shape_errors.filter((r) => r.x_shape && r.x_shape.length === 2);
-  assert.ok(widthCases.length >= 4);
-  for (const r of data.shape_errors) {
-    if (r.id === 'mse-shapes') { assert.match(r.what, /^Cannot broadcast shapes/); continue; }
-    const call = predictCall(r.in, r.out, r.x_shape ?? [1, r.in]);
-    if (r.exception === 'none') { assert.equal(call.ok, true, r.id); assert.deepEqual(call.y, r.y_shape, r.id); continue; }
-    assert.equal(call.ok, false, r.id);
-    assert.equal(call.exception, r.exception, r.id);
-    assert.equal(call.what, r.what, r.id);
-  }
-  // the inner-dimension messages all match the documented text, the rank-1 one says rank >= 2
-  for (const r of widthCases.filter((r) => r.exception === 'ShapeError')) assert.match(r.what, /inner dimensions must match/);
-  assert.match(data.shape_errors.find((r) => r.id === 'linear-3x2-(3)').what, /rank >= 2/);
-  // a matching width never fails; rank-3 is explicitly not modelled
-  assert.equal(predictCall(5, 4, [7, 5]).ok, true);
-  assert.equal(predictCall(5, 4, [2, 3, 5]).ok, null);
-  assert.equal(predictCall(0, 4, [2, 3]).exception, 'TorcError');
-});
-
-test('recorded lookups: runs, exact-call matches and layer counts', () => {
-  const runs = recordedRuns(data.shape_errors);
-  assert.deepEqual(runs.map((r) => r.id), ['linear-3x2-(2, 2)', 'linear-784x32-(8, 10)', 'linear-3x2-(4, 4)', 'linear-3x2-(4, 3)'].map((id) => id.replace('linear-', 'linear-')));
-  assert.equal(runs.filter((r) => !r.fails).length, 1);
-  assert.equal(findRecorded(data.shape_errors, 3, 2, [2, 2]).exception, 'ShapeError');
-  assert.equal(findRecorded(data.shape_errors, 3, 2, [2, 5]), null);
-  assert.ok(sameShape([1, 2], [1, 2]) && !sameShape([1, 2], [1, 2, 3]));
-  const counts = recordedLinearCounts(data.param_counts);
-  assert.equal(counts.get('784,32').count, 25120);
-  assert.equal(counts.get('32,32').count, 1056);
-  assert.equal(counts.get('32,10').count, 330);
-  // every preset the explorer offers that has a recorded count agrees with the formula
-  for (const [key, v] of counts) { const [a, b] = key.split(',').map(Number); assert.equal(v.count, paramCount(a, b).total); }
-});
-
-// ---------------------------------------------------------------------------------------------- init data helpers
-test('histogram helpers: expected counts add up and the normal CDF is accurate', () => {
-  assert.ok(Math.abs(normalCdf(0) - 0.5) < 1e-7);
-  assert.ok(Math.abs(normalCdf(1.96) - 0.9750021) < 1e-6);
-  assert.ok(Math.abs(normalCdf(-1) - 0.1586553) < 1e-6);
-  for (const s of data.init_stats.filter((q) => q.numel >= 1000)) {
-    const bins = histBins(s.histogram, s.numel, s.expected_std);
-    assert.equal(bins.length, 40);
-    assert.ok(Math.abs(sum(bins.map((b) => b.expected)) / s.numel - 0.99994) < 5e-5, 'expected counts cover +-4 sigma');
-    assert.equal(sum(bins.map((b) => b.count)), s.numel - s.histogram.under - s.histogram.over);
-    // observed and expected agree overall: total variation distance below 5% for these sample sizes
-    const tv = sum(bins.map((b) => Math.abs(b.count - b.expected))) / (2 * s.numel);
-    assert.ok(tv < 0.6 * Math.sqrt(40 / s.numel), `${statsLabel(s)}: total variation ${tv} within sampling noise`);
-  }
-  assert.equal(fmtSci(0), '0');
-  assert.equal(fmtSci(0.0123456), '0.01235');
-  assert.equal(fmtSci(2.17e6), '2.17e6');
-  assert.equal(fmtSci(1.59e-4), '1.59e-4');
-  assert.deepEqual(decadeTicks(-5.4, 3.2, 2), [-5, -3, -1, 1, 3]);
-  assert.equal(expLabel(-6), '1e-6');
-});
-
-// ---------------------------------------------------------------------------------------------- paper work
-test('all paper-work strings of the widgets parse in KaTeX', () => {
-  const s = scene('linear'), ex = exampleFromScene(s);
-  const dY = rowsOf(node(s, 'y').grad.values, 2, 2);
-  let n = 0;
-  const ok = (tex) => { katex.renderToString(tex, { throwOnError: true, displayMode: true }); n++; };
-  for (let i = 0; i < 2; i++) for (let k = 0; k < 2; k++) ok(neuronTex(ex.x, ex.W, ex.b, i, k));
-  for (let k = 0; k < 2; k++) for (let j = 0; j < 3; j++) ok(gradWTex(dY, ex.x, k, j));
-  for (let k = 0; k < 2; k++) ok(gradBTex(dY, k));
-  const dx = exampleFromScene(scene('linear-dx'));
-  for (let i = 0; i < 2; i++) for (let j = 0; j < 3; j++) ok(gradXTex([[1, 1], [1, 1]], dx.W, i, j));
-  assert.equal(n, 4 + 6 + 2 + 6);
-  // the numbers inside are the right ones: y[1,2] = 1*1 + 2*0 + 3*(-0.5) + (-0.2) = -0.7
+  const ex = exampleFromScene(scene('linear'));
+  for (let i = 0; i < 2; i++) for (let k = 0; k < 2; k++) katex.renderToString(neuronTex(ex.x, ex.W, ex.b, i, k), { throwOnError: true, displayMode: true });
   assert.match(neuronTex(ex.x, ex.W, ex.b, 0, 1), /= -0\.7\\end\{aligned\}$/);
-  assert.match(gradWTex(dY, ex.x, 0, 2), /= 1\.5\\end/);
-  assert.match(gradBTex(dY, 1), /= -0\.45\\end/);
+  // "copy the first neuron into the second" (weights and bias) makes the two output columns identical
+  const W = [ex.W[0].slice(), ex.W[0].slice()], b = [ex.b[0], ex.b[0]];
+  assert.ok(linearForward(ex.x, W, b).every((r) => r[0] === r[1]));
+  // raising b[2] by one moves only the second column, by exactly one
+  const y0 = linearForward(ex.x, ex.W, ex.b), y1 = linearForward(ex.x, ex.W, [ex.b[0], ex.b[1] + 1]);
+  y0.forEach((r, i) => { assert.equal(y1[i][0], r[0]); assert.ok(Math.abs(y1[i][1] - r[1] - 1) < 1e-12); });
 });
 
-// ---------------------------------------------------------------------------------------------- graph-lab layouts
-test('graph-lab layouts: every node of both scenes is positioned inside the view; teaching text carries no numerals', () => {
-  assert.deepEqual(Object.keys(SCENES), ['linear', 'linear-dx']);
-  for (const [id, L] of Object.entries(SCENES)) {
-    const s = scene(id);
-    for (const n of s.nodes) {
-      const p = L.pos[n.name];
-      assert.ok(p, `${id}: no position for ${n.name}`);
-      assert.ok(p[0] > 48 && p[0] < L.view[0] - 48 && p[1] > 0 && p[1] < L.view[1], `${id}.${n.name} inside the view`);
-    }
-    assert.deepEqual(Object.keys(L.pos).sort(), s.nodes.map((n) => n.name).sort(), `${id}: no stray positions`);
-    for (const key of ['goal', 'intro', 'forwardHint', 'backwardHint', 'takeaway']) {
-      assert.ok(typeof L[key] === 'string' && L[key].length > 20, `${id}.${key}`);
-      assert.doesNotMatch(L[key], /\d/, `${id}.${key} must not contain numerals`);
-    }
-    for (const a of L.above) assert.ok(L.pos[a], `${id}: above lists ${a}`);
+// ---------------------------------------------------------------------------------------------- lesson text
+const html = renderLesson(lesson, D).map((p) => p.html).join('\n');
+
+test('every number in the prose is bound to the trace (T() or sci()), with the values the argument rests on', () => {
+  for (const { section, html: h } of renderLesson(lesson, D)) {
+    assert.deepEqual(findUnboundNums(h), [], section.kind);
+    for (const { path, shown } of boundNums(h)) assert.equal(T.text(path), shown, path);
   }
+  const sci = [...html.matchAll(/<span class="rec" data-trace="([^"]+)" data-fmt="sci">([^<]*)<\/span>/g)];
+  assert.equal(sci.length, 2);
+  for (const [, path, shown] of sci) assert.equal(fmtSci(resolvePath(D, path)), shown, path);
+  const shown = Object.fromEntries(boundNums(html).map(({ path, shown: v }) => [path, v]));
+  const P = 'files.linear.param_counts.0';
+  assert.deepEqual([shown[`${P}.layers.0.params.1.numel`], shown[`${P}.layers.0.params.0.numel`], shown[`${P}.total`]], ['25088', '32', '25120']);
+  assert.deepEqual([0, 1, 2].map((i) => shown[`linear-dx.x.grad.${i}`]), colSums(exampleFromScene(scene('linear')).W).map(String), 'the predict answer: column sums of W');
+  assert.match(html, /ShapeError: matmul inner dimensions must match, got \(8, 10\) and \(784, 32\)/);
 });
 
-// ---------------------------------------------------------------------------------------------- the lesson text
-test('lesson text: quoted numbers are bound to the trace and the derived ones recompute independently', () => {
-  assert.equal(lesson.trace.join(), 'linear.json');
-  const T = makeT(D);
-  const parts = renderLesson(lesson, D);
-  const html = parts.map((p) => p.html).join('\n');
-  // numbers the plan and the note promise to quote (bound by T, so a change of the trace changes the page)
-  const bound = (path, shown) => { assert.ok(html.includes(`data-trace="${path}">${shown}<`), `${path} should appear as ${shown}`); assert.equal(T.text(path), shown); };
-  // exact integers: the shared T() keeps integers below 1e6 exact (it used to round 26506 to 26510); very small/large std values
-  // use their own bound span (class "rec", scientific form) and are re-resolved here
-  const rec = [...html.matchAll(/<span class="rec" data-trace="([^"]+)"([^>]*)>([^<]*)<\/span>/g)];
-  assert.ok(rec.length >= 3);
-  for (const [, path, attrs, shown] of rec) {
-    assert.match(attrs, /data-fmt="sci"/);
-    assert.equal(shown, fmtSci(resolvePath(D, path)), `${path} is shown as recorded`);
-  }
-  for (const [path, shown] of [['files.linear.param_counts.0.total', '25120'], ['files.linear.param_counts.1.total', '26506'], ['files.linear.param_counts.0.layers.0.params.1.numel', '25088']]) {
-    bound(path, shown);
-    assert.equal(resolvePath(D, path), Number(shown), `${path} is the recorded integer`);
-  }
-  bound('linear.y.value.0', '4.6');
-  bound('linear.y.value.1', '-0.7');
-  bound('linear.L.value', '0.3125');
-  bound('linear.b.grad.0', '0.6');
-  bound('linear.b.grad.1', '-0.45');
-  bound('linear-dx.x.grad.0', '1.5');
-  bound('linear-dx.x.grad.1', '-1');
-  // no digit-only claim hides outside T: the lesson must not state a parameter total by hand
-  assert.doesNotMatch(html.replace(/<span class="(?:num|rec)"[^>]*>[^<]*<\/span>/g, ''), /\b(25120|26506|25088|0\.3125)\b/);
-
-  // derived (amber) numbers: recompute from the raw trace with separate code
-  const sig = (name) => data.signal.find((s) => s.name === name);
-  const post = (name) => sig(name).layers.slice(1).map((l) => l.post_std);
-  const ratios = (name) => post(name).slice(1).map((v, i) => v / post(name)[i]);
-  const expected = {
-    'edit-y12': node(scene('linear'), 'y').value.values[1] + 1,
-    'edit-y22': node(scene('linear'), 'y').value.values[3] + 1,
-    'grow-lo': Math.min(...ratios('std_1.0')), 'grow-hi': Math.max(...ratios('std_1.0')),
-    'shrink-lo': Math.min(...ratios('std_0.01')), 'shrink-hi': Math.max(...ratios('std_0.01')),
-    'grow-pred': Math.sqrt(256 / 2) * 1.0, 'shrink-pred': Math.sqrt(256 / 2) * 0.01,
-    'n-outputs': 2 * 2, 'relu-std': Math.sqrt(1 - 1 / Math.PI), 'kaiming-scale': Math.sqrt(2 / 256),
-  };
-  assert.deepEqual(Object.keys(CALCS).sort(), Object.keys(expected).sort(), 'every derived number has an independent check');
-  const spans = [...html.matchAll(/<span class="calc" data-calc="([^"]+)"[^>]*>([^<]*)<\/span>/g)];
-  assert.ok(spans.length >= 12, 'derived numbers are used in the lesson');
-  for (const k of Object.keys(expected)) assert.ok(spans.some((m) => m[1] === k), `derived number ${k} is used in the prose`);
-  for (const [, key, shown] of spans) assert.equal(shown, calcText(expected[key]), `derived ${key}`);
-  // the human-readable claims behind them
-  assert.equal(calcText(expected['edit-y12']), '0.3');
-  assert.equal(calcText(expected['edit-y22']), '-1.2');
-  assert.equal(calcText(expected['grow-pred']), '11.3');
-  assert.equal(calcText(expected['n-outputs']), '4');
-  assert.equal(calcText(expected['relu-std']), '0.826');
-  assert.equal(calcText(expected['kaiming-scale']), '0.0884');
-  assert.ok(expected['grow-lo'] > 11 && expected['grow-hi'] < 12.5, 'growth per layer for init_std 1.0');
+test('the lesson keeps to the style budget (docs/authoring.md)', () => {
+  const st = lessonStats(lesson, D, renderLesson, boundNums);
+  assert.ok(st.words <= 800, `${st.words} words`);
+  assert.ok(st.numbers <= 25, `${st.numbers} numbers`);
+  assert.ok(st.widgets <= 2, `${st.widgets} widgets`);
+  assert.ok(st.questions <= 3, `${st.questions} questions`);
+  assert.equal(lesson.sections[1].kind, 'tldr');
+  assert.equal(lesson.footer, undefined);
+  assert.doesNotMatch(html, /recorded|recomputed|printed by|in your browser|show as table/i);
 });
 
-test('review fixes: the page says what the data supports', () => {
-  const html = renderLesson(lesson, D).map((p) => p.html).join('\n');
-  const text = html.replace(/<[^>]+>/g, ' ');
-  const sig = (name) => data.signal.find((s) => s.name === name);
-  // (3) the gotcha lists Linear failures only: no MSELoss broadcast message anywhere on the page
-  assert.doesNotMatch(html, /Cannot broadcast|MSELoss/);
-  assert.match(html, /matmul inner dimensions must match, got \(2, 2\) and \(3, 2\)/);
-  assert.match(html, /Linear features must be positive/);
-  assert.match(text, /zero inputs or zero outputs is refused/);
-  // (1) the Kaiming bullet quotes the ten-seed average and range, and admits that the first run ends higher
-  const k = sig('kaiming'), a6 = k.across_seeds[5];
-  assert.ok(k.layers[6].post_std > a6.post_std_max, 'the first run really does end above the band (the prose says so)');
-  for (const path of ['across_seeds.0.post_std_mean', 'across_seeds.5.post_std_mean', 'across_seeds.5.post_std_min', 'across_seeds.5.post_std_max']) assert.ok(html.includes(`data-trace="files.linear.signal.0.${path}"`), path);
-  assert.match(text, /happens to end higher/);
-  assert.doesNotMatch(text, /stays close to the same value|stay near/);
-  // (2) std versus second moment: the root-mean-square after layer 1 is quoted and the expected sqrt(1 - 1/pi) is labelled derived
-  assert.ok(html.includes('data-trace="files.linear.signal.0.layers.1.post_rms"'));
-  assert.ok(Math.abs(k.layers[1].post_std / Math.sqrt(1 - 1 / Math.PI) - 1) < 0.01, 'layer 1 std is within 1% of sqrt(1 - 1/pi)');
-  assert.ok(k.layers[1].post_rms > 0.99 && k.layers[1].post_rms < 1.01);
-  assert.match(text, /spread is smaller than their root-mean-square/);
-  // (4) the predict question does not give its answer away, and comes before the widget that would show it
-  const pi = lesson.sections.findIndex((s) => s.id === 'predict-dx'), wi = lesson.sections.findIndex((s) => s.id === 'linear-backward');
-  assert.ok(pi >= 0 && pi < wi, 'predict-dx comes before the gradient widget');
-  const predict = lesson.sections[pi];
-  assert.doesNotMatch(predict.prompt(D, makeT(D)), /column sums|sum loss|Switch the widget/i);
-  assert.match(predict.reveal(D, makeT(D)), /Switch the widget below/);
-  // (5) zero weights: scoped to a hidden layer
-  assert.match(text, /Not in a hidden layer/);
-  assert.match(text, /all-equal weights in a hidden layer/);
-  assert.doesNotMatch(text, /No\. Only the bias starts at zero|all-zero weights are not a safe start/);
-  // (6) the seed is explained, with the standard library the recorded run used
-  assert.match(text, /std::random_device/);
-  assert.ok(text.includes(data.library.compiler.replace(/&/g, '&amp;')) || text.includes(data.library.compiler), 'the compiler / standard library of the run is named');
-  assert.match(text, /another C\+\+ standard library may give different numbers/);
-  // LOW: N = 4 stated, parenthesised negatives after a plus sign, one experiment at three scales, convention wording
-  assert.match(text, /N\s*=\s*4/);
-  assert.doesNotMatch(text, /\+\s*-\d/, 'no "+ -0.1" in prose');
-  assert.match(text, /One experiment, three scales/);
-  assert.match(text, /nothing on this page trains a network/);
-  assert.doesNotMatch(text, /far outside anything a loss function/);
-  assert.doesNotMatch(text, /row-major storage keeps/);
-  assert.match(text, /convention/);
-  // the one-experiment claim itself: Kaiming and std 0.01 values are the std 1.0 values times scale^layer (up to float32 rounding)
-  const big = sig('std_1.0'), small = sig('std_0.01');
-  for (let l = 1; l <= 6; l++) {
-    assert.ok(Math.abs(k.layers[l].post_std / (big.layers[l].post_std * Math.sqrt(2 / 256) ** l) - 1) < 1e-5, `Kaiming layer ${l} is std 1.0 rescaled`);
-    assert.ok(Math.abs(small.layers[l].post_std / (big.layers[l].post_std * 0.01 ** l) - 1) < 1e-5, `std 0.01 layer ${l} is std 1.0 rescaled`);
-  }
-  // ReLU, variance, normal distribution are explained where they first appear
-  assert.match(text, /ReLU is a layer that replaces every negative number by 0/);
-  assert.match(text, /variance[^.]*\(the square of their standard deviation\)/);
+test('no hand-typed digits in the prose; every formula parses in KaTeX', () => {
+  const saved = globalThis.katex;
+  globalThis.katex = undefined;
+  let raw;
+  try { raw = renderLesson(lesson, D).map((p) => p.html).join('\n'); } finally { globalThis.katex = saved; }
+  const left = raw.replace(/<style[\s\S]*?<\/style>/g, '').replace(/<span class="(num|rec)"[^>]*>[^<]*<\/span>/g, '')
+    .replace(/<code[^>]*>[\s\S]*?<\/code>/g, '').replace(/<h2[^>]*>\s*\d\s·/g, '<h2>').replace(/<[^>]+>/g, ' ').match(/[^\s]*\d[^\s]*/g) ?? [];
+  assert.deepEqual(left, []);
+  for (const m of raw.matchAll(/<code>([^<]*)<\/code>/g)) if (/[\\^_{}]/.test(m[1])) katex.renderToString(m[1].replace(/&amp;/g, '&'), { throwOnError: true });
+  assert.doesNotMatch(html, /katex-error/);
 });
 
-test('lesson text: every LaTeX string in the prose parses (KaTeX throwOnError)', () => {
-  const real = globalThis.katex;
-  globalThis.katex = { renderToString: (s, o) => real.renderToString(s, { ...o, throwOnError: true }) };
-  try {
-    const parts = renderLesson(lesson, D);
-    const html = parts.map((p) => p.html).join('\n');
-    assert.ok((html.match(/class="katex"/g) ?? []).length >= 20, 'the prose contains paper work');
-    assert.doesNotMatch(html, /katex-error/);
-  } finally { globalThis.katex = real; }
-});
-
-test('lesson structure: widgets, honest labels, checks', () => {
-  const ids = lesson.sections.filter((s) => s.kind === 'widget').map((s) => s.id);
-  assert.deepEqual(ids, ['shape-explorer', 'matmul-grid', 'linear-lab', 'linear-backward', 'init-hist', 'init-signal']);
-  for (const s of lesson.sections.filter((q) => q.kind === 'widget')) assert.ok(s.label && s.className, `${s.id} has label and class`);
-  assert.equal(lesson.sections.filter((s) => s.kind === 'check').length, 3);
-  assert.ok(lesson.sections.some((s) => s.kind === 'gotcha'));
-  assert.ok(lesson.sections.some((s) => s.kind === 'predict'));
-  const html = renderLesson(lesson, D).map((p) => p.html).join('\n');
-  // misconceptions of the plan are all addressed
-  for (const needle of ['(in, out)', 'activation', 'Zero weights', 'Bigger initial weights', 'one bias per input', 'input needs a gradient']) assert.ok(html.toLowerCase().includes(needle.toLowerCase()), `misconception: ${needle}`);
-  // no audit talk on a lesson page
-  assert.doesNotMatch(html, /\bbug\b|audit|suspected|discrepan/i);
-  assert.doesNotMatch(html, /session_|claude\.ai\/code/i);
-});
-
-// ---------------------------------------------------------------------------------------------- DOM-free imports
 test('widget modules import in Node without touching the DOM', async () => {
   assert.equal(typeof document, 'undefined');
-  const mods = {
-    'shape-explorer': ['mountShapeExplorer'], 'matmul-grid': ['mountMatmulGrid'], 'linear-backward': ['mountLinearBackward'],
-    'init-signal': ['mountWeightHistogram', 'mountInitSignal'], 'linear-ui': ['injectStyle', 'useBaseStyle', 'stepperField', 'segmented', 'matrixEl'],
-  };
-  for (const [file, names] of Object.entries(mods)) {
-    const m = await import(new URL(`../js/widgets/${file}.js`, import.meta.url));
-    for (const n of names) assert.equal(typeof m[n], 'function', `${file}.${n}`);
-  }
-  const ui = await import('../js/widgets/linear-ui.js');
-  assert.doesNotThrow(() => ui.injectStyle('x', 'a{}'), 'injectStyle is a no-op without a document');
+  assert.equal(typeof (await import('../js/widgets/matmul-grid.js')).mountMatmulGrid, 'function');
+  assert.equal(typeof (await import('../js/widgets/init-signal.js')).mountInitSignal, 'function');
+  assert.equal(typeof document, 'undefined');
 });

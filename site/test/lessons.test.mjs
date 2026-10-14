@@ -5,7 +5,7 @@ import { existsSync } from 'node:fs';
 import { flatLessons, isPublished } from '../js/core/course.js';
 import { buildD, makeT, stemOf } from '../js/core/trace.js';
 import { renderLesson, validateLesson, findUnboundNums, boundNums } from '../js/core/sections.js';
-import { course, readJson, SITE } from './helpers.mjs';
+import { course, readJson, SITE, lessonStats } from './helpers.mjs';
 
 const lessons = flatLessons(course());
 
@@ -34,5 +34,10 @@ for (const entry of lessons.filter((l) => isPublished(l) || existsSync(new URL(`
     }
     if (lesson.footer) assert.equal(typeof lesson.footer(D, T), 'string');
     assert.match(parts[0].html, /<h1>/, 'the first section carries the lesson heading');
+    // style budget (docs/authoring.md): TL;DR right after the hero, short prose, few numbers, at most two widgets and three questions
+    assert.equal(lesson.sections[1]?.kind, 'tldr', 'the TL;DR comes right after the hero');
+    const st = lessonStats(lesson, D, renderLesson, boundNums);
+    assert.ok(st.words <= 800 && st.numbers <= 25 && st.widgets <= 2 && st.questions <= 3, JSON.stringify(st));
+    assert.doesNotMatch(parts.map((p) => p.html).join(''), /recorded|recomputed|printed by|in your browser|show as table/i, 'provenance is said once, on the home page');
   });
 }

@@ -10,30 +10,8 @@ export function fmtSci(x) {
   return x.toExponential(2).replace('e+', 'e');
 }
 
-// Standard normal CDF (Abramowitz & Stegun 7.1.26, |error| < 1.5e-7). Used only to draw the EXPECTED bell curve.
-export function normalCdf(z) {
-  const t = 1 / (1 + 0.3275911 * Math.abs(z / Math.SQRT2));
-  const poly = t * (0.254829592 + t * (-0.284496736 + t * (1.421413741 + t * (-1.453152027 + t * 1.061405429))));
-  const erf = 1 - poly * Math.exp(-(z * z) / 2);
-  return z >= 0 ? 0.5 * (1 + erf) : 0.5 * (1 - erf);
-}
 
-// ---- histogram -------------------------------------------------------------------------------------
-// h = init_stats[i].histogram {lo, hi, bins, counts[], under, over}; expected counts for N(0, sigma) with `numel` draws.
-export function histBins(h, numel, sigma) {
-  const w = (h.hi - h.lo) / h.bins;
-  return h.counts.map((count, i) => {
-    const lo = h.lo + i * w, hi = lo + w;
-    return { lo, hi, mid: lo + w / 2, count, expected: numel * (normalCdf(hi / sigma) - normalCdf(lo / sigma)) };
-  });
-}
 
-// A short, plain label for one init_stats record.
-export function statsLabel(s) {
-  const base = `Linear(${s.in}, ${s.out})`;
-  if (s.kaiming_default) return `${base}, default init (${s.numel} weights)`;
-  return `${base}, init_std ${Number.isInteger(s.init_std) ? s.init_std.toFixed(1) : s.init_std} (${s.numel} weights)`;
-}
 
 // ---- signal through six layers -----------------------------------------------------------------------
 export const SIGNAL_LABELS = { kaiming: 'Kaiming (default)', 'std_0.01': 'init_std 0.01', 'std_1.0': 'init_std 1.0' };

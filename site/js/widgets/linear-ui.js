@@ -1,5 +1,5 @@
-// widgets/linear-ui.js — small DOM building blocks shared by the `linear-layer` widgets (steppers, radio groups, matrix grids,
-// "live / precomputed" source badges) and the one-time stylesheet they share. Nothing runs at import time except defining
+// widgets/linear-ui.js — small DOM building blocks shared by the `linear-layer` widgets (radio groups, matrix grids) and
+// the one-time stylesheet they share. Nothing runs at import time except defining
 // functions, so Node can import the module. Styles are injected once, as <style id="…"> elements, by the widget that needs them.
 import { el } from '../core/dom.js';
 
@@ -19,23 +19,12 @@ export const BASE_CSS = `
 .lin-w{background:var(--panel);border:1px solid var(--border);border-radius:var(--r);padding:.9rem 1.1rem 1.1rem;margin:14px 0}
 .lin-w h3{margin:0;font-size:1.05rem}
 .lin-head{display:flex;flex-wrap:wrap;gap:.3rem .8rem;align-items:center;justify-content:space-between;margin:0 0 .6rem}
-.lin-src{font-size:.78rem;line-height:1.35;border:1px solid var(--border);border-radius:14px;padding:.1rem .7rem;color:var(--muted);max-width:100%}
-.lin-src.live{border-color:var(--ok);color:var(--ok)}
-.lin-src.pre{border-style:dashed;border-color:var(--warn);color:var(--warn)}
 .lin-note{color:#c4ccd5;font-size:.93rem;margin:.45rem 0}
 .lin-note.dim{color:var(--muted);font-size:.86rem}
 .lin-row{display:flex;flex-wrap:wrap;gap:.5rem .7rem;align-items:center}
 .lin-fields{display:flex;flex-wrap:wrap;gap:.6rem 1.3rem;align-items:flex-end;margin:.2rem 0 .6rem}
 .lin-field label{display:block;font-size:.82rem;color:var(--muted);margin-bottom:2px}
 .lin-field label b{color:var(--fg);font-family:ui-monospace,monospace}
-.lin-stepper{display:inline-flex;align-items:stretch}
-.lin-stepper button{width:2.3rem;min-height:2.2rem;font:inherit;font-size:1.1rem;line-height:1;color:var(--fg);background:var(--panel2);border:1px solid var(--border);cursor:pointer;padding:0}
-.lin-stepper button:first-child{border-radius:8px 0 0 8px}
-.lin-stepper button:last-child{border-radius:0 8px 8px 0}
-.lin-stepper button:hover:not(:disabled){border-color:var(--fwd)}
-.lin-stepper button:disabled{opacity:.4;cursor:default}
-.lin-stepper input{width:4.6rem;min-height:2.2rem;text-align:center;font:.98rem ui-monospace,monospace;color:var(--fg);background:var(--bg);border:1px solid var(--border);border-left:0;border-right:0;border-radius:0;padding:0 .2rem}
-.lin-stepper input[aria-invalid=true]{background:#2b1513;box-shadow:inset 0 -3px 0 var(--bwd)}
 .lin-err{color:#ff9d93;font-size:.8rem;line-height:1.3;max-width:16rem}
 .lin-err:empty{display:none}
 .lin-err::before{content:"\\2717  "}
@@ -67,48 +56,11 @@ button.lin-cell:hover{border-color:var(--fg)}
 .lin-paper{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:.5rem .9rem;margin:.6rem 0;overflow-x:auto}
 .lin-paper .katex-display{margin:.3em 0}
 @media(max-width:640px){.lin-paper{padding:.4rem .6rem}.lin-paper .katex{font-size:1em}}
-.lin-badge{display:inline-block;font-size:.8rem;border:1px solid;border-radius:99px;padding:.05rem .65rem}
-.lin-badge.ok{color:var(--ok)}.lin-badge.warn{color:var(--warn)}
 .lin-sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 @media (prefers-reduced-motion:reduce){.lin-w *{transition:none!important;animation:none!important}}
 `;
 
 export function useBaseStyle() { injectStyle(BASE_STYLE_ID, BASE_CSS); }
-
-// "Recomputed in your browser" / "Precomputed from the real TorC run": every widget says which one it is, in words.
-export function sourceBadge(kind, text) {
-  return el('span', { class: `lin-src ${kind}`, title: kind === 'live' ? 'The numbers are recomputed by JavaScript in your browser.' : 'The numbers were printed by the real TorC library (tools/trace); this page only reads them.' }, text);
-}
-
-// A labelled integer stepper:  [−] [ 12 ] [+]   with a real <label> and a native number input (keyboard: type, arrows).
-// onChange(value) is called with each VALID integer; an invalid entry is flagged and the last valid value stays in use.
-export function stepperField({ label, hint, min, max, value, onChange, key }) {
-  const id = uid('lin-in');
-  let cur = value;
-  const errId = `${id}-err`;
-  const err = el('div', { class: 'lin-err', id: errId, 'aria-live': 'polite' });
-  const input = el('input', { type: 'number', id, min, max, step: 1, value: String(value), inputmode: 'numeric', 'data-key': key, 'aria-describedby': errId });
-  const dec = el('button', { type: 'button', 'aria-label': `Decrease ${label}`, 'data-key': `${key}-dec` }, '−');
-  const inc = el('button', { type: 'button', 'aria-label': `Increase ${label}`, 'data-key': `${key}-inc` }, '+');
-  const valid = (v) => Number.isInteger(v) && v >= min && v <= max;
-  const sync = () => { dec.disabled = cur <= min; inc.disabled = cur >= max; };
-  const clearErr = () => { input.removeAttribute('aria-invalid'); err.textContent = ''; };
-  const commit = (v) => { cur = v; input.value = String(v); clearErr(); sync(); onChange(v); };
-  input.addEventListener('input', () => {
-    const v = input.value.trim() === '' ? NaN : Number(input.value);
-    if (valid(v)) { cur = v; clearErr(); sync(); onChange(v); }
-    else { input.setAttribute('aria-invalid', 'true'); err.textContent = `Enter a whole number from ${min} to ${max}; ${cur} is still in use.`; }
-  });
-  input.addEventListener('change', () => { input.value = String(cur); clearErr(); });
-  dec.addEventListener('click', () => commit(Math.max(min, cur - 1)));
-  inc.addEventListener('click', () => commit(Math.min(max, cur + 1)));
-  sync();
-  const root = el('div', { class: 'lin-field' },
-    el('label', { for: id, html: label }),
-    el('div', { class: 'lin-stepper' }, dec, input, inc),
-    err, hint ? el('div', { class: 'lin-note dim', style: 'margin:2px 0 0' }, hint) : null);
-  return { root, input, get value() { return cur; }, set(v) { cur = v; input.value = String(v); clearErr(); sync(); } };
-}
 
 // A radio group drawn as pills (native radios: arrow keys, Tab, screen readers all work). Returns {root, set(value)}.
 export function segmented({ label, name, options, value, onChange }) {
@@ -143,5 +95,4 @@ export function clearMarks(m) {
   for (const r of m.cells) for (const c of r) c.classList.remove('hl', 'hl2');
 }
 export function markRow(m, i, cls = 'hl') { m.rowTags[i]?.classList.add('hl'); for (const c of m.cells[i] ?? []) c.classList.add(cls); }
-export function markCol(m, j, cls = 'hl') { m.colTags[j]?.classList.add('hl'); for (const r of m.cells) r[j]?.classList.add(cls); }
 export function markCell(m, i, j, cls = 'hl') { m.cells[i]?.[j]?.classList.add(cls); }
