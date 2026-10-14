@@ -21,7 +21,7 @@
             "why-gradients.json"
           ],
           "est_minutes": 15,
-          "status": "draft"
+          "status": "published"
         },
         {
           "id": "backprop-lab",
@@ -65,7 +65,7 @@
             "optim.json"
           ],
           "est_minutes": 20,
-          "status": "draft"
+          "status": "published"
         }
       ]
     },
@@ -91,7 +91,7 @@
             "linear.json"
           ],
           "est_minutes": 20,
-          "status": "draft"
+          "status": "published"
         }
       ]
     }

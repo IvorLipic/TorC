@@ -15,7 +15,7 @@ Status legend: `[x]` done · `[~]` in progress · `[ ]` planned. The detailed cu
 - [x] TorC `v0.1.0` released (pre-release); `TORC_REF` now pins the tag
 - [x] Project docs: README, architecture, authoring guide, decisions, content plan
 - [x] Compact lab (fits one laptop screen), auto-play removed
-- [ ] CI: trace drift check + Node tests on every push/PR (`verify.yml`)
+- [x] CI: trace drift check + Node tests + site check on every push/PR (`verify.yml`); TorC's own CI (build matrix, consumer smoke test, ASan/UBSan) lives on `main`
 
 ## M2 — Course scaffolding
 - [x] Home / course-map page (`site/index.html` from `course.json`: parts, lesson cards, filter box, done ticks), lesson template (committed shells + `lesson-boot.js`), shared UI modules (`js/core/`, `js/widgets/`), lesson data format (`js/lessons/<id>.js` with `text`/`widget`/`gotcha`/`predict`/`check` sections and `T('scene.path')` bound numbers)
@@ -26,9 +26,11 @@ Status legend: `[x]` done · `[~]` in progress · `[ ]` planned. The detailed cu
 - [ ] Op-card reference page (`site/ref/ops/`, generated from the registry) and API index (`site/ref/api/`, built from `symbols`)
 
 ## M3 — First lessons (see content plan for specs)
-- [ ] Intro: why following gradients works (slope, chain rule intuition)
-- [ ] SGD update step (and momentum)
-- [ ] `nn::Linear`: shapes, matmul + bias, init
+- [x] `why-gradients`: why following gradients works (slope, step size, chain rule as gears) — published after independent review
+- [x] `sgd-step`: the SGD update step, learning rate, zero_grad, momentum — published after independent review
+- [x] `linear-layer`: `nn::Linear` shapes, matmul + bias, backward, init — published after independent review
+- [ ] Outside cold reader per lesson (definition-of-done item 6), screen-reader pass, Firefox/Safari check
+- [ ] Bump `TORC_REF` when TorC tags a release that includes the `MSELoss` broadcast-gradient fix (merged on `main`, not in v0.1.0)
 
 ## M4+ — Remaining library coverage
 Tensors/shapes/broadcasting, nn activations & losses, optimizers (Adam/AdamW), data loading, conv2d, end-to-end examples
