@@ -29,8 +29,8 @@
 .widget-tag{border:1px solid var(--border);border-radius:99px;padding:0 .55rem;color:#aeb7c1}
 .widget-tag::before{content:"▸ ";color:var(--fwd)}
 .tag{border:1px dashed var(--muted);border-radius:99px;padding:0 .55rem}
+.row-code:focus-visible{outline:2px solid var(--fwd);outline-offset:2px}
 .row-code{margin:0;padding:.6rem .8rem;background:#0b0f14;border:1px solid var(--border);border-radius:10px;overflow-x:auto;font-size:.8rem;line-height:1.55;position:relative;z-index:1}
 .row-code code{background:none;padding:0;font-size:1em;white-space:pre}
-.row-code .c{color:#7d8794}
-.row.planned .row-code{opacity:.75}
+.row-code .c{color:#8b949e}
 @media(max-width:820px){.row{grid-template-columns:minmax(0,1fr)}}

@@ -24,7 +24,7 @@ function row(l) {
         el('p', { class: 'row-meta' },
           live ? `${l.est_minutes} min` : el('span', { class: 'tag' }, 'planned'),
           ...(l.widgets ?? []).map((w) => el('span', { class: 'widget-tag' }, w))))),
-    l.code ? el('pre', { class: 'row-code', 'aria-label': `TorC code: ${l.title}` }, el('code', { html: codeHtml(l.code) })) : null);
+    l.code ? el('pre', { class: 'row-code', role: 'region', tabindex: '0', 'aria-label': `TorC code: ${l.title}` }, el('code', { html: codeHtml(l.code) })) : null);
 }
 
 function render(course) {

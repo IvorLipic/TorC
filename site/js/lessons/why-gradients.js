@@ -48,7 +48,7 @@ export default {
       kind: 'text',
       html: (D, T, m = makeModel(D.scenes.why)) => sec('setup', 'The setup', `
     <p>One weight <code>w</code>, one input <code>x</code>, one target <code>t</code>, squared error:</p>
-    <pre class="wg-code"><code>Variable w(Tensor({${T('why.w.value')}.0f}, {1}), true);    // the weight (tracked)
+    <pre class="wg-code" tabindex="0" role="region" aria-label="The TorC code"><code>Variable w(Tensor({${T('why.w.value')}.0f}, {1}), true);    // the weight (tracked)
 Variable x(Tensor({${T('why.x.value')}.0f}, {1}), false);   // data
 Variable t(Tensor({${T('why.t.value')}.0f}, {1}), false);   // data
 Variable p = mul(w, x);     // prediction

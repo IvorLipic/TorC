@@ -29,7 +29,8 @@ Status legend: `[x]` done · `[~]` in progress · `[ ]` planned. The detailed cu
 - [x] `why-gradients`: why following gradients works (slope, step size, chain rule as gears) — published after independent review
 - [x] `sgd-step`: the SGD update step, learning rate, zero_grad, momentum — published after independent review
 - [x] `linear-layer`: `nn::Linear` shapes, matmul + bias, backward, init — published after independent review
-- [ ] Outside cold reader per lesson (definition-of-done item 6), screen-reader pass, Firefox/Safari check
+- [x] Automated accessibility audit (axe-core 4.10, WCAG 2.1 A/AA + best practice) clean on every page at 1366 and 390 px; keyboard walk of every page
+- [ ] Outside cold reader per lesson (definition-of-done item 6), a pass with a real screen reader, Firefox/Safari check (only Chromium available here)
 - [ ] Bump `TORC_REF` when TorC tags a release that includes the `MSELoss` broadcast-gradient fix (merged on `main`, not in v0.1.0)
 
 ## M3.5 — Concise lessons (owner review: less prose, fewer numbers and features; decisions 7-9)
@@ -44,7 +45,7 @@ Status legend: `[x]` done · `[~]` in progress · `[ ]` planned. The detailed cu
 - [x] Curriculum in the usual university order (content-plan section 2): 4 parts, 13 lessons, planned ones shown, labs apart
 - [x] Home page: numbered lessons with the TorC code beside each and its widgets; Backprop lab moved to Labs
 - [x] `tools/snippets/check.mjs`: every snippet compiled and run against TorC v0.1.0 (13 run, 1 compile-only)
-- [ ] Run the snippet check in CI (it needs the TorC build that `tools/trace/run.sh` already does)
+- [x] The snippet check runs in CI (`verify.yml`, after the trace drift check, on the TorC source it fetched)
 
 ## M4+ — The planned lessons, in curriculum order
 Tensors → Nonlinearity → Module → Losses → The training loop → Better optimizers → Generalization → MNIST MLP → Convolution →

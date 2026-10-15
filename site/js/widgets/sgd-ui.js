@@ -75,7 +75,7 @@ export const SHARED_CSS = `
 .sgd-w .btn[aria-disabled=true]{opacity:.4;cursor:default}
 .sgd-w .btn[aria-pressed=true]{border-color:var(--fwd);color:var(--fwd);background:rgba(88,196,221,.1)}
 .sgd-w .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
-.sgd-w h4.sub{margin:.3rem 0 .15rem;color:var(--muted);font-size:.85rem}
+.sgd-w .sub{margin:.3rem 0 .15rem;color:var(--muted);font-size:.85rem}
 .sgd-w .chart svg{display:block;width:100%;height:auto;max-height:240px}
 .sgd-w .chart text{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
 .sgd-w .lc-main{fill:none;stroke:var(--fwd);stroke-width:2.5}

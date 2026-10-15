@@ -26,7 +26,7 @@ export function mountDescent(host, D) {
   const left = el('div'), chart = el('div', { class: 'chart' }), read = el('div', { class: 'sgd-read' });
   const root = el('div', { class: 'sgd-w' },
     el('div', { class: 'sgd-ctl' }, lrP.root, muP.root, el('div', { class: 'row' }, stepBtn, resetBtn), status),
-    el('div', { class: 'sgd-grid' }, left, el('div', {}, el('h4', { class: 'sub' }, 'Loss after each update (log scale)'), chart)),
+    el('div', { class: 'sgd-grid' }, left, el('div', {}, el('h3', { class: 'sub' }, 'Loss after each update (log scale)'), chart)),
     read);
   host.append(root);
   const contour = mountContour2d(left, { model, base: { w: [-1, 5], b: [-1.5, 3] }, optimum: D.files.optim.data.optimum });

@@ -52,7 +52,7 @@ export default {
       kind: 'text',
       html: (D, T) => sec('setup', 'The setup', `
     <p>Fit <code>y = w·x + b</code> to three points on the line <code>t</code> = ${T('files.optim.data.true_w')}<code>x</code> + ${T('files.optim.data.true_b')} with <code>nn::MSELoss</code>. Start at <code>w = b = 0</code>, where the loss is ${T('sgd.L.value')}. Each iteration of TorC's training loop ends with:</p>
-    <pre class="sg-code"><code>${lines('loop', 66, 68)}</code></pre>`),
+    <pre class="sg-code" tabindex="0" role="region" aria-label="The training loop in TorC"><code>${lines('loop', 66, 68)}</code></pre>`),
     },
     {
       kind: 'text',

@@ -1,4 +1,5 @@
-# Checks the static site (check_site + Node tests) and that the committed trace JSON equals a fresh run of the pinned TorC.
+# Checks the static site (check_site + Node tests), that the committed trace JSON equals a fresh run of the pinned TorC, and that
+# the code shown on the home page compiles and runs against it.
 name: Verify
 
 on:
@@ -27,3 +28,5 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y clang-18 cmake
       - name: Trace drift check against the pinned TorC
         run: CXX=clang++-18 tools/trace/run.sh --check
+      - name: Home-page code compiles and runs against the pinned TorC (uses the source the trace step fetched)
+        run: node tools/snippets/check.mjs --cxx clang++-18
