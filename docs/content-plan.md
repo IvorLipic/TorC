@@ -26,7 +26,42 @@ learner will hit (lifetime, `zero_grad`, silent `step()` skip) appear as "Why di
 message. Each lesson ends with 3 to 5 *predict, then reveal* checks whose answers come from the trace. Each lesson has an
 internal note `docs/lessons/<id>.md` (storyboard, symbols, Observed/Expected/Suspected) that is not shipped.
 
-## 2. Course map
+## 2. Curriculum (v2, owner request 2026-10: follow the usual university order; supersedes the course map below)
+
+The order follows what the common introductory courses share, adapted to what TorC has (no RNNs or attention in TorC, so the
+course stops at convolution):
+- **Dive into Deep Learning** (d2l.ai): preliminaries (tensors, calculus, autograd) → linear regression → classification → MLPs →
+  builders' guide (layers and modules, parameters, initialisation) → CNNs → … → optimisation algorithms.
+- **Stanford CS231n**: image classification → loss functions and optimisation (SGD, momentum, Adam) → neural networks and
+  backpropagation → CNNs → training neural networks.
+- **MIT 6.S191**: perceptron, activation functions, loss, gradient descent, backpropagation, regularisation (dropout, early
+  stopping) → sequences → vision (CNNs) → generative models.
+- **Karpathy, Neural Networks: Zero to Hero**: a scalar autograd engine and backpropagation first (micrograd), then tensors and
+  an MLP, then activations, gradients and initialisation.
+TorC Learn takes Karpathy's start (one scalar gradient before tensors) and d2l's order after it.
+
+| # | Part | Lesson (id) | Status | Code beside it | Widgets |
+|---|---|---|---|---|---|
+| 1 | Learning from a gradient | The gradient (`why-gradients`) | published | `mul`, `sub`, `backward()` | the bowl, graph lab |
+| 2 | | Using the gradient (`sgd-step`) | published | `optim::SGD`, `step`, `zero_grad` | loss landscape, zero_grad loop |
+| 3 | Building a network | Tensors (`tensors`) | planned | `Tensor`, `add` (broadcast), `matmul`, `transpose` | shape explorer, broadcast grid |
+| 4 | | Layers (`linear-layer`) | published | `nn::Linear` | matrix grid, signal through six layers |
+| 5 | | Nonlinearity (`nonlinearity`) | planned | `relu`, `sigmoid`, `softmax` | activation plotter, fit a curve |
+| 6 | | The abstraction: Module (`modules`) | planned | `nn::Sequential`, `parameters()` | model builder |
+| 7 | Training | Losses (`losses`) | planned | `nn::MSELoss`, `nn::CrossEntropyLoss` | loss explorer |
+| 8 | | The training loop (`training-loop`) | planned | `data::DataLoader` | batch viewer, live training curve |
+| 9 | | Better optimizers (`optimizers`) | planned | `optim::SGD` (momentum), `Adam`, `AdamW` | optimizer race |
+| 10 | | Generalization (`generalization`) | planned | train/test loaders, `AdamW` weight decay | train vs test curve |
+| 11 | | Project: MNIST MLP (`mnist-mlp`) | planned | `data::MNISTDataset`, the example's model | digit pad, first-layer weights |
+| 12 | Images | Convolution (`convolution`) | planned | `nn::Conv2d`, `nn::Flatten` | sliding window, feature maps |
+| 13 | | Project: MNIST CNN (`mnist-cnn`) | planned | the CNN example's model | digit pad, feature maps |
+| – | Labs | Backprop lab (`backprop-lab`) | published | `mul`, `add`, `backward()` on a reused value | graph lab |
+
+Every lesson pairs the real TorC code (shown beside it on the home page; compiled and run by `tools/snippets/check.mjs`) with
+at most two widgets, under the style budget of `docs/authoring.md`. Labs are playgrounds outside the lesson order and may grow.
+Planned lessons are specified in the course map below (section 2, v1); their order is the table above.
+
+## 2 (v1). Course map
 
 Sizes: S/M/L = relative effort including trace program, tests and review (section 5). `*` = genuinely new widget. Reused:
 **graph** (SVG graph), **stepper** (timeline + checkpoints), **window** (math window/paper work), **inputs** (editable leaves).

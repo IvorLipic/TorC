@@ -20,6 +20,12 @@ Lightweight decision log. Newest at the bottom of each section.
 9. **No "show as table" toggles.** Plots keep a screen-reader-only table (`srTable`); supersedes the content plan's
    "every widget has a table toggle".
 
+10. **The home page is the whole curriculum** (owner request): numbered lessons by part in the usual university order
+    (content-plan section 2), planned lessons shown but not linked, the TorC code beside every lesson. Supersedes "no coming
+    soon placeholders". Labs (the Backprop lab first) are a separate section, outside prev/next.
+11. **Code on the home page is checked against the library**: `tools/snippets/check.mjs` compiles every snippet of
+    `course.json` against TorC at the pinned ref and runs the ones that can run, asserting the values their comments state.
+
 ## Open
 - Pin policy once TorC publishes a release tag: pin the tag (preferred) and bump via PR. Until then a commit SHA is pinned.
 - Whether lessons beyond autograd need more of the library ported to JS (e.g. conv2d) or should stay precomputed/static.

@@ -31,7 +31,7 @@ const STYLE = `<style>
 
 export default {
   id: 'sgd-step',
-  title: 'The SGD update step',
+  title: 'Using the gradient',
   trace: ['optim.json'],
   sections: [
     {
@@ -104,7 +104,7 @@ export default {
     },
     {
       kind: 'text',
-      html: () => '<section class="sg"><p>Next: the <a href="../linear-layer/">Linear layer</a>, the parameters <code>step()</code> usually updates.</p></section>',
+      html: () => '<section class="sg"><p>Next: <a href="../linear-layer/">Layers</a>, the parameters <code>step()</code> usually updates.</p></section>',
     },
   ],
 };

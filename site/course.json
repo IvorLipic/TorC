@@ -3,12 +3,12 @@
   "title": "TorC Learn",
   "parts": [
     {
-      "id": "big-idea",
-      "title": "The big idea",
+      "id": "gradient",
+      "title": "Learning from a gradient",
       "lessons": [
         {
           "id": "why-gradients",
-          "title": "Why following gradients works",
+          "title": "The gradient",
           "outcome": "What a gradient is, how a step uses it, and why step size matters.",
           "prereqs": [],
           "symbols": [
@@ -21,8 +21,304 @@
             "why-gradients.json"
           ],
           "est_minutes": 6,
-          "status": "published"
+          "status": "published",
+          "widgets": [
+            "the bowl",
+            "graph lab"
+          ],
+          "code": "Variable w(Tensor({0.0f}, {1}), true);\nVariable p = mul(w, x);\nVariable e = sub(p, t);\nVariable L = mul(e, e);\nL.backward();      // w.grad() = dL/dw"
         },
+        {
+          "id": "sgd-step",
+          "title": "Using the gradient",
+          "outcome": "What step() reads and writes, learning rate, momentum, and zero_grad.",
+          "prereqs": [
+            "why-gradients"
+          ],
+          "symbols": [
+            "optim::SGD",
+            "optim::SGD::step",
+            "optim::SGD::zero_grad",
+            "nn::MSELoss",
+            "Variable::zero_grad"
+          ],
+          "trace": [
+            "optim.json"
+          ],
+          "est_minutes": 7,
+          "status": "published",
+          "widgets": [
+            "loss landscape",
+            "zero_grad loop"
+          ],
+          "code": "optim::SGD opt({&W, &b}, /*lr=*/0.05f);\nloss.backward();   // fills W.grad, b.grad\nopt.step();        // W -= lr * W.grad, same for b\nopt.zero_grad();   // clear before the next backward"
+        }
+      ]
+    },
+    {
+      "id": "networks",
+      "title": "Building a network",
+      "lessons": [
+        {
+          "id": "tensors",
+          "title": "Tensors",
+          "outcome": "Shapes, row-major storage, broadcasting, reductions and matmul.",
+          "prereqs": [
+            "sgd-step"
+          ],
+          "symbols": [
+            "Tensor",
+            "Tensor::add",
+            "Tensor::matmul",
+            "Tensor::transpose",
+            "Tensor::sum",
+            "broadcast_shape"
+          ],
+          "trace": [],
+          "est_minutes": 7,
+          "status": "planned",
+          "widgets": [
+            "shape explorer",
+            "broadcast grid"
+          ],
+          "code": "Tensor a({1.f, 2.f, 3.f, 4.f, 5.f, 6.f}, {2, 3});\nTensor b({10.f, 20.f, 30.f}, {3});\nTensor c = a.add(b);    // (2, 3): b added to each row\nTensor g = a.matmul(a.transpose({1, 0}));   // (2, 2)"
+        },
+        {
+          "id": "linear-layer",
+          "title": "Layers",
+          "outcome": "Shapes, one neuron per row of W, the backward formulas, and initialisation.",
+          "prereqs": [
+            "tensors"
+          ],
+          "symbols": [
+            "nn::Linear",
+            "nn::Linear::forward",
+            "kaiming_normal_std",
+            "matmul",
+            "transpose"
+          ],
+          "trace": [
+            "linear.json"
+          ],
+          "est_minutes": 7,
+          "status": "published",
+          "widgets": [
+            "matrix grid",
+            "signal through six layers"
+          ],
+          "code": "nn::Linear layer(784, 32);   // W (32, 784), b (32)\nVariable y = layer(x);       // x (B, 784) → y (B, 32)"
+        },
+        {
+          "id": "nonlinearity",
+          "title": "Nonlinearity",
+          "outcome": "Why stacked linear layers collapse, and what ReLU, sigmoid and softmax add.",
+          "prereqs": [
+            "linear-layer"
+          ],
+          "symbols": [
+            "relu",
+            "sigmoid",
+            "softmax",
+            "nn::ReLU",
+            "nn::Sigmoid",
+            "nn::Softmax"
+          ],
+          "trace": [],
+          "est_minutes": 7,
+          "status": "planned",
+          "widgets": [
+            "activation plotter",
+            "fit a curve"
+          ],
+          "code": "Variable h = relu(z);                 // max(0, z)\nVariable s = sigmoid(z);              // 1 / (1 + e^-z)\nVariable p = softmax(z, /*axis=*/1);  // each row sums to 1"
+        },
+        {
+          "id": "modules",
+          "title": "The abstraction: Module",
+          "outcome": "A model is parameters plus forward(); Sequential stacks modules.",
+          "prereqs": [
+            "nonlinearity"
+          ],
+          "symbols": [
+            "nn::Module",
+            "nn::Sequential",
+            "Module::parameters",
+            "Module::register_parameter"
+          ],
+          "trace": [],
+          "est_minutes": 7,
+          "status": "planned",
+          "widgets": [
+            "model builder"
+          ],
+          "code": "nn::Sequential model;\nmodel.add(std::make_unique<nn::Linear>(784, 32));\nmodel.add(std::make_unique<nn::ReLU>());\nmodel.add(std::make_unique<nn::Linear>(32, 10));\nstd::vector<Variable*> params = model.parameters();"
+        }
+      ]
+    },
+    {
+      "id": "training",
+      "title": "Training",
+      "lessons": [
+        {
+          "id": "losses",
+          "title": "Losses",
+          "outcome": "Mean squared error for numbers, cross-entropy for classes.",
+          "prereqs": [
+            "modules"
+          ],
+          "symbols": [
+            "nn::MSELoss",
+            "nn::CrossEntropyLoss",
+            "softmax",
+            "log"
+          ],
+          "trace": [],
+          "est_minutes": 7,
+          "status": "planned",
+          "widgets": [
+            "loss explorer"
+          ],
+          "code": "nn::MSELoss mse;                      // regression\nnn::CrossEntropyLoss ce;              // classification\nVariable loss = ce(logits, labels);   // logits (B, 10), labels (B)"
+        },
+        {
+          "id": "training-loop",
+          "title": "The training loop",
+          "outcome": "Datasets, mini-batches and epochs: the loop every example runs.",
+          "prereqs": [
+            "losses"
+          ],
+          "symbols": [
+            "data::Dataset",
+            "data::TensorDataset",
+            "data::SyntheticRegression",
+            "data::DataLoader"
+          ],
+          "trace": [],
+          "est_minutes": 7,
+          "status": "planned",
+          "widgets": [
+            "batch viewer",
+            "live training curve"
+          ],
+          "code": "data::DataLoader loader(dataset, 32, /*shuffle=*/true);\nwhile (loader.has_next()) {\n    auto [xb, yb] = loader.next_batch();\n    // forward → loss → backward → step → zero_grad\n}"
+        },
+        {
+          "id": "optimizers",
+          "title": "Better optimizers",
+          "outcome": "Momentum, Adam and AdamW on the same loss.",
+          "prereqs": [
+            "training-loop"
+          ],
+          "symbols": [
+            "optim::SGD",
+            "optim::Adam",
+            "optim::AdamW"
+          ],
+          "trace": [],
+          "est_minutes": 7,
+          "status": "planned",
+          "widgets": [
+            "optimizer race"
+          ],
+          "code": "optim::SGD sgd(params, 0.01f, /*momentum=*/0.9f);\noptim::Adam adam(params, /*lr=*/1e-3f);\noptim::AdamW adamw(params, 1e-3f, /*weight_decay=*/0.01f);"
+        },
+        {
+          "id": "generalization",
+          "title": "Generalization",
+          "outcome": "Train versus test loss, overfitting, and weight decay.",
+          "prereqs": [
+            "optimizers"
+          ],
+          "symbols": [
+            "optim::AdamW",
+            "data::DataLoader"
+          ],
+          "trace": [],
+          "est_minutes": 7,
+          "status": "planned",
+          "widgets": [
+            "train vs test curve"
+          ],
+          "code": "data::DataLoader train(train_set, 64, /*shuffle=*/true);\ndata::DataLoader test(test_set, 256);   // never trained on\noptim::AdamW opt(params, 1e-3f, /*weight_decay=*/0.01f);"
+        },
+        {
+          "id": "mnist-mlp",
+          "title": "Project: MNIST MLP",
+          "outcome": "Train a three-layer MLP on handwritten digits, end to end.",
+          "prereqs": [
+            "generalization"
+          ],
+          "symbols": [
+            "data::MNISTDataset",
+            "nn::Sequential",
+            "optim::AdamW",
+            "nn::CrossEntropyLoss"
+          ],
+          "trace": [],
+          "est_minutes": 10,
+          "status": "planned",
+          "widgets": [
+            "digit pad",
+            "first-layer weights"
+          ],
+          "code": "data::MNISTDataset train_set(path);\ndata::DataLoader loader(train_set, 64, /*shuffle=*/true);\noptim::AdamW opt(model.parameters(), 1e-3f);\nnn::CrossEntropyLoss loss_fn;   // 26,506 parameters"
+        }
+      ]
+    },
+    {
+      "id": "images",
+      "title": "Images",
+      "lessons": [
+        {
+          "id": "convolution",
+          "title": "Convolution",
+          "outcome": "A small kernel slides over the image: stride, padding, output size.",
+          "prereqs": [
+            "mnist-mlp"
+          ],
+          "symbols": [
+            "nn::Conv2d",
+            "nn::Flatten",
+            "conv2d",
+            "Tensor::conv2d"
+          ],
+          "trace": [],
+          "est_minutes": 7,
+          "status": "planned",
+          "widgets": [
+            "sliding window",
+            "feature maps"
+          ],
+          "code": "// in 1, out 8, kernel 3, stride 2, padding 1\nnn::Conv2d conv(1, 8, 3, 2, 1);\nVariable y = conv(x);   // (N, 1, 28, 28) → (N, 8, 14, 14)\nnn::Flatten flat;       // (N, C, H, W) → (N, C·H·W)"
+        },
+        {
+          "id": "mnist-cnn",
+          "title": "Project: MNIST CNN",
+          "outcome": "Same digits, a third of the parameters: a small convolutional network.",
+          "prereqs": [
+            "convolution"
+          ],
+          "symbols": [
+            "nn::Conv2d",
+            "nn::Flatten",
+            "nn::Sequential"
+          ],
+          "trace": [],
+          "est_minutes": 10,
+          "status": "planned",
+          "widgets": [
+            "digit pad",
+            "feature maps"
+          ],
+          "code": "using std::make_unique;\nmodel.add(make_unique<nn::Conv2d>(1, 8, 3, 2, 1));   // (N, 8, 14, 14)\nmodel.add(make_unique<nn::ReLU>());\nmodel.add(make_unique<nn::Conv2d>(8, 16, 3, 2, 1));  // (N, 16, 7, 7)\nmodel.add(make_unique<nn::ReLU>());\nmodel.add(make_unique<nn::Flatten>());\nmodel.add(make_unique<nn::Linear>(16 * 7 * 7, 10)); // 9,098 params"
+        }
+      ]
+    },
+    {
+      "id": "labs",
+      "title": "Labs",
+      "kind": "lab",
+      "lessons": [
         {
           "id": "backprop-lab",
           "title": "Backprop lab",
@@ -39,59 +335,16 @@
           ],
           "est_minutes": 7,
           "status": "published",
+          "widgets": [
+            "graph lab"
+          ],
+          "code": "Variable x(Tensor({3.0f}, {1}), true);\nVariable xx = mul(x, x);\nVariable y = add(xx, x);   // x is used three times\ny.backward();              // x.grad() = 2x + 1 = 7",
           "legacy_hashes": [
             "reuse",
             "chain",
             "mlp",
             "lab"
           ]
-        },
-        {
-          "id": "sgd-step",
-          "title": "The SGD update step",
-          "outcome": "What step() reads and writes, learning rate, momentum, and zero_grad.",
-          "prereqs": [
-            "why-gradients",
-            "backprop-lab"
-          ],
-          "symbols": [
-            "optim::SGD",
-            "optim::SGD::step",
-            "optim::SGD::zero_grad",
-            "nn::MSELoss",
-            "Variable::zero_grad"
-          ],
-          "trace": [
-            "optim.json"
-          ],
-          "est_minutes": 7,
-          "status": "published"
-        }
-      ]
-    },
-    {
-      "id": "building-blocks",
-      "title": "Building blocks",
-      "lessons": [
-        {
-          "id": "linear-layer",
-          "title": "nn::Linear: a layer as matmul plus bias",
-          "outcome": "Shapes, one neuron per row of W, the backward formulas, and initialisation.",
-          "prereqs": [
-            "backprop-lab"
-          ],
-          "symbols": [
-            "nn::Linear",
-            "nn::Linear::forward",
-            "kaiming_normal_std",
-            "matmul",
-            "transpose"
-          ],
-          "trace": [
-            "linear.json"
-          ],
-          "est_minutes": 7,
-          "status": "published"
         }
       ]
     }

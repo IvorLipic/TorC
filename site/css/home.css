@@ -1,22 +1,36 @@
-/* home.css — the course map. Uses the tokens from base.css. */
-.course{margin-top:1.2rem}
-.course-head{display:flex;flex-wrap:wrap;gap:.2rem 1rem;align-items:baseline;justify-content:space-between}
-.course-head h2{margin:1.2rem 0 .3rem}
-.course-head .hint{margin:0}
-.filter{display:flex;flex-wrap:wrap;gap:.4rem .8rem;align-items:center;margin:.4rem 0 1rem}
-.filter label{color:var(--muted);font-size:.9rem}
-.filter input{flex:1 1 16rem;max-width:28rem;font:inherit;font-size:.95rem;color:var(--fg);background:var(--panel);border:1px solid var(--border);border-radius:9px;padding:.4rem .7rem}
-.filter .hint{margin:0}
-.part{margin:1.6rem 0}
-.part h2{font-size:1.25rem;margin:0 0 .6rem;color:var(--fg)}
-.lesson-grid{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
-.lesson-card{position:relative;background:var(--panel);border:1px solid var(--border);border-radius:var(--r);padding:1rem 1.1rem;display:flex;flex-direction:column;gap:.3rem}
-.lesson-card:hover,.lesson-card:focus-within{border-color:var(--fwd)}
-.lesson-card.done{border-color:rgba(131,193,103,.55)}
-.lesson-link{color:var(--fg);text-decoration:none;display:flex;gap:.6rem;justify-content:space-between;align-items:baseline}
-.lesson-link::after{content:"";position:absolute;inset:0;border-radius:var(--r)}
-.lesson-title{font-size:1.1rem;font-weight:600}
-.tick{color:var(--ok);font-weight:700;white-space:nowrap}
-.lesson-outcome{margin:0;color:#c4ccd5;font-size:.95rem}
-.lesson-meta{margin:auto 0 0;padding-top:.3rem;color:var(--muted);font-size:.82rem}
-.empty{margin:1rem 0}
+/* home.css — the curriculum and the labs. Uses the tokens from base.css. */
+.home-hero{padding:2rem 0 .4rem}
+.home-hero h1{font-size:clamp(1.8rem,4.2vw,2.6rem)}
+.home-hero .lead{max-width:44rem}
+.hero-actions{display:flex;flex-wrap:wrap;gap:.6rem 1.2rem;align-items:center;margin:1rem 0 0}
+.hero-actions .hint{margin:0}
+.part{margin:2.2rem 0 0}
+.part h2,.labs h2{font-size:1.3rem;margin:0 0 .7rem;display:flex;gap:.6rem;align-items:baseline}
+.part-num{color:var(--fwd);font-variant-numeric:tabular-nums}
+.labs{margin:2.6rem 0 0;padding-top:1.2rem;border-top:1px solid var(--border)}
+.labs .hint{margin:-.4rem 0 .8rem}
+.rows{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.row{position:relative;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.45fr);gap:.4rem 1.4rem;align-items:start;background:var(--panel);border:1px solid var(--border);border-radius:var(--r);padding:.9rem 1.1rem}
+.row:hover,.row:focus-within{border-color:var(--fwd)}
+.row.done{border-color:rgba(131,193,103,.55)}
+.row.planned{background:transparent;border-style:dashed}
+.row.planned:hover{border-color:var(--border)}
+.row-text{display:flex;gap:.9rem;align-items:flex-start;min-width:0}
+.row-num{font:600 .95rem ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted);padding-top:.15rem}
+.row-title{font-size:1.1rem;margin:0}
+.row-link{color:var(--fg);text-decoration:none}
+.row-link::after{content:"";position:absolute;inset:0;border-radius:var(--r)}
+.row-link:hover{color:var(--fwd)}
+.row.planned .row-title{color:#aeb7c1;font-weight:600}
+.tick{color:var(--ok);font-weight:700}
+.row-outcome{margin:.2rem 0 0;color:#c4ccd5;font-size:.94rem}
+.row.planned .row-outcome{color:var(--muted)}
+.row-meta{margin:.45rem 0 0;display:flex;flex-wrap:wrap;gap:.3rem .5rem;align-items:center;color:var(--muted);font-size:.8rem}
+.widget-tag{border:1px solid var(--border);border-radius:99px;padding:0 .55rem;color:#aeb7c1}
+.widget-tag::before{content:"▸ ";color:var(--fwd)}
+.tag{border:1px dashed var(--muted);border-radius:99px;padding:0 .55rem}
+.row-code{margin:0;padding:.6rem .8rem;background:#0b0f14;border:1px solid var(--border);border-radius:10px;overflow-x:auto;font-size:.8rem;line-height:1.55;position:relative;z-index:1}
+.row-code code{background:none;padding:0;font-size:1em;white-space:pre}
+.row-code .c{color:#7d8794}
+.row.planned .row-code{opacity:.75}
+@media(max-width:820px){.row{grid-template-columns:minmax(0,1fr)}}

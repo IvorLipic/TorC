@@ -32,7 +32,7 @@ const STYLE = `<style>
 
 export default {
   id: 'linear-layer',
-  title: 'nn::Linear: a layer as matmul plus bias',
+  title: 'Layers',
   trace: ['linear.json'],
   sections: [
     {

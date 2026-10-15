@@ -27,7 +27,7 @@ const STYLE = `<style>
 
 export default {
   id: 'why-gradients',
-  title: 'Why following gradients works',
+  title: 'The gradient',
   trace: ['why-gradients.json'],
   sections: [
     {
@@ -111,7 +111,7 @@ L.backward();               // w.grad() now holds the slope</code></pre>
     },
     {
       kind: 'text',
-      html: () => `<section class="wg"><p>Next: the <a href="../backprop-lab/">Backprop lab</a> runs the same chain on bigger graphs; <a href="../sgd-step/">The SGD step</a> does this update with TorC's optimizer.</p></section>`,
+      html: () => `<section class="wg"><p>Next: <a href="../sgd-step/">Using the gradient</a> does this update with TorC's optimizer. The <a href="../backprop-lab/">Backprop lab</a> runs the same chain on bigger graphs.</p></section>`,
     },
   ],
 };

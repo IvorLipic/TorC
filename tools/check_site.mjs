@@ -8,7 +8,7 @@
 //   course.json   valid structure, unique ids, prereqs exist, no prereq cycles
 //   lessons       every PUBLISHED lesson has its shell (equal to the template below), its module js/lessons/<id>.js
 //                 (whose id/title/trace agree with course.json), its trace files in data/, and a page <title>;
-//                 draft lessons are only checked if they already have a shell or module
+//                 draft lessons are only checked if they already have a shell or module; planned lessons must have neither
 //   urls          no root-absolute URLs in HTML/CSS/JS (href="/ src="/ fetch("/ from "/ url(/ ...): the site must work
 //                 under any prefix (/TorC/ on GitHub Pages) with no <base>
 //   assets        every relative asset referenced by HTML (href/src), CSS (url(), @import) and JS (static imports,
@@ -127,6 +127,10 @@ export async function checkSite(siteDirArg = DEFAULT_SITE, { writeShells = false
   const lessons = errors.length ? [] : flatLessons(course);
 
   for (const l of lessons) {
+    if (l.status === 'planned') {                            // on the curriculum, no page yet: nothing may exist for it
+      for (const f of [path.join(siteDir, 'lessons', l.id, 'index.html'), path.join(siteDir, 'js', 'lessons', `${l.id}.js`)]) if (existsSync(f)) err(`planned lesson "${l.id}" already has ${path.relative(siteDir, f)}; make it a draft or publish it`);
+      continue;
+    }
     const published = isPublished(l);
     const shellPath = path.join(siteDir, 'lessons', l.id, 'index.html');
     const modPath = path.join(siteDir, 'js', 'lessons', `${l.id}.js`);

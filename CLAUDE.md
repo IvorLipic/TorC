@@ -27,6 +27,7 @@ This branch is an independent project: an interactive learning website about the
 
 ## Verification before anything ships
 - `node --test site/test/` and `tools/trace/run.sh --check` must pass (CI runs both).
+- After changing any `code` in `site/course.json`: `node tools/snippets/check.mjs --torc <TorC checkout at TORC_REF>` must pass.
 - Load the site locally under `/TorC/` (`python3 -m http.server -d …` with a `TorC` symlink), check every step of a changed scene at
   laptop (1366×768) and phone (390×844) width, keyboard use, no console errors.
 - Substantive changes get an independent read-only review (`independent-reviewer`) whose findings are fixed or answered.

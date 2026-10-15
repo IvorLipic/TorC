@@ -73,7 +73,7 @@ test('check_site: examples inside comments are not mistaken for code', () => wit
 
 test('check_site: lesson problems (missing shell/module/trace, drifted shell, bad prereq, duplicate id, no title)', () => withCopy(async (d) => {
   const c = JSON.parse(readFileSync(path.join(d, 'course.json'), 'utf8'));
-  const base = c.parts[0].lessons.find((l) => l.id === 'backprop-lab');   // the one published lesson
+  const base = c.parts.flatMap((p) => p.lessons).find((l) => l.id === 'backprop-lab');   // a published page
   const ghost = () => c.parts[0].lessons.find((l) => l.id === 'ghost');
   c.parts[0].lessons.push({ ...base, id: 'ghost', title: 'Ghost', prereqs: ['nope'], trace: ['missing.json'], legacy_hashes: [] });   // published, nothing on disk
   c.parts[0].lessons.push({ ...base, id: 'backprop-lab' });                                                          // duplicate id
@@ -111,3 +111,18 @@ test('check_site: shell template output is stable for drafts and published alike
   assert.equal(shellFor({ ...l, status: 'draft' }), shellFor(l));
   assert.match(shellFor({ ...l, title: 'A & "B"', outcome: 'x < y' }), /<title>A &amp; &quot;B&quot; · TorC Learn<\/title>/);
 });
+
+test('every lesson with code on the home page has a prelude and checks in tools/snippets/check.mjs (which compiles them against TorC)', async () => {
+  const { SPEC } = await import('../../tools/snippets/check.mjs');
+  const withCode = flatLessons(course()).filter((l) => l.code);
+  assert.ok(withCode.length >= 10);
+  for (const l of withCode) assert.ok(SPEC[l.id], `no snippet spec for ${l.id}`);
+  for (const id of Object.keys(SPEC)) assert.ok(withCode.some((l) => l.id === id), `snippet spec for ${id}, which has no code in course.json`);
+});
+
+test('check_site: a planned lesson must not have a page yet', () => withCopy(async (d) => {
+  const planned = flatLessons(course()).find((l) => l.status === 'planned');
+  mkdirSync(path.join(d, 'lessons', planned.id), { recursive: true });
+  writeFileSync(path.join(d, 'lessons', planned.id, 'index.html'), '<title>x</title>');
+  assert.match(await messages(d), new RegExp(`planned lesson "${planned.id}" already has`));
+}));

@@ -1,37 +1,46 @@
-// home.js — the course map: lessons grouped by part, a filter box, and a tick on lessons marked done.
-// Only published lessons are listed (drafts are reachable by URL). Old single-page deep links such as "#mlp/9" are
-// forwarded to the lesson that claims them (legacy_hashes in course.json).
-import { $, el } from './core/dom.js';
+// home.js — the home page: the curriculum (numbered lessons by part, each with its TorC code beside it; planned lessons shown
+// but not linked) and the labs. Old single-page deep links such as "#mlp/9" are forwarded to the page that claims them
+// (legacy_hashes in course.json).
+import { $, el, escapeHtml } from './core/dom.js';
 import { SITE, siteUrl, headerHtml } from './core/chrome.js';
-import { loadCourse, publishedParts, filterLessons, legacyTarget, lessonHref } from './core/course.js';
+import { loadCourse, curriculum, labs, isPublished, legacyTarget, lessonHref } from './core/course.js';
 import { store } from './core/store.js';
 
-function card(l) {
-  const done = store.isDone(l.id);
-  return el('li', { class: 'lesson-card' + (done ? ' done' : '') },
-    el('a', { class: 'lesson-link', href: siteUrl(lessonHref(l.id)) },
-      el('span', { class: 'lesson-title' }, l.title),
-      done ? el('span', { class: 'tick', title: 'Marked as done' }, el('span', { 'aria-hidden': 'true' }, '✓'), el('span', { class: 'sr' }, 'Done')) : null),
-    el('p', { class: 'lesson-outcome' }, l.outcome),
-    el('p', { class: 'lesson-meta' }, `${l.est_minutes} min`));
+// C++ with its // comments dimmed (escaped first, so the markup cannot leak)
+const codeHtml = (code) => escapeHtml(code).split('\n').map((line) => line.replace(/(\/\/.*)$/, '<span class="c">$1</span>')).join('\n');
+
+function row(l) {
+  const live = isPublished(l), done = live && store.isDone(l.id);
+  const title = live
+    ? el('a', { class: 'row-link', href: siteUrl(lessonHref(l.id)) }, l.title)
+    : el('span', {}, l.title);
+  return el('li', { class: `row${live ? '' : ' planned'}${done ? ' done' : ''}` },
+    el('div', { class: 'row-text' },
+      l.number ? el('span', { class: 'row-num', 'aria-hidden': 'true' }, String(l.number).padStart(2, '0')) : null,
+      el('div', {},
+        el('h3', { class: 'row-title' }, title,
+          done ? el('span', { class: 'tick', title: 'Marked as done' }, el('span', { 'aria-hidden': 'true' }, ' ✓'), el('span', { class: 'sr' }, ' (done)')) : null),
+        el('p', { class: 'row-outcome' }, l.outcome),
+        el('p', { class: 'row-meta' },
+          live ? `${l.est_minutes} min` : el('span', { class: 'tag' }, 'planned'),
+          ...(l.widgets ?? []).map((w) => el('span', { class: 'widget-tag' }, w))))),
+    l.code ? el('pre', { class: 'row-code', 'aria-label': `TorC code: ${l.title}` }, el('code', { html: codeHtml(l.code) })) : null);
 }
 
-function renderMap(course, query) {
-  const map = $('#map');
-  const parts = publishedParts(course).map((p) => ({ ...p, lessons: filterLessons(p.lessons, query) })).filter((p) => p.lessons.length);
-  const count = parts.reduce((n, p) => n + p.lessons.length, 0);
-  map.replaceChildren(...parts.map((p) => el('section', { class: 'part', 'aria-labelledby': 'part-' + p.id },
-    el('h2', { id: 'part-' + p.id }, p.title),
-    el('ul', { class: 'lesson-grid' }, p.lessons.map(card)))));
-  if (!count) map.append(el('p', { class: 'hint empty' }, `No lesson matches “${query}”.`));
-  $('#filter-status').textContent = query ? `${count} ${count === 1 ? 'lesson matches' : 'lessons match'}` : '';
-}
-
-function renderProgress(course) {
-  const all = publishedParts(course).flatMap((p) => p.lessons);
-  const done = all.filter((l) => store.isDone(l.id)).length;
-  $('#progress').textContent = `${done} of ${all.length} ${all.length === 1 ? 'lesson' : 'lessons'} done`
-    + (store.persistent ? '' : ' · progress is not being saved (browser storage is unavailable)');
+function render(course) {
+  const parts = curriculum(course), labList = labs(course);
+  const published = parts.flatMap((p) => p.lessons).filter(isPublished);
+  const done = published.filter((l) => store.isDone(l.id)).length;
+  $('#progress').textContent = `${done} of ${published.length} lessons done` + (store.persistent ? '' : ' · progress is not saved (browser storage is unavailable)');
+  const first = published[0];
+  $('#start').replaceChildren(first ? el('a', { class: 'btn primary big', href: siteUrl(lessonHref(first.id)) }, `Start: ${first.title} →`) : '');
+  $('#map').replaceChildren(...parts.map((p, i) => el('section', { class: 'part', 'aria-labelledby': `part-${p.id}` },
+    el('h2', { id: `part-${p.id}` }, el('span', { class: 'part-num' }, `${i + 1}`), p.title),
+    el('ol', { class: 'rows' }, p.lessons.map(row)))));
+  $('#labs').replaceChildren(...(labList.length ? [
+    el('h2', { id: 'labs-h' }, 'Labs'),
+    el('p', { class: 'hint' }, 'Playgrounds outside the lesson order.'),
+    el('ul', { class: 'rows' }, labList.map(row))] : []));
 }
 
 (async function main() {
@@ -45,25 +54,16 @@ function renderProgress(course) {
 
   app.innerHTML = headerHtml('home') + `
 <main id="top">
-  <section class="hero">
-    <h1>Learn how a tensor library learns</h1>
-    <p class="lead">Interactive lessons on <a href="https://github.com/IvorLipic/TorC">TorC</a>, a from-scratch C++ tensor and autograd library. Every number comes from a real run of the library; where you can edit inputs, a tested JavaScript port recomputes them in your browser.</p>
+  <section class="hero home-hero">
+    <h1>Deep learning, from the gradient up</h1>
+    <p class="lead">A course in the usual order, from one gradient to a convolutional network, built on <a href="https://github.com/IvorLipic/TorC">TorC</a>, a small C++ tensor and autograd library. Each lesson pairs the real code with something to play with.</p>
+    <div class="hero-actions"><span id="start"></span><span class="hint" id="progress"></span></div>
   </section>
-  <section class="course" aria-labelledby="course-h">
-    <div class="course-head">
-      <h2 id="course-h">Course map</h2>
-      <p class="hint" id="progress"></p>
-    </div>
-    <div class="filter"><label for="filter">Filter lessons</label>
-      <input id="filter" type="search" placeholder="title, outcome or symbol, e.g. backward" autocomplete="off">
-      <span id="filter-status" class="hint" role="status" aria-live="polite"></span></div>
-    <div id="map"></div>
-  </section>
+  <section class="course" aria-label="Curriculum"><div id="map"></div></section>
+  <section class="labs" id="labs" aria-labelledby="labs-h"></section>
 </main>
-<footer><p>Source and the library itself: <a href="https://github.com/IvorLipic/TorC">github.com/IvorLipic/TorC</a>. Progress is kept only in this browser.</p></footer>`;
-  renderProgress(course);
-  renderMap(course, '');
-  $('#filter').addEventListener('input', (e) => renderMap(course, e.target.value));
+<footer><p>Numbers on every page come from real runs of TorC; the code beside each lesson compiles against the pinned release. <a href="https://github.com/IvorLipic/TorC">Source</a>. Progress is kept only in this browser.</p></footer>`;
+  render(course);
   // a lesson marked done in another tab, or a back/forward-cache restore, should be reflected here
-  window.addEventListener('pageshow', (e) => { if (e.persisted) { renderProgress(course); renderMap(course, $('#filter').value); } });
+  window.addEventListener('pageshow', (e) => { if (e.persisted) render(course); });
 })();

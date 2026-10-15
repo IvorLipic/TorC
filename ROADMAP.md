@@ -40,9 +40,15 @@ Status legend: `[x]` done · `[~]` in progress · `[ ]` planned. The detailed cu
 - [x] `backprop-lab` hero/footer trim (concept cards became the TL;DR); course outcomes ≤ 12 words; time estimates 6-7 min
 - [x] Budget test for every published lesson in `lessons.test.mjs`
 
-## M4+ — Remaining library coverage
-Tensors/shapes/broadcasting, nn activations & losses, optimizers (Adam/AdamW), data loading, conv2d, end-to-end examples
-(linear regression, MNIST MLP/CNN). Order and specs in the content plan.
+## M3.6 — Curriculum home page (decisions 10-11)
+- [x] Curriculum in the usual university order (content-plan section 2): 4 parts, 13 lessons, planned ones shown, labs apart
+- [x] Home page: numbered lessons with the TorC code beside each and its widgets; Backprop lab moved to Labs
+- [x] `tools/snippets/check.mjs`: every snippet compiled and run against TorC v0.1.0 (13 run, 1 compile-only)
+- [ ] Run the snippet check in CI (it needs the TorC build that `tools/trace/run.sh` already does)
+
+## M4+ — The planned lessons, in curriculum order
+Tensors → Nonlinearity → Module → Losses → The training loop → Better optimizers → Generalization → MNIST MLP → Convolution →
+MNIST CNN. Specs in content-plan section 2 (v1 course map) and section 3.
 
 ## Open decisions
 Tracked in [docs/decisions.md](docs/decisions.md) ("Open").

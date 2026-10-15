@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parseHash, formatHash } from '../js/core/state.js';
 import { createStore, sanitize, STORAGE_KEY } from '../js/core/store.js';
-import { validateCourse, publishedParts, neighbors, filterLessons, legacyTarget, flatLessons, lessonHref } from '../js/core/course.js';
+import { validateCourse, curriculum, labs, neighbors, legacyTarget, flatLessons, lessonHref } from '../js/core/course.js';
 import { buildD, makeT, resolvePath, loadTrace } from '../js/core/trace.js';
 import { sectionHtml, findUnboundNums, boundNums, validateLesson, renderLesson } from '../js/core/sections.js';
 import { course as readCourse, traceFiles } from './helpers.mjs';
@@ -66,6 +66,8 @@ const L = (id, over = {}) => ({ id, title: id.toUpperCase(), outcome: `learn ${i
 const sample = () => ({ title: 'T', parts: [
   { id: 'p1', title: 'One', lessons: [L('a'), L('b', { prereqs: ['a'], status: 'draft' }), L('c', { prereqs: ['a'], legacy_hashes: ['old1'] })] },
   { id: 'p2', title: 'Two', lessons: [L('d', { status: 'draft' })] },
+  { id: 'p3', title: 'Three', lessons: [L('e', { status: 'planned', code: 'f();', widgets: ['w'] }), L('f')] },
+  { id: 'lab', title: 'Labs', kind: 'lab', lessons: [L('x'), L('y', { status: 'draft' }), L('z')] },
 ] });
 
 test('course: validation catches duplicate ids, unknown/self/cyclic prereqs, bad fields', () => {
@@ -77,30 +79,26 @@ test('course: validation catches duplicate ids, unknown/self/cyclic prereqs, bad
   const st = sample(); st.parts[0].lessons[0].status = 'soon'; assert.match(validateCourse(st).join(), /status/);
   const bad = sample(); bad.parts[0].lessons[0].trace = ['../x.json']; assert.match(validateCourse(bad).join(), /plain \*\.json/);
   const leg = sample(); leg.parts[1].lessons[0].legacy_hashes = ['old1']; assert.match(validateCourse(leg).join(), /legacy hash "old1"/);
+  const kind = sample(); kind.parts[0].kind = 'appendix'; assert.match(validateCourse(kind).join(), /kind must be "lab"/);
+  const code = sample(); code.parts[0].lessons[0].code = ''; assert.match(validateCourse(code).join(), /"code"/);
+  const wid = sample(); wid.parts[0].lessons[0].widgets = 'graph'; assert.match(validateCourse(wid).join(), /"widgets"/);
 });
 
-test('course: home shows published lessons only; drafts stay reachable but never listed; no empty parts', () => {
+test('course: the curriculum lists published and planned lessons, numbered; drafts and labs are not in it; labs listed apart', () => {
   const c = sample();
-  const parts = publishedParts(c);
-  assert.deepEqual(parts.map((p) => [p.id, p.lessons.map((l) => l.id)]), [['p1', ['a', 'c']]], 'part p2 has only a draft, so it is not shown');
-  assert.deepEqual(flatLessons(c).map((l) => l.id), ['a', 'b', 'c', 'd']);
+  assert.deepEqual(curriculum(c).map((p) => [p.id, p.lessons.map((l) => `${l.number}:${l.id}`)]), [['p1', ['1:a', '2:c']], ['p3', ['3:e', '4:f']]], 'p2 has only a draft');
+  assert.deepEqual(labs(c).map((l) => l.id), ['x', 'z']);
+  assert.deepEqual(flatLessons(c).map((l) => l.id), ['a', 'b', 'c', 'd', 'e', 'f', 'x', 'y', 'z']);
 });
 
-test('course: prev/next skip drafts, a draft page gets neighbours by position', () => {
+test('course: prev/next skip drafts and planned lessons, stay within lessons or within labs; a draft gets neighbours by position', () => {
   const c = sample();
   assert.deepEqual([neighbors(c, 'a').prev, neighbors(c, 'a').next?.id], [null, 'c']);
-  assert.deepEqual([neighbors(c, 'c').prev?.id, neighbors(c, 'c').next], ['a', null]);
+  assert.deepEqual([neighbors(c, 'c').prev?.id, neighbors(c, 'c').next?.id], ['a', 'f'], 'the planned lesson e has no page and is skipped');
+  assert.deepEqual([neighbors(c, 'f').prev?.id, neighbors(c, 'f').next], ['c', null], 'lessons never lead into the labs');
   assert.deepEqual([neighbors(c, 'b').prev?.id, neighbors(c, 'b').next?.id], ['a', 'c']);
+  assert.deepEqual([neighbors(c, 'x').prev, neighbors(c, 'x').next?.id], [null, 'z'], 'labs link to labs only');
   assert.deepEqual(neighbors(c, 'nope'), { prev: null, next: null });
-});
-
-test('course: filter matches title, outcome and symbols (all words, case-insensitive)', () => {
-  const ls = [L('sgd-step', { title: 'SGD step', outcome: 'update a weight', symbols: ['optim::SGD::step'] }), L('lin', { title: 'Linear layer', outcome: 'y = xW^T + b', symbols: ['nn::Linear'] })];
-  assert.deepEqual(filterLessons(ls, '').length, 2);
-  assert.deepEqual(filterLessons(ls, 'sgd').map((l) => l.id), ['sgd-step']);
-  assert.deepEqual(filterLessons(ls, 'NN::linear').map((l) => l.id), ['lin']);
-  assert.deepEqual(filterLessons(ls, 'update weight').map((l) => l.id), ['sgd-step']);
-  assert.deepEqual(filterLessons(ls, 'update zebra'), []);
 });
 
 test('course: old single-page deep links map to lessons/backprop-lab/ with the hash kept (relative URL)', () => {

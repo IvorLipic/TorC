@@ -20,7 +20,9 @@ Lessons are short and dense. The interactive parts carry the lesson; the text on
 ## Add a lesson
 1. **Trace data**: write the C++ trace program(s) (see "Add a scene"); the lesson lists the files it reads, e.g. `["why-gradients.json"]`.
 2. **`site/course.json`**: add the lesson to its part with `{id, title, outcome, prereqs, symbols, trace, est_minutes, status}`.
-   Start with `"status": "draft"`: a draft has a page and is reachable at `lessons/<id>/`, but is not listed on the home page or in
+   Add `widgets` (names shown on the home page) and `code` (the TorC lines the lesson is about, 2-6 lines; add its prelude and
+   checks to `SPEC` in `tools/snippets/check.mjs` and run it). A lesson on the curriculum without a page yet is `"planned"`.
+   Start the page with `"status": "draft"`: a draft has a page and is reachable at `lessons/<id>/`, but is not listed on the home page or in
    anyone's prev/next. Switch to `"published"` when the lesson has passed review. Optional `legacy_hashes: ["reuse", …]` forwards old
    `/#reuse/3` links from the home page to this lesson.
 3. **Module `site/js/lessons/<id>.js`**: `export default {id, title, trace:[files], sections:[…], footer?: (D, T) => html}`.
