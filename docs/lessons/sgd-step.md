@@ -98,4 +98,4 @@ the five concept cards and the long footer.
 
 **Definition of done**: `node --test site/test/` and `tools/check_site.mjs` green; Chromium at 1366×768 and 390×844 under `/TorC/`
 (presets, Step, momentum, the zero_grad checkbox; values equal TorC's runs: 1442, 2.447, 10.37; no console errors, no horizontal
-overflow). Not done: independent review, screen-reader pass.
+overflow). Independent review done (2026-10-15, no blocker/high; findings fixed). Not done: a real screen reader.

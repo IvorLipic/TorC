@@ -141,7 +141,10 @@ test('yRange and the number format', () => {
 // ---- quoted library source ----------------------------------------------------------------------------------------------------
 const SRC = new URL('../build/trace/_deps/torc-src/', SITE);
 test('quoted library lines equal the library source at the pinned ref (skipped when the fetched source is absent)', (t) => {
-  if (!existsSync(SRC)) { t.skip('build/trace/_deps/torc-src is not present (run tools/trace/run.sh to fetch it)'); return; }
+  if (!existsSync(SRC)) {
+    assert.ok(!process.env.TORC_REQUIRE_SOURCE, 'TORC_REQUIRE_SOURCE is set (verify.yml), so the TorC source must be fetched (tools/trace/run.sh) first');
+    t.skip('build/trace/_deps/torc-src is not present (run tools/trace/run.sh to fetch it)'); return;
+  }
   for (const [key, s] of Object.entries(SOURCES)) {
     const file = readFileSync(new URL(s.file, SRC), 'utf8').split('\n');
     assert.deepEqual(s.lines, file.slice(s.from - 1, s.to), `${key}: ${s.file} lines ${s.from}-${s.to}`);

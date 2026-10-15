@@ -24,7 +24,7 @@ function row(l) {
         el('p', { class: 'row-meta' },
           live ? `${l.est_minutes} min` : el('span', { class: 'tag' }, 'planned'),
           ...(l.widgets ?? []).map((w) => el('span', { class: 'widget-tag' }, w))))),
-    l.code ? el('pre', { class: 'row-code', role: 'region', tabindex: '0', 'aria-label': `TorC code: ${l.title}` }, el('code', { html: codeHtml(l.code) })) : null);
+    l.code ? el('pre', { class: 'row-code', role: 'group', tabindex: '0', 'aria-label': `TorC code: ${l.title}` }, el('code', { html: codeHtml(l.code) })) : null);
 }
 
 function render(course) {
@@ -36,7 +36,7 @@ function render(course) {
   $('#start').replaceChildren(first ? el('a', { class: 'btn primary big', href: siteUrl(lessonHref(first.id)) }, `Start: ${first.title} →`) : '');
   $('#map').replaceChildren(...parts.map((p, i) => el('section', { class: 'part', 'aria-labelledby': `part-${p.id}` },
     el('h2', { id: `part-${p.id}` }, el('span', { class: 'part-num' }, `${i + 1}`), p.title),
-    el('ol', { class: 'rows' }, p.lessons.map(row)))));
+    el('ol', { class: 'rows', start: String(p.lessons[0].number) }, p.lessons.map(row)))));
   $('#labs').replaceChildren(...(labList.length ? [
     el('h2', { id: 'labs-h' }, 'Labs'),
     el('p', { class: 'hint' }, 'Playgrounds outside the lesson order.'),
@@ -62,7 +62,7 @@ function render(course) {
   <section class="course" aria-label="Curriculum"><div id="map"></div></section>
   <section class="labs" id="labs" aria-labelledby="labs-h"></section>
 </main>
-<footer><p>Numbers on every page come from real runs of TorC; the code beside each lesson compiles against the pinned release. <a href="https://github.com/IvorLipic/TorC">Source</a>. Progress is kept only in this browser.</p></footer>`;
+<footer><p>Numbers on every page are checked against real runs of TorC; the code beside each lesson compiles and runs against the pinned release. <a href="https://github.com/IvorLipic/TorC">Source</a>. Progress is kept only in this browser.</p></footer>`;
   render(course);
   // a lesson marked done in another tab, or a back/forward-cache restore, should be reflected here
   window.addEventListener('pageshow', (e) => { if (e.persisted) render(course); });

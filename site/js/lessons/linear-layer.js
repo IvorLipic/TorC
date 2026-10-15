@@ -37,8 +37,8 @@ export default {
   sections: [
     {
       kind: 'text',
-      html: () => `${STYLE}<section class="hero"><h1>nn::Linear: a layer is a matmul plus a bias</h1>
-    <p class="lead">One matrix product, one addition, and weights that start at the right size.</p></section>`,
+      html: () => `${STYLE}<section class="hero"><h1>Layers</h1>
+    <p class="lead"><code>nn::Linear</code>: one matrix product, one addition, and weights that start at the right size.</p></section>`,
     },
     {
       kind: 'tldr',
@@ -70,7 +70,7 @@ export default {
       html: () => sec('backward', '3 · Backward: transposes and column sums', `
     <p><code>forward()</code> is <code>add(matmul(x, transpose(weight)), bias)</code>. Run backwards, the three operations give:</p>
     ${eq('\\overline{W} = \\overline{y}^{\\top}x \\qquad \\overline{b}_k = \\sum_i \\overline{y}_{ik} \\qquad \\overline{x} = \\overline{y}\\,W')}
-    <p>The bias was copied to every sample, so its gradient sums over the batch. ${math('\\overline{x}', false)} is what the layer hands to the layer before it.</p>`),
+    <p>A bar means the gradient of the loss. The bias was copied to every sample, so its gradient sums over the batch. ${math('\\overline{x}', false)} is what the layer hands to the layer before it.</p>`),
     },
     {
       kind: 'predict', id: 'predict-dx', title: 'Predict: the gradient of the input',
@@ -80,7 +80,7 @@ export default {
     {
       kind: 'text',
       html: (D, T) => sec('init', '4 · Start the weights at the right size', `
-    <p>The bias starts at zero. Each weight is drawn from a normal distribution with standard deviation ${math('\\sqrt{2/\\text{in}}', false)} (Kaiming, the default). Each output sums <code>in</code> products, so the weights' size sets how much the signal grows per layer; ${math('\\sqrt{2/\\text{in}}', false)} cancels that, and the factor <code>2</code> makes up for ReLU zeroing about half the values. Through six <code>Linear(256, 256)</code> + ReLU layers the spread ends at ${T(SIG(0, 6))} with Kaiming, fades to ${sci(D, SIG(1, 6))} at <code>init_std = 0.01</code> and explodes to ${sci(D, SIG(2, 6))} at <code>init_std = 1.0</code>.</p>`),
+    <p>The bias starts at zero; each weight is normal with standard deviation ${math('\\sqrt{2/\\text{in}}', false)} (Kaiming, the default). An output sums <code>in</code> products, and that scale keeps the sum's spread steady; the factor <code>2</code> makes up for ReLU zeroing half the values. Through six <code>Linear(256, 256)</code> + ReLU layers the spread stays between ${T(`${P}.signal.0.across_seeds.5.post_std_min`)} and ${T(`${P}.signal.0.across_seeds.5.post_std_max`)} (over ${T(`${P}.signal.0.n_extra_seeds`)} draws), fades to ${sci(D, SIG(1, 6))} at <code>init_std = 0.01</code> and explodes to ${sci(D, SIG(2, 6))} at <code>init_std = 1.0</code>.</p>`),
     },
     {
       kind: 'widget', id: 'init-signal', className: 'lin-w lin-is', label: 'Signal through six layers',

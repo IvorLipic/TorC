@@ -24,7 +24,8 @@ Lightweight decision log. Newest at the bottom of each section.
     (content-plan section 2), planned lessons shown but not linked, the TorC code beside every lesson. Supersedes "no coming
     soon placeholders". Labs (the Backprop lab first) are a separate section, outside prev/next.
 11. **Code on the home page is checked against the library**: `tools/snippets/check.mjs` compiles every snippet of
-    `course.json` against TorC at the pinned ref and runs the ones that can run, asserting the values their comments state.
+    `course.json` against TorC at the pinned ref (refusing any other ref) and runs the ones that can run with the assertions in
+    its `SPEC`. The SPEC assertions are written from the snippets' comments by hand; a changed comment needs a changed SPEC.
 
 ## Open
 - Pin policy once TorC publishes a release tag: pin the tag (preferred) and bump via PR. Until then a commit SHA is pinned.

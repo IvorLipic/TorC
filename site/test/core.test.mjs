@@ -82,6 +82,7 @@ test('course: validation catches duplicate ids, unknown/self/cyclic prereqs, bad
   const kind = sample(); kind.parts[0].kind = 'appendix'; assert.match(validateCourse(kind).join(), /kind must be "lab"/);
   const code = sample(); code.parts[0].lessons[0].code = ''; assert.match(validateCourse(code).join(), /"code"/);
   const wid = sample(); wid.parts[0].lessons[0].widgets = 'graph'; assert.match(validateCourse(wid).join(), /"widgets"/);
+  const legp = sample(); legp.parts[2].lessons[0].legacy_hashes = ['gone']; assert.match(validateCourse(legp).join(), /planned lesson has no page/);
 });
 
 test('course: the curriculum lists published and planned lessons, numbered; drafts and labs are not in it; labs listed apart', () => {

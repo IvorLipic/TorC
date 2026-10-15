@@ -2,10 +2,12 @@
 // every string with KaTeX throwOnError over many inputs. No DOM.
 import { fmt as fmtBase } from '../ops/texutil.js';
 
-// Number display for the widgets: the shared 4-significant-digit format, but anything from 1e7 up (a diverging run) is always
-// shown in exponent form, never as 8219000000000000000 next to 2.93e21.
-export const fmtX = (x) => (Math.abs(x) >= 1e7 ? x.toExponential(3).replace(/\.?0+e/, 'e').replace('e+', 'e') : fmtBase(x));
-const fmt = fmtX;
+// Number display for the widgets: the shared 4-significant-digit format, but anything from 1e6 up (a diverging run) is always
+// shown in exponent form, never as 8219000000000000000 next to 2.93e21. texX writes the same number for KaTeX (1.68 × 10^7), where
+// a bare "e" would read as a variable.
+export const fmtX = (x) => (Math.abs(x) >= 1e6 ? x.toExponential(3).replace(/\.?0+e/, 'e').replace('e+', 'e') : fmtBase(x));
+export const texX = (x) => { const m = /^(-?[\d.]+)e(-?\d+)$/.exec(fmtX(x)); return m ? `${m[1]}\\times 10^{${m[2]}}` : fmtX(x); };
+const fmt = texX;
 export const par = (x) => (x < 0 ? `(${fmt(x)})` : fmt(x));
 
 // the pending update w <- w - lr*g

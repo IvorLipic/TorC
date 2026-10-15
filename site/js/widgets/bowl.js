@@ -24,11 +24,12 @@ export function mountBowl(host, D) {
   // ---- controls ---------------------------------------------------------------------------------------------------------
   const startIn = el('input', { type: 'range', id: `${id}-w`, min: X[0], max: X[1], step: 0.05, value: start });
   const startOut = el('output', { for: `${id}-w`, class: 'bowl-val' });
-  startIn.addEventListener('input', () => { start = Number(startIn.value); path = [start]; draw(); });
-  const lrBtns = PRESET_LRS.map((v) => el('button', { type: 'button', class: 'btn small', 'aria-pressed': 'false', onclick: () => { lr = v; path = [start]; draw(); } }, String(v)));
-  const stepBtn = el('button', { type: 'button', class: 'btn primary', onclick: step }, 'Step');
-  const resetBtn = el('button', { type: 'button', class: 'btn', onclick: () => { path = [start]; draw(); } }, 'Reset');
   const status = el('div', { class: 'sr', 'aria-live': 'polite' });
+  const restart = () => { path = [start]; status.textContent = ''; draw(); };
+  startIn.addEventListener('input', () => { start = Number(startIn.value); restart(); });
+  const lrBtns = PRESET_LRS.map((v) => el('button', { type: 'button', class: 'btn small', 'aria-pressed': 'false', onclick: () => { lr = v; restart(); } }, String(v)));
+  const stepBtn = el('button', { type: 'button', class: 'btn primary', onclick: step }, 'Step');
+  const resetBtn = el('button', { type: 'button', class: 'btn', onclick: () => restart() }, 'Reset');
   const controls = el('div', { class: 'bowl-ctl' },
     el('div', { class: 'bowl-field' }, el('label', { for: `${id}-w` }, 'start w'), startIn, startOut),
     el('div', { class: 'bowl-field', role: 'group', 'aria-label': 'Learning rate' }, el('span', { class: 'bowl-lbl', 'aria-hidden': 'true' }, 'lr'), ...lrBtns),

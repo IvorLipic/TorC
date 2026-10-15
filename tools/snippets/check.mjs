@@ -4,10 +4,11 @@
 //
 //   node tools/snippets/check.mjs --torc <TorC source dir> [--build <dir>] [--cxx clang++-18]
 //
-// The TorC checkout must be at the ref in tools/trace/TORC_REF (tools/trace/run.sh fetches it to build/trace/_deps/torc-src).
+// The TorC checkout must be at the ref in tools/trace/TORC_REF (tools/trace/run.sh fetches it to build/trace/_deps/torc-src); a git
+// checkout at another commit is refused. The library is (re)built incrementally in <build>/torc every run.
 // Each snippet runs inside its own function after the lesson's PRELUDE (the variables it assumes) and before its CHECK (assertions
 // on the values its comments state). A lesson in course.json without an entry here fails the check, so a new snippet cannot skip it.
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -30,7 +31,10 @@ export const SPEC = {
     check: 'CHECK(!W.has_grad() && !b.has_grad());\nCHECK(std::abs(W.data().data()[0] - 1.1333334f) < 1e-5f);',
   },
   tensors: { prelude: '', check: 'CHECK((c.shape() == std::vector<int>{2, 3}));\nCHECK(c.data()[3] == 14.0f);\nCHECK((g.shape() == std::vector<int>{2, 2}));\nCHECK(g.data()[0] == 14.0f);' },
-  'linear-layer': { prelude: `Variable x(${shape(8, 784)}, false);`, check: 'CHECK((y.data().shape() == std::vector<int>{8, 32}));\nCHECK(layer.parameters().size() == 2);' },
+  'linear-layer': {
+    prelude: `Variable x(${shape(8, 784)}, false);`,
+    check: 'CHECK((y.data().shape() == std::vector<int>{8, 32}));\nconst auto& np = layer.named_parameters();\nCHECK((np.at("weight").data().shape() == std::vector<int>{32, 784}));\nCHECK((np.at("bias").data().shape() == std::vector<int>{32}));',
+  },
   nonlinearity: {
     prelude: `Variable z(Tensor({-1.0f, 0.0f, 2.0f, 1.0f, 1.0f, 1.0f}, {2, 3}), true);`,
     check: 'CHECK(h.data().data()[0] == 0.0f && h.data().data()[2] == 2.0f);\nCHECK(std::abs(s.data().data()[1] - 0.5f) < 1e-6f);\nCHECK(std::abs(p.data().data()[3] + p.data().data()[4] + p.data().data()[5] - 1.0f) < 1e-6f);',
@@ -45,10 +49,14 @@ export const SPEC = {
     after: '++batches;',
     check: 'CHECK(batches == 4);   // 32 + 32 + 32 + 4',
   },
-  optimizers: { prelude: `Variable w(${shape(3)}, true);\nstd::vector<Variable*> params{&w};`, check: '(void)sgd; (void)adam; (void)adamw;' },
+  // each optimizer takes one step on L = w² from w = 1 (gradient 2): every one must move w down
+  optimizers: {
+    prelude: 'Variable w(Tensor({1.0f}, {1}), true);\nstd::vector<Variable*> params{&w};',
+    check: 'auto down = [&](auto& opt) { float before = w.data().data()[0]; Variable sq = mul(w, w); Variable L = sum(sq); L.backward(); opt.step(); opt.zero_grad(); return w.data().data()[0] < before; };\nCHECK(down(sgd));\nCHECK(down(adam));\nCHECK(down(adamw));',
+  },
   generalization: {
     prelude: `Variable w(${shape(3)}, true);\nstd::vector<Variable*> params{&w};\ndata::TensorDataset train_set(${shape(128, 1)}, ${shape(128, 1)});\ndata::TensorDataset test_set(${shape(32, 1)}, ${shape(32, 1)});`,
-    check: 'CHECK(train.has_next() && test.has_next());\n(void)opt;',
+    check: 'int nt = 0, ns = 0;\nwhile (train.has_next()) { train.next_batch(); ++nt; }\nwhile (test.has_next()) { test.next_batch(); ++ns; }\nCHECK(nt == 2 && ns == 1);   // 128 / 64 and 32 / 256\n(void)opt;',
   },
   'mnist-mlp': {
     run: false,
@@ -105,12 +113,22 @@ ${[...calls, ...compileOnly].join('\n')}
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const course = JSON.parse(readFileSync(path.join(ROOT, 'site/course.json'), 'utf8'));
   if (!existsSync(path.join(TORC, 'include/torc/autograd.hpp'))) { console.error(`no TorC checkout at ${TORC} (pass --torc <dir>)`); process.exit(2); }
+  // the checkout must be the pinned release
+  const ref = readFileSync(path.join(ROOT, 'tools/trace/TORC_REF'), 'utf8').split('\n').map((l) => l.trim()).find((l) => l && !l.startsWith('#'));
+  if (existsSync(path.join(TORC, '.git'))) {
+    const git = (...a) => execFileSync('git', ['-C', TORC, ...a], { encoding: 'utf8' }).trim();
+    const have = git('rev-parse', 'HEAD');
+    let want = null;
+    try { want = git('rev-parse', `${ref}^{commit}`); } catch { /* the ref is unknown to this checkout */ }
+    if (have !== want) { console.error(`${TORC} is at ${have}, not at the pinned TorC ref ${ref} (tools/trace/TORC_REF)`); process.exit(2); }
+  } else console.warn(`warning: ${TORC} is not a git checkout; cannot confirm it is TorC ${ref}`);
   mkdirSync(BUILD, { recursive: true });
-  const lib = path.join(BUILD, 'torc', 'libtorc.a');
-  if (!existsSync(lib)) {
-    execFileSync('cmake', ['-S', TORC, '-B', path.join(BUILD, 'torc'), '-DCMAKE_BUILD_TYPE=Release', `-DCMAKE_CXX_COMPILER=${CXX}`, '-DTORC_BUILD_TESTS=OFF', '-DTORC_BUILD_EXAMPLES=OFF', '-DTORC_NATIVE_ARCH=OFF', '-DTORC_INSTALL=OFF'], { stdio: 'inherit' });
-    execFileSync('cmake', ['--build', path.join(BUILD, 'torc'), '-j8'], { stdio: 'inherit' });
-  }
+  const libDir = path.join(BUILD, 'torc'), lib = path.join(libDir, 'libtorc.a');
+  // a build directory configured for another source tree is discarded; otherwise cmake rebuilds whatever changed
+  const cache = path.join(libDir, 'CMakeCache.txt');
+  if (existsSync(cache) && !readFileSync(cache, 'utf8').includes(`CMAKE_HOME_DIRECTORY:INTERNAL=${path.resolve(TORC)}`)) rmSync(libDir, { recursive: true, force: true });
+  execFileSync('cmake', ['-S', TORC, '-B', libDir, '-DCMAKE_BUILD_TYPE=Release', `-DCMAKE_CXX_COMPILER=${CXX}`, '-DTORC_BUILD_TESTS=OFF', '-DTORC_BUILD_EXAMPLES=OFF', '-DTORC_NATIVE_ARCH=OFF', '-DTORC_INSTALL=OFF'], { stdio: ['ignore', 'ignore', 'inherit'] });
+  execFileSync('cmake', ['--build', libDir, '-j8'], { stdio: ['ignore', 'ignore', 'inherit'] });
   const cpp = path.join(BUILD, 'snippets.cpp'), exe = path.join(BUILD, 'snippets');
   writeFileSync(cpp, program(course));
   execFileSync(CXX, ['-std=c++23', '-O1', '-I', path.join(TORC, 'include'), cpp, lib, '-o', exe], { stdio: 'inherit' });

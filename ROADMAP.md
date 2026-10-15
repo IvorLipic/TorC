@@ -29,6 +29,7 @@ Status legend: `[x]` done · `[~]` in progress · `[ ]` planned. The detailed cu
 - [x] `why-gradients`: why following gradients works (slope, step size, chain rule as gears) — published after independent review
 - [x] `sgd-step`: the SGD update step, learning rate, zero_grad, momentum — published after independent review
 - [x] `linear-layer`: `nn::Linear` shapes, matmul + bias, backward, init — published after independent review
+- [x] Independent review of M3.5–M3.6 (no blocker/high; 3 medium and 12 low findings, all fixed: CI now compares quoted library lines, snippet checker refuses other refs and checks more values, Kaiming wording uses the 10-draw range, budget limits per section/TL;DR/question type tested, a11y and formatting fixes)
 - [x] Automated accessibility audit (axe-core 4.10, WCAG 2.1 A/AA + best practice) clean on every page at 1366 and 390 px; keyboard walk of every page
 - [ ] Outside cold reader per lesson (definition-of-done item 6), a pass with a real screen reader, Firefox/Safari check (only Chromium available here)
 - [ ] Bump `TORC_REF` when TorC tags a release that includes the `MSELoss` broadcast-gradient fix (merged on `main`, not in v0.1.0)

@@ -22,11 +22,11 @@ jobs:
           node-version: 22
       - name: Site check (course.json, lesson shells, modules, trace files, relative URLs, assets)
         run: node tools/check_site.mjs
-      - name: Site tests (engine vs. real library output, LaTeX validity, registry, lessons, store, site tooling)
-        run: node --test site/test/*.test.mjs
       - name: Toolchain (clang 18 + CMake)
         run: sudo apt-get update && sudo apt-get install -y clang-18 cmake
       - name: Trace drift check against the pinned TorC
         run: CXX=clang++-18 tools/trace/run.sh --check
+      - name: Site tests (engine vs. real library output, LaTeX validity, registry, lessons, store, site tooling; after the trace step so the quoted library lines are compared with the fetched TorC source)
+        run: TORC_REQUIRE_SOURCE=1 node --test site/test/*.test.mjs
       - name: Home-page code compiles and runs against the pinned TorC (uses the source the trace step fetched)
         run: node tools/snippets/check.mjs --cxx clang++-18

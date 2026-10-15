@@ -13,6 +13,7 @@ import { useBaseStyle, injectStyle, matrixEl, clearMarks, markRow, markCell } fr
 import { exampleFromScene, linearForward, neuronTex, clone2, round7 } from './linear-math.js';
 
 const CSS = `
+.lin-mg .mg-cap{margin:.3rem 0 0;font-size:.85rem;color:var(--muted)}
 .lin-mg .mg-mats{display:flex;flex-wrap:wrap;gap:14px 10px;align-items:flex-start;margin:.4rem 0}
 .lin-mg .lin-op{margin-top:2.6rem}
 .lin-mg .mg-twin{font-size:.9rem;margin:.3rem 0;color:var(--warn);min-height:1.4em}
@@ -58,7 +59,7 @@ export function mountMatmulGrid(host, D, ctx = {}) {
       return b;
     } });
 
-  const paper = el('div', { class: 'lin-paper', 'aria-live': 'polite' });
+  const paper = el('div', { class: 'lin-paper' });
   const twin = el('div', { class: 'mg-twin', 'aria-live': 'polite' });
 
   const refresh = () => {                                    // after buttons set many values at once
@@ -74,6 +75,7 @@ export function mountMatmulGrid(host, D, ctx = {}) {
 
   host.replaceChildren(
     el('div', { class: 'mg-mats' }, mx.root, el('span', { class: 'lin-op', 'aria-hidden': 'true' }, '·'), mw.root, el('span', { class: 'lin-op', 'aria-hidden': 'true' }, '+'), mb.root, el('span', { class: 'lin-op', 'aria-hidden': 'true' }, '='), my.root),
+    el('p', { class: 'mg-cap' }, 'y[i,k] = row i of x · row k of W + b[k], which is x·Wᵀ + b.'),
     badNote, paper, twin, buttons);
 
   function update() {

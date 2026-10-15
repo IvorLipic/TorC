@@ -7,7 +7,7 @@ import { buildGraph, runBackward } from '../js/engine.js';
 import { buildD, makeT } from '../js/core/trace.js';
 import { renderLesson, findUnboundNums, boundNums } from '../js/core/sections.js';
 import { makeModel, recordedTrajectory } from '../js/widgets/landscape-model.js';
-import { fmtX, updateTex } from '../js/widgets/landscape-tex.js';
+import { fmtX, texX, updateTex } from '../js/widgets/landscape-tex.js';
 import { PRESET_LRS, MAX_STEPS } from '../js/widgets/bowl.js';
 import { whyLayout } from '../js/lessons/why-gradients.scenes.js';
 import { readJson, renderStrictAll, lessonStats } from './helpers.mjs';
@@ -247,6 +247,9 @@ test('huge values from a diverging run are shown in exponent form, never as 8219
   assert.equal(fmtX(8.219e18), '8.219e18');
   assert.equal(fmtX(-2.93e21), '-2.93e21');
   assert.equal(fmtX(1.5e7), '1.5e7');
+  assert.equal(fmtX(-2.1e6), '-2.1e6', 'the readout switches to exponent form at 1e6, like the slope next to it');
+  assert.equal(texX(-1.68e7), '-1.68\\times 10^{7}', 'inside KaTeX a bare e would read as a variable');
+  assert.doesNotMatch(updateTex(m, -2.1e6, 0.3), /\de\d/);
   assert.equal(fmtX(7841.2), '7841');
   assert.equal(fmtX(-24), '-24');
   assert.equal(fmtX(0.01016), '0.01016');

@@ -82,5 +82,6 @@ export function renderLesson(lesson, D) {
 // Where the numbers come from is explained once, on the home page; lessons do not repeat it.
 export function defaultFooter(lesson, D) {
   const ref = lesson.trace.map((f) => D.files[stemOf(f)]?.library?.ref).find(Boolean);
-  return `<p>Numbers: TorC${ref ? ` <code>${escapeHtml(ref)}</code>` : ''} · <a href="https://github.com/IvorLipic/TorC">source</a></p>`;
+  const repo = 'https://github.com/IvorLipic/TorC';
+  return `<p>Numbers: TorC${ref ? ` <code>${escapeHtml(ref)}</code>` : ''} · <a href="${ref ? `${repo}/tree/${encodeURIComponent(ref)}` : repo}">source</a></p>`;
 }

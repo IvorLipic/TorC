@@ -97,5 +97,5 @@ Misconceptions 1, 2 and 5 are covered by sections 1 and 3 and the sign check; 3 
 no longer on the page.
 
 **Definition of done**: tests green (`node --test site/test/`, `tools/check_site.mjs`); browser check at 1366×768 and 390×844
-under `/TorC/` (bowl presets, Step, slider by keyboard, no console errors, no horizontal overflow). Not done: independent review,
-screen-reader pass, `tools/trace/run.sh --check` (the trace was not touched).
+under `/TorC/` (bowl presets, Step, slider by keyboard, no console errors, no horizontal overflow). Independent review done (2026-10-15,
+no blocker/high; findings fixed); `tools/trace/run.sh --check` passes. Not done: a real screen reader.

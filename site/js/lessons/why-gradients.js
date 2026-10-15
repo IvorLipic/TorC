@@ -32,7 +32,7 @@ export default {
   sections: [
     {
       kind: 'text',
-      html: () => `${STYLE}<section class="hero"><h1>Why following gradients works</h1>
+      html: () => `${STYLE}<section class="hero"><h1>The gradient</h1>
     <p class="lead">One weight, one score: what a gradient is, how a step uses it, and where <code>backward()</code> gets it.</p></section>`,
     },
     {
@@ -48,7 +48,7 @@ export default {
       kind: 'text',
       html: (D, T, m = makeModel(D.scenes.why)) => sec('setup', 'The setup', `
     <p>One weight <code>w</code>, one input <code>x</code>, one target <code>t</code>, squared error:</p>
-    <pre class="wg-code" tabindex="0" role="region" aria-label="The TorC code"><code>Variable w(Tensor({${T('why.w.value')}.0f}, {1}), true);    // the weight (tracked)
+    <pre class="wg-code" tabindex="0" role="group" aria-label="The TorC code"><code>Variable w(Tensor({${T('why.w.value')}.0f}, {1}), true);    // the weight (tracked)
 Variable x(Tensor({${T('why.x.value')}.0f}, {1}), false);   // data
 Variable t(Tensor({${T('why.t.value')}.0f}, {1}), false);   // data
 Variable p = mul(w, x);     // prediction
@@ -60,7 +60,7 @@ L.backward();               // w.grad() now holds the slope</code></pre>
     {
       kind: 'text',
       html: (D, T) => sec('slope', '1 · The gradient is a slope', `
-    <p>At <code>w</code> = ${T('why.w.value')}, <code>backward()</code> leaves <code>w.grad()</code> = ${T('why.w.grad')}: nudge <code>w</code> up a little and <code>L</code> changes by about ${T('why.w.grad')} times the nudge. Negative means go right, positive means go left, zero means you are at the bottom. It is a rate, not a distance: the bottom is ${T(`${F}.setup.w_min`)} away.</p>`),
+    <p>At <code>w</code> = ${T('why.w.value')}, <code>backward()</code> leaves <code>w.grad()</code> = ${T('why.w.grad')}: nudge <code>w</code> up a little and <code>L</code> changes by about ${T('why.w.grad')} times the nudge. Negative means go right, positive means go left, zero means you are at the bottom. It is a rate, not a distance: the bottom is at <code>w</code> = ${T(`${F}.setup.w_min`)}.</p>`),
     },
     {
       kind: 'text',

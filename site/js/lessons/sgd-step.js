@@ -36,7 +36,7 @@ export default {
   sections: [
     {
       kind: 'text',
-      html: () => `${STYLE}<section class="hero"><h1>The SGD update step</h1>
+      html: () => `${STYLE}<section class="hero"><h1>Using the gradient</h1>
     <p class="lead">Backprop gives a gradient; <code>optimizer.step()</code> spends it.</p></section>`,
     },
     {
@@ -44,7 +44,7 @@ export default {
       items: () => [
         '<code>step()</code> does <code>p ← p − lr·p.grad</code> for each parameter. It reads <code>.grad</code>, writes <code>.data</code>, and never computes a gradient.',
         'Too big an <code>lr</code> overshoots, then diverges.',
-        'Momentum steps along a running sum of gradients: faster, but it overshoots.',
+        'Momentum steps along a decaying sum of past gradients: faster, but it overshoots.',
         '<code>backward()</code> <strong>adds</strong> to <code>.grad</code>, so call <code>zero_grad()</code> every iteration.',
       ],
     },
@@ -52,13 +52,13 @@ export default {
       kind: 'text',
       html: (D, T) => sec('setup', 'The setup', `
     <p>Fit <code>y = w·x + b</code> to three points on the line <code>t</code> = ${T('files.optim.data.true_w')}<code>x</code> + ${T('files.optim.data.true_b')} with <code>nn::MSELoss</code>. Start at <code>w = b = 0</code>, where the loss is ${T('sgd.L.value')}. Each iteration of TorC's training loop ends with:</p>
-    <pre class="sg-code" tabindex="0" role="region" aria-label="The training loop in TorC"><code>${lines('loop', 66, 68)}</code></pre>`),
+    <pre class="sg-code" tabindex="0" role="group" aria-label="The training loop in TorC"><code>${lines('loop', 66, 68)}</code></pre>`),
     },
     {
       kind: 'text',
       html: (D, T) => sec('step', '1 · step() moves each parameter against its gradient', `
     ${eq('p \\leftarrow p - \\mathit{lr}\\cdot \\overline{p}')}
-    <p>Plain SGD is one line of <code>SGD::step()</code>: ${quote('step', 27)} With <code>lr</code> = ${T(`files.optim.runs.${PLAIN}.lr`)}, one step takes <code>W</code> to ${T(step(PLAIN, 1, 'w'))}, <code>b</code> to ${T(step(PLAIN, 1, 'b'))} and the loss to ${T(step(PLAIN, 1, 'loss'))}. <code>x</code> and <code>t</code> have no <code>.grad</code>, so <code>step()</code> never touches them.</p>`),
+    <p>Here ${math('\\overline{p}', false)} is <code>p.grad</code>. Plain SGD is one line of <code>SGD::step()</code>: ${quote('step', 27)} With <code>lr</code> = ${T(`files.optim.runs.${PLAIN}.lr`)}, one step takes <code>W</code> to ${T(step(PLAIN, 1, 'w'))}, <code>b</code> to ${T(step(PLAIN, 1, 'b'))} and the loss to ${T(step(PLAIN, 1, 'loss'))}. <code>x</code> and <code>t</code> are not in the optimizer's list, so <code>step()</code> never touches them.</p>`),
     },
     {
       kind: 'text',

@@ -90,7 +90,7 @@ initialisations and all three on a log scale), helpers `linear-ui.js`, `linear-m
 
 **As built**: hero → TL;DR → 1 shapes (one equation with the shapes, 25088 + 32 = 25120, the real `ShapeError` for x (8, 10)) →
 2 one neuron is one row of W → grid → 3 backward (three formulas; bias sums over the batch) → predict (dX rows = column sums of W) →
-4 initialisation (√(2/in), 1.036 / 2.17e-6 / 2.17e6 after six layers) → signal widget → 2 checks (shapes; raising b[2]) → course map.
+4 initialisation (√(2/in); after six layers 0.69–0.89 over 10 Kaiming draws, 2.17e-6 at init_std 0.01, 2.17e6 at 1.0) → signal widget → 2 checks (shapes; raising b[2]) → course map.
 Measured: 359 words, 9 numbers in the text (+2 in scientific form), 2 widgets, 3 questions.
 
 **Removed in the rewrite**: the shape explorer, the graph lab of the three operations and the parity box, the backward widget, the
@@ -98,4 +98,4 @@ weight histogram, the long initialisation derivation and seed discussion, the si
 now), the colour legend for printed/derived numbers and the long footer.
 
 **Definition of done**: tests and site check green; Chromium at 1366×768 and 390×844 (grid copy/Reset/edit b[2], signal views; no
-console errors, no horizontal overflow). Not done: independent review, screen-reader pass.
+console errors, no horizontal overflow). Independent review done (2026-10-15, no blocker/high; findings fixed). Not done: a real screen reader.

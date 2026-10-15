@@ -39,3 +39,10 @@ export function lessonStats(lesson, D, renderLesson, boundNums) {
     questions: lesson.sections.filter((s) => s.kind === 'predict' || s.kind === 'check').length,
   };
 }
+
+// Words of one rendered section, the way the style budget counts them: no headings, styles, code blocks, inline code or formulas
+// (render without KaTeX so formulas become <code>).
+export function sectionWords(html) {
+  return html.replace(/<style[\s\S]*?<\/style>/g, '').replace(/<pre[\s\S]*?<\/pre>/g, '').replace(/<code>[\s\S]*?<\/code>/g, ' ')
+    .replace(/<h[1-3][^>]*>[\s\S]*?<\/h[1-3]>/g, ' ').replace(/<[^>]+>/g, ' ').split(/\s+/).filter((w) => /[\p{L}\p{N}]/u.test(w)).length;
+}

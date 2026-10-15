@@ -76,6 +76,7 @@ export function validateCourse(course) {
       if (l.code !== undefined && !isStr(l.code)) errs.push(`${where}: "code" must be a non-empty string`);
       if (l.widgets !== undefined && !(Array.isArray(l.widgets) && l.widgets.every(isStr))) errs.push(`${where}: "widgets" must be an array of strings`);
       if (l.legacy_hashes !== undefined && !(Array.isArray(l.legacy_hashes) && l.legacy_hashes.every(isStr))) errs.push(`${where}: "legacy_hashes" must be an array of strings`);
+      if (l.status === 'planned' && l.legacy_hashes?.length) errs.push(`${where}: a planned lesson has no page, so it cannot claim legacy hashes`);
       for (const t of l.trace ?? []) if (typeof t === 'string' && !/^[A-Za-z0-9_.-]+\.json$/.test(t)) errs.push(`${where}: trace file "${t}" must be a plain *.json file name`);
     }
   }

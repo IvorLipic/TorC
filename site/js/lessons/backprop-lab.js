@@ -18,9 +18,9 @@ export default {
     {
       kind: 'tldr',
       items: () => [
-        '<strong>Forward</strong>: each operation computes its output, and TorC remembers which operation made what: the computation graph.',
-        '<strong>Backward</strong>: from the output (gradient one), each node multiplies what it receives by its <em>local slope</em> and passes it on: the chain rule.',
-        '<strong>Accumulate</strong>: a value used in several places gets a gradient from each, and TorC <em>adds</em> them.',
+        '<strong>Forward</strong>: each operation computes its output; TorC records the computation graph.',
+        '<strong>Backward</strong>: from the output, each node multiplies what it receives by its <em>local slope</em>: the chain rule.',
+        '<strong>Accumulate</strong>: a value used in several places gets a gradient from each; TorC <em>adds</em> them.',
       ],
     },
     {
