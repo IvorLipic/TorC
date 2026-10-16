@@ -91,7 +91,7 @@ optim::Adam opt(model.parameters(), 1e-3f);</code></pre>
     },
     {
       kind: 'text',
-      html: () => '<section class="md"><p>Go back to the <a href="../../">course map</a>. The next lesson is about losses, which measure how wrong a model is.</p></section>',
+      html: () => '<section class="md"><p>The next lesson, <a href="../losses/">Losses</a>, shows how TorC measures how wrong a model is.</p></section>',
     },
   ],
 };

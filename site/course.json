@@ -188,11 +188,14 @@
             "softmax",
             "log"
           ],
-          "trace": [],
+          "trace": [
+            "losses.json"
+          ],
           "est_minutes": 7,
-          "status": "planned",
+          "status": "published",
           "widgets": [
-            "loss explorer"
+            "loss explorer",
+            "gradient comparison"
           ],
           "code": "nn::MSELoss mse;                      // regression\nnn::CrossEntropyLoss ce;              // classification\nVariable loss = ce(logits, labels);   // logits (B, 10), labels (B)"
         },
