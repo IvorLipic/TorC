@@ -1,0 +1,77 @@
+{
+  "schema":"torc-trace/1",
+  "library":{"ref":"v0.1.0","compiler":"clang 18.1.3 (libstdc++ 13)","flags":"-O3 -DNDEBUG -std=c++23 TORC_NATIVE_ARCH=OFF"},
+  "generator":"tools/trace/trace_modules.cpp",
+  "kind":"modules",
+  "lesson":"modules",
+  "models":[
+    {
+      "id":"mlp",
+      "input_shape":[8,784],
+      "layers":[
+        {"label":"Linear(784, 32)","params":[{"name":"bias","shape":[32],"numel":32},{"name":"weight","shape":[32,784],"numel":25088}],"out_shape":[8,32]},
+        {"label":"ReLU","params":[],"out_shape":[8,32]},
+        {"label":"Linear(32, 10)","params":[{"name":"bias","shape":[10],"numel":10},{"name":"weight","shape":[10,32],"numel":320}],"out_shape":[8,10]}
+      ],
+      "total":25450,
+      "tensors":4,
+      "sequential_parameters_total":25450,
+      "sequential_parameters_count":4,
+      "sequential_out_shape":[8,10]
+    },
+    {
+      "id":"mnist",
+      "input_shape":[8,784],
+      "layers":[
+        {"label":"Linear(784, 32)","params":[{"name":"bias","shape":[32],"numel":32},{"name":"weight","shape":[32,784],"numel":25088}],"out_shape":[8,32]},
+        {"label":"ReLU","params":[],"out_shape":[8,32]},
+        {"label":"Linear(32, 32)","params":[{"name":"bias","shape":[32],"numel":32},{"name":"weight","shape":[32,32],"numel":1024}],"out_shape":[8,32]},
+        {"label":"ReLU","params":[],"out_shape":[8,32]},
+        {"label":"Linear(32, 10)","params":[{"name":"bias","shape":[10],"numel":10},{"name":"weight","shape":[10,32],"numel":320}],"out_shape":[8,10]}
+      ],
+      "total":26506,
+      "tensors":6,
+      "sequential_parameters_total":26506,
+      "sequential_parameters_count":6,
+      "sequential_out_shape":[8,10]
+    },
+    {
+      "id":"no-relu",
+      "input_shape":[8,784],
+      "layers":[
+        {"label":"Linear(784, 32)","params":[{"name":"bias","shape":[32],"numel":32},{"name":"weight","shape":[32,784],"numel":25088}],"out_shape":[8,32]},
+        {"label":"Linear(32, 10)","params":[{"name":"bias","shape":[10],"numel":10},{"name":"weight","shape":[10,32],"numel":320}],"out_shape":[8,10]}
+      ],
+      "total":25450,
+      "tensors":4,
+      "sequential_parameters_total":25450,
+      "sequential_parameters_count":4,
+      "sequential_out_shape":[8,10]
+    },
+    {
+      "id":"mismatch",
+      "input_shape":[8,784],
+      "layers":[
+        {"label":"Linear(784, 32)","params":[{"name":"bias","shape":[32],"numel":32},{"name":"weight","shape":[32,784],"numel":25088}],"out_shape":[8,32]},
+        {"label":"ReLU","params":[],"out_shape":[8,32]},
+        {"label":"Linear(64, 10)","params":[{"name":"bias","shape":[10],"numel":10},{"name":"weight","shape":[10,64],"numel":640}],"exception":"ShapeError","what":"matmul inner dimensions must match, got (8, 32) and (64, 10)"}
+      ],
+      "total":25770,
+      "tensors":4,
+      "sequential_parameters_total":25770,
+      "sequential_parameters_count":4,
+      "sequential_exception":"ShapeError",
+      "sequential_what":"matmul inner dimensions must match, got (8, 32) and (64, 10)"
+    }
+  ],
+  "orders":[
+    {"id":"in-order","code":"Variable y1 = model(x1);\nVariable L1 = mse(y1, t);\nL1.backward();\nVariable y2 = model(x2);\nVariable L2 = mse(y2, t);\nL2.backward();","exception":"none"},
+    {
+      "id":"early-second-forward",
+      "code":"Variable y1 = model(x1);\nVariable L1 = mse(y1, t);\nVariable y2 = model(x2);\nVariable L2 = mse(y2, t);\nL1.backward();",
+      "exception":"TorcError",
+      "what":"autograd graph input expired before backward(); keep all graph Variables alive"
+    },
+    {"id":"latest-backward","code":"Variable y1 = model(x1);\nVariable L1 = mse(y1, t);\nVariable y2 = model(x2);\nVariable L2 = mse(y2, t);\nL2.backward();","exception":"none"}
+  ]
+}

@@ -96,7 +96,7 @@ Variable y = l2(r);</code></pre>`),
     },
     {
       kind: 'text',
-      html: () => '<section class="nlx"><p>Go back to the <a href="../../">course map</a>. The next lesson is about modules, which put layers and activations together into one model.</p></section>',
+      html: () => '<section class="nlx"><p>The next lesson, <a href="../modules/">Modules</a>, puts layers and activations together into one model.</p></section>',
     },
   ],
 };

@@ -144,7 +144,7 @@
         },
         {
           "id": "modules",
-          "title": "The abstraction: Module",
+          "title": "Modules",
           "outcome": "A model is a set of parameters and a forward() function. Sequential puts layers in a row.",
           "prereqs": [
             "nonlinearity"
@@ -153,13 +153,19 @@
             "nn::Module",
             "nn::Sequential",
             "Module::parameters",
-            "Module::register_parameter"
+            "Module::named_parameters",
+            "Module::register_parameter",
+            "Module::operator()",
+            "nn::ReLU"
           ],
-          "trace": [],
-          "est_minutes": 7,
-          "status": "planned",
+          "trace": [
+            "modules.json"
+          ],
+          "est_minutes": 6,
+          "status": "published",
           "widgets": [
-            "model builder"
+            "model viewer",
+            "call order"
           ],
           "code": "nn::Sequential model;\nmodel.add(std::make_unique<nn::Linear>(784, 32));\nmodel.add(std::make_unique<nn::ReLU>());\nmodel.add(std::make_unique<nn::Linear>(32, 10));\nstd::vector<Variable*> params = model.parameters();"
         }
