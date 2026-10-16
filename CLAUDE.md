@@ -25,8 +25,16 @@ This branch is an independent project: an interactive learning website about the
 - Do not "fix" the library to make a lesson work: reproduce minimally, fix on `main` with tests, bump the pin.
 - Audit/bug talk belongs in `docs/library-audit/`, not on lesson pages. Lesson pages are educational and easy to learn from.
 
+## Writing (every sentence a visitor sees)
+- Before writing or editing visible text (lesson prose, summaries, checks, graph-lab texts, widget labels, course descriptions,
+  the home page), load the `asd-ste100` skill (`.claude/skills/asd-ste100`, vendored) and write in its **STE-flavored** mode,
+  plus the site rules in `docs/authoring.md` ("Writing rules"): complete sentences, at most 25 words, terms defined before use,
+  one name per thing, no semicolons, dashes or colon punchlines.
+- `tools/prose/check.sh` must report 0 hard findings, and `node --test site/test/` checks the site rules (CI runs both).
+- Give delegated agents that write visible text the same instruction.
+
 ## Verification before anything ships
-- `node --test site/test/` and `tools/trace/run.sh --check` must pass (CI runs both).
+- `node --test site/test/`, `tools/trace/run.sh --check` and `tools/prose/check.sh` must pass (CI runs them).
 - After changing any `code` in `site/course.json`: `node tools/snippets/check.mjs --torc <TorC checkout at TORC_REF>` must pass.
 - Load the site locally under `/TorC/` (`python3 -m http.server -d …` with a `TorC` symlink), check every step of a changed scene at
   laptop (1366×768) and phone (390×844) width, keyboard use, no console errors.

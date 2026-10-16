@@ -14,8 +14,10 @@ structural rules of ASD-STE100 (Simplified Technical English), STE-flavored mode
 - **One name for one thing** on a page: loss (not score), weight or parameter (not knob), gradient (not slope).
 - **Active voice and plain verbs.** "TorC adds them", not "they are added". No phrasal verbs.
 - **Headings say the topic plainly** ("How to choose the learning rate").
-- `site/test/lessons.test.mjs` checks what a program can (`proseProblems` in `site/test/helpers.mjs`): semicolons, dashes, colons
-  inside sentences, sentences over 25 words, on every lesson, course description and graph-lab text.
+- Load the vendored skill `.claude/skills/asd-ste100` before you write; use its STE-flavored mode.
+- Two checks run in CI. `tools/prose/check.sh` runs the skill's linter on the extracted prose of every page (0 hard findings
+  allowed). `site/test/lessons.test.mjs` checks the site rules (`proseProblems` in `site/test/helpers.mjs`): semicolons, dashes,
+  colons inside sentences, sentences over 25 words, on every lesson, course description and graph-lab text.
 
 ## Style budget (every lesson)
 Lessons are short and dense. The interactive parts carry the lesson; the text only sets them up.

@@ -5,9 +5,9 @@ name: Verify
 on:
   push:
     branches: [web]
-    paths: ["site/**", "tools/**", ".github/workflows/verify.yml"]
+    paths: ["site/**", "tools/**", ".claude/skills/**", ".github/workflows/verify.yml"]
   pull_request:
-    paths: ["site/**", "tools/**", ".github/workflows/verify.yml"]
+    paths: ["site/**", "tools/**", ".claude/skills/**", ".github/workflows/verify.yml"]
 
 permissions:
   contents: read
@@ -22,6 +22,8 @@ jobs:
           node-version: 22
       - name: Site check (course.json, lesson shells, modules, trace files, relative URLs, assets)
         run: node tools/check_site.mjs
+      - name: Writing rules (ASD-STE100 linter on the visible prose of every page)
+        run: tools/prose/check.sh
       - name: Toolchain (clang 18 + CMake)
         run: sudo apt-get update && sudo apt-get install -y clang-18 cmake
       - name: Trace drift check against the pinned TorC

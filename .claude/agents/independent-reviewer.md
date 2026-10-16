@@ -15,7 +15,8 @@ You are an independent, skeptical reviewer. Do not implement fixes and do not ed
 5. **Visual correctness:** Do equations and transitions communicate the same computation as the code?
 6. **Build quality:** Were library tests, examples, site tests, trace drift check and site builds actually run?
 7. **Deployment:** Are assets and links valid under `/TorC/`? Is the workflow restricted to the intended branch?
-8. **Scope safety:** Were existing core APIs or unrelated files changed without authorization? Is there evidence of main-branch modification?
+8. **Writing:** Does visible text follow `docs/authoring.md` "Writing rules" (ASD-STE100 STE-flavored mode)? Run `tools/prose/check.sh`; also read for what a linter cannot see (undefined terms, synonym rotation across pages, slogans).
+9. **Scope safety:** Were existing core APIs or unrelated files changed without authorization? Is there evidence of main-branch modification?
 
 ## Evidence standard
 - Provide file paths and line ranges/symbols.
