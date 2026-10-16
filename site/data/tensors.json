@@ -1,0 +1,47 @@
+{
+  "schema":"torc-trace/1",
+  "library":{"ref":"v0.1.0","compiler":"clang 18.1.3 (libstdc++ 13)","flags":"-O3 -DNDEBUG -std=c++23 TORC_NATIVE_ARCH=OFF"},
+  "generator":"tools/trace/trace_tensors.cpp",
+  "kind":"tensors",
+  "lesson":"tensors",
+  "example":{
+    "shape":[2,3],
+    "numel":6,
+    "values":[1,2,3,4,5,6],
+    "index":[{"i":0,"j":0,"flat":0,"value":1},{"i":0,"j":1,"flat":1,"value":2},{"i":0,"j":2,"flat":2,"value":3},{"i":1,"j":0,"flat":3,"value":4},{"i":1,"j":1,"flat":4,"value":5},{"i":1,"j":2,"flat":5,"value":6}]
+  },
+  "reshape":{"shape":[3,2],"values":[1,2,3,4,5,6],"changing_the_copy_changes_a":false,"error":{"exception":"ShapeError","what":"Cannot reshape tensor of shape (2, 3) with 6 elements into shape (4, 2) with 8 elements"}},
+  "broadcast":[
+    {"id":"same","b":{"shape":[2,3],"values":[10,20,30,40,50,60]},"sum":{"shape":[2,3],"values":[11,22,33,44,55,66],"exception":"none"}},
+    {"id":"row","b":{"shape":[3],"values":[10,20,30]},"sum":{"shape":[2,3],"values":[11,22,33,14,25,36],"exception":"none"}},
+    {"id":"row2d","b":{"shape":[1,3],"values":[10,20,30]},"sum":{"shape":[2,3],"values":[11,22,33,14,25,36],"exception":"none"}},
+    {"id":"column","b":{"shape":[2,1],"values":[100,200]},"sum":{"shape":[2,3],"values":[101,102,103,204,205,206],"exception":"none"}},
+    {"id":"scalar","b":{"shape":[1],"values":[100]},"sum":{"shape":[2,3],"values":[101,102,103,104,105,106],"exception":"none"}},
+    {"id":"wrong-row","b":{"shape":[2],"values":[10,20]},"sum":{"exception":"ShapeError","what":"Cannot broadcast shapes (2, 3) and (2)"}},
+    {"id":"wrong-column","b":{"shape":[3,1],"values":[100,200,300]},"sum":{"exception":"ShapeError","what":"Cannot broadcast shapes (2, 3) and (3, 1)"}}
+  ],
+  "broadcast_shapes":[
+    {"x":[4,1],"y":[3],"result":[4,3],"exception":"none"},
+    {"x":[4,1,3],"y":[2,1],"result":[4,2,3],"exception":"none"},
+    {"x":[5,4],"y":[4],"result":[5,4],"exception":"none"},
+    {"x":[5,4],"y":[5],"exception":"ShapeError","what":"Cannot broadcast shapes (5, 4) and (5)"}
+  ],
+  "reductions":[
+    {"op":"sum","axis":0,"result":{"shape":[3],"values":[5,7,9],"exception":"none"}},
+    {"op":"mean","axis":0,"result":{"shape":[3],"values":[2.5,3.5,4.5],"exception":"none"}},
+    {"op":"max","axis":0,"result":{"shape":[3],"values":[4,5,6],"exception":"none"}},
+    {"op":"sum","axis":1,"result":{"shape":[2],"values":[6,15],"exception":"none"}},
+    {"op":"mean","axis":1,"result":{"shape":[2],"values":[2,5],"exception":"none"}},
+    {"op":"max","axis":1,"result":{"shape":[2],"values":[3,6],"exception":"none"}}
+  ],
+  "whole":{"sum":21,"mean":3.5,"max":6},
+  "reduce_error":{"exception":"ShapeError","what":"Invalid axis 2 for tensor with shape (2, 3)"},
+  "reduce_negative_axis":{"shape":[2],"values":[6,15],"exception":"none"},
+  "matmul":{
+    "transpose":{"shape":[3,2],"values":[1,4,2,5,3,6]},
+    "a_at":{"shape":[2,2],"values":[14,32,32,77],"exception":"none"},
+    "at_a":{"shape":[3,3],"values":[17,22,27,22,29,36,27,36,45],"exception":"none"},
+    "a_a":{"exception":"ShapeError","what":"matmul inner dimensions must match, got (2, 3) and (2, 3)"},
+    "batched":{"shape":[4,2,2],"values":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"exception":"none"}
+  }
+}

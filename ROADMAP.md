@@ -49,7 +49,9 @@ Status legend: `[x]` done · `[~]` in progress · `[ ]` planned. The detailed cu
 - [x] The snippet check runs in CI (`verify.yml`, after the trace drift check, on the TorC source it fetched)
 
 ## M4+ — The planned lessons, in curriculum order
-Tensors → Nonlinearity → Module → Losses → The training loop → Better optimizers → Generalization → MNIST MLP → Convolution →
+- [x] 03 Tensors (2026-10-16): trace `tensors.json`, broadcast grid and axis explorer, tests, prose check clean
+
+Remaining: Nonlinearity → Module → Losses → The training loop → Better optimizers → Generalization → MNIST MLP → Convolution →
 MNIST CNN. Specs in content-plan section 2 (v1 course map) and section 3.
 
 ## Open decisions

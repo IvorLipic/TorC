@@ -68,18 +68,24 @@
           ],
           "symbols": [
             "Tensor",
+            "Tensor::operator[]",
+            "Tensor::reshape",
             "Tensor::add",
-            "Tensor::matmul",
-            "Tensor::transpose",
+            "broadcast_shape",
             "Tensor::sum",
-            "broadcast_shape"
+            "Tensor::mean",
+            "Tensor::max",
+            "Tensor::transpose",
+            "Tensor::matmul"
           ],
-          "trace": [],
+          "trace": [
+            "tensors.json"
+          ],
           "est_minutes": 7,
-          "status": "planned",
+          "status": "published",
           "widgets": [
-            "shape explorer",
-            "broadcast grid"
+            "broadcast grid",
+            "axis explorer"
           ],
           "code": "Tensor a({1.f, 2.f, 3.f, 4.f, 5.f, 6.f}, {2, 3});\nTensor b({10.f, 20.f, 30.f}, {3});\nTensor c = a.add(b);    // (2, 3): b added to each row\nTensor g = a.matmul(a.transpose({1, 0}));   // (2, 2)"
         },

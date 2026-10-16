@@ -16,6 +16,7 @@ TRACES=(
   "trace_why:why-gradients.json"
   "trace_optim:optim.json"
   "trace_linear:linear.json"
+  "trace_tensors:tensors.json"
 )
 
 ARGS=(-S "$ROOT/tools/trace" -B "$BUILD" -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER="$CXX")
