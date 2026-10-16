@@ -127,11 +127,15 @@
             "softmax",
             "nn::ReLU",
             "nn::Sigmoid",
-            "nn::Softmax"
+            "nn::Softmax",
+            "Tensor::softmax",
+            "optim::Adam"
           ],
-          "trace": [],
+          "trace": [
+            "nonlinearity.json"
+          ],
           "est_minutes": 7,
-          "status": "planned",
+          "status": "published",
           "widgets": [
             "activation plotter",
             "fit a curve"

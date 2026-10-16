@@ -50,8 +50,9 @@ Status legend: `[x]` done · `[~]` in progress · `[ ]` planned. The detailed cu
 
 ## M4+ — The planned lessons, in curriculum order
 - [x] 03 Tensors (2026-10-16): trace `tensors.json`, broadcast grid and axis explorer, tests, prose check clean
+- [x] 05 Nonlinearity (2026-10-16): trace `nonlinearity.json` (activations, softmax, two models fitted in TorC), activation plot and curve fit
 
-Remaining: Nonlinearity → Module → Losses → The training loop → Better optimizers → Generalization → MNIST MLP → Convolution →
+Remaining: Module → Losses → The training loop → Better optimizers → Generalization → MNIST MLP → Convolution →
 MNIST CNN. Specs in content-plan section 2 (v1 course map) and section 3.
 
 ## Open decisions

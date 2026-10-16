@@ -5,14 +5,14 @@ Every file in `site/data/` is written by a program in `tools/trace/` that runs t
 never edit a file there by hand. This page says what is in each file so a lesson author knows what can be quoted without typing a number.
 
 Producers, in `tools/trace/`: `trace_util.hpp` (shared: JSON writer, `Graph`, `Scene`/`run_scene`, tensor serialisation, finite-difference
-checker, envelope), `autograd_trace.cpp`, `trace_why.cpp`, `trace_optim.cpp`, `trace_linear.cpp`, `trace_tensors.cpp`. Behaviour notes per lesson (what the
+checker, envelope), `autograd_trace.cpp`, `trace_why.cpp`, `trace_optim.cpp`, `trace_linear.cpp`, `trace_tensors.cpp`, `trace_nonlinear.cpp`. Behaviour notes per lesson (what the
 numbers mean, derivations, library symbols): `docs/lessons/<lesson>.md`.
 
 ## Conventions
 
 - **Envelope** (top of every file, in this order): `schema` = `"torc-trace/1"`; `library` = `{ref, compiler, flags}` (`ref` is the content of
   `TORC_REF`, e.g. `"v0.1.0"`; `compiler` e.g. `"clang 18.1.3 (libstdc++ 14)"`; `flags` the build flags; the last two are informational and
-  are not compared by the drift check); `generator` = source file of the producer; `kind` = topic (`autograd` | `why` | `optim` | `linear` | `tensors`);
+  are not compared by the drift check); `generator` = source file of the producer; `kind` = topic (`autograd` | `why` | `optim` | `linear` | `tensors` | `nonlinearity`);
   `lesson` = first lesson that uses the file. Everything else is topic data. Unknown keys must be ignored by consumers.
 - **Numbers.** Values the library computed in `float32` are written with 9 significant digits (they round-trip the float32 exactly, so
   `0.1f` appears as `0.100000001`; present them rounded). Values that are configuration or were derived in `double` (learning rates, `h`,
@@ -105,4 +105,13 @@ sum}` where `sum` is `{shape, values, exception:"none"}` or `{exception, what}`.
 what}` from `broadcast_shape`. `reductions[]` = `{op: sum|mean|max, axis: 0|1, result}`; `whole` = `{sum, mean, max}`;
 `reduce_error` (axis 2) and `reduce_negative_axis` (axis -1). `matmul` = `{transpose, a_at, at_a, a_a, batched}`, each a result or
 an error. Producer: `tools/trace/trace_tensors.cpp`. Everything is library output; nothing is derived.
+
+## `nonlinearity.json` (kind `nonlinearity`, lesson `nonlinearity`)
+
+`z` = 81 inputs from -4 to 4. `activations[]` = `{name: relu|sigmoid, value[], grad[]}` (grad from `backward()` of `sum(f(z))`).
+`softmax[]` = `{id, input[3], output[3], sum}` for rows `small`, `shifted`, `large`, `equal` (axis 1). `data` = `{x[21], t[21], grid[45]}`
+with `t = x²`; `setup` = `{points, hidden, steps, lr, optimizer, loss}`. `models[]` = `{name: linear|relu, checkpoints[{step, loss,
+prediction[45]}]}`, steps 0, 25, 100, 400; the linear model also has `derived` = `{w_eff, b_eff, max_abs_diff_line_vs_model}`.
+Top-level `derived` = `{best_line_slope, best_line_intercept}` (mathematics, not library output). Start weights are set by hand, so
+no random generator is involved. Producer: `tools/trace/trace_nonlinear.cpp`.
 

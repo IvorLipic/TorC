@@ -11,7 +11,7 @@ const F = 'files.why-gradients';
 // recorded runs, by index: lr 0.05, 0.1, 0.125 (one step), 0.25 (bounces), 0.3 (diverges); the test pins this order
 const traj = (i, rest) => `${F}.trajectories.${i}.${rest}`;
 const SLOW = 0, EXACT = 2, BOUNCE = 3, DIVERGE = 4;
-const eq = (latex) => `<div class="wg-eq">${math(latex)}</div>`;
+const eq = (latex) => `<div class="wg-eq" tabindex="0" role="group" aria-label="Formula">${math(latex)}</div>`;
 const sec = (id, title, body) => `<section class="wg" aria-labelledby="wg-${id}"><h2 id="wg-${id}">${title}</h2>${body}</section>`;
 
 const STYLE = `<style>

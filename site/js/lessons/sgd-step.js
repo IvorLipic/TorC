@@ -11,7 +11,7 @@ import { math } from '../core/katex.js';
 // one real line of the library, copied from SOURCES (so it can never drift from the quoted source)
 const quote = (key, n) => { const s = SOURCES[key]; return `<code class="quote" data-src="${key}:${n}">${escapeHtml(s.lines[n - s.from].trim())}</code>`; };
 const lines = (key, from, to) => { const s = SOURCES[key]; return s.lines.slice(from - s.from, to - s.from + 1).map((l) => escapeHtml(l.trim())).join('\n'); };
-const eq = (latex) => `<div class="sg-eq">${math(latex, true)}</div>`;
+const eq = (latex) => `<div class="sg-eq" tabindex="0" role="group" aria-label="Formula">${math(latex, true)}</div>`;
 const sec = (id, title, body) => `<section class="sg" aria-labelledby="sg-${id}"><h2 id="sg-${id}">${title}</h2>${body}</section>`;
 // recorded runs, by index: 0 lr 0.05 · 1 lr 0.1 · 2 lr 0.15 · 3 lr 0.2 · 4 lr 0.05 μ 0.5 · 5 lr 0.05 μ 0.9 (the test pins this order)
 const PLAIN = 0, BIG = 3, MU5 = 4, MU9 = 5;

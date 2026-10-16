@@ -6,7 +6,7 @@ import { math } from '../core/katex.js';
 import { mountBroadcastGrid, mountAxisExplorer } from '../widgets/tensor-widgets.js';
 
 const F = 'files.tensors';
-const eq = (latex) => `<div class="tn-eq">${math(latex, true)}</div>`;
+const eq = (latex) => `<div class="tn-eq" tabindex="0" role="group" aria-label="Formula">${math(latex, true)}</div>`;
 const sec = (id, title, body) => `<section class="tn" aria-labelledby="tn-${id}"><h2 id="tn-${id}">${title}</h2>${body}</section>`;
 const err = (r) => `<code>${escapeHtml(r.exception)}: ${escapeHtml(r.what)}</code>`;
 const list = (T, path, n) => Array.from({ length: n }, (_, k) => T(`${path}.${k}`)).join(', ');

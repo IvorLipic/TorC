@@ -46,7 +46,7 @@ TorC Learn takes Karpathy's start (one scalar gradient before tensors) and d2l's
 | 2 | | Using the gradient (`sgd-step`) | published | `optim::SGD`, `step`, `zero_grad` | loss landscape, zero_grad loop |
 | 3 | Building a network | Tensors (`tensors`) | published | `Tensor`, `add` (broadcast), `matmul`, `transpose` | shape explorer, broadcast grid |
 | 4 | | Layers (`linear-layer`) | published | `nn::Linear` | matrix grid, signal through six layers |
-| 5 | | Nonlinearity (`nonlinearity`) | planned | `relu`, `sigmoid`, `softmax` | activation plotter, fit a curve |
+| 5 | | Nonlinearity (`nonlinearity`) | published | `relu`, `sigmoid`, `softmax` | activation plotter, fit a curve |
 | 6 | | The abstraction: Module (`modules`) | planned | `nn::Sequential`, `parameters()` | model builder |
 | 7 | Training | Losses (`losses`) | planned | `nn::MSELoss`, `nn::CrossEntropyLoss` | loss explorer |
 | 8 | | The training loop (`training-loop`) | planned | `data::DataLoader` | batch viewer, live training curve |

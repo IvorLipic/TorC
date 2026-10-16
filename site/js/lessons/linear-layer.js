@@ -19,7 +19,7 @@ const ERR = 'linear-784x32-(8, 10)';
 // very small or very large recorded numbers in scientific form (T() would print 0.000002173); bound to the trace like T()
 const sci = (D, path) => `<span class="rec" data-trace="${path}" data-fmt="sci">${fmtSci(resolvePath(D, path))}</span>`;
 const shp = (T, base) => `(${T(`${base}.0`)}, ${T(`${base}.1`)})`;
-const eq = (latex) => `<div class="ll-eq">${math(latex, true)}</div>`;
+const eq = (latex) => `<div class="ll-eq" tabindex="0" role="group" aria-label="Formula">${math(latex, true)}</div>`;
 const sec = (id, title, body) => `<section class="ll" aria-labelledby="ll-${id}"><h2 id="ll-${id}">${title}</h2>${body}</section>`;
 
 const STYLE = `<style>

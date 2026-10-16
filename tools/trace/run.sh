@@ -17,6 +17,7 @@ TRACES=(
   "trace_optim:optim.json"
   "trace_linear:linear.json"
   "trace_tensors:tensors.json"
+  "trace_nonlinear:nonlinearity.json"
 )
 
 ARGS=(-S "$ROOT/tools/trace" -B "$BUILD" -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER="$CXX")
