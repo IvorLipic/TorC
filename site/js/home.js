@@ -39,7 +39,7 @@ function render(course) {
     el('ol', { class: 'rows', start: String(p.lessons[0].number) }, p.lessons.map(row)))));
   $('#labs').replaceChildren(...(labList.length ? [
     el('h2', { id: 'labs-h' }, 'Labs'),
-    el('p', { class: 'hint' }, 'Playgrounds outside the lesson order.'),
+    el('p', { class: 'hint' }, 'The labs are not part of the lesson order. You can use them at any time.'),
     el('ul', { class: 'rows' }, labList.map(row))] : []));
 }
 
@@ -56,13 +56,13 @@ function render(course) {
 <main id="top">
   <section class="hero home-hero">
     <h1>Deep learning, from the gradient up</h1>
-    <p class="lead">A course in the usual order, from one gradient to a convolutional network, built on <a href="https://github.com/IvorLipic/TorC">TorC</a>, a small C++ tensor and autograd library. Each lesson pairs the real code with something to play with.</p>
+    <p class="lead">This course teaches deep learning in the usual order, from one gradient to a convolutional network. It uses <a href="https://github.com/IvorLipic/TorC">TorC</a>, a small tensor and autograd library in C++. Each lesson shows the real TorC code and has parts that you can change and run.</p>
     <div class="hero-actions"><span id="start"></span><span class="hint" id="progress"></span></div>
   </section>
   <section class="course" aria-label="Curriculum"><div id="map"></div></section>
   <section class="labs" id="labs" aria-labelledby="labs-h"></section>
 </main>
-<footer><p>Numbers on every page are checked against real runs of TorC; the code beside each lesson compiles and runs against the pinned release. <a href="https://github.com/IvorLipic/TorC">Source</a>. Progress is kept only in this browser.</p></footer>`;
+<footer><p>Tests check every number on these pages against real runs of TorC. The code next to each lesson compiles and runs with the TorC release that the site uses. Your progress is saved only in this browser. <a href="https://github.com/IvorLipic/TorC">Source</a>.</p></footer>`;
   render(course);
   // a lesson marked done in another tab, or a back/forward-cache restore, should be reflected here
   window.addEventListener('pageshow', (e) => { if (e.persisted) render(course); });

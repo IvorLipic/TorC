@@ -197,7 +197,7 @@ test('the formulas in the prose (the bowl, the factor, the chain product) come f
   assert.match(html, /Variable w\(Tensor\(\{<span[^>]*>0<\/span>\.0f\}, \{1\}\), true\)/);
   assert.match(html, /Variable x\(Tensor\(\{<span[^>]*>2<\/span>\.0f\}, \{1\}\), false\)/);
   assert.ok([m.w0, m.x, m.t].every(Number.isInteger), 'integer leaves, so "N.0f" is right');
-  assert.match(html, /w\.grad\(\) now holds the slope/);
+  assert.match(html, /w\.grad\(\) now holds the gradient/);
 });
 
 test('predict and check sections exist, are answered from the trace, and have unique ids', () => {

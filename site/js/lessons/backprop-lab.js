@@ -12,15 +12,15 @@ export default {
       kind: 'text',
       html: () => `<section class="hero">
     <h1>Backpropagation, one step at a time</h1>
-    <p class="lead">Step a small computation forward, then backward, and see what is multiplied by what.</p>
+    <p class="lead">This lab runs small computations forward and then backward, one step at a time. At each step you see which numbers TorC multiplies or adds.</p>
   </section>`,
     },
     {
       kind: 'tldr',
       items: () => [
-        '<strong>Forward</strong>: each operation computes its output; TorC records the computation graph.',
-        '<strong>Backward</strong>: from the output, each node multiplies what it receives by its <em>local slope</em>: the chain rule.',
-        '<strong>Accumulate</strong>: a value used in several places gets a gradient from each; TorC <em>adds</em> them.',
+        'In the forward pass, each operation computes its output. TorC records which operation made each value.',
+        'In the backward pass, each operation multiplies the gradient it receives by its local derivative. This is the chain rule.',
+        'If the computation uses a value in several places, the value gets a gradient from each place. TorC adds them.',
       ],
     },
     {

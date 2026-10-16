@@ -5,7 +5,7 @@ import { existsSync } from 'node:fs';
 import { flatLessons, isPublished } from '../js/core/course.js';
 import { buildD, makeT, stemOf } from '../js/core/trace.js';
 import { renderLesson, validateLesson, findUnboundNums, boundNums, defaultFooter } from '../js/core/sections.js';
-import { course, readJson, SITE, lessonStats, sectionWords } from './helpers.mjs';
+import { course, readJson, SITE, lessonStats, sectionWords, proseProblems } from './helpers.mjs';
 
 const lessons = flatLessons(course());
 
@@ -40,18 +40,30 @@ for (const entry of lessons.filter((l) => isPublished(l) || existsSync(new URL(`
     const st = lessonStats(lesson, D, renderLesson, boundNums);
     assert.ok(st.words <= 800 && st.numbers <= 25 && st.widgets <= 2 && st.questions <= 3, JSON.stringify(st));
     assert.doesNotMatch(parts.map((p) => p.html).join(''), /recorded|recomputed|printed by|in your browser|show as table/i, 'provenance is said once, on the home page');
-    // the finer limits: TL;DR <= 50 words, every text section <= 60, at most four numbered sections, one predict, two checks
+    // the finer limits: summary <= 60 words, every text section <= 100, at most four numbered sections, one predict, two checks
     const saved = globalThis.katex;
     globalThis.katex = undefined;
     let plain;
     try { plain = renderLesson(lesson, D); } finally { globalThis.katex = saved; }
     for (const { section, html } of plain) {
-      if (section.kind === 'tldr') assert.ok(sectionWords(html) <= 50, `TL;DR has ${sectionWords(html)} words`);
-      if (section.kind === 'text') assert.ok(sectionWords(html) <= 60, `a text section has ${sectionWords(html)} words: ${html.replace(/<[^>]+>/g, ' ').slice(0, 80)}`);
+      if (section.kind === 'tldr') assert.ok(sectionWords(html) <= 60, `the summary has ${sectionWords(html)} words`);
+      if (section.kind === 'text') assert.ok(sectionWords(html) <= 100, `a text section has ${sectionWords(html)} words: ${html.replace(/<[^>]+>/g, ' ').slice(0, 80)}`);
     }
     const numbered = plain.map((p) => p.html).join('').match(/<h2[^>]*>\s*\d+\s·/g) ?? [];
     assert.ok(numbered.length <= 4, `${numbered.length} numbered sections`);
     assert.ok(lesson.sections.filter((x) => x.kind === 'predict').length <= 1, 'at most one predict');
     assert.ok(lesson.sections.filter((x) => x.kind === 'check').length <= 2, 'at most two checks');
+    // the writing rules (docs/authoring.md): no semicolons, dashes or colon punchlines, sentences of at most 25 words
+    assert.deepEqual(plain.flatMap(({ html }) => proseProblems(html)), []);
   });
 }
+
+test('writing rules hold for the course descriptions and the graph-lab texts (docs/authoring.md)', async () => {
+  const outcomes = flatLessons(course()).map((l) => `<p>${l.outcome}</p>`);
+  const { SCENES } = await import('../js/lessons/backprop-lab.scenes.js');
+  const { whyLayout } = await import('../js/lessons/why-gradients.scenes.js');
+  const D = buildD({ 'why-gradients': readJson('data/why-gradients.json') });
+  const layouts = [...Object.values(SCENES), whyLayout(makeT(D))];
+  const texts = layouts.flatMap((l) => ['goal', 'intro', 'forwardHint', 'backwardHint', 'takeaway'].map((k) => `<p>${l[k]}</p>`));
+  assert.deepEqual([...outcomes, ...texts].flatMap(proseProblems), []);
+});

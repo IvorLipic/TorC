@@ -45,9 +45,9 @@ header.site a.nav[aria-current=page]{color:var(--fg)}
 .load-error{max-width:46rem;margin:2rem auto;padding:.8rem 1.1rem;border:1px solid var(--bwd);border-radius:var(--r);background:#2b1513;color:#ffb3ab}
 .num{font-variant-numeric:tabular-nums;color:var(--fwd)}
 
-/* ---- TL;DR box under a lesson's hero ---- */
+/* ---- summary box under a lesson's hero ---- */
 .tldr{background:var(--panel);border:1px solid var(--border);border-left:4px solid var(--ok);border-radius:var(--r);padding:.7rem 1.2rem;margin:.6rem 0 1.4rem;max-width:46rem}
-.tldr h2{font-size:.85rem;letter-spacing:.06em;color:var(--ok);margin:0 0 .2rem}
+.tldr h2{font-size:.85rem;letter-spacing:.04em;text-transform:uppercase;color:var(--ok);margin:0 0 .2rem}
 .tldr ul{margin:0;padding-left:1.1rem}.tldr li{margin:.15rem 0}
 
 /* ---- lesson sections (gotcha / predict / check) and the lesson footer navigation ---- */

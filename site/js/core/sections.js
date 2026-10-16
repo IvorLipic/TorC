@@ -2,7 +2,7 @@
 // against the real trace data in the tests, and the browser uses the very same strings.
 //
 // section kinds
-//   tldr    { kind:'tldr',   items: (D, T) => ['…', …] }                         the 3-4 bullet summary under the hero
+//   tldr    { kind:'tldr',   items: (D, T) => ['…', …] }                         the 3-4 sentence summary under the hero
 //   text    { kind:'text',   html:  (D, T) => '<section>…</section>' }            markup is used as given
 //   gotcha  { kind:'gotcha', title, html: (D, T) => … }                           a "Why did my X fail?" box
 //   predict { kind:'predict', id, title?, prompt: (D, T) => …, reveal: (D, T) => … }       think first, then open the answer
@@ -21,7 +21,7 @@ export function sectionHtml(section, D, T = makeT(D)) {
       return call(section.html, D, T);
     case 'tldr': {
       const items = typeof section.items === 'function' ? section.items(D, T) : section.items;
-      return `<aside class="tldr" aria-labelledby="tldr-h"><h2 id="tldr-h">TL;DR</h2><ul>${items.map((i) => `<li>${i}</li>`).join('')}</ul></aside>`;
+      return `<aside class="tldr" aria-labelledby="tldr-h"><h2 id="tldr-h">Summary</h2><ul>${items.map((i) => `<li>${i}</li>`).join('')}</ul></aside>`;
     }
     case 'gotcha':
       return `<aside class="gotcha"><h3>${escapeHtml(section.title ?? 'Why did it fail?')}</h3>${call(section.html, D, T)}</aside>`;

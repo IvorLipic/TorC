@@ -46,3 +46,23 @@ export function sectionWords(html) {
   return html.replace(/<style[\s\S]*?<\/style>/g, '').replace(/<pre[\s\S]*?<\/pre>/g, '').replace(/<code>[\s\S]*?<\/code>/g, ' ')
     .replace(/<h[1-3][^>]*>[\s\S]*?<\/h[1-3]>/g, ' ').replace(/<[^>]+>/g, ' ').split(/\s+/).filter((w) => /[\p{L}\p{N}]/u.test(w)).length;
 }
+
+// The writing rules of docs/authoring.md that a program can check, on visible prose (code, formulas and numbers removed):
+// no semicolons, no dashes used as punctuation, a colon only where it introduces what follows the block (a formula, code or a
+// list), and at most 25 words in a sentence. Returns a list of problems with the sentence they were found in.
+export function proseProblems(html) {
+  const text = html.replace(/<style[\s\S]*?<\/style>/g, '').replace(/<pre[\s\S]*?<\/pre>/g, ' ')
+    .replace(/<code[^>]*>[\s\S]*?<\/code>/g, 'X').replace(/<span class="(num|rec)"[^>]*>[^<]*<\/span>/g, '9')
+    .replace(/<\/(p|li|h1|h2|h3|summary|div|section|aside)>/g, '\n').replace(/<[^>]+>/g, ' ').replace(/&[a-z]+;/g, ' ');
+  const problems = [];
+  for (const block of text.split('\n').map((b) => b.replace(/\s+/g, ' ').trim()).filter(Boolean)) {
+    if (block.includes(';')) problems.push(`semicolon: ${block}`);
+    if (/\s[—–]\s|—/.test(block)) problems.push(`dash: ${block}`);
+    if (/:\s*\S/.test(block)) problems.push(`colon inside a sentence: ${block}`);
+    for (const sentence of block.split(/(?<=[.?!])\s+/)) {
+      const n = sentence.split(/\s+/).filter((w) => /[\p{L}\p{N}]/u.test(w)).length;
+      if (n > 25) problems.push(`${n} words: ${sentence}`);
+    }
+  }
+  return problems;
+}

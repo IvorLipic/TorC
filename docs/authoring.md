@@ -3,10 +3,24 @@
 How to add a lesson, a scene or an operation. Architecture and file map: [architecture.md](architecture.md); what to teach and in
 which order: [content-plan.md](content-plan.md).
 
+## Writing rules (every visible sentence)
+Owner focus group, 2026-10: the pages read as LLM output, and every sentence had friction. Length is not the problem. Follow the
+structural rules of ASD-STE100 (Simplified Technical English), STE-flavored mode, and write like a teacher, not like a slogan.
+- **Complete sentences.** A subject and a verb. No fragments ("One weight, one score"), no slogans ("Step size decides
+  everything"), no "X, not Y" punchlines, no colon in the middle of a sentence. A colon may only end a line before a formula,
+  code or a list. No semicolons, no dashes.
+- **One idea per sentence, at most 25 words.** Split anything longer.
+- **Define every term before you use it**, in plain words: learning rate, local derivative, neuron, batch, momentum.
+- **One name for one thing** on a page: loss (not score), weight or parameter (not knob), gradient (not slope).
+- **Active voice and plain verbs.** "TorC adds them", not "they are added". No phrasal verbs.
+- **Headings say the topic plainly** ("How to choose the learning rate").
+- `site/test/lessons.test.mjs` checks what a program can (`proseProblems` in `site/test/helpers.mjs`): semicolons, dashes, colons
+  inside sentences, sentences over 25 words, on every lesson, course description and graph-lab text.
+
 ## Style budget (every lesson)
 Lessons are short and dense. The interactive parts carry the lesson; the text only sets them up.
-- **Shape**: hero (`<h1>` + one-line lead) → `tldr` (3-4 bullets, ≤ 50 words) → the TorC code → 3-4 sections → checks → one "Next" line.
-  Each section title states the claim ("A step too big overshoots"); its body is ≤ 60 words with at most one equation. No follow-up
+- **Shape**: hero (`<h1>` + one-line lead) → `tldr` (shown as "Summary", 3-4 sentences, ≤ 60 words) → the TorC code → 3-4
+  sections → checks → one "Next" line. Each section title names its topic; its body is ≤ 100 words with at most one equation. No follow-up
   "what you should have seen" sections, no recap that repeats the TL;DR, no mix-up cards.
 - **Limits**: ≤ 800 words of prose, ≤ 25 numbers bound in the text, **≤ 2 widgets** (one main, one small), ≤ 1 predict + 2 checks,
   a gotcha only where TorC really throws.

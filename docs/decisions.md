@@ -27,6 +27,10 @@ Lightweight decision log. Newest at the bottom of each section.
     `course.json` against TorC at the pinned ref (refusing any other ref) and runs the ones that can run with the assertions in
     its `SPEC`. The SPEC assertions are written from the snippets' comments by hand; a changed comment needs a changed SPEC.
 
+12. **Plain writing over short writing** (focus group, 2026-10): the pages must not read like LLM output. The writing rules in
+    `authoring.md` (ASD-STE100 structure, complete sentences, defined terms, one name per thing) are tested. To make room for
+    defined terms, the per-section cap rose from 60 to 100 words and the summary cap from 50 to 60; the lesson cap stays 800.
+
 ## Open
 - Pin policy once TorC publishes a release tag: pin the tag (preferred) and bump via PR. Until then a commit SHA is pinned.
 - Whether lessons beyond autograd need more of the library ported to JS (e.g. conv2d) or should stay precomputed/static.

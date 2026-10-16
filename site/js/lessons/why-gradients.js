@@ -33,45 +33,46 @@ export default {
     {
       kind: 'text',
       html: () => `${STYLE}<section class="hero"><h1>The gradient</h1>
-    <p class="lead">One weight, one score: what a gradient is, how a step uses it, and where <code>backward()</code> gets it.</p></section>`,
+    <p class="lead">This lesson uses a model with one weight. It shows what a gradient is, how training uses it, and how <code>backward()</code> computes it.</p></section>`,
     },
     {
       kind: 'tldr',
       items: () => [
-        'The gradient is a <strong>slope</strong>: how fast the loss changes per unit of weight.',
-        'Training steps <strong>against</strong> it: <code>w ← w − lr·g</code>.',
-        '<code>lr</code> sets the step: too small is slow, too big overshoots or diverges.',
-        '<code>backward()</code> gets the slope by <strong>multiplying local slopes</strong> (the chain rule).',
+        'The gradient tells you how fast the loss changes when you change a weight.',
+        'A training step moves the weight a small distance against the gradient.',
+        'The learning rate sets the size of the step. If the step is too large, the loss can grow.',
+        '<code>backward()</code> computes the gradient with the chain rule.',
       ],
     },
     {
       kind: 'text',
-      html: (D, T, m = makeModel(D.scenes.why)) => sec('setup', 'The setup', `
-    <p>One weight <code>w</code>, one input <code>x</code>, one target <code>t</code>, squared error:</p>
+      html: (D, T, m = makeModel(D.scenes.why)) => sec('setup', 'The model', `
+    <p>The model has one weight <code>w</code>. It multiplies an input <code>x</code> by <code>w</code> to make a prediction <code>p</code>. The error <code>e</code> is the prediction minus the target <code>t</code>. The loss <code>L</code> is the error squared. This is the model in TorC.</p>
     <pre class="wg-code" tabindex="0" role="group" aria-label="The TorC code"><code>Variable w(Tensor({${T('why.w.value')}.0f}, {1}), true);    // the weight (tracked)
 Variable x(Tensor({${T('why.x.value')}.0f}, {1}), false);   // data
 Variable t(Tensor({${T('why.t.value')}.0f}, {1}), false);   // data
 Variable p = mul(w, x);     // prediction
 Variable e = sub(p, t);     // error
 Variable L = mul(e, e);     // loss
-L.backward();               // w.grad() now holds the slope</code></pre>
-    <p>So ${math(`L(w) = (${m.x}w-${m.t})^2 = ${m.x * m.x}(w-${m.wMin})^2`, false)}: a bowl with its bottom at <code>w</code> = ${T(`${F}.setup.w_min`)}.</p>`),
+L.backward();               // w.grad() now holds the gradient</code></pre>
+    <p>With these numbers the loss is ${math(`L(w) = (${m.x}w-${m.t})^2 = ${m.x * m.x}(w-${m.wMin})^2`, false)}. The graph of <code>L</code> against <code>w</code> is a bowl. Its lowest point is at <code>w</code> = ${T(`${F}.setup.w_min`)}.</p>`),
     },
     {
       kind: 'text',
-      html: (D, T) => sec('slope', '1 · The gradient is a slope', `
-    <p>At <code>w</code> = ${T('why.w.value')}, <code>backward()</code> leaves <code>w.grad()</code> = ${T('why.w.grad')}: nudge <code>w</code> up a little and <code>L</code> changes by about ${T('why.w.grad')} times the nudge. Negative means go right, positive means go left, zero means you are at the bottom. It is a rate, not a distance: the bottom is at <code>w</code> = ${T(`${F}.setup.w_min`)}.</p>`),
+      html: (D, T) => sec('slope', '1 · What the gradient tells you', `
+    <p>After <code>L.backward()</code>, <code>w.grad()</code> holds the gradient of <code>L</code> with respect to <code>w</code>. At <code>w</code> = ${T('why.w.value')} the gradient is ${T('why.w.grad')}. So if you increase <code>w</code> by a small amount, <code>L</code> changes by about ${T('why.w.grad')} times that amount.</p>
+    <p>A negative gradient tells you to increase <code>w</code>. A positive gradient tells you to decrease it. At the lowest point the gradient is zero. The gradient does not tell you how far away the lowest point is.</p>`),
     },
     {
       kind: 'text',
-      html: (D, T) => sec('step', '2 · Step against it', `
+      html: (D, T) => sec('step', '2 · A step against the gradient', `
     ${eq('w \\leftarrow w - \\mathit{lr}\\cdot g')}
-    <p>With <code>lr</code> = ${T(traj(SLOW, 'lr'))}, <code>w</code> goes from ${T('why.w.value')} to ${T(traj(SLOW, 'states.1.w'))} and <code>L</code> from ${T('why.L.value')} to ${T(traj(SLOW, 'states.1.L'))}. Steps get shorter near the bottom because the slope does.</p>`),
+    <p>Here <code>g</code> is the gradient and <code>lr</code> is the learning rate, a small number that you choose. With <code>lr</code> = ${T(traj(SLOW, 'lr'))}, one step moves <code>w</code> from ${T('why.w.value')} to ${T(traj(SLOW, 'states.1.w'))}. The loss falls from ${T('why.L.value')} to ${T(traj(SLOW, 'states.1.L'))}. Each step is shorter than the one before, because the gradient gets smaller near the lowest point.</p>`),
     },
     {
-      kind: 'predict', id: 'big-step', title: 'Predict: a bigger step',
-      prompt: (D, T) => `<p>Start at <code>w</code> = ${T('why.w.value')} with <code>lr</code> = ${T(traj(BOUNCE, 'lr'))}. Where is <code>w</code> after one step, and after two?</p>`,
-      reveal: (D, T) => `<p>${T(traj(BOUNCE, 'states.1.w'))}, then ${T(traj(BOUNCE, 'states.2.w'))}. Each step jumps to the other side at the same height, so <code>L</code> stays ${T(traj(BOUNCE, 'states.8.L'))} for ever. Try it below.</p>`,
+      kind: 'predict', id: 'big-step', title: 'Before you try it',
+      prompt: (D, T) => `<p>Start at <code>w</code> = ${T('why.w.value')} and set <code>lr</code> to ${T(traj(BOUNCE, 'lr'))}. Where is <code>w</code> after one step? Where is it after two steps?</p>`,
+      reveal: (D, T) => `<p>After one step <code>w</code> is ${T(traj(BOUNCE, 'states.1.w'))}. After two steps it is ${T(traj(BOUNCE, 'states.2.w'))} again. Each step jumps to the other side of the bowl at the same height, so the loss stays at ${T(traj(BOUNCE, 'states.8.L'))}. Use the widget below to check this.</p>`,
     },
     {
       kind: 'widget', id: 'bowl', className: 'widget', label: 'Interactive: step down the bowl',
@@ -79,20 +80,20 @@ L.backward();               // w.grad() now holds the slope</code></pre>
     },
     {
       kind: 'text',
-      html: (D, T, m = makeModel(D.scenes.why)) => sec('size', '3 · Step size decides everything', `
-    <p>In this bowl every step multiplies the distance to the bottom by the same factor:</p>
+      html: (D, T, m = makeModel(D.scenes.why)) => sec('size', '3 · How to choose the learning rate', `
+    <p>For this loss, each step multiplies the distance between <code>w</code> and the lowest point by the same number <code>f</code>.</p>
     ${eq(`w_{k+1}-${m.wMin} = f\\,(w_k-${m.wMin}), \\qquad f = 1-${m.curvature}\\,\\mathit{lr}`)}
-    <p>${math('|f|<1', false)} converges, ${math('f=-1', false)} bounces (<code>lr</code> = ${T(traj(BOUNCE, 'lr'))}), ${math('|f|>1', false)} diverges (<code>lr</code> = ${T(traj(DIVERGE, 'lr'))}). <code>lr</code> = ${T(traj(EXACT, 'lr'))} gives ${math('f=0', false)}: the bottom in one step, but only because this bowl is a perfect parabola. Real losses are not, so <code>lr</code> is tuned by watching the loss.</p>`),
+    <p>If ${math('|f|<1', false)}, the distance gets smaller at each step. If ${math('f=-1', false)}, <code>w</code> jumps between two points forever, as with <code>lr</code> = ${T(traj(BOUNCE, 'lr'))}. If ${math('|f|>1', false)}, each jump is larger than the last and the loss grows, as with <code>lr</code> = ${T(traj(DIVERGE, 'lr'))}. With <code>lr</code> = ${T(traj(EXACT, 'lr'))}, <code>f</code> is zero and one step reaches the lowest point. This works only because this loss is an exact parabola. For a real network, you try several learning rates and watch the loss.</p>`),
     },
     {
       kind: 'text',
       html: (D, T) => {
         const s = (i) => T.num(`${F}.nudge.stages.${i}.local_slope`);
         const par = (v) => (v < 0 ? `(${v})` : `${v}`);
-        return sec('chain', '4 · backward() multiplies local slopes', `
-    <p><code>w</code> reaches <code>L</code> through three operations, each with a local slope. Their product is the gradient:</p>
+        return sec('chain', '4 · How backward() computes the gradient', `
+    <p><code>w</code> changes <code>L</code> through three operations. Each operation has a local derivative, which tells how much its output changes when its input changes. The chain rule says that the gradient is the product of the three local derivatives.</p>
     ${eq(`\\frac{dL}{dw} = \\frac{dp}{dw}\\cdot\\frac{de}{dp}\\cdot\\frac{dL}{de} = ${par(s(0))}\\cdot ${par(s(1))}\\cdot ${par(s(2))} = ${T.num('why.w.grad')}`)}
-    <p><code>e</code> is used twice in <code>e·e</code>, so it gets two contributions of ${T('why.e.value')} and TorC adds them: ${T('why.e.grad')}. Step through it:</p>`);
+    <p>The error <code>e</code> appears twice in <code>L = e·e</code>. So <code>e</code> gets two contributions of ${T('why.e.value')}, and TorC adds them to get ${T('why.e.grad')}. The graph below shows each step of this calculation.</p>`);
       },
     },
     {
@@ -101,17 +102,17 @@ L.backward();               // w.grad() now holds the slope</code></pre>
     },
     {
       kind: 'check', id: 'sign',
-      prompt: (D, T) => `<p>At <code>w</code> = ${T(`${F}.probes.5.w`)}, is the slope positive or negative, and which way does a step move <code>w</code>?</p>`,
-      reveal: (D, T) => `<p>Positive (${T(`${F}.probes.5.grad`)}), so <code>w − lr·g</code> moves <code>w</code> down, toward ${T(`${F}.setup.w_min`)}.</p>`,
+      prompt: (D, T) => `<p>At <code>w</code> = ${T(`${F}.probes.5.w`)}, is the gradient positive or negative? In which direction does a step move <code>w</code>?</p>`,
+      reveal: (D, T) => `<p>The gradient is positive (${T(`${F}.probes.5.grad`)}). The step subtracts the learning rate times the gradient, so <code>w</code> decreases toward ${T(`${F}.setup.w_min`)}.</p>`,
     },
     {
       kind: 'check', id: 'one-step',
-      prompt: (D, T) => `<p><code>lr</code> = ${T(traj(EXACT, 'lr'))} reaches the bottom in one step here. Why does that not carry over to a real network?</p>`,
-      reveal: () => '<p>It works because this loss is an exact parabola with a known curvature. A real loss bends differently everywhere, so no formula gives the right <code>lr</code>.</p>',
+      prompt: (D, T) => `<p>With <code>lr</code> = ${T(traj(EXACT, 'lr'))}, one step reaches the lowest point of this loss. Why does this not work for a real network?</p>`,
+      reveal: () => '<p>It works because this loss is an exact parabola, and we know its curvature. The loss of a real network has a different curvature at every point. So no formula gives the correct learning rate.</p>',
     },
     {
       kind: 'text',
-      html: () => `<section class="wg"><p>Next: <a href="../sgd-step/">Using the gradient</a> does this update with TorC's optimizer. The <a href="../backprop-lab/">Backprop lab</a> runs the same chain on bigger graphs.</p></section>`,
+      html: () => `<section class="wg"><p>The next lesson, <a href="../sgd-step/">Using the gradient</a>, does the same step with TorC's optimizer. The <a href="../backprop-lab/">Backprop lab</a> shows the chain rule on larger graphs.</p></section>`,
     },
   ],
 };

@@ -75,7 +75,7 @@ export function mountMatmulGrid(host, D, ctx = {}) {
 
   host.replaceChildren(
     el('div', { class: 'mg-mats' }, mx.root, el('span', { class: 'lin-op', 'aria-hidden': 'true' }, '·'), mw.root, el('span', { class: 'lin-op', 'aria-hidden': 'true' }, '+'), mb.root, el('span', { class: 'lin-op', 'aria-hidden': 'true' }, '='), my.root),
-    el('p', { class: 'mg-cap' }, 'y[i,k] = row i of x · row k of W + b[k], which is x·Wᵀ + b.'),
+    el('p', { class: 'mg-cap' }, 'Each output y[i,k] is row i of x times row k of W, plus b[k]. Together this is x·Wᵀ + b.'),
     badNote, paper, twin, buttons);
 
   function update() {

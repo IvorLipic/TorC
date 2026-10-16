@@ -9,7 +9,7 @@
         {
           "id": "why-gradients",
           "title": "The gradient",
-          "outcome": "What a gradient is, how a step uses it, and why step size matters.",
+          "outcome": "You change one weight by hand and see what the gradient tells you.",
           "prereqs": [],
           "symbols": [
             "Variable::backward",
@@ -31,7 +31,7 @@
         {
           "id": "sgd-step",
           "title": "Using the gradient",
-          "outcome": "What step() reads and writes, learning rate, momentum, and zero_grad.",
+          "outcome": "TorC's optimizer changes the parameters. You see what the learning rate, momentum and zero_grad() do.",
           "prereqs": [
             "why-gradients"
           ],
@@ -62,7 +62,7 @@
         {
           "id": "tensors",
           "title": "Tensors",
-          "outcome": "Shapes, row-major storage, broadcasting, reductions and matmul.",
+          "outcome": "A tensor is a block of numbers with a shape. You see how shapes combine in broadcasting and in matrix products.",
           "prereqs": [
             "sgd-step"
           ],
@@ -86,7 +86,7 @@
         {
           "id": "linear-layer",
           "title": "Layers",
-          "outcome": "Shapes, one neuron per row of W, the backward formulas, and initialisation.",
+          "outcome": "A linear layer is a matrix product plus a bias. You see its shapes, its gradients and the start values of its weights.",
           "prereqs": [
             "tensors"
           ],
@@ -111,7 +111,7 @@
         {
           "id": "nonlinearity",
           "title": "Nonlinearity",
-          "outcome": "Why stacked linear layers collapse, and what ReLU, sigmoid and softmax add.",
+          "outcome": "Two linear layers in a row are still one linear layer. ReLU, sigmoid and softmax change that.",
           "prereqs": [
             "linear-layer"
           ],
@@ -135,7 +135,7 @@
         {
           "id": "modules",
           "title": "The abstraction: Module",
-          "outcome": "A model is parameters plus forward(); Sequential stacks modules.",
+          "outcome": "A model is a set of parameters and a forward() function. Sequential puts layers in a row.",
           "prereqs": [
             "nonlinearity"
           ],
@@ -162,7 +162,7 @@
         {
           "id": "losses",
           "title": "Losses",
-          "outcome": "Mean squared error for numbers, cross-entropy for classes.",
+          "outcome": "The loss measures how wrong the model is. Mean squared error is for numbers, and cross-entropy is for classes.",
           "prereqs": [
             "modules"
           ],
@@ -183,7 +183,7 @@
         {
           "id": "training-loop",
           "title": "The training loop",
-          "outcome": "Datasets, mini-batches and epochs: the loop every example runs.",
+          "outcome": "A data loader splits the data into small batches. One pass over all batches is one epoch.",
           "prereqs": [
             "losses"
           ],
@@ -205,7 +205,7 @@
         {
           "id": "optimizers",
           "title": "Better optimizers",
-          "outcome": "Momentum, Adam and AdamW on the same loss.",
+          "outcome": "Momentum, Adam and AdamW change each step in different ways. You compare them on the same loss.",
           "prereqs": [
             "training-loop"
           ],
@@ -225,7 +225,7 @@
         {
           "id": "generalization",
           "title": "Generalization",
-          "outcome": "Train versus test loss, overfitting, and weight decay.",
+          "outcome": "A model can fit its training data and still fail on new data. Weight decay helps to prevent this.",
           "prereqs": [
             "optimizers"
           ],
@@ -244,7 +244,7 @@
         {
           "id": "mnist-mlp",
           "title": "Project: MNIST MLP",
-          "outcome": "Train a three-layer MLP on handwritten digits, end to end.",
+          "outcome": "You train a network with three layers to recognize handwritten digits.",
           "prereqs": [
             "generalization"
           ],
@@ -272,7 +272,7 @@
         {
           "id": "convolution",
           "title": "Convolution",
-          "outcome": "A small kernel slides over the image: stride, padding, output size.",
+          "outcome": "A small filter moves across the image. The stride and the padding set the size of the output.",
           "prereqs": [
             "mnist-mlp"
           ],
@@ -294,7 +294,7 @@
         {
           "id": "mnist-cnn",
           "title": "Project: MNIST CNN",
-          "outcome": "Same digits, a third of the parameters: a small convolutional network.",
+          "outcome": "A small convolutional network recognizes the same digits with a third of the parameters.",
           "prereqs": [
             "convolution"
           ],
@@ -322,7 +322,7 @@
         {
           "id": "backprop-lab",
           "title": "Backprop lab",
-          "outcome": "Step through forward and backward passes; see gradients multiply and add.",
+          "outcome": "Run small computations forward and backward, and see where each gradient comes from.",
           "prereqs": [],
           "symbols": [
             "Variable",

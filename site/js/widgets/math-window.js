@@ -32,7 +32,7 @@ export function renderWindow(box, { graph, bw, tl, step, layout: L, sel, tab, po
     box.replaceChildren(
       el('h3', { html: L.goal }),   // layout text is an HTML fragment everywhere (the lab's goal line renders it the same way)
       el('p', { html: L.intro }),
-      el('p', { class: 'hint', html: `Press <kbd>Next</kbd> (or <kbd>→</kbd>) to begin. ${L.forwardHint} ${L.backwardHint} Each step opens a <em>math window</em> here with the rule and the same rule with these numbers; you can also click any node.` }));
+      el('p', { class: 'hint', html: `Press <kbd>Next</kbd> or <kbd>→</kbd> to start. ${L.forwardHint} ${L.backwardHint} At each step this panel shows the rule and the same rule with the numbers. You can also click any node.` }));
     return;
   }
   const n = graph.byName[sel];

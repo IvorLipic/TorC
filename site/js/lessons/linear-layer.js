@@ -38,28 +38,32 @@ export default {
     {
       kind: 'text',
       html: () => `${STYLE}<section class="hero"><h1>Layers</h1>
-    <p class="lead"><code>nn::Linear</code>: one matrix product, one addition, and weights that start at the right size.</p></section>`,
+    <p class="lead">A linear layer, <code>nn::Linear</code>, is one matrix product and one addition. This lesson shows the shapes, the gradients, and the start values of its weights.</p></section>`,
     },
     {
       kind: 'tldr',
       items: () => [
-        '<code>Linear(in, out)</code> computes <code>y = x·Wᵀ + b</code>: <code>W</code> is (out, in), one row per neuron; <code>b</code> is (out).',
-        'Parameters: <code>in·out + out</code>, whatever the batch size.',
-        `Backward: ${math('\\overline{W} = \\overline{y}^{\\top}x', false)}, ${math('\\overline{b}', false)} = column sums of ${math('\\overline{y}', false)}, ${math('\\overline{x} = \\overline{y}\\,W', false)}.`,
-        'Weights start normal with standard deviation <code>√(2/in)</code>, the bias at zero: the signal keeps its size layer after layer.',
+        '<code>Linear(in, out)</code> computes <code>y = x·Wᵀ + b</code>. Each row of <code>W</code> belongs to one output, called a neuron.',
+        'The layer has <code>in·out + out</code> parameters. The batch size does not change this number.',
+        'The backward pass uses the same matrices, transposed.',
+        'The weights start as random numbers of a size that keeps the signal steady from layer to layer.',
       ],
     },
     {
       kind: 'text',
       html: (D, T) => sec('shapes', '1 · Shapes', `
-    ${eq('\\underset{(B,\\,\\text{in})}{x}\\;\\cdot\\;\\underset{(\\text{in},\\,\\text{out})}{W^{\\top}}\\;+\\;\\underset{(\\text{out})}{b}\\;=\\;\\underset{(B,\\,\\text{out})}{y}')}
-    <p><code>Linear(784, 32)</code> has a weight of shape ${shp(T, `${WEIGHT}.shape`)}, ${T(`${WEIGHT}.numel`)} numbers, plus ${T(`${BIAS}.numel`)} biases: ${T(`${P}.param_counts.0.total`)} parameters. Feed it an <code>x</code> of shape <code>(8, 10)</code> and TorC throws <code>${escapeHtml(recorded(D, ERR).exception)}: ${escapeHtml(recorded(D, ERR).what)}</code>. The second shape is <code>Wᵀ</code>, not <code>W</code>.</p>`),
+    <p>The input <code>x</code> holds a batch of <code>B</code> samples, one sample in each row. The weight matrix <code>W</code> has one row for each output and one column for each input. The bias <code>b</code> has one value for each output.</p>
+    ${eq('\\underset{(B,\\,\\text{in})}{x}\;\\cdot\;\\underset{(\\text{in},\\,\\text{out})}{W^{\\top}}\;+\;\\underset{(\\text{out})}{b}\;=\;\\underset{(B,\\,\\text{out})}{y}')}
+    <p>For example, <code>Linear(784, 32)</code> has a weight of shape ${shp(T, `${WEIGHT}.shape`)} with ${T(`${WEIGHT}.numel`)} numbers and a bias with ${T(`${BIAS}.numel`)} numbers. That is ${T(`${P}.param_counts.0.total`)} parameters. If <code>x</code> has the wrong number of columns, TorC throws an error. This is the message for an input of shape <code>(8, 10)</code>.</p>
+    <p><code>${escapeHtml(recorded(D, ERR).exception)}: ${escapeHtml(recorded(D, ERR).what)}</code></p>
+    <p>The second shape in the message is the shape of <code>Wᵀ</code>, not of <code>W</code>.</p>`),
     },
     {
       kind: 'text',
       html: () => sec('neuron', '2 · One neuron is one row of W', `
     ${eq('y_{ik} = \\sum_{j} x_{ij}\\,W_{kj} + b_k')}
-    <p>Pick an output: its row of <code>x</code>, its row of <code>W</code> and its bias light up. Edit any number. Then copy the first neuron into the second: the two output columns become identical. Equal weights make twin neurons, which is why weights start random.</p>`),
+    <p>Each output <code>y[i,k]</code> multiplies sample <code>i</code> by row <code>k</code> of <code>W</code>, element by element, adds the products, and adds the bias <code>b[k]</code>. Click an output in the grid to see the numbers it uses. You can change any number.</p>
+    <p>Then copy the first neuron into the second. The two output columns become identical, because two neurons with equal weights always give equal outputs. For this reason the weights start as random numbers.</p>`),
     },
     {
       kind: 'widget', id: 'matmul-grid', className: 'lin-w lin-mg', label: 'Interactive: one output is one neuron looking at one sample',
@@ -67,20 +71,21 @@ export default {
     },
     {
       kind: 'text',
-      html: () => sec('backward', '3 · Backward: transposes and column sums', `
-    <p><code>forward()</code> is <code>add(matmul(x, transpose(weight)), bias)</code>. Run backwards, the three operations give:</p>
+      html: () => sec('backward', '3 · The backward pass', `
+    <p>In TorC, <code>forward()</code> computes <code>add(matmul(x, transpose(weight)), bias)</code>. A bar over a name means the gradient of the loss with respect to that value. The backward pass of the three operations gives three gradients.</p>
     ${eq('\\overline{W} = \\overline{y}^{\\top}x \\qquad \\overline{b}_k = \\sum_i \\overline{y}_{ik} \\qquad \\overline{x} = \\overline{y}\\,W')}
-    <p>A bar means the gradient of the loss. The bias was copied to every sample, so its gradient sums over the batch. ${math('\\overline{x}', false)} is what the layer hands to the layer before it.</p>`),
+    <p>The layer adds the same bias to every sample. So the gradient of the bias is the sum of the gradients of all samples. The layer sends ${math('\\overline{x}', false)} back to the layer before it.</p>`),
     },
     {
-      kind: 'predict', id: 'predict-dx', title: 'Predict: the gradient of the input',
-      prompt: (D, T) => `<p>With the grid's <code>W</code> and the loss <code>sum(y)</code>, every entry of ${math('\\overline{y}', false)} is one. What is each row of ${math('\\overline{x}', false)}?</p>`,
-      reveal: (D, T) => `<p>The column sums of <code>W</code>: [${T('linear-dx.x.grad.0')}, ${T('linear-dx.x.grad.1')}, ${T('linear-dx.x.grad.2')}], the same for both samples.</p>`,
+      kind: 'predict', id: 'predict-dx', title: 'Before you read on',
+      prompt: (D, T) => `<p>Use the <code>W</code> of the grid, and let the loss be <code>sum(y)</code>. Then every entry of ${math('\\overline{y}', false)} is one. What is each row of ${math('\\overline{x}', false)}?</p>`,
+      reveal: (D, T) => `<p>Each row is the column sums of <code>W</code>, which are ${T('linear-dx.x.grad.0')}, ${T('linear-dx.x.grad.1')} and ${T('linear-dx.x.grad.2')}. Both samples get the same row.</p>`,
     },
     {
       kind: 'text',
-      html: (D, T) => sec('init', '4 · Start the weights at the right size', `
-    <p>The bias starts at zero; each weight is normal with standard deviation ${math('\\sqrt{2/\\text{in}}', false)} (Kaiming, the default). An output sums <code>in</code> products, and that scale keeps the sum's spread steady; the factor <code>2</code> makes up for ReLU zeroing half the values. Through six <code>Linear(256, 256)</code> + ReLU layers the spread stays between ${T(`${P}.signal.0.across_seeds.5.post_std_min`)} and ${T(`${P}.signal.0.across_seeds.5.post_std_max`)} (over ${T(`${P}.signal.0.n_extra_seeds`)} draws), fades to ${sci(D, SIG(1, 6))} at <code>init_std = 0.01</code> and explodes to ${sci(D, SIG(2, 6))} at <code>init_std = 1.0</code>.</p>`),
+      html: (D, T) => sec('init', '4 · The start values of the weights', `
+    <p>The bias starts at zero. Each weight is a random number from a normal distribution with standard deviation ${math('\\sqrt{2/\\text{in}}', false)}. This is the default, and it is called Kaiming initialization. Each output adds <code>in</code> products, and this scale keeps the size of that sum steady from layer to layer.</p>
+    <p>The plot sends random inputs through six <code>Linear(256, 256)</code> layers. After each layer, a ReLU sets the negative values to zero. With Kaiming initialization the spread of the values after six layers is between ${T(`${P}.signal.0.across_seeds.5.post_std_min`)} and ${T(`${P}.signal.0.across_seeds.5.post_std_max`)}. With <code>init_std = 0.01</code> it falls to ${sci(D, SIG(1, 6))}. With <code>init_std = 1.0</code> it grows to ${sci(D, SIG(2, 6))}.</p>`),
     },
     {
       kind: 'widget', id: 'init-signal', className: 'lin-w lin-is', label: 'Signal through six layers',
@@ -88,17 +93,17 @@ export default {
     },
     {
       kind: 'check', id: 'check-shapes',
-      prompt: () => '<p><code>Linear(784, 32)</code> on a batch of <code>8</code>: what are the shapes of <code>W</code>, <code>b</code>, <code>x</code> and <code>y</code>?</p>',
-      reveal: () => { const s = linearShapes(784, 32, 8); return `<p><code>W</code> <code>${fmtShape(s.W)}</code>, <code>b</code> <code>${fmtShape(s.b)}</code>, <code>x</code> <code>${fmtShape(s.x)}</code>, <code>y</code> <code>${fmtShape(s.y)}</code>.</p>`; },
+      prompt: () => '<p>You apply <code>Linear(784, 32)</code> to a batch of <code>8</code> samples. What are the shapes of <code>W</code>, <code>b</code>, <code>x</code> and <code>y</code>?</p>',
+      reveal: () => { const s = linearShapes(784, 32, 8); return `<p><code>W</code> is <code>${fmtShape(s.W)}</code>, <code>b</code> is <code>${fmtShape(s.b)}</code>, <code>x</code> is <code>${fmtShape(s.x)}</code> and <code>y</code> is <code>${fmtShape(s.y)}</code>.</p>`; },
     },
     {
       kind: 'check', id: 'check-bias',
-      prompt: () => '<p>In the grid, raise <code>b[2]</code> by one. Which entries of <code>y</code> change, and by how much?</p>',
-      reveal: () => '<p>Only the second column, in both rows, by exactly one: the bias is added to every sample\'s answer of the second neuron. Try it.</p>',
+      prompt: () => '<p>In the grid, increase <code>b[2]</code> by one. Which entries of <code>y</code> change, and by how much?</p>',
+      reveal: () => '<p>Only the second column changes. Both of its entries increase by exactly one, because the layer adds <code>b[2]</code> to the second output of every sample.</p>',
     },
     {
       kind: 'text',
-      html: () => '<section class="ll"><p>Back to the <a href="../../">course map</a>.</p></section>',
+      html: () => '<section class="ll"><p>Go back to the <a href="../../">course map</a>.</p></section>',
     },
   ],
 };

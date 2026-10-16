@@ -9,9 +9,9 @@ export function whyLayout(T) {
     above: ['x', 't'],
     pos: { w: [110, 175], x: [300, 82], t: [510, 82], p: [300, 175], e: [510, 175], L: [740, 175] },
     goal: 'Where does w.grad() come from?',
-    intro: 'Backward starts at <code>L</code> with a seed of one and multiplies by one local slope per step.',
-    forwardHint: 'Forward: p, e, L from w.',
-    backwardHint: 'Backward: from L to w, one local slope per step.',
-    takeaway: `<code>w.grad()</code> = ${T('why.w.grad')} = ${slope(0)} · ${slope(1)} · ${slope(2)}. <code>e</code> is used twice, so its two contributions add up to ${T('why.e.grad')}.`,
+    intro: 'The backward pass starts at <code>L</code> with a gradient of one. At each step it multiplies by one local derivative.',
+    forwardHint: 'The forward pass computes p, e and L from w.',
+    backwardHint: 'The backward pass goes from L back to w, one local derivative at each step.',
+    takeaway: `<code>w.grad()</code> = ${T('why.w.grad')} = ${slope(0)} · ${slope(1)} · ${slope(2)}. The error <code>e</code> appears twice, so its two contributions add up to ${T('why.e.grad')}.`,
   };
 }
