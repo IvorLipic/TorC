@@ -22,6 +22,13 @@ set(TORC_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(TORC_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 # Portable scalar/baseline code so the output does not depend on the CPU of whoever (or whatever CI runner) generates it.
 set(TORC_NATIVE_ARCH OFF CACHE BOOL "" FORCE)
+# No fused multiply-add contraction, in TorC and in the trace programs: clang contracts a*b + c by default wherever the target
+# has FMA (every arm64 machine, x86 with -march flags), which changes float results in the last bit (for example -4 + 0.1*40 is
+# then not exactly 0). add_compile_options applies to the TorC targets too, because FetchContent adds them below.
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+  add_compile_options(-ffp-contract=off)
+  set(TORC_TRACE_CONTRACT "-ffp-contract=off")
+endif()
 
 include(FetchContent)
 FetchContent_Declare(torc GIT_REPOSITORY ${TORC_REPOSITORY} GIT_TAG ${TORC_REF})
@@ -29,7 +36,7 @@ FetchContent_MakeAvailable(torc)
 
 # What the JSON envelope records as library.flags (informational; compare.mjs does not compare it).
 string(TOUPPER "${CMAKE_BUILD_TYPE}" TORC_TRACE_BT)
-string(STRIP "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_${TORC_TRACE_BT}} -std=c++23 TORC_NATIVE_ARCH=OFF" TORC_TRACE_FLAGS)
+string(STRIP "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_${TORC_TRACE_BT}} -std=c++23 ${TORC_TRACE_CONTRACT} TORC_NATIVE_ARCH=OFF" TORC_TRACE_FLAGS)
 
 # One executable per trace program; each writes its JSON to stdout (tools/trace/run.sh maps it to site/data/<file>.json).
 set(TRACE_TARGETS autograd_trace trace_why trace_optim trace_linear trace_tensors trace_nonlinear trace_modules trace_losses)

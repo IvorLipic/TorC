@@ -134,3 +134,7 @@ lists every call. Rules for lessons:
   not on lesson pages.
 - Everything must work with browser storage blocked, without a pointer (keyboard), and with reduced motion; never autoplay.
 - URLs in source are relative (`../../js/…`, `new URL('data/x.json', SITE)`); never root-absolute and no `<base>`.
+- Formula and code boxes in the prose get `tabindex="0" role="group" aria-label="…"`, so a keyboard user can scroll a box that is
+  wider than the screen. `lesson-boot.js` removes the tab stop from a box that does not scroll, and adds it back on resize.
+- Rows, columns, positions and axes count from 0, in the prose and in the widgets, as in TorC. Say so where a lesson first uses them.
+- A widget readout that follows the mouse is not an `aria-live` region; announce the change on focus and click only.

@@ -15,7 +15,8 @@ Not shipped. Storyboard, library symbols, and what is observed, expected and sus
 - `a + b`: shapes `(2, 3)`, `(3)`, `(1, 3)`, `(2, 1)`, `(1)` work; `(2)` and `(3, 1)` throw `ShapeError`. Shape-only pairs:
   `(4, 1)+(3) → (4, 3)`, `(4, 1, 3)+(2, 1) → (4, 2, 3)`, `(5, 4)+(4) → (5, 4)`, `(5, 4)+(5)` throws.
 - Reductions: `sum(0) = [5, 7, 9]`, `sum(1) = [6, 15]`, `mean`, `max` likewise; `sum(-1) = sum(1)`; `sum(2)` throws; `sum() = 21`.
-- `a·aᵀ = [[14, 32], [32, 77]]`; `aᵀ·a` has shape `(3, 3)`; `a·a` throws; `(4, 2, 3)·(3, 2)` has shape `(4, 2, 2)`.
+- `a·aᵀ = [[14, 32], [32, 77]]`; `aᵀ·a` has shape `(3, 3)`; `a·a` throws; `(4, 2, 3)·(3, 2)` has shape `(4, 2, 2)`
+  and each batch equals its own 2D product; `(2, 1, 2, 3)·(3, 3, 2)` has shape `(2, 3, 2, 2)`, so both batch shapes broadcast.
 
 ## Expected (mathematics)
 Broadcasting rule as stated in the lesson; `C_ij = Σ_l A_il B_lj`. Matches every observation.
@@ -26,4 +27,6 @@ None.
 ## Lesson status
 Published 2026-10-16. Widgets: `tensor-widgets.js` (broadcast grid, axis explorer), both showing recorded values only.
 Tests: `site/test/tensors.test.mjs`. Checked: Node tests, `check_site`, `tools/prose/check.sh` (0 hard), Chromium at 1366×768 and
-390×844 (widgets driven, no console errors, no horizontal overflow), axe-core clean. Not done: independent review, screen reader.
+390×844 (widgets driven, no console errors, no horizontal overflow), axe-core clean. Independent review 2026-10-16 (no blockers); its findings are fixed: the page and the widgets count from 0 and
+say so, dimension, axis and transpose are defined, the check answers take their shapes from the trace, and moving the mouse no
+longer makes a screen reader speak. Not done: screen reader.

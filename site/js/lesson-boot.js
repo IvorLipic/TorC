@@ -36,6 +36,16 @@ function wireDone(id) {
   paint();
 }
 
+// Formula and code boxes in the prose carry tabindex="0" so a keyboard user can scroll them when they are wider than the screen
+// (axe: scrollable-region-focusable). A box that does not scroll should not be a tab stop, so the tabindex follows the width.
+function wireScrollStops(root) {
+  const boxes = [...root.querySelectorAll('[role="group"][tabindex]')].filter((e) => !e.closest('[data-widget]'));
+  const fit = () => boxes.forEach((e) => (e.scrollWidth > e.clientWidth + 1 ? e.setAttribute('tabindex', '0') : e.removeAttribute('tabindex')));
+  fit();
+  document.fonts?.ready.then(fit);   // KaTeX fonts can arrive after boot and make a box wider than the screen
+  if (typeof ResizeObserver !== 'undefined') { const ro = new ResizeObserver(fit); boxes.forEach((e) => ro.observe(e)); }
+}
+
 function wireChecks(root, id) {
   for (const b of root.querySelectorAll('button[data-check]')) {
     const key = b.dataset.check;
@@ -64,6 +74,7 @@ function wireChecks(root, id) {
     const parts = renderLesson(lesson, D);
     main.innerHTML = parts.map((p) => p.html).join('\n') + navHtml(course, id);
     for (const { section } of parts) if (section.kind === 'widget') section.mount($(`[data-widget="${CSS.escape(section.id)}"]`, main), D, { lessonId: id, store, makeT: () => makeT(D) });
+    wireScrollStops(main);
     wireChecks(main, id);
     wireDone(id);
     app.append(el('footer', { html: lesson.footer ? lesson.footer(D, makeT(D)) : defaultFooter(lesson, D) }));

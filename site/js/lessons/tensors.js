@@ -9,6 +9,7 @@ const F = 'files.tensors';
 const eq = (latex) => `<div class="tn-eq" tabindex="0" role="group" aria-label="Formula">${math(latex, true)}</div>`;
 const sec = (id, title, body) => `<section class="tn" aria-labelledby="tn-${id}"><h2 id="tn-${id}">${title}</h2>${body}</section>`;
 const err = (r) => `<code>${escapeHtml(r.exception)}: ${escapeHtml(r.what)}</code>`;
+const shp = (a) => `<code>(${a.join(', ')})</code>`;
 const list = (T, path, n) => Array.from({ length: n }, (_, k) => T(`${path}.${k}`)).join(', ');
 // reductions in the trace, by index: axis 0 sum, mean, max, then axis 1 sum, mean, max
 const RED = { sum0: 0, mean0: 1, max0: 2, sum1: 3, mean1: 4, max1: 5 };
@@ -36,15 +37,15 @@ export default {
       kind: 'tldr',
       items: () => [
         'A tensor has a shape and one list of numbers, stored row after row.',
-        'For element-wise operations, TorC compares the two shapes from the right. A size of one repeats to fit the other size.',
-        'A reduction such as <code>sum(axis)</code> removes one dimension from the shape.',
-        'A matrix product needs equal inner sizes.',
+        'Element-wise operations compare the two shapes from the right. A size of one repeats to fit.',
+        'A reduction such as <code>sum(0)</code> combines the numbers along one dimension and removes it.',
+        'A matrix product needs as many columns in the first tensor as rows in the second.',
       ],
     },
     {
       kind: 'text',
       html: (D, T) => sec('storage', '1 · Shape and storage', `
-    <p>The tensor <code>a</code> has shape <code>(2, 3)</code>, which means two rows and three columns. It holds ${T(`${F}.example.numel`)} numbers.</p>
+    <p>The tensor <code>a</code> has shape <code>(2, 3)</code>, which means two rows and three columns. It holds ${T(`${F}.example.numel`)} numbers. Each entry of the shape is the size of one dimension, so <code>a</code> has two dimensions. TorC counts dimensions, rows, columns and positions from zero.</p>
     <pre class="tn-code" tabindex="0" role="group" aria-label="The tensor a in TorC"><code>Tensor a({1.f, 2.f, 3.f, 4.f, 5.f, 6.f}, {2, 3});
 float v = a[1, 2];               // row 1, column 2
 Tensor r = a.reshape({3, 2});    // the same numbers, a new shape</code></pre>
@@ -59,7 +60,7 @@ Tensor r = a.reshape({3, 2});    // the same numbers, a new shape</code></pre>
     {
       kind: 'predict', id: 'p-row', title: 'Before you try it',
       prompt: () => '<p>Can TorC add a tensor of shape <code>(2)</code> to <code>a</code>, which has shape <code>(2, 3)</code>? Compare the shapes from the right.</p>',
-      reveal: (D) => `<p>No. From the right, the sizes are <code>3</code> and <code>2</code>. They are not equal, and neither of them is one. TorC throws ${err(D.files.tensors.broadcast.find((b) => b.id === 'wrong-row').sum)}. To add one number to each row, use shape <code>(2, 1)</code>.</p>`,
+      reveal: (D) => `<p>No. From the right, the sizes are <code>3</code> and <code>2</code>. They are not equal, and neither of them is one. TorC throws ${err(D.files.tensors.broadcast.find((b) => b.id === 'wrong-row').sum)}. To add one number to each row, use shape ${shp(D.files.tensors.broadcast.find((b) => b.id === 'column').b.shape)}.</p>`,
     },
     {
       kind: 'widget', id: 'broadcast', className: 'widget', label: 'Interactive: a plus b for several shapes of b',
@@ -68,7 +69,7 @@ Tensor r = a.reshape({3, 2});    // the same numbers, a new shape</code></pre>
     {
       kind: 'text',
       html: (D, T) => sec('reduce', '3 · Reductions', `
-    <p>A reduction combines the numbers along one axis. Axis <code>0</code> goes down the rows, and axis <code>1</code> goes across the columns. The axis disappears from the shape.</p>
+    <p>The number of a dimension is also called its axis. A reduction combines the numbers along one axis. Axis <code>0</code> goes down the rows, and axis <code>1</code> goes across the columns. The axis disappears from the shape.</p>
     <p><code>a.sum(0)</code> adds each column and gives ${list(T, `${F}.reductions.${RED.sum0}.result.values`, 3)}, with shape <code>(3)</code>. <code>a.sum(1)</code> adds each row and gives ${list(T, `${F}.reductions.${RED.sum1}.result.values`, 2)}, with shape <code>(2)</code>. <code>mean</code> and <code>max</code> work the same way. Without an axis, <code>a.sum()</code> gives one number, ${T(`${F}.whole.sum`)}.</p>`),
     },
     {
@@ -79,19 +80,20 @@ Tensor r = a.reshape({3, 2});    // the same numbers, a new shape</code></pre>
       kind: 'text',
       html: (D, T) => sec('matmul', '4 · The matrix product', `
     ${eq('\\underset{(m,\\,k)}{A}\\;\\cdot\\;\\underset{(k,\\,n)}{B}\\;=\\;\\underset{(m,\\,n)}{C}, \\qquad C_{ij} = \\sum_{l} A_{il}\\,B_{lj}')}
-    <p>Each output is the sum of the products of one row of the first tensor and one column of the second. The two inner sizes must be equal. For <code>a</code> and its transpose, <code>a.matmul(a.transpose({1, 0}))</code> gives ${list(T, `${F}.matmul.a_at.values`, 4)}, with shape <code>(2, 2)</code>. The product of <code>a</code> with itself fails with this message.</p>
+    <p>Each output is the sum of the products of one row of the first tensor and one column of the second. So the number of columns of the first tensor must equal the number of rows of the second.</p>
+    <p>The transpose of <code>a</code> swaps its rows and columns, so it has shape ${shp(D.files.tensors.matmul.transpose.shape)}. In TorC, <code>a.transpose({1, 0})</code> gives it. The list puts dimension one first. <code>a.matmul(a.transpose({1, 0}))</code> gives ${list(T, `${F}.matmul.a_at.values`, 4)}, with shape ${shp(D.files.tensors.matmul.a_at.shape)}. The product of <code>a</code> with itself fails with this message.</p>
     <p>${err(D.files.tensors.matmul.a_a)}</p>
     <p>For tensors with more than two dimensions, TorC multiplies the last two dimensions and broadcasts the others.</p>`),
     },
     {
       kind: 'check', id: 'c-sum',
-      prompt: () => '<p>The tensor <code>x</code> has shape <code>(4, 5)</code>. What is the shape of <code>x.sum(0)</code>?</p>',
-      reveal: () => '<p>The shape is <code>(5)</code>. Axis <code>0</code> has four entries, and the sum removes it.</p>',
+      prompt: (D) => `<p>The tensor <code>x</code> has shape ${shp(D.files.tensors.check_sum.x_shape)}. What is the shape of <code>x.sum(0)</code>?</p>`,
+      reveal: (D) => `<p>The shape is ${shp(D.files.tensors.check_sum.sum0_shape)}. The sum removes axis <code>0</code> from the shape.</p>`,
     },
     {
       kind: 'check', id: 'c-shapes',
-      prompt: () => '<p>Can TorC add two tensors of shapes <code>(4, 1)</code> and <code>(3)</code>? If it can, what is the shape of the result?</p>',
-      reveal: (D) => { const p = D.files.tensors.broadcast_shapes[0]; return `<p>Yes. From the right, <code>1</code> and <code>3</code> fit because one of them is one. Then <code>4</code> meets a missing dimension, which counts as one. The result has shape <code>(${p.result.join(', ')})</code>.</p>`; },
+      prompt: (D) => { const p = D.files.tensors.broadcast_shapes[0]; return `<p>Can TorC add two tensors of shapes ${shp(p.x)} and ${shp(p.y)}? If it can, what is the shape of the result?</p>`; },
+      reveal: (D) => { const p = D.files.tensors.broadcast_shapes[0]; return `<p>Yes. From the right, <code>${p.x[1]}</code> and <code>${p.y[0]}</code> fit because one of them is one. Then <code>${p.x[0]}</code> meets a missing dimension, which counts as one. The result has shape ${shp(p.result)}.</p>`; },
     },
     {
       kind: 'text',

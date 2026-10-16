@@ -1,6 +1,6 @@
 {
   "schema":"torc-trace/1",
-  "library":{"ref":"v0.1.0","compiler":"clang 18.1.3 (libstdc++ 13)","flags":"-O3 -DNDEBUG -std=c++23 TORC_NATIVE_ARCH=OFF"},
+  "library":{"ref":"v0.1.0","compiler":"clang 18.1.3 (libstdc++ 13)","flags":"-O3 -DNDEBUG -std=c++23 -ffp-contract=off TORC_NATIVE_ARCH=OFF"},
   "generator":"tools/trace/trace_tensors.cpp",
   "kind":"tensors",
   "lesson":"tensors",
@@ -42,6 +42,8 @@
     "a_at":{"shape":[2,2],"values":[14,32,32,77],"exception":"none"},
     "at_a":{"shape":[3,3],"values":[17,22,27,22,29,36,27,36,45],"exception":"none"},
     "a_a":{"exception":"ShapeError","what":"matmul inner dimensions must match, got (2, 3) and (2, 3)"},
-    "batched":{"shape":[4,2,2],"values":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"exception":"none"}
-  }
+    "batched":{"shape":[4,2,2],"values":[14,32,32,77,50,122,68,167,86,212,104,257,122,302,140,347],"exception":"none"},
+    "batched_both":{"shape":[2,3,2,2],"values":[22,28,49,64,58,64,139,154,94,100,229,244,76,100,103,136,220,244,301,334,364,388,499,532],"exception":"none"}
+  },
+  "check_sum":{"x_shape":[4,5],"sum0_shape":[5]}
 }

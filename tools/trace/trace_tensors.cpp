@@ -2,7 +2,8 @@
 //
 // Shape and row-major storage, reshape (a copy), element-wise broadcasting (results and the real ShapeError texts), reductions
 // along an axis, transpose and matmul (results and errors), all computed by the real Tensor class. The example tensor is
-// a = [[1, 2, 3], [4, 5, 6]]. Nothing in this file is derived: every number and message below is library output.
+// a = [[1, 2, 3], [4, 5, 6]]. Every value and message is library output, with two exceptions: `flat` = i*3 + j is computed here
+// (a self-check confirms that a.data()[flat] holds a[i, j]), and `changing_the_copy_changes_a` compares a before and after.
 #include "trace_util.hpp"
 
 #include <cstdlib>
@@ -14,6 +15,13 @@ using trace::J;
 namespace {
 
 J shape_json(const std::vector<int>& s) { return trace::jarr(s); }
+
+// 1, 2, ..., n: small distinct values, so every entry of a product says which numbers went into it
+std::vector<float> iota(int n) {
+    std::vector<float> v(n);
+    for (int k = 0; k < n; ++k) v[k] = static_cast<float>(k + 1);
+    return v;
+}
 
 // The result of a tensor-valued call, or the exception it threw: {shape, values} or {exception, what}.
 J result_or_error(const std::function<Tensor()>& f) {
@@ -114,12 +122,21 @@ int main() {
         .set("a_at", result_or_error([&] { return a.matmul(at); }))                         // (2, 3)(3, 2) -> (2, 2)
         .set("at_a", result_or_error([&] { return at.matmul(a); }))                         // (3, 2)(2, 3) -> (3, 3)
         .set("a_a", result_or_error([&] { return a.matmul(a); }))                           // inner sizes 3 and 2: error
-        .set("batched", result_or_error([&] { return Tensor(std::vector<int>{4, 2, 3}).matmul(at); }));  // (4, 2, 3)(3, 2)
+        .set("batched", result_or_error([&] { return trace::make_tensor({4, 2, 3}, iota(24)).matmul(at); }))  // (4, 2, 3)(3, 2)
+        .set("batched_both", result_or_error([&] {                                         // (2, 1, 2, 3)(3, 3, 2) -> (2, 3, 2, 2)
+            return trace::make_tensor({2, 1, 2, 3}, iota(12)).matmul(trace::make_tensor({3, 3, 2}, iota(18)));
+        }));
+
+    // ---- the shapes of the check question: x of shape (4, 5), x.sum(0) ------------------------------------------------
+    const Tensor x45(std::vector<int>{4, 5});
+    J check_sum = J::object();
+    check_sum.set("x_shape", shape_json(x45.shape())).set("sum0_shape", shape_json(x45.sum(0).shape()));
 
     J doc = trace::envelope("tensors", "tensors", "tools/trace/trace_tensors.cpp");
     doc.set("example", std::move(example)).set("reshape", std::move(reshape)).set("broadcast", std::move(broadcast))
         .set("broadcast_shapes", std::move(pairs)).set("reductions", std::move(reductions)).set("whole", std::move(whole))
-        .set("reduce_error", std::move(red_error)).set("reduce_negative_axis", std::move(red_negative)).set("matmul", std::move(matmul));
+        .set("reduce_error", std::move(red_error)).set("reduce_negative_axis", std::move(red_negative)).set("matmul", std::move(matmul))
+        .set("check_sum", std::move(check_sum));
     std::fputs(doc.dump().c_str(), stdout);
     if (!ok) { std::cerr << "trace_tensors: row-major self-check failed\n"; return 1; }
     return 0;

@@ -10,6 +10,8 @@ const LIN = `${F}.models.0`, NET = `${F}.models.1`;
 const last = (m) => `${m}.checkpoints.3`;
 // indices into the recorded grid z = -4, -3.9, ..., 4
 const Z = { m2: 20, zero: 40, p3: 70, p4: 80 };
+// index of x = 0 in the recorded prediction grid x = -2.2, -2.1, ..., 2.2
+const X0 = 22;
 const eq = (latex) => `<div class="nl-eq" tabindex="0" role="group" aria-label="Formula">${math(latex, true)}</div>`;
 const sec = (id, title, body) => `<section class="nlx" aria-labelledby="nl-${id}"><h2 id="nl-${id}">${title}</h2>${body}</section>`;
 const row = (T, k) => [0, 1, 2].map((i) => T(`${F}.softmax.${k}.output.${i}`)).join(', ');
@@ -40,24 +42,25 @@ export default {
         'Two linear layers in a row are the same as one linear layer.',
         'An activation function between the layers lets the model fit curves.',
         'ReLU sets negative values to zero. Sigmoid maps every value to a number between zero and one.',
-        'Softmax turns a row of numbers into positive numbers that add up to one.',
+        'Softmax turns a row into numbers between zero and one that add up to one.',
       ],
     },
     {
       kind: 'text',
       html: () => sec('collapse', '1 · Two linear layers are one linear layer', `
-    <p>Put one linear layer after another and multiply out the result.</p>
-    ${eq('W_2\\,(W_1 x + b_1) + b_2 \\;=\\; (W_2 W_1)\\,x + (W_2 b_1 + b_2)')}
-    <p>The product ${math('W_2 W_1', false)} is one matrix, and ${math('W_2 b_1 + b_2', false)} is one vector. So the two layers compute one linear function. More linear layers add parameters, but they do not let the model bend. An activation function between the layers changes this.</p>
+    <p>Put one linear layer after another and multiply out the result. As in the lesson Layers, <code>x</code> holds one sample in each row.</p>
+    ${eq('(x W_1^{\\top} + b_1)\\,W_2^{\\top} + b_2 \\;=\\; x\\,(W_2 W_1)^{\\top} + (b_1 W_2^{\\top} + b_2)')}
+    <p>The product ${math('W_2 W_1', false)} is one matrix, and ${math('b_1 W_2^{\\top} + b_2', false)} is one vector. So the two layers compute one linear function. More linear layers add parameters, but they do not let the model bend.</p>
+    <p>An activation function changes this. It is a function that TorC applies to each number of a tensor on its own, such as ReLU. Put it between the layers.</p>
     <pre class="nl-code" tabindex="0" role="group" aria-label="Two layers with an activation in TorC"><code>Variable h = l1(x);
-Variable r = relu(h);    // without this line, the model is linear
-Variable y = l2(r);</code></pre>`),
+Variable r = relu(h);    // the activation function
+Variable y = l2(r);      // with l2(h), the model is linear</code></pre>`),
     },
     {
       kind: 'text',
       html: (D, T) => sec('functions', '2 · ReLU and sigmoid', `
     ${eq('\\mathrm{relu}(z) = \\max(0, z) \\qquad \\sigma(z) = \\frac{1}{1 + e^{-z}}')}
-    <p>The derivative of ReLU is one for a positive input and zero for a negative input. At exactly zero, TorC uses zero. The derivative of sigmoid is ${math('\\sigma(z)\\,(1 - \\sigma(z))', false)}. It is largest at zero, where it is ${T(`${SIG}.grad.${Z.zero}`)}. At <code>z</code> = ${T(`${F}.z.${Z.p4}`)} it is only ${T(`${SIG}.grad.${Z.p4}`)}. So a large input to sigmoid sends back a very small gradient.</p>`),
+    <p>The derivative of ReLU is one for a positive input and zero for a negative input. At exactly zero, TorC uses zero. The derivative of sigmoid is ${math('\\sigma(z)\\,(1 - \\sigma(z))', false)}. It is largest at zero, where it is ${T(`${SIG}.grad.${Z.zero}`)}. At <code>z</code> = ${T(`${F}.z.${Z.p4}`)} it is only ${T(`${SIG}.grad.${Z.p4}`)}. So an input far from zero, positive or negative, sends back a very small gradient.</p>`),
     },
     {
       kind: 'widget', id: 'activation', className: 'widget', label: 'Interactive: ReLU and sigmoid with their derivatives',
@@ -66,12 +69,12 @@ Variable y = l2(r);</code></pre>`),
     {
       kind: 'text',
       html: (D, T) => sec('fit', '3 · Fitting a curve', `
-    <p>Two models learn the curve ${math('t = x^2', false)} from ${T(`${F}.setup.points`)} points. Each model has a hidden layer with ${T(`${F}.setup.hidden`)} units, and both start from the same weights. Only one of them has a ReLU after the hidden layer. TorC trains each model for ${T(`${F}.setup.steps`)} steps with <code>optim::Adam</code> and <code>nn::MSELoss</code>.</p>`),
+    <p>Two models learn the curve ${math('t = x^2', false)} from ${T(`${F}.setup.points`)} points. Each model has two linear layers, and the first layer has ${T(`${F}.setup.hidden`)} neurons. Only one of the models has a ReLU between the layers. Both start from the same weights, and TorC trains each of them for ${T(`${F}.setup.steps`)} steps.</p>`),
     },
     {
       kind: 'predict', id: 'p-line', title: 'Before you try it',
       prompt: () => '<p>What does the model without ReLU learn? Think about the best straight line through a curve that is symmetric around zero.</p>',
-      reveal: (D, T) => `<p>It learns a horizontal line at ${T(`${LIN}.derived.b_eff`)}, which is the mean of the targets. Its loss stays at ${T(`${last(LIN)}.loss`)}. The model with ReLU bends, and its loss falls to ${T(`${last(NET)}.loss`)}.</p>`,
+      reveal: (D, T) => `<p>It learns a horizontal line. After the last step, it predicts ${T(`${last(LIN)}.prediction.${X0}`)} for every input, which is the mean of the targets. Its loss falls to ${T(`${last(LIN)}.loss`)} and then stays there. The model with ReLU bends, and its loss falls to ${T(`${last(NET)}.loss`)}.</p>`,
     },
     {
       kind: 'widget', id: 'fit', className: 'widget', label: 'Interactive: two models fitted to t = x squared, with and without ReLU',
@@ -81,7 +84,7 @@ Variable y = l2(r);</code></pre>`),
       kind: 'text',
       html: (D, T) => sec('softmax', '4 · Softmax', `
     ${eq('\\mathrm{softmax}(z)_i = \\frac{e^{z_i}}{\\sum_j e^{z_j}}')}
-    <p>Softmax makes every entry positive, and the entries add up to one. So a classifier can read them as probabilities. <code>softmax(z, 1)</code> works on each row. For the row ${input(T, 0)} it gives ${row(T, 0)}.</p>
+    <p>Softmax gives entries between zero and one, and the entries add up to one. A classifier is a model that puts each input into one of a few classes. It reads the entries of softmax as the probabilities of the classes. <code>softmax(z, 1)</code> works on each row. For the row ${input(T, 0)} it gives ${row(T, 0)}.</p>
     <p>If you add the same number to every entry, the result does not change. TorC uses this fact. It subtracts the largest entry before it computes the exponentials. So a row of very large numbers gives the same result, and no exponential overflows.</p>`),
     },
     {

@@ -52,6 +52,27 @@ test('fit: the linear model ends as the best straight line (flat at the mean), t
   assert.equal(data.setup.points, data.data.x.length);
   data.data.x.forEach((x, i) => assert.ok(near(data.data.t[i], x * x, 1e-5)));
   assert.deepEqual(net.checkpoints[0].prediction.length, data.data.grid.length);
+  // the start is a tilted line, so the widget shows the linear model turning flat
+  const start = lin.checkpoints[0].prediction;
+  assert.ok(start.at(-1) - start[0] > 1, `start slope ${start[0]} .. ${start.at(-1)}`);
+  // the prose quotes the last prediction at x = 0 (grid index 22) as the flat line
+  assert.equal(data.data.grid[22], 0);
+  assert.ok(near(lin.checkpoints.at(-1).prediction[22], data.derived.best_line_intercept, 1e-5));
+});
+
+test('the input grids are exact: built from integers, so 0 is exactly 0 on every machine', () => {
+  data.z.forEach((z, k) => assert.equal(Math.fround(z), Math.fround((k - 40) / 10), `z[${k}]`));
+  data.data.x.forEach((x, k) => assert.equal(Math.fround(x), Math.fround((k - 10) / 5), `x[${k}]`));
+  data.data.grid.forEach((x, k) => assert.equal(Math.fround(x), Math.fround((k - 22) / 10), `grid[${k}]`));
+});
+
+test('the derivative of relu is drawn in two pieces, with no line across the jump at zero', async () => {
+  const { pieces } = await import('../js/widgets/nonlinear-widgets.js');
+  const [relu, sig] = data.activations;
+  const parts = pieces(data.z, relu.grad);
+  assert.equal(parts.length, 2);
+  assert.deepEqual(parts.map((p) => [p[0][0], p.at(-1)[0]]), [[data.z[0], 0], [data.z[41], data.z[80]]]);
+  assert.equal(pieces(data.z, sig.grad).length, 1, 'sigmoid has no jump');
 });
 
 test('every number in the prose is bound to the trace, with no hand-typed digits', () => {

@@ -117,7 +117,7 @@
         {
           "id": "nonlinearity",
           "title": "Nonlinearity",
-          "outcome": "Two linear layers in a row are still one linear layer. ReLU, sigmoid and softmax change that.",
+          "outcome": "Two linear layers in a row are still one linear layer. An activation function such as ReLU changes that.",
           "prereqs": [
             "linear-layer"
           ],

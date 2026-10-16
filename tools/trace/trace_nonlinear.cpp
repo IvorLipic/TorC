@@ -5,10 +5,12 @@
 // 3. Two small models fitted to t = x^2 with the real nn::Linear, relu, nn::MSELoss and optim::Adam:
 //      linear:  Linear(1, 8) -> Linear(8, 1)          (no activation)
 //      relu:    Linear(1, 8) -> relu -> Linear(8, 1)
-//    Both start from the same weights, set by hand (no random generator), so the run is the same on every machine.
+//    Both start from the same weights, set by hand (no random generator), so the run is the same on every machine. The start
+//    is not a flat line, so the linear model visibly turns flat while it trains.
 //    Predictions on a grid are recorded at a few steps. For the linear model the two layers are also multiplied out to one
 //    line (w_eff, b_eff), and the trace checks that the model's predictions lie on that line.
-// Derived values (plain arithmetic, not library output) are under the key "derived".
+// Derived values (plain arithmetic, not library output) are under the key "derived". The input grids are built from integers
+// (k / 10, not -4 + 0.1 k) so that no float rounding or contraction can move a grid point off its exact value.
 #include "trace_util.hpp"
 
 #include "torc/nn/linear.hpp"
@@ -28,7 +30,8 @@ constexpr int STEPS = 400;
 constexpr float LR = 0.05f;
 const std::vector<int> CHECKPOINTS = {0, 25, 100, 400};
 
-// the same start for both models: hidden unit k has weight +1 or -1 and a bias spread over [-1.75, 1.75]
+// the same start for both models: hidden unit k has weight +1 or -1, a bias spread over [-1.75, 1.75], and an output weight
+// 0.2 or 0.1 (so the multiplied-out line of the linear model starts with a non-zero slope)
 void init(nn::Linear& l1, nn::Linear& l2) {
     Tensor& w1 = l1.named_parameters().at("weight").data();
     Tensor& b1 = l1.named_parameters().at("bias").data();
@@ -37,7 +40,7 @@ void init(nn::Linear& l1, nn::Linear& l2) {
     for (int k = 0; k < H; ++k) {
         w1.data()[k] = (k % 2 == 0) ? 1.0f : -1.0f;
         b1.data()[k] = -1.75f + 0.5f * static_cast<float>(k);
-        w2.data()[k] = 0.1f;
+        w2.data()[k] = (k % 2 == 0) ? 0.2f : 0.1f;
     }
     b2.data()[0] = 0.0f;
 }
@@ -122,7 +125,7 @@ int main() {
 
     // ---- 1. activation curves --------------------------------------------------------------------------------------
     std::vector<float> zs;
-    for (int k = 0; k <= 80; ++k) zs.push_back(-4.0f + 0.1f * static_cast<float>(k));
+    for (int k = 0; k <= 80; ++k) zs.push_back(static_cast<float>(k - 40) / 10.0f);
     const Tensor z = trace::make_tensor({81}, zs);
     J acts = J::array();
     acts.push(activation("relu", z, true)).push(activation("sigmoid", z, false));
@@ -135,15 +138,14 @@ int main() {
         const Tensor in = trace::make_tensor({1, 3}, r.v);
         const Tensor out = in.softmax(1);
         J e = J::object();
-        e.set("id", r.id).set("input", trace::jarr(r.v)).set("output", trace::jarr(trace::values_of(out)))
-            .set("sum", out.data()[0] + out.data()[1] + out.data()[2]);
+        e.set("id", r.id).set("input", trace::jarr(r.v)).set("output", trace::jarr(trace::values_of(out)));
         softmax_rows.push(std::move(e));
     }
 
     // ---- 3. fitting t = x^2 ------------------------------------------------------------------------------------------
     std::vector<float> xs, ts, gs;
-    for (int k = 0; k <= 20; ++k) { const float v = -2.0f + 0.2f * static_cast<float>(k); xs.push_back(v); ts.push_back(v * v); }
-    for (int k = 0; k <= 44; ++k) gs.push_back(-2.2f + 0.1f * static_cast<float>(k));
+    for (int k = 0; k <= 20; ++k) { const float v = static_cast<float>(k - 10) / 5.0f; xs.push_back(v); ts.push_back(v * v); }
+    for (int k = 0; k <= 44; ++k) gs.push_back(static_cast<float>(k - 22) / 10.0f);
     const Tensor x = trace::make_tensor({21, 1}, xs), t = trace::make_tensor({21, 1}, ts), grid = trace::make_tensor({45, 1}, gs);
     J models = J::array();
     models.push(fit("linear", false, x, t, grid, ok)).push(fit("relu", true, x, t, grid, ok));

@@ -86,12 +86,15 @@ export function mountGradientCompare(host, D) {
   const key = el('div', { class: 'lw-key', 'aria-hidden': 'true' }, el('span', {}, 'solid line: cross-entropy'), el('span', {}, 'dashed line: squared error on the probabilities'));
   host.replaceChildren(el('div', { class: 'lw' }, el('div', { class: 'lw-ctl' }, el('div', { class: 'lw-field' }, el('label', { for: 'lw-z', class: 'lw-lbl' }, 'logit of the correct class'), input)), box, key, read));
   srTable(host, { columns: ['logit', 'cross-entropy gradient', 'squared error gradient'], rows: z.map((v, i) => [v, C.ce_grad[i], C.sq_grad[i]]), caption: 'Gradient with respect to the logit of the correct class' });
-  const p = createPlot(box, { width: 640, height: 280, x: [-6, 6], y: [-1.05, 0.08], xLabel: 'logit of the correct class', yLabel: 'gradient', ariaLabel: '' });
-  p.axes({ xTicks: ticks([-6, 6], 6), yTicks: [-1, -0.75, -0.5, -0.25, 0] });
-  p.layer('curves').append(svg('line', { class: 'lw-zero', x1: p.sx(-6), x2: p.sx(6), y1: p.sy(0), y2: p.sy(0) }));
-  p.curve(z.map((v, i) => [v, C.ce_grad[i]]), { class: 'plot-curve', layer: 'curves' });
-  p.curve(z.map((v, i) => [v, C.sq_grad[i]]), { class: 'lw-sq', layer: 'curves' });
-  p.layer('live');
+  const paint = (pl) => {
+    pl.axes({ xTicks: ticks([-6, 6], 6), yTicks: [-1, -0.75, -0.5, -0.25, 0] });
+    pl.layer('curves').append(svg('line', { class: 'lw-zero', x1: pl.sx(-6), x2: pl.sx(6), y1: pl.sy(0), y2: pl.sy(0) }));
+    pl.curve(z.map((v, i) => [v, C.ce_grad[i]]), { class: 'plot-curve', layer: 'curves' });
+    pl.curve(z.map((v, i) => [v, C.sq_grad[i]]), { class: 'lw-sq', layer: 'curves' });
+    pl.layer('live');
+  };
+  const p = createPlot(box, { width: 640, height: 280, x: [-6, 6], y: [-1.05, 0.08], xLabel: 'logit of the correct class', yLabel: 'gradient', ariaLabel: '', onResize: (pl) => { paint(pl); mark(); } });
+  paint(p);
 
   function mark() {
     p.clear('live');

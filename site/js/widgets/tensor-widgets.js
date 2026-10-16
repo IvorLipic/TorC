@@ -86,8 +86,11 @@ export function mountBroadcastGrid(host, D) {
   const presets = presetGroup('Shape of b', T.broadcast.map((c) => [c.id, LABELS[c.id] ?? shapeText(c.b.shape)]), (k) => { pick = k; sel = null; draw(); });
   const shapes = el('table', { class: 'tw-shapes' });
   const row = el('div', { class: 'tw-row' });
-  const read = el('p', { class: 'tw-read', 'aria-live': 'polite' });
-  const root = el('div', { class: 'tw' }, presets.root, shapes, row, read);
+  // The visible readout follows the mouse; the screen-reader message changes only on focus or click, so moving the mouse
+  // across the grid does not make a screen reader speak again and again.
+  const read = el('p', { class: 'tw-read' });
+  const say = el('p', { class: 'sr', 'aria-live': 'polite' });
+  const root = el('div', { class: 'tw' }, presets.root, shapes, row, read, say);
   host.replaceChildren(root);
 
   function draw() {
@@ -103,24 +106,28 @@ export function mountBroadcastGrid(host, D) {
     if (c.sum.exception !== 'none') {
       row.replaceChildren(...parts, el('div', { class: 'tw-err', role: 'note' }, `${c.sum.exception}: ${c.sum.what}`));
       read.textContent = 'TorC cannot add these shapes.';
+      say.textContent = read.textContent;
       return;
     }
     const [R, C] = c.sum.shape;
     const gy = el('div', { class: 'tw-grid', style: `grid-template-columns:repeat(${C}, auto)`, role: 'group', 'aria-label': `a + b, shape ${shapeText(c.sum.shape)}` });
     const ys = [];
     for (let i = 0; i < R; i++) for (let j = 0; j < C; j++) {
-      const b = el('button', { type: 'button', class: 'tw-cell', 'aria-label': `a + b, row ${i + 1}, column ${j + 1}: ${fmt(c.sum.values[i * C + j])}` }, fmt(c.sum.values[i * C + j]));
-      const choose = () => { sel = [i, j]; mark(); };
-      b.addEventListener('mouseenter', choose); b.addEventListener('focus', choose); b.addEventListener('click', choose);
+      const b = el('button', { type: 'button', class: 'tw-cell', 'aria-label': `a + b, row ${i}, column ${j}: ${fmt(c.sum.values[i * C + j])}` }, fmt(c.sum.values[i * C + j]));
+      const choose = (announce) => () => { sel = [i, j]; mark(announce); };
+      b.addEventListener('mouseenter', choose(false)); b.addEventListener('focus', choose(true)); b.addEventListener('click', choose(true));
       ys.push(b); gy.append(b);
     }
     row.replaceChildren(...parts, el('div', { class: 'tw-mat' }, el('div', { class: 'tw-name' }, 'a + b'), gy));
-    function mark() {
+    function mark(announce = true) {
       [...ga.cells, ...gb.cells, ...ys].forEach((x) => x.classList.remove('hl', 'src'));
-      if (!sel) { read.textContent = 'Select a result to see which numbers of a and b it adds.'; return; }
-      const [i, j] = sel, ia = sourceIndex(A.shape, [i, j]), ib = sourceIndex(c.b.shape, [i, j]);
-      ys[i * C + j].classList.add('hl'); ga.cells[ia].classList.add('src'); gb.cells[ib].classList.add('src');
-      read.textContent = `Row ${i + 1}, column ${j + 1} adds ${fmt(A.values[ia])} from a and ${fmt(c.b.values[ib])} from b.`;
+      if (!sel) read.textContent = 'Select a result to see which numbers of a and b it adds. Rows and columns count from 0.';
+      else {
+        const [i, j] = sel, ia = sourceIndex(A.shape, [i, j]), ib = sourceIndex(c.b.shape, [i, j]);
+        ys[i * C + j].classList.add('hl'); ga.cells[ia].classList.add('src'); gb.cells[ib].classList.add('src');
+        read.textContent = `Row ${i}, column ${j} adds ${fmt(A.values[ia])} from a and ${fmt(c.b.values[ib])} from b.`;
+      }
+      if (announce) say.textContent = read.textContent;
     }
     mark();
   }
@@ -136,8 +143,9 @@ export function mountAxisExplorer(host, D) {
   const ops = presetGroup('Reduction', [['sum', 'sum'], ['mean', 'mean'], ['max', 'max']], (k) => { op = k; draw(); });
   const axes = presetGroup('Axis', [[0, 'axis 0 (down the rows)'], [1, 'axis 1 (across the columns)']], (k) => { axis = k; sel = 0; draw(); });
   const row = el('div', { class: 'tw-row' });
-  const read = el('p', { class: 'tw-read', 'aria-live': 'polite' });
-  host.replaceChildren(el('div', { class: 'tw' }, ops.root, axes.root, row, read));
+  const read = el('p', { class: 'tw-read' });
+  const say = el('p', { class: 'sr', 'aria-live': 'polite' });
+  host.replaceChildren(el('div', { class: 'tw' }, ops.root, axes.root, row, read, say));
 
   function draw() {
     ops.set(op); axes.set(axis);
@@ -146,19 +154,20 @@ export function mountAxisExplorer(host, D) {
     const n = res.shape[0];
     const gr = el('div', { class: 'tw-grid', style: `grid-template-columns:repeat(${axis === 0 ? n : 1}, auto)`, role: 'group', 'aria-label': `a.${op}(${axis}), shape ${shapeText(res.shape)}` });
     const rs = res.values.map((v, r) => {
-      const b = el('button', { type: 'button', class: 'tw-cell', 'aria-label': `a.${op}(${axis}), entry ${r + 1}: ${fmt(v)}` }, fmt(v));
-      const choose = () => { sel = r; mark(); };
-      b.addEventListener('mouseenter', choose); b.addEventListener('focus', choose); b.addEventListener('click', choose);
+      const b = el('button', { type: 'button', class: 'tw-cell', 'aria-label': `a.${op}(${axis}), entry ${r}: ${fmt(v)}` }, fmt(v));
+      const choose = (announce) => () => { sel = r; mark(announce); };
+      b.addEventListener('mouseenter', choose(false)); b.addEventListener('focus', choose(true)); b.addEventListener('click', choose(true));
       gr.append(b);
       return b;
     });
     row.replaceChildren(ga.root, el('span', { class: 'tw-op', 'aria-hidden': 'true' }, '→'), el('div', { class: 'tw-mat' }, el('div', { class: 'tw-name' }, `a.${op}(${axis})  shape ${shapeText(res.shape)}`), gr));
-    function mark() {
+    function mark(announce = true) {
       [...ga.cells, ...rs].forEach((x) => x.classList.remove('hl', 'src'));
       rs[sel].classList.add('hl');
       const cells = reducedCells(R, C, axis, sel);
       cells.forEach(([i, j]) => ga.cells[i * C + j].classList.add('src'));
-      read.textContent = `Entry ${sel + 1} is the ${op} of ${cells.map(([i, j]) => fmt(A.values[i * C + j])).join(', ')}, which is ${fmt(res.values[sel])}.`;
+      read.textContent = `Entry ${sel} is the ${op} of ${cells.map(([i, j]) => fmt(A.values[i * C + j])).join(', ')}, which is ${fmt(res.values[sel])}.`;
+      if (announce) say.textContent = read.textContent;
     }
     mark();
   }

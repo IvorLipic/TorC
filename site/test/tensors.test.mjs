@@ -57,6 +57,28 @@ test('matmul: (2, 3)(3, 2) gives (2, 2), the inner sizes must match, and batch d
   assert.deepEqual(m.at_a.shape, [3, 3]);
   assert.match(m.a_a.what, /^matmul inner dimensions must match/);
   assert.deepEqual(m.batched.shape, [4, 2, 2]);
+  // (4, 2, 3) holding 1..24 times aᵀ: batch k is rows 6k+1..6k+6 times aᵀ, computed here by hand
+  const mm = (A, B, n, k, p) => Array.from({ length: n * p }, (_, ij) => { const i = Math.floor(ij / p), j = ij % p; let v = 0; for (let l = 0; l < k; l++) v += A[i * k + l] * B[l * p + j]; return v; });
+  const at = m.transpose.values;
+  for (let b = 0; b < 4; b++) {
+    const A = Array.from({ length: 6 }, (_, q) => 6 * b + q + 1);
+    assert.deepEqual(m.batched.values.slice(4 * b, 4 * b + 4), mm(A, at, 2, 3, 2), `batch ${b}`);
+  }
+  // (2, 1, 2, 3) times (3, 3, 2): both have batch dimensions, (2, 1) and (3) broadcast to (2, 3)
+  assert.deepEqual(m.batched_both.shape, [2, 3, 2, 2]);
+  for (let i = 0; i < 2; i++) for (let j = 0; j < 3; j++) {
+    const A = Array.from({ length: 6 }, (_, q) => 6 * i + q + 1), B = Array.from({ length: 6 }, (_, q) => 6 * j + q + 1);
+    assert.deepEqual(m.batched_both.values.slice(4 * (3 * i + j), 4 * (3 * i + j) + 4), mm(A, B, 2, 3, 2), `batch ${i},${j}`);
+  }
+});
+
+test('the shapes quoted in the check questions come from the trace', () => {
+  assert.deepEqual(data.check_sum, { x_shape: [4, 5], sum0_shape: [5] });
+  assert.deepEqual(data.broadcast.find((b) => b.id === 'column').b.shape, [2, 1]);
+  assert.deepEqual(data.matmul.transpose.shape, [3, 2]);
+  const all = renderLesson(lesson, D).map((p) => p.html).join('\n');
+  assert.match(all, /has shape <code>\(4, 5\)<\/code>/);
+  assert.match(all, /The shape is <code>\(5\)<\/code>/);
 });
 
 test('every number in the prose is bound to the trace, with no hand-typed digits', () => {

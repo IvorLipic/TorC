@@ -11,7 +11,8 @@ numbers mean, derivations, library symbols): `docs/lessons/<lesson>.md`.
 ## Conventions
 
 - **Envelope** (top of every file, in this order): `schema` = `"torc-trace/1"`; `library` = `{ref, compiler, flags}` (`ref` is the content of
-  `TORC_REF`, e.g. `"v0.1.0"`; `compiler` e.g. `"clang 18.1.3 (libstdc++ 14)"`; `flags` the build flags; the last two are informational and
+  `TORC_REF`, e.g. `"v0.1.0"`; `compiler` e.g. `"clang 18.1.3 (libstdc++ 14)"`; `flags` the build flags, including `-ffp-contract=off`, which the trace build sets for TorC and the producers so that no
+  fused multiply-add changes a result on a CPU that has one; the last two are informational and
   are not compared by the drift check); `generator` = source file of the producer; `kind` = topic (`autograd` | `why` | `optim` | `linear` | `tensors` | `nonlinearity` | `modules` | `losses`);
   `lesson` = first lesson that uses the file. Everything else is topic data. Unknown keys must be ignored by consumers.
 - **Numbers.** Values the library computed in `float32` are written with 9 significant digits (they round-trip the float32 exactly, so
@@ -103,17 +104,20 @@ No scenes. `example` = `{shape, numel, values, index[{i, j, flat, value}]}` for 
 `Tensor::operator[]`). `reshape` = `{shape, values, changing_the_copy_changes_a, error}`. `broadcast[]` = `{id, b{shape, values},
 sum}` where `sum` is `{shape, values, exception:"none"}` or `{exception, what}`. `broadcast_shapes[]` = `{x, y, result | exception,
 what}` from `broadcast_shape`. `reductions[]` = `{op: sum|mean|max, axis: 0|1, result}`; `whole` = `{sum, mean, max}`;
-`reduce_error` (axis 2) and `reduce_negative_axis` (axis -1). `matmul` = `{transpose, a_at, at_a, a_a, batched}`, each a result or
-an error. Producer: `tools/trace/trace_tensors.cpp`. Everything is library output; nothing is derived.
+`reduce_error` (axis 2) and `reduce_negative_axis` (axis -1). `matmul` = `{transpose, a_at, at_a, a_a, batched, batched_both}`, each a
+result or an error: `batched` is `(4, 2, 3)` holding 1..24 times `aᵀ`, `batched_both` is `(2, 1, 2, 3)` holding 1..12 times `(3, 3, 2)`
+holding 1..18 (both operands have batch dimensions). `check_sum` = `{x_shape, sum0_shape}` for the check question (`x` of shape
+`(4, 5)`). Producer: `tools/trace/trace_tensors.cpp`. Everything is library output except `flat` (`i*3 + j`, confirmed by a self-check
+against `a.data()`) and `changing_the_copy_changes_a` (a comparison done by the producer).
 
 ## `nonlinearity.json` (kind `nonlinearity`, lesson `nonlinearity`)
 
-`z` = 81 inputs from -4 to 4. `activations[]` = `{name: relu|sigmoid, value[], grad[]}` (grad from `backward()` of `sum(f(z))`).
-`softmax[]` = `{id, input[3], output[3], sum}` for rows `small`, `shifted`, `large`, `equal` (axis 1). `data` = `{x[21], t[21], grid[45]}`
+`z` = 81 inputs from -4 to 4, built as `(k - 40) / 10` so that `z[40]` is exactly 0 (all grids are built from integers). `activations[]` = `{name: relu|sigmoid, value[], grad[]}` (grad from `backward()` of `sum(f(z))`).
+`softmax[]` = `{id, input[3], output[3]}` for rows `small`, `shifted`, `large`, `equal` (axis 1). `data` = `{x[21], t[21], grid[45]}`
 with `t = x²`; `setup` = `{points, hidden, steps, lr, optimizer, loss}`. `models[]` = `{name: linear|relu, checkpoints[{step, loss,
 prediction[45]}]}`, steps 0, 25, 100, 400; the linear model also has `derived` = `{w_eff, b_eff, max_abs_diff_line_vs_model}`.
 Top-level `derived` = `{best_line_slope, best_line_intercept}` (mathematics, not library output). Start weights are set by hand, so
-no random generator is involved. Producer: `tools/trace/trace_nonlinear.cpp`.
+no random generator is involved; the linear model starts as the line `0.4·x - 0.1`, not flat. Producer: `tools/trace/trace_nonlinear.cpp`.
 
 ## `modules.json` (kind `modules`, lesson `modules`)
 
