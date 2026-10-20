@@ -21,17 +21,22 @@ position to 0 and shuffles again. It never resets itself. The loop is the one in
 - Without `reset()`, epoch 1 takes 10 steps and epochs 2 and 3 take 0. There is no error.
 
 ## Expected (mathematics)
-Steps per epoch = ceil(n / batch size). For MSE with this data, full-batch gradient descent shrinks the weight error by a factor of
-about `1 - 2·lr·E[x²] = 1 - 0.067` per step, so 30 steps leave much of it, and 300 steps remove it. The tests check the step
+Steps per epoch = ceil(n / batch size). For MSE with this data (mean x = -0.090, mean x² = 0.281), full-batch gradient descent
+shrinks the weight error by a factor of about `1 - 2·lr·mean(x²) = 0.944` per step (the coupling with the bias changes this a
+little), so 30 steps leave much of it, and 300 steps remove it. The least-squares line on the 100 samples (w = 3.0025,
+b = 1.0134) has loss 0.008108, below the true line's 0.008282, because it fits part of the noise; the batch-10 run reaches it. The tests check the step
 counts, that each epoch gives each sample once, and the loss of the true line against the recorded samples.
 
 ## Suspected discrepancy
 - `SyntheticRegression` with `num_features > 1` fills only column 0 of each row. The other columns stay 0 and `y` depends on
-  column 0 only. The lesson uses one feature, so this does not show. Not reported on `main` yet.
+  column 0 only. The lesson uses one feature, so this does not show. Logged in `docs/library-audit/v0.1.0-findings.md`.
 - The recorded orders and samples come from libstdc++'s `std::shuffle` and distributions. A libc++ build gives other values,
   which the drift check would report. CI uses libstdc++.
 
 ## Lesson status
 Published 2026-10-20. Widgets: `training-widgets.js` (batch viewer, training curves). Tests: `site/test/training-loop.test.mjs`.
 Both code blocks were compiled and run against v0.1.0. Checked: Node tests, `check_site`, `tools/prose/check.sh`, Chromium at both
-widths, axe-core clean. Not done: independent review, screen reader.
+widths, axe-core clean. Independent review 2026-10-20 (no blockers). Fixed after it: section 4 said the true line's loss is the lowest loss, but the
+fitted line is a little below it on the training samples (the page now says so, and a test checks the sign); "update" and
+"step" are one name each; the runs are found by batch size; the seed of the widget's loader is stated; the log scale is
+labelled. Not done: screen reader.

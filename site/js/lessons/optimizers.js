@@ -30,7 +30,7 @@ export default {
     {
       kind: 'text',
       html: () => `${STYLE}<section class="hero"><h1>Better optimizers</h1>
-    <p class="lead">Plain gradient descent uses the same learning rate for every parameter. This lesson compares it with momentum and Adam in a narrow valley, and shows what AdamW adds.</p></section>`,
+    <p class="lead">Plain gradient descent is <code>optim::SGD</code> without momentum. It uses the same learning rate for every parameter. This lesson compares it with momentum and Adam in a narrow valley, and shows what AdamW adds.</p></section>`,
     },
     {
       kind: 'tldr',

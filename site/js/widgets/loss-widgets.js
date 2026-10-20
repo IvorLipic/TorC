@@ -54,7 +54,8 @@ export function mountLossExplorer(host, D) {
   const tp = presets('Correct class', [[0, 'class 0'], [1, 'class 1'], [2, 'class 2']], (k) => { target = k; draw(); });
   const cols = el('div', { class: 'lw-cols', role: 'group', 'aria-label': 'The three classes' });
   const read = el('div', { class: 'lw-read', 'aria-live': 'polite' });
-  host.replaceChildren(el('div', { class: 'lw' }, el('div', { class: 'lw-ctl' }, rp.root, tp.root), cols, read));
+  const key = el('div', { class: 'lw-key', 'aria-hidden': 'true' }, el('span', {}, 'green bar: a negative gradient, so the step raises this logit'), el('span', {}, 'red bar: a positive gradient, so the step lowers this logit'));
+  host.replaceChildren(el('div', { class: 'lw' }, el('div', { class: 'lw-ctl' }, rp.root, tp.root), cols, key, read));
 
   function draw() {
     rp.set(row); tp.set(target);
@@ -82,9 +83,9 @@ export function mountGradientCompare(host, D) {
   let k = 0;
   const input = el('input', { type: 'range', id: 'lw-z', min: 0, max: z.length - 1, step: 1, value: k });
   input.addEventListener('input', () => { k = Number(input.value); mark(); });
-  const box = el('div'), read = el('div', { class: 'lw-read', 'aria-live': 'polite' });
-  const key = el('div', { class: 'lw-key', 'aria-hidden': 'true' }, el('span', {}, 'solid line: cross-entropy'), el('span', {}, 'dashed line: squared error on the probabilities'));
-  host.replaceChildren(el('div', { class: 'lw' }, el('div', { class: 'lw-ctl' }, el('div', { class: 'lw-field' }, el('label', { for: 'lw-z', class: 'lw-lbl' }, 'logit of the correct class'), input)), box, key, read));
+  const box = el('div'), read = el('div', { class: 'lw-read' });   // the slider's aria-valuetext carries the values
+  const key = el('div', { class: 'lw-key', 'aria-hidden': 'true' }, el('span', {}, 'solid line: cross-entropy'), el('span', {}, 'dashed line: squared error between the softmax output and the one-hot target'), el('span', {}, 'two classes, logits z and 0, the first class is correct'));
+  host.replaceChildren(el('div', { class: 'lw' }, el('div', { class: 'lw-ctl' }, el('div', { class: 'lw-field' }, el('label', { for: 'lw-z', class: 'lw-lbl' }, 'z, the logit of the correct class'), input)), box, key, read));
   srTable(host, { columns: ['logit', 'cross-entropy gradient', 'squared error gradient'], rows: z.map((v, i) => [v, C.ce_grad[i], C.sq_grad[i]]), caption: 'Gradient with respect to the logit of the correct class' });
   const paint = (pl) => {
     pl.axes({ xTicks: ticks([-6, 6], 6), yTicks: [-1, -0.75, -0.5, -0.25, 0] });
@@ -100,7 +101,7 @@ export function mountGradientCompare(host, D) {
     p.clear('live');
     p.dot(z[k], C.ce_grad[k], { r: 6, layer: 'live' });
     p.dot(z[k], C.sq_grad[k], { class: 'lw-dot2', r: 5, layer: 'live' });
-    input.setAttribute('aria-valuetext', `logit ${fmt(z[k])}`);
+    input.setAttribute('aria-valuetext', `z ${fmt(z[k])}: cross-entropy gradient ${fmt(C.ce_grad[k])}, squared error gradient ${fmt(C.sq_grad[k])}`);
     p.root.setAttribute('aria-label', `Gradients for a logit of ${fmt(z[k])}: cross-entropy ${fmt(C.ce_grad[k])}, squared error ${fmt(C.sq_grad[k])}.`);
     read.innerHTML = `<span><b>logit</b> ${fmt(z[k])}</span><span><b>cross-entropy</b> loss ${fmt(C.ce_loss[k])}, gradient ${fmt(C.ce_grad[k])}</span><span><b>squared error</b> loss ${fmt(C.sq_loss[k])}, gradient ${fmt(C.sq_grad[k])}</span>`;
   }

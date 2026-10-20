@@ -221,7 +221,7 @@
             "batch viewer",
             "training curves"
           ],
-          "code": "data::DataLoader loader(dataset, 32, /*shuffle=*/true);\nwhile (loader.has_next()) {\n    auto [xb, yb] = loader.next_batch();\n    // forward → loss → backward → step → zero_grad\n}"
+          "code": "data::DataLoader loader(dataset, 32, /*shuffle=*/true);\nwhile (loader.has_next()) {\n    auto [xb, tb] = loader.next_batch();\n    // forward → loss → backward → step → zero_grad\n}"
         },
         {
           "id": "optimizers",

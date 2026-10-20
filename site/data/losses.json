@@ -67,10 +67,11 @@
     ]
   },
   "errors":[
-    {"id":"not-integer","exception":"ShapeError","what":"CrossEntropyLoss target at index 0 must be an integer"},
-    {"id":"out-of-range","exception":"ShapeError","what":"CrossEntropyLoss target 3 at index 0 is out of range [0, 3)"},
-    {"id":"rank-1-logits","exception":"ShapeError","what":"CrossEntropyLoss expects rank-2 logits, got shape (3)"},
-    {"id":"length","exception":"ShapeError","what":"CrossEntropyLoss target length 3 does not match batch size 2"},
-    {"id":"column-targets","exception":"none","what":""}
-  ]
+    {"id":"not-integer","targets":[1.5],"exception":"ShapeError","what":"CrossEntropyLoss target at index 0 must be an integer"},
+    {"id":"out-of-range","targets":[3],"exception":"ShapeError","what":"CrossEntropyLoss target 3 at index 0 is out of range [0, 3)"},
+    {"id":"rank-1-logits","targets":[0],"exception":"ShapeError","what":"CrossEntropyLoss expects rank-2 logits, got shape (3)"},
+    {"id":"length","targets":[0,1,2],"exception":"ShapeError","what":"CrossEntropyLoss target length 3 does not match batch size 2"},
+    {"id":"column-targets","targets":[0,2],"exception":"none","what":""}
+  ],
+  "mse_broadcast":{"prediction_shape":[3,1],"target_shape":[3],"exception":"none","loss":3.33333325,"grad":[2,-3,1]}
 }

@@ -70,6 +70,25 @@ test('bad labels and logits give the recorded errors', () => {
   assert.equal(e['column-targets'].exception, 'none', 'labels of shape (B, 1) are accepted');
 });
 
+test('MSELoss with a (3, 1) prediction and (3) targets broadcasts to (3, 3): no error, the mean over 9 differences, and a gradient 3 times too large', () => {
+  const m = data.mse_broadcast, y = data.mse.prediction, t = data.mse.target;
+  assert.deepEqual([m.prediction_shape, m.target_shape, m.exception], [[3, 1], [3], 'none']);
+  let sum = 0;
+  for (const yi of y) for (const tj of t) sum += (yi - tj) ** 2;
+  close(m.loss, sum / 9, 1e-5, 'broadcast loss');
+  // the true derivative of the reported loss is 2/9 sum_j (y_i - t_j); TorC divides by input.numel() = 3 instead of 9
+  y.forEach((yi, i) => close(m.grad[i], 3 * (2 / 9) * t.reduce((a, tj) => a + (yi - tj), 0), 1e-5, `grad ${i}`));
+});
+
+test('the labels quoted on the page are the ones the trace passed to CrossEntropyLoss', () => {
+  const e = Object.fromEntries(data.errors.map((x) => [x.id, x]));
+  assert.deepEqual(e['not-integer'].targets, [1.5]);
+  assert.deepEqual(e['out-of-range'].targets, [3]);
+  const all = renderLesson(lesson, D).map((p) => p.html).join('\n');
+  assert.match(all, /A label of <code>1\.5<\/code>/);
+  assert.match(all, /A label of <code>3<\/code>/);
+});
+
 test('every number in the prose is bound to the trace, with no hand-typed digits', () => {
   const parts = renderLesson(lesson, D);
   for (const { section, html } of parts) {

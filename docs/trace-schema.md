@@ -132,8 +132,10 @@ forward and backward calls. No weight value is recorded. Producer: `tools/trace/
 cases[{target, loss, softmax[3], grad[3]}]}` for targets 0, 1, 2 (`nn::CrossEntropyLoss`, one sample). `batch` = `{logits[6], targets[2],
 loss, grad[6]}` (the mild row with target 0 and the confident row with target 2). `curves` = `{z[49], ce_loss, ce_grad, sq_loss, sq_grad}`
 for logits `[z, 0]` with target 0, z from -6 to 6 in steps of 0.25: cross-entropy, and `nn::MSELoss` of `softmax(z, 1)` against the
-one-hot target; the gradients are with respect to `z` from `backward()`. `errors[]` = `{id, exception, what}` for `not-integer`,
-`out-of-range`, `rank-1-logits`, `length` and `column-targets` (`exception` `"none"`). Producer: `tools/trace/trace_losses.cpp`.
+one-hot target; the gradients are with respect to `z` from `backward()`. `errors[]` = `{id, targets, exception, what}` for `not-integer`,
+`out-of-range`, `rank-1-logits`, `length` and `column-targets` (`exception` `"none"`). `mse_broadcast` = `{prediction_shape [3, 1],
+target_shape [3], exception, loss, grad[3]}`: `nn::MSELoss` on shapes that broadcast (TorC does not check them). Producer:
+`tools/trace/trace_losses.cpp`.
 
 ## `training.json` (kind `training`, lesson `training-loop`)
 

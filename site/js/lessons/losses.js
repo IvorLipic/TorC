@@ -11,6 +11,8 @@ const eq = (latex) => `<div class="ls2-eq" tabindex="0" role="group" aria-label=
 const sec = (id, title, body) => `<section class="ls2" aria-labelledby="ls2-${id}"><h2 id="ls2-${id}">${title}</h2>${body}</section>`;
 const err = (D, id) => { const e = D.files.losses.errors.find((x) => x.id === id); return `<code>${escapeHtml(e.exception)}: ${escapeHtml(e.what)}</code>`; };
 const list = (T, path) => [0, 1, 2].map((i) => T(`${path}.${i}`)).join(', ');
+const shp = (a) => `<code>(${a.join(', ')})</code>`;
+const errTargets = (D, id) => D.files.losses.errors.find((x) => x.id === id).targets.join(', ');
 
 const STYLE = `<style>
 .ls2 p{max-width:44rem}
@@ -36,7 +38,7 @@ export default {
       items: () => [
         'Mean squared error averages the squared differences. Use it when the model predicts numbers.',
         'Cross-entropy is for classes. It is small when the model gives the correct class a high probability.',
-        'The gradient of cross-entropy is the softmax minus the correct answer. So a very wrong model still gets a strong gradient.',
+        'The gradient of cross-entropy is the softmax output minus the one-hot target, divided by the batch size. So a very wrong model still gets a strong gradient.',
       ],
     },
     {
@@ -45,12 +47,13 @@ export default {
     ${eq('L = \\frac{1}{N}\\sum_{i=1}^{N} (y_i - t_i)^2 \\qquad \\frac{\\partial L}{\\partial y_i} = \\frac{2\\,(y_i - t_i)}{N}')}
     <p>Here <code>y</code> is the prediction, <code>t</code> is the target and <code>N</code> is the number of values. With the predictions ${list(T, `${F}.mse.prediction`)} and the targets ${list(T, `${F}.mse.target`)}, the loss is ${T(`${F}.mse.loss`)}. The third prediction is exactly right, so its gradient is ${T(`${F}.mse.grad.2`)}.</p>
     <pre class="ls2-code" tabindex="0" role="group" aria-label="Mean squared error in TorC"><code>nn::MSELoss mse;
-Variable L = mse(y, t);    // y and t have the same shape</code></pre>`),
+Variable L = mse(y, t);    // y and t must have the same shape</code></pre>
+    <p>TorC does not check that <code>y</code> and <code>t</code> have the same shape. With predictions of shape ${shp(D.files.losses.mse_broadcast.prediction_shape)} and targets of shape ${shp(D.files.losses.mse_broadcast.target_shape)}, it gives the loss ${T(`${F}.mse_broadcast.loss`)} instead of ${T(`${F}.mse.loss`)}, and no error.</p>`),
     },
     {
       kind: 'text',
       html: (D, T) => sec('ce', '2 · Cross-entropy', `
-    <p>A classifier gives one score for each class. These scores are called logits. Softmax turns the logits into probabilities. Cross-entropy is the negative logarithm of the probability of the correct class, averaged over the batch.</p>
+    <p>A classifier gives one number for each class, the logit of that class. Softmax turns the logits into probabilities. The label of a sample is the number of its correct class. Cross-entropy is the negative logarithm of the probability of the correct class, averaged over the batch.</p>
     ${eq('p = \\mathrm{softmax}(z) \\qquad L = -\\log p_{t}')}
     <p>For the logits ${list(T, `${MILD}.logits`)}, the first class has probability ${T(`${MILD}.cases.0.softmax.0`)}. If the first class is correct, the loss is ${T(`${MILD}.cases.0.loss`)}. If the third class is correct, the loss is ${T(`${MILD}.cases.2.loss`)}.</p>
     <pre class="ls2-code" tabindex="0" role="group" aria-label="Cross-entropy in TorC"><code>nn::CrossEntropyLoss ce;
@@ -64,12 +67,12 @@ Variable L = ce(logits, labels);   // logits (B, C), labels (B)</code></pre>`),
       kind: 'text',
       html: () => sec('grad', '3 · The gradient of cross-entropy', `
     ${eq('\\frac{\\partial L}{\\partial z_j} = \\frac{p_j - [\\,j = t\\,]}{B}')}
-    <p>Here <code>B</code> is the batch size, and ${math('[\\,j = t\\,]', false)} is one for the correct class and zero for the others. So the gradient raises the logit of the correct class. It lowers each other logit in proportion to its probability.</p>`),
+    <p>Here <code>B</code> is the batch size, and ${math('[\\,j = t\\,]', false)} is one for the correct class and zero for the others. These ones and zeros are the one-hot target. The gradient is negative for the correct class and positive for the others. Gradient descent subtracts the gradient. So the step raises the logit of the correct class, and it lowers each other logit in proportion to its probability.</p>`),
     },
     {
       kind: 'predict', id: 'p-wrong', title: 'Before you try it',
-      prompt: () => '<p>A model gives the correct class a probability near zero. Is the gradient for its logit large or small? Compare cross-entropy with the squared error between the probabilities and the correct answer.</p>',
-      reveal: (D, T) => `<p>With cross-entropy the gradient is large. At a logit of ${T(`${F}.curves.z.0`)} it is ${T(`${F}.curves.ce_grad.0`)}. With the squared error it is only ${T(`${F}.curves.sq_grad.0`)}. So the squared error learns very slowly when the model is very wrong.</p>`,
+      prompt: () => '<p>A model has two classes. Its logits are <code>z</code> and <code>0</code>, and the first class is correct. For a very negative <code>z</code>, the correct class gets a probability near zero. Is the gradient for <code>z</code> then large or small? Compare cross-entropy with the squared error between the softmax output and the one-hot target.</p>',
+      reveal: (D, T) => `<p>With cross-entropy the gradient is large. At <code>z</code> = ${T(`${F}.curves.z.0`)} it is ${T(`${F}.curves.ce_grad.0`)}. With the squared error it is only ${T(`${F}.curves.sq_grad.0`)}. So with the squared error, a very wrong model learns very slowly.</p>`,
     },
     {
       kind: 'widget', id: 'compare', className: 'widget', label: 'Interactive: the gradient of cross-entropy and of squared error, for one logit',
@@ -78,14 +81,14 @@ Variable L = ce(logits, labels);   // logits (B, C), labels (B)</code></pre>`),
     {
       kind: 'text',
       html: (D) => sec('targets', '4 · Labels in TorC', `
-    <p>The labels are class numbers, stored as float values in a tensor of shape <code>(B)</code> or <code>(B, 1)</code>. TorC checks each label. A label of <code>1.5</code> gives this error.</p>
+    <p>The labels are class numbers, stored as float values in a tensor of shape <code>(B)</code> or <code>(B, 1)</code>. TorC checks each label. A label of <code>${errTargets(D, 'not-integer')}</code> gives this error.</p>
     <p>${err(D, 'not-integer')}</p>
-    <p>A label that is not a class of the model gives this error.</p>
+    <p>A label of <code>${errTargets(D, 'out-of-range')}</code> for a model with three classes gives this error.</p>
     <p>${err(D, 'out-of-range')}</p>`),
     },
     {
       kind: 'check', id: 'c-uniform',
-      prompt: () => '<p>A model gives the logits <code>0, 0, 0</code> for three classes. What is the cross-entropy, whichever class is correct?</p>',
+      prompt: (D) => `<p>A model gives the logits <code>${D.files.losses.ce[0].logits.join(', ')}</code> for three classes. What is the cross-entropy, whichever class is correct?</p>`,
       reveal: (D, T) => `<p>It is ${T(`${UNI}.cases.0.loss`)}. Each class has probability ${T(`${UNI}.cases.0.softmax.0`)}, and the loss is the negative logarithm of that probability.</p>`,
     },
     {
@@ -95,7 +98,7 @@ Variable L = ce(logits, labels);   // logits (B, C), labels (B)</code></pre>`),
     },
     {
       kind: 'text',
-      html: () => '<section class="ls2"><p>The next lesson, <a href="../training-loop/">The training loop</a>, repeats the forward pass, the loss and the update many times.</p></section>',
+      html: () => '<section class="ls2"><p>The next lesson, <a href="../training-loop/">The training loop</a>, repeats the forward pass, the loss and the change of the parameters many times.</p></section>',
     },
   ],
 };

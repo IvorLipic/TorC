@@ -67,6 +67,23 @@ test('runs: steps per epoch are ceil(100 / batch size); smaller batches reach a 
   assert.ok(Math.abs(run(10).epochs[0].loss - data.data.y.reduce((a, y) => a + y * y, 0) / N) < 1e-5);
 });
 
+test('the loss of the true line is not the lowest training loss: the least-squares line on these samples is a little lower', () => {
+  const x = data.data.x, y = data.data.y, n = x.length;
+  const mx = x.reduce((a, v) => a + v, 0) / n, my = y.reduce((a, v) => a + v, 0) / n;
+  const w = x.reduce((a, v, i) => a + (v - mx) * (y[i] - my), 0) / x.reduce((a, v) => a + (v - mx) ** 2, 0), b = my - w * mx;
+  const lsq = x.reduce((a, v, i) => a + (w * v + b - y[i]) ** 2, 0) / n;
+  const last = run(10).epochs.at(-1);
+  assert.ok(lsq < data.true_line_loss, 'least squares fits part of the noise');
+  assert.ok(last.loss < data.true_line_loss, `the page says the model ends a little below the true line: ${last.loss} vs ${data.true_line_loss}`);
+  assert.ok(Math.abs(last.loss - lsq) < 1e-5, `the batch-10 run reaches the least-squares line: ${last.loss} vs ${lsq}`);
+  assert.ok(Math.abs(last.weight - w) < 1e-3 && Math.abs(last.bias - b) < 1e-3);
+});
+
+test('the runs the page names by batch size exist, and the loader seed is the one the widget states', () => {
+  assert.deepEqual(data.runs.map((r) => r.batch_size).sort((a, b) => a - b), [10, 32, 100]);
+  assert.equal(data.setup.loader_seed, 7);
+});
+
 test('without reset() the loop stops after the first epoch, with no error', () => {
   assert.deepEqual(data.no_reset.map((e) => e.steps), [10, 0, 0]);
   assert.equal(data.no_reset[1].loss, data.no_reset[0].loss);

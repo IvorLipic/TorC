@@ -80,11 +80,12 @@ export function mountBatchViewer(host, D) {
   const batch = el('p', { class: 'tl-batch' });
   const err = el('p', { class: 'tl-err', hidden: true });
   const note = el('p', { class: 'tl-note' });
-  const live = el('div', { 'aria-live': 'polite' }, status, batch, err, note);
+  const seed = el('p', { class: 'tl-note' }, `This loader uses the seed ${R.setup.loader_seed}. A loader without a seed gets a new random order each time the program runs.`);
+  const live = el('div', { 'aria-live': 'polite' }, status, err);   // the list of up to 32 indices is not read out on each click
   host.replaceChildren(el('div', { class: 'tl' },
     el('div', { class: 'tl-ctl' }, sizes.root, order.root),
     el('div', { class: 'tl-calls', role: 'group', 'aria-label': 'Calls on the loader' }, nextBtn, resetBtn),
-    grid, live));
+    grid, live, batch, note, seed));
   const loader = () => R.loaders.find((l) => l.batch_size === bs && l.shuffle === shuffle);
 
   function draw() {
@@ -129,7 +130,7 @@ export function mountTrainingCurves(host, D) {
     pl.layer('live');
     mark();
   };
-  const p = createPlot(box, { width: 640, height: 290, x: [0, E], y: LOG, xLabel: 'epoch', yLabel: 'loss', ariaLabel: '', onResize: paint });
+  const p = createPlot(box, { width: 640, height: 290, x: [0, E], y: LOG, xLabel: 'epoch', yLabel: 'loss (log scale)', ariaLabel: '', onResize: paint });
 
   function mark() {
     p.clear('live');
