@@ -253,14 +253,17 @@
             "optimizers"
           ],
           "symbols": [
-            "optim::AdamW",
-            "data::DataLoader"
+            "data::TensorDataset",
+            "data::DataLoader",
+            "optim::AdamW"
           ],
-          "trace": [],
+          "trace": [
+            "generalization.json"
+          ],
           "est_minutes": 7,
-          "status": "planned",
+          "status": "published",
           "widgets": [
-            "train vs test curve"
+            "train and test curves"
           ],
           "code": "data::DataLoader train(train_set, 64, /*shuffle=*/true);\ndata::DataLoader test(test_set, 256);   // never trained on\noptim::AdamW opt(params, 1e-3f, /*weight_decay=*/0.01f);"
         },

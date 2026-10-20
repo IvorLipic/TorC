@@ -22,6 +22,7 @@ TRACES=(
   "trace_losses:losses.json"
   "trace_training:training.json"
   "trace_optimizers:optimizers.json"
+  "trace_generalization:generalization.json"
 )
 
 ARGS=(-S "$ROOT/tools/trace" -B "$BUILD" -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER="$CXX")

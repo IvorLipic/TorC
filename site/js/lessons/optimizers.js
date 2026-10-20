@@ -90,7 +90,7 @@ optim::Adam adam(params, 0.2f);                 // beta1 0.9, beta2 0.999, eps 1
     },
     {
       kind: 'text',
-      html: () => '<section class="op"><p>Go back to the <a href="../../">course map</a>. The next lesson shows why a model can fit its training data and still fail on new data, and how weight decay helps.</p></section>',
+      html: () => '<section class="op"><p>The next lesson, <a href="../generalization/">Generalization</a>, shows why a model can fit its training data and still fail on new data, and how weight decay helps.</p></section>',
     },
   ],
 };

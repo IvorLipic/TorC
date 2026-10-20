@@ -5,7 +5,7 @@ Every file in `site/data/` is written by a program in `tools/trace/` that runs t
 never edit a file there by hand. This page says what is in each file so a lesson author knows what can be quoted without typing a number.
 
 Producers, in `tools/trace/`: `trace_util.hpp` (shared: JSON writer, `Graph`, `Scene`/`run_scene`, tensor serialisation, finite-difference
-checker, envelope), `autograd_trace.cpp`, `trace_why.cpp`, `trace_optim.cpp`, `trace_linear.cpp`, `trace_tensors.cpp`, `trace_nonlinear.cpp`, `trace_modules.cpp`, `trace_losses.cpp`, `trace_training.cpp`, `trace_optimizers.cpp`. Behaviour notes per lesson (what the
+checker, envelope), `autograd_trace.cpp`, `trace_why.cpp`, `trace_optim.cpp`, `trace_linear.cpp`, `trace_tensors.cpp`, `trace_nonlinear.cpp`, `trace_modules.cpp`, `trace_losses.cpp`, `trace_training.cpp`, `trace_optimizers.cpp`, `trace_generalization.cpp`. Behaviour notes per lesson (what the
 numbers mean, derivations, library symbols): `docs/lessons/<lesson>.md`.
 
 ## Conventions
@@ -13,7 +13,7 @@ numbers mean, derivations, library symbols): `docs/lessons/<lesson>.md`.
 - **Envelope** (top of every file, in this order): `schema` = `"torc-trace/1"`; `library` = `{ref, compiler, flags}` (`ref` is the content of
   `TORC_REF`, e.g. `"v0.1.0"`; `compiler` e.g. `"clang 18.1.3 (libstdc++ 14)"`; `flags` the build flags, including `-ffp-contract=off`, which the trace build sets for TorC and the producers so that no
   fused multiply-add changes a result on a CPU that has one; the last two are informational and
-  are not compared by the drift check); `generator` = source file of the producer; `kind` = topic (`autograd` | `why` | `optim` | `linear` | `tensors` | `nonlinearity` | `modules` | `losses` | `training` | `optimizers`);
+  are not compared by the drift check); `generator` = source file of the producer; `kind` = topic (`autograd` | `why` | `optim` | `linear` | `tensors` | `nonlinearity` | `modules` | `losses` | `training` | `optimizers` | `generalization`);
   `lesson` = first lesson that uses the file. Everything else is topic data. Unknown keys must be ignored by consumers.
 - **Numbers.** Values the library computed in `float32` are written with 9 significant digits (they round-trip the float32 exactly, so
   `0.1f` appears as `0.100000001`; present them rounded). Values that are configuration or were derived in `double` (learning rates, `h`,
@@ -155,4 +155,13 @@ state before step `k + 1`). `surface` = `{w1[61], w2[49], order, loss[49][61]}` 
 `{lr, weight_decay, target, start}`; `decay[]` = `{optimizer: Adam|AdamW, steps[51]{step, w1, w2, u, u_has_grad, w2_grad}}` for
 `(w1 - 2)² + 0·w2²` and a parameter `u` that the loss does not use. `derived` = `{sgd_lr_limit, decay_factor, w2_after_50_adamw}`.
 Producer: `tools/trace/trace_optimizers.cpp`.
+
+## `generalization.json` (kind `generalization`, lesson `generalization`)
+
+`setup` = `{degree 15, train_samples 10, test_samples 100, noise 0.3, lr 0.05, steps 20000, optimizer, loss}`. `data` =
+`{train_x, train_t, test_x, test_t, grid[81]}`: input made by the producer (`sin(pi x)` plus uniform noise from `std::mt19937`), not
+library output. `runs[]` = `{weight_decay: 0|0.1|1, checkpoints[27]{step, train_loss, test_loss, weight_sum_sq, curve[81]}}` for
+steps 0 to 20000: `nn::Linear(15, 1)` on the powers of x, `optim::AdamW`, full batch; the losses are `nn::MSELoss` on each whole set
+with no gradient, `curve` is the model on `grid`. `derived` = `{noise_variance}` (`a²/3` for noise uniform in `[-a, a)`).
+Producer: `tools/trace/trace_generalization.cpp`.
 

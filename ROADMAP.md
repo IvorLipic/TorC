@@ -55,8 +55,9 @@ Status legend: `[x]` done · `[~]` in progress · `[ ]` planned. The detailed cu
 - [x] 07 Losses (2026-10-16): trace `losses.json` (MSE, cross-entropy, batch mean, CE vs squared-error gradient, label errors), loss explorer and gradient comparison
 - [x] 08 The training loop (2026-10-20): trace `training.json` (batch orders, three batch sizes, the run without `reset()`, the loss of the true line), batch viewer and training curves
 - [x] 09 Better optimizers (2026-10-20): trace `optimizers.json` (SGD, momentum and Adam in a narrow valley, Adam's first step, AdamW's decay), optimizer race
+- [x] 10 Generalization (2026-10-20): trace `generalization.json` (a degree-15 polynomial on 10 samples, three weight decays), model and loss curves
 
-Remaining: Generalization → MNIST MLP → Convolution →
+Remaining: MNIST MLP → Convolution →
 MNIST CNN. Specs in content-plan section 2 (v1 course map) and section 3.
 
 ## Open decisions
