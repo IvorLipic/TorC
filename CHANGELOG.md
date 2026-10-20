@@ -10,14 +10,14 @@ All notable changes to `torc` are recorded here. The format follows
 - GitHub Actions CI (`.github/workflows/ci.yml`): clang-18/gcc-14 build + `ctest` matrix, install and
   consumer smoke test, and an ASan + UBSan job.
 
-### Fixed
-- `nn::MSELoss` backward: when `input` and `target` have different shapes that broadcast (for
-  example `(N, 1)` against `(N)`), the gradient was scaled by `2 / input.numel()` although the
-  forward loss is the mean over the broadcast result, so it was too large by the ratio of the
-  broadcast and input element counts (3x for a `(3, 1)` input against a `(3)` target). Backward
-  now scales by `2 / N_broadcast` and the standard broadcast reduction sums to each operand's
-  shape. Equal-shape results are unchanged, and the forward semantics (mean over the broadcast
-  result) are now documented in `nn/losses.hpp`.
+### Changed
+- **Breaking:** `nn::MSELoss` now throws `ShapeError` when `input` and `target` have different
+  shapes (`MSELoss input shape (3, 1) must match target shape (3)`). In 0.1.0 it broadcast them:
+  a `(N, 1)` prediction against `(N)` targets was silently compared as an `(N, N)` matrix, and the
+  backward pass divided by `input.numel()` instead of the broadcast count, so the gradient was
+  also too large (3x for `(3, 1)` against `(3)`). Code that passed equal shapes is unaffected;
+  code that relied on broadcasting must reshape one operand first. This replaces the unreleased
+  fix that had corrected the broadcast gradient.
 
 ## [0.1.0] - 2026-10-13
 
