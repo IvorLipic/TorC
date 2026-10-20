@@ -26,7 +26,9 @@ log-softmax of each row, negative log-probability of the target, mean over the b
 
 ## Suspected discrepancy
 `MSELoss` with shapes that broadcast: no shape check, and a gradient that does not match the reported loss. Logged in
-`docs/library-audit/v0.1.0-findings.md`. Not fixed on `main` (the site branch does not change the library).
+`docs/library-audit/v0.1.0-findings.md`. The gradient is fixed on `main` by PR #5, after v0.1.0; the broadcasting without an error
+is kept there by design. When `TORC_REF` moves past PR #5, `mse_broadcast.grad` in the trace changes, and the losses test that
+expects the old gradient must change with it.
 
 ## Lesson status
 Published 2026-10-16 as "Losses". Widgets: `loss-widgets.js` (loss explorer, gradient comparison). Tests:
