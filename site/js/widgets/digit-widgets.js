@@ -1,12 +1,14 @@
-// widgets/digit-widgets.js — the two widgets of the lesson mnist-mlp, with the weights TorC learned (data/mnist-mlp.json,
-// tools/trace/trace_mnist_mlp.cpp):
+// widgets/digit-widgets.js — the widgets of the lessons mnist-mlp and mnist-cnn, with the weights TorC learned
+// (data/mnist-mlp.json, tools/trace/trace_mnist_mlp.cpp; data/mnist-cnn.json, tools/trace/trace_mnist_cnn.cpp):
 //
-//   mountDigitPad(host, D)        draw a digit (or pick a test image); the page runs the model's forward pass on it with TorC's
-//                                 weights and shows the probability of each digit
-//   mountWeightsGallery(host, D)  the 32 rows of the first layer's weight matrix, each drawn as a 28 x 28 image
+//   mountDigitPad(host, D, opts)  draw a digit (or pick a test image); the page runs the model's forward pass on it with TorC's
+//                                 weights and shows the probability of each digit. opts = {file, forward} picks the model
+//                                 (default: the MLP).
+//   mountWeightsGallery(host, D)  the 32 rows of the MLP's first weight matrix, each drawn as a 28 x 28 image
+//   mountCnnMaps(host, D)         the 8 kernels of the CNN's first convolution and their feature maps on a test image
 //
-// The forward pass is a port of nn::Linear (y = x·Wᵀ + b) and ReLU; the tests compare it with the logits TorC recorded for 20 test
-// images. A drawing goes through the same steps as the MNIST images: the ink is cropped, scaled into a 20 x 20 box, and placed so
+// The forward passes are ports of nn::Linear (y = x·Wᵀ + b), conv2d (stride, zero padding, no kernel flip), ReLU and Flatten;
+// the tests compare them with the logits TorC recorded for 20 test images, and with the CNN's first feature maps. A drawing goes through the same steps as the MNIST images: the ink is cropped, scaled into a 20 x 20 box, and placed so
 // that its centre of mass is at the centre of the 28 x 28 image. Pure helpers are exported for the tests; the module touches the
 // DOM only in mount*.
 import { el } from '../core/dom.js';
@@ -26,6 +28,36 @@ const relu = (v) => v.map((a) => (a > 0 ? a : 0));
 export function forward(layers, pixels) {
   const x = Array.from(pixels, (p) => p / 255);
   return linear(layers[2], relu(linear(layers[1], relu(linear(layers[0], x)))));
+}
+// conv2d of one sample: x has C_in·H·W values, layer = {weight_shape: [C_out, C_in, K, K], weight, bias}; returns C_out·H_out·W_out
+export function conv2d(x, cin, h, w, layer, stride, pad) {
+  const [cout, , k] = layer.weight_shape, ho = Math.floor((h + 2 * pad - k) / stride) + 1, wo = Math.floor((w + 2 * pad - k) / stride) + 1;
+  const y = new Array(cout * ho * wo);
+  for (let co = 0; co < cout; co++) for (let i = 0; i < ho; i++) for (let j = 0; j < wo; j++) {
+    let s = layer.bias[co];
+    for (let ci = 0; ci < cin; ci++) for (let a = 0; a < k; a++) {
+      const ii = i * stride + a - pad;
+      if (ii < 0 || ii >= h) continue;
+      for (let b = 0; b < k; b++) {
+        const jj = j * stride + b - pad;
+        if (jj < 0 || jj >= w) continue;
+        s += x[(ci * h + ii) * w + jj] * layer.weight[((co * cin + ci) * k + a) * k + b];
+      }
+    }
+    y[(co * ho + i) * wo + j] = s;
+  }
+  return { y, ho, wo };
+}
+// the CNN of examples/mnist_cnn: Conv2d(1, 8, 3, 2, 1), ReLU, Conv2d(8, 16, 3, 2, 1), ReLU, Flatten, Linear(784, 10)
+export function cnnFirstMaps(layers, pixels) {
+  const x = Array.from(pixels, (p) => p / 255);
+  const c = conv2d(x, 1, 28, 28, layers[0], 2, 1);
+  return { maps: relu(c.y), h: c.ho, w: c.wo };
+}
+export function forwardCnn(layers, pixels) {
+  const a = cnnFirstMaps(layers, pixels);
+  const b = conv2d(a.maps, layers[0].weight_shape[0], a.h, a.w, layers[1], 2, 1);
+  return linear(layers[2], relu(b.y));   // Flatten keeps the (C, H, W) order
 }
 export function softmax(z) {
   const m = Math.max(...z), e = z.map((v) => Math.exp(v - m)), s = e.reduce((a, b) => a + b, 0);
@@ -80,6 +112,7 @@ const CSS = `
 .dw-btns .btn{font-family:ui-monospace,monospace}
 .dw .btn[aria-pressed=true]{border-color:var(--fwd);color:var(--fwd);background:rgba(88,196,221,.1)}
 .dw-gal{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:6px;max-width:44rem}
+.dw-row>.dw-gal{flex:1 1 14rem;min-width:0}
 .dw-tile{display:flex;flex-direction:column;align-items:center;gap:2px;font:.72rem ui-monospace,monospace;color:var(--muted)}
 .dw-tile canvas{width:100%;max-width:84px;aspect-ratio:1;image-rendering:pixelated;border:1px solid var(--border);border-radius:4px}
 .dw-key{display:flex;flex-wrap:wrap;gap:.2rem 1.2rem;font-size:.82rem;color:var(--muted);margin:.5rem 0 0}
@@ -95,9 +128,9 @@ function paintGray(canvas, pixels) {   // 784 values 0..255 onto a 28 x 28 canva
 }
 
 // ======================================================================================================================
-export function mountDigitPad(host, D) {
+export function mountDigitPad(host, D, { file = 'mnist-mlp', forward: fwd = forward } = {}) {
   injectStyles();
-  const M = D.files['mnist-mlp'], layers = M.layers, N = 280;
+  const M = D.files[file], layers = M.layers, N = 280;
   const pad = el('canvas', { class: 'dw-pad', width: N, height: N, role: 'img', 'aria-label': 'Drawing area. Draw a digit with a mouse, a pen or a finger.' });
   const seen = el('canvas', { class: 'dw-seen', width: 28, height: 28, role: 'img', 'aria-label': 'The 28 by 28 image the model reads' });
   const bars = el('div', { class: 'dw-bars', 'aria-hidden': 'true' });
@@ -115,7 +148,7 @@ export function mountDigitPad(host, D) {
   function show(pixels, recorded) {
     paintGray(seen, pixels ?? new Array(784).fill(0));
     if (!pixels) { bars.replaceChildren(); read.textContent = 'Draw a digit, or pick a test image.'; return; }
-    const p = softmax(forward(layers, pixels)), top = argmax(p);
+    const p = softmax(fwd(layers, pixels)), top = argmax(p);
     bars.replaceChildren(...p.flatMap((v, d) => [el('span', {}, String(d)), el('div', { class: `dw-bar${d === top ? ' top' : ''}`, style: `width:${(100 * v).toFixed(1)}%` }), el('span', {}, v.toFixed(3))]));
     read.textContent = recorded
       ? `Test image ${recorded.index}, label ${recorded.label}. The model reads ${top}, with probability ${p[top].toFixed(3)}. TorC also reads ${argmax(recorded.logits)}.`
@@ -180,4 +213,47 @@ export function mountWeightsGallery(host, D) {
   host.replaceChildren(el('div', { class: 'dw' },
     el('div', { class: 'dw-gal', role: 'img', 'aria-label': `The ${rows} rows of the first weight matrix, each drawn as a 28 by 28 image. Amber pixels have positive weights, blue pixels have negative weights.` }, ...tiles),
     el('div', { class: 'dw-key', 'aria-hidden': 'true' }, el('span', {}, 'amber: a positive weight, so ink here raises the neuron'), el('span', {}, 'blue: a negative weight, so ink here lowers it'), el('span', {}, 'dark: a weight near zero'))));
+}
+
+// ======================================================================================================================
+export function mountCnnMaps(host, D) {
+  injectStyles();
+  const M = D.files['mnist-cnn'], L = M.layers[0], [cout, , k] = L.weight_shape;
+  let pick = 0;
+  const btns = M.shown.slice(0, 8).map((s, i) => el('button', { type: 'button', class: 'btn small', 'aria-pressed': 'false', 'aria-label': `Test image ${s.index}, label ${s.label}`, onclick: () => { pick = i; draw(); } }, `#${s.index}`));
+  const img = el('canvas', { class: 'dw-seen', width: 28, height: 28, role: 'img' });
+  const tiles = Array.from({ length: cout }, (_, c) => {
+    const kc = el('canvas', { width: k, height: k, 'aria-hidden': 'true' }), mc = el('canvas', { width: 14, height: 14, 'aria-hidden': 'true' });
+    return { kc, mc, root: el('div', { class: 'dw-tile' }, kc, mc, el('span', {}, `channel ${c}`)) };
+  });
+  const gal = el('div', { class: 'dw-gal', role: 'img' }, ...tiles.map((t) => t.root));
+  host.replaceChildren(el('div', { class: 'dw' },
+    el('div', { class: 'dw-btns', role: 'group', 'aria-label': 'Test images' }, ...btns),
+    el('div', { class: 'dw-row' }, el('div', { class: 'dw-side' }, el('span', { class: 'dw-lbl' }, 'input'), img), gal),
+    el('div', { class: 'dw-key', 'aria-hidden': 'true' }, el('span', {}, 'top of each pair: the 3 × 3 kernel (amber positive, blue negative)'), el('span', {}, 'bottom: its 14 × 14 feature map after relu (brighter is larger; each map has its own scale)'))));
+  // the kernels
+  tiles.forEach((t, c) => {
+    const w = L.weight.slice(c * k * k, (c + 1) * k * k), m = Math.max(...w.map(Math.abs)) || 1;
+    const ctx = t.kc.getContext('2d'), im = ctx.createImageData(k, k);
+    w.forEach((v, q) => {
+      const s = Math.min(1, Math.abs(v) / m), [R, G, B] = v >= 0 ? [227, 179, 65] : [88, 196, 221];
+      im.data.set([14 + s * (R - 14), 17 + s * (G - 17), 22 + s * (B - 22), 255].map(Math.round), 4 * q);
+    });
+    ctx.putImageData(im, 0, 0);
+  });
+  function draw() {
+    btns.forEach((b, i) => b.setAttribute('aria-pressed', String(i === pick)));
+    const s = M.shown[pick];
+    paintGray(img, s.pixels);
+    img.setAttribute('aria-label', `Test image ${s.index}, a handwritten ${s.label}`);
+    const { maps, h, w } = cnnFirstMaps(M.layers, s.pixels);
+    tiles.forEach((t, c) => {
+      const ctx = t.mc.getContext('2d'), im = ctx.createImageData(w, h), top = Math.max(...maps.slice(c * h * w, (c + 1) * h * w)) || 1;
+      for (let q = 0; q < h * w; q++) { const g = Math.round(255 * Math.min(1, maps[c * h * w + q] / top)); im.data.set([g, g, g, 255], 4 * q); }
+      ctx.putImageData(im, 0, 0);
+    });
+    gal.setAttribute('aria-label', `The ${cout} kernels of the first convolution and their feature maps for test image ${s.index}. Each map is ${h} by ${w}, half the size of the image, because the stride is two.`);
+  }
+  draw();
+  return { draw };
 }

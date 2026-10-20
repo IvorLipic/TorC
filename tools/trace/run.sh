@@ -26,6 +26,7 @@ TRACES=(
   "trace_generalization:generalization.json"
   "trace_mnist_mlp:mnist-mlp.json"
   "trace_conv:conv.json"
+  "trace_mnist_cnn:mnist-cnn.json"
 )
 
 # MNIST for trace_mnist_mlp: downloaded once into build/mnist (checksums checked), converted to the CSV that MNISTDataset reads.

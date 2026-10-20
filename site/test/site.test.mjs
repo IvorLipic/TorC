@@ -121,8 +121,9 @@ test('every lesson with code on the home page has a prelude and checks in tools/
 });
 
 test('check_site: a planned lesson must not have a page yet', () => withCopy(async (d) => {
-  const planned = flatLessons(course()).find((l) => l.status === 'planned');
-  mkdirSync(path.join(d, 'lessons', planned.id), { recursive: true });
-  writeFileSync(path.join(d, 'lessons', planned.id, 'index.html'), '<title>x</title>');
-  assert.match(await messages(d), new RegExp(`planned lesson "${planned.id}" already has`));
+  // every lesson may be published, so the copy marks one as planned and keeps its page
+  const c = course(), id = flatLessons(c).find((l) => l.status === 'published' && l.trace.length).id;
+  for (const part of c.parts) for (const l of part.lessons) if (l.id === id) l.status = 'planned';
+  writeFileSync(path.join(d, 'course.json'), JSON.stringify(c, null, 2) + '\n');
+  assert.match(await messages(d), new RegExp(`planned lesson "${id}" already has`));
 }));

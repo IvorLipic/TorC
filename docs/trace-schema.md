@@ -5,7 +5,7 @@ Every file in `site/data/` is written by a program in `tools/trace/` that runs t
 never edit a file there by hand. This page says what is in each file so a lesson author knows what can be quoted without typing a number.
 
 Producers, in `tools/trace/`: `trace_util.hpp` (shared: JSON writer, `Graph`, `Scene`/`run_scene`, tensor serialisation, finite-difference
-checker, envelope), `autograd_trace.cpp`, `trace_why.cpp`, `trace_optim.cpp`, `trace_linear.cpp`, `trace_tensors.cpp`, `trace_nonlinear.cpp`, `trace_modules.cpp`, `trace_losses.cpp`, `trace_training.cpp`, `trace_optimizers.cpp`, `trace_generalization.cpp`, `trace_mnist_mlp.cpp`, `trace_conv.cpp`. Behaviour notes per lesson (what the
+checker, envelope), `autograd_trace.cpp`, `trace_why.cpp`, `trace_optim.cpp`, `trace_linear.cpp`, `trace_tensors.cpp`, `trace_nonlinear.cpp`, `trace_modules.cpp`, `trace_losses.cpp`, `trace_training.cpp`, `trace_optimizers.cpp`, `trace_generalization.cpp`, `trace_mnist_mlp.cpp`, `trace_conv.cpp`, `trace_mnist_cnn.cpp`. Behaviour notes per lesson (what the
 numbers mean, derivations, library symbols): `docs/lessons/<lesson>.md`.
 
 ## Conventions
@@ -13,7 +13,7 @@ numbers mean, derivations, library symbols): `docs/lessons/<lesson>.md`.
 - **Envelope** (top of every file, in this order): `schema` = `"torc-trace/1"`; `library` = `{ref, compiler, flags}` (`ref` is the content of
   `TORC_REF`, e.g. `"v0.1.0"`; `compiler` e.g. `"clang 18.1.3 (libstdc++ 14)"`; `flags` the build flags, including `-ffp-contract=off`, which the trace build sets for TorC and the producers so that no
   fused multiply-add changes a result on a CPU that has one; the last two are informational and
-  are not compared by the drift check); `generator` = source file of the producer; `kind` = topic (`autograd` | `why` | `optim` | `linear` | `tensors` | `nonlinearity` | `modules` | `losses` | `training` | `optimizers` | `generalization` | `mnist-mlp` | `conv`);
+  are not compared by the drift check); `generator` = source file of the producer; `kind` = topic (`autograd` | `why` | `optim` | `linear` | `tensors` | `nonlinearity` | `modules` | `losses` | `training` | `optimizers` | `generalization` | `mnist-mlp` | `conv` | `mnist-cnn`);
   `lesson` = first lesson that uses the file. Everything else is topic data. Unknown keys must be ignored by consumers.
 - **Numbers.** Values the library computed in `float32` are written with 9 significant digits (they round-trip the float32 exactly, so
   `0.1f` appears as `0.100000001`; present them rounded). Values that are configuration or were derived in `double` (learning rates, `h`,
@@ -185,4 +185,11 @@ kernel[9], shape, output[784], relu[784]}]}` (stride 1, padding 1; MNIST from `M
 parameters, params[{name, shape}], kernel?, stride?, padding?}` for the six modules of the example's CNN on (2, 1, 28, 28);
 `cnn_parameters` is their sum. `dense_compare` = `{label, parameters}` for `Linear(784, 8)`. `errors[]` = `{id: channels|too-small,
 input_shape, weight_shape, exception, what}`. Producer: `tools/trace/trace_conv.cpp`.
+
+## `mnist-cnn.json` (kind `mnist-cnn`, lesson `mnist-cnn`)
+
+The same layout as `mnist-mlp.json` (`setup`, `epochs[]` for epochs 0 to 5, `test_per_class`, `layers[3]`, `shown[20]`), for the
+CNN of `examples/mnist_cnn`: `layers` are Conv2d (8, 1, 3, 3), Conv2d (16, 8, 3, 3) and Linear (10, 784), weights in TorC's
+row-major order. Extra: `first_maps` = `{index, shape (1, 8, 14, 14), values}`, the first convolution after relu for the first
+shown image. Producer: `tools/trace/trace_mnist_cnn.cpp`.
 

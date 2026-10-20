@@ -92,7 +92,7 @@ model.add(std::make_unique&lt;nn::Linear&gt;(16 * 7 * 7, 10));</code></pre>
     },
     {
       kind: 'text',
-      html: () => '<section class="cv"><p>Go back to the <a href="../../">course map</a>. The next lesson trains this CNN on the handwritten digits.</p></section>',
+      html: () => '<section class="cv"><p>The next lesson, <a href="../mnist-cnn/">Digits with a CNN</a>, trains this CNN on the handwritten digits.</p></section>',
     },
   ],
 };

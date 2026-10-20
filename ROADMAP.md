@@ -58,8 +58,11 @@ Status legend: `[x]` done · `[~]` in progress · `[ ]` planned. The detailed cu
 - [x] 10 Generalization (2026-10-20): trace `generalization.json` (a degree-15 polynomial on 10 samples, three weight decays), model and loss curves
 - [x] 11 Digits with an MLP (2026-10-20): MNIST fetched and checked by `fetch_mnist.sh`, trace `mnist-mlp.json` (the example's model trained in TorC, its weights, 20 test images with TorC's logits), weights gallery and digit pad (a tested browser port of the forward pass)
 - [x] 12 Convolution (2026-10-20): trace `conv.json` (a small example in three settings, edge kernels on a digit, the example CNN's shapes and parameters, the errors), sliding window and feature maps
+- [x] 13 Digits with a CNN (2026-10-20): trace `mnist-cnn.json` (the example's CNN trained in TorC for 5 epochs, its weights, test images with TorC's logits, the first feature maps), kernels and feature maps, digit pad with a tested browser port of the CNN
 
-Remaining: MNIST CNN. Specs in content-plan section 2 (v1 course map) and section 3.
+All planned lessons are published. Specs in content-plan section 2 (v1 course map) and section 3.
+Still open: an independent review of lessons 09 to 13, a pass with a real screen reader, Firefox and Safari, and a real touch
+device for the digit pads. TorC findings for `main` are in `docs/library-audit/v0.1.0-findings.md`.
 
 ## Open decisions
 Tracked in [docs/decisions.md](docs/decisions.md) ("Open").

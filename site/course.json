@@ -323,7 +323,7 @@
         },
         {
           "id": "mnist-cnn",
-          "title": "Project: MNIST CNN",
+          "title": "Digits with a CNN",
           "outcome": "A small convolutional network recognizes the same digits with a third of the parameters.",
           "prereqs": [
             "convolution"
@@ -333,12 +333,15 @@
             "nn::Flatten",
             "nn::Sequential"
           ],
-          "trace": [],
+          "trace": [
+            "mnist-cnn.json",
+            "mnist-mlp.json"
+          ],
           "est_minutes": 10,
-          "status": "planned",
+          "status": "published",
           "widgets": [
-            "digit pad",
-            "feature maps"
+            "first-layer kernels and feature maps",
+            "digit pad"
           ],
           "code": "using std::make_unique;\nmodel.add(make_unique<nn::Conv2d>(1, 8, 3, 2, 1));   // (N, 8, 14, 14)\nmodel.add(make_unique<nn::ReLU>());\nmodel.add(make_unique<nn::Conv2d>(8, 16, 3, 2, 1));  // (N, 16, 7, 7)\nmodel.add(make_unique<nn::ReLU>());\nmodel.add(make_unique<nn::Flatten>());\nmodel.add(make_unique<nn::Linear>(16 * 7 * 7, 10)); // 9,098 params"
         }
