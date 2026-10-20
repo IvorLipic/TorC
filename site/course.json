@@ -300,7 +300,7 @@
         {
           "id": "convolution",
           "title": "Convolution",
-          "outcome": "A small filter moves across the image. The stride and the padding set the size of the output.",
+          "outcome": "A small kernel slides across the image. The stride and the padding set the size of the output.",
           "prereqs": [
             "mnist-mlp"
           ],
@@ -310,9 +310,11 @@
             "conv2d",
             "Tensor::conv2d"
           ],
-          "trace": [],
+          "trace": [
+            "conv.json"
+          ],
           "est_minutes": 7,
-          "status": "planned",
+          "status": "published",
           "widgets": [
             "sliding window",
             "feature maps"

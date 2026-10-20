@@ -57,9 +57,9 @@ Status legend: `[x]` done · `[~]` in progress · `[ ]` planned. The detailed cu
 - [x] 09 Better optimizers (2026-10-20): trace `optimizers.json` (SGD, momentum and Adam in a narrow valley, Adam's first step, AdamW's decay), optimizer race
 - [x] 10 Generalization (2026-10-20): trace `generalization.json` (a degree-15 polynomial on 10 samples, three weight decays), model and loss curves
 - [x] 11 Digits with an MLP (2026-10-20): MNIST fetched and checked by `fetch_mnist.sh`, trace `mnist-mlp.json` (the example's model trained in TorC, its weights, 20 test images with TorC's logits), weights gallery and digit pad (a tested browser port of the forward pass)
+- [x] 12 Convolution (2026-10-20): trace `conv.json` (a small example in three settings, edge kernels on a digit, the example CNN's shapes and parameters, the errors), sliding window and feature maps
 
-Remaining: Convolution →
-MNIST CNN. Specs in content-plan section 2 (v1 course map) and section 3.
+Remaining: MNIST CNN. Specs in content-plan section 2 (v1 course map) and section 3.
 
 ## Open decisions
 Tracked in [docs/decisions.md](docs/decisions.md) ("Open").

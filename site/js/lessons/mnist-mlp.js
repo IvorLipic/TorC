@@ -86,7 +86,7 @@ nn::CrossEntropyLoss loss_fn;</code></pre>
     },
     {
       kind: 'text',
-      html: () => '<section class="mm"><p>Go back to the <a href="../../">course map</a>. The next lessons use convolution, which looks at small areas of an image, and train a smaller network on the same digits.</p></section>',
+      html: () => '<section class="mm"><p>The next lesson, <a href="../convolution/">Convolution</a>, shows a layer that looks at small areas of an image. The lesson after it trains a smaller network on the same digits.</p></section>',
     },
   ],
 };
