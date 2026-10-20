@@ -95,7 +95,7 @@ Variable L = ce(logits, labels);   // logits (B, C), labels (B)</code></pre>`),
     },
     {
       kind: 'text',
-      html: () => '<section class="ls2"><p>Go back to the <a href="../../">course map</a>. The next lesson is about the training loop, which repeats the forward pass, the loss and the update many times.</p></section>',
+      html: () => '<section class="ls2"><p>The next lesson, <a href="../training-loop/">The training loop</a>, repeats the forward pass, the loss and the update many times.</p></section>',
     },
   ],
 };

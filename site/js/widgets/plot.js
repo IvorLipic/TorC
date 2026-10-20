@@ -72,10 +72,10 @@ export function createPlot(host, opts) {
     root, sx, sy, width, height, plotArea: null,
     layer,
     clear(name) { layers[name]?.replaceChildren(); },
-    axes({ xTicks = ticks(x), yTicks = ticks(y), fmt = fmtTick } = {}) {
+    axes({ xTicks = ticks(x), yTicks = ticks(y), fmt = fmtTick, xFmt = fmt, yFmt = fmt } = {}) {   // xFmt/yFmt: e.g. a log axis
       const g = svg('g', { class: 'plot-axes' });
-      for (const t of xTicks) g.append(svg('line', { class: 'plot-grid', x1: sx(t), x2: sx(t), y1: m.t, y2: m.t + ih }), svg('text', { class: 'plot-tick', x: sx(t), y: m.t + ih + 16, 'text-anchor': 'middle' }, fmt(t)));
-      for (const t of yTicks) g.append(svg('line', { class: 'plot-grid', x1: m.l, x2: m.l + iw, y1: sy(t), y2: sy(t) }), svg('text', { class: 'plot-tick', x: m.l - 6, y: sy(t) + 4, 'text-anchor': 'end' }, fmt(t)));
+      for (const t of xTicks) g.append(svg('line', { class: 'plot-grid', x1: sx(t), x2: sx(t), y1: m.t, y2: m.t + ih }), svg('text', { class: 'plot-tick', x: sx(t), y: m.t + ih + 16, 'text-anchor': 'middle' }, xFmt(t)));
+      for (const t of yTicks) g.append(svg('line', { class: 'plot-grid', x1: m.l, x2: m.l + iw, y1: sy(t), y2: sy(t) }), svg('text', { class: 'plot-tick', x: m.l - 6, y: sy(t) + 4, 'text-anchor': 'end' }, yFmt(t)));
       g.append(svg('rect', { class: 'plot-frame', x: m.l, y: m.t, width: iw, height: ih, fill: 'none' }));
       if (xLabel) g.append(svg('text', { class: 'plot-label', x: m.l + iw / 2, y: height - 4, 'text-anchor': 'middle' }, xLabel));
       if (yLabel) g.append(svg('text', { class: 'plot-label', transform: `translate(13 ${m.t + ih / 2}) rotate(-90)`, 'text-anchor': 'middle' }, yLabel));

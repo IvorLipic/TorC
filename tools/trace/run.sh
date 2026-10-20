@@ -20,6 +20,7 @@ TRACES=(
   "trace_nonlinear:nonlinearity.json"
   "trace_modules:modules.json"
   "trace_losses:losses.json"
+  "trace_training:training.json"
 )
 
 ARGS=(-S "$ROOT/tools/trace" -B "$BUILD" -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER="$CXX")

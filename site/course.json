@@ -202,22 +202,24 @@
         {
           "id": "training-loop",
           "title": "The training loop",
-          "outcome": "A data loader splits the data into small batches. One pass over all batches is one epoch.",
+          "outcome": "A data loader splits the data into batches. Each step trains on one batch, and one pass over all batches is one epoch.",
           "prereqs": [
             "losses"
           ],
           "symbols": [
             "data::Dataset",
-            "data::TensorDataset",
             "data::SyntheticRegression",
-            "data::DataLoader"
+            "data::DataLoader",
+            "optim::SGD"
           ],
-          "trace": [],
-          "est_minutes": 7,
-          "status": "planned",
+          "trace": [
+            "training.json"
+          ],
+          "est_minutes": 8,
+          "status": "published",
           "widgets": [
             "batch viewer",
-            "live training curve"
+            "training curves"
           ],
           "code": "data::DataLoader loader(dataset, 32, /*shuffle=*/true);\nwhile (loader.has_next()) {\n    auto [xb, yb] = loader.next_batch();\n    // forward → loss → backward → step → zero_grad\n}"
         },

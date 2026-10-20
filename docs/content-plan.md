@@ -49,7 +49,7 @@ TorC Learn takes Karpathy's start (one scalar gradient before tensors) and d2l's
 | 5 | | Nonlinearity (`nonlinearity`) | published | `relu`, `sigmoid`, `softmax` | activation plotter, fit a curve |
 | 6 | | Modules (`modules`) | published | `nn::Sequential`, `parameters()` | model builder |
 | 7 | Training | Losses (`losses`) | published | `nn::MSELoss`, `nn::CrossEntropyLoss` | loss explorer, gradient comparison |
-| 8 | | The training loop (`training-loop`) | planned | `data::DataLoader` | batch viewer, live training curve |
+| 8 | | The training loop (`training-loop`) | published | `data::DataLoader`, `optim::SGD` | batch viewer, training curves |
 | 9 | | Better optimizers (`optimizers`) | planned | `optim::SGD` (momentum), `Adam`, `AdamW` | optimizer race |
 | 10 | | Generalization (`generalization`) | planned | train/test loaders, `AdamW` weight decay | train vs test curve |
 | 11 | | Project: MNIST MLP (`mnist-mlp`) | planned | `data::MNISTDataset`, the example's model | digit pad, first-layer weights |

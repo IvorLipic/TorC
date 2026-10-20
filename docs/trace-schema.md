@@ -5,7 +5,7 @@ Every file in `site/data/` is written by a program in `tools/trace/` that runs t
 never edit a file there by hand. This page says what is in each file so a lesson author knows what can be quoted without typing a number.
 
 Producers, in `tools/trace/`: `trace_util.hpp` (shared: JSON writer, `Graph`, `Scene`/`run_scene`, tensor serialisation, finite-difference
-checker, envelope), `autograd_trace.cpp`, `trace_why.cpp`, `trace_optim.cpp`, `trace_linear.cpp`, `trace_tensors.cpp`, `trace_nonlinear.cpp`, `trace_modules.cpp`, `trace_losses.cpp`. Behaviour notes per lesson (what the
+checker, envelope), `autograd_trace.cpp`, `trace_why.cpp`, `trace_optim.cpp`, `trace_linear.cpp`, `trace_tensors.cpp`, `trace_nonlinear.cpp`, `trace_modules.cpp`, `trace_losses.cpp`, `trace_training.cpp`. Behaviour notes per lesson (what the
 numbers mean, derivations, library symbols): `docs/lessons/<lesson>.md`.
 
 ## Conventions
@@ -13,7 +13,7 @@ numbers mean, derivations, library symbols): `docs/lessons/<lesson>.md`.
 - **Envelope** (top of every file, in this order): `schema` = `"torc-trace/1"`; `library` = `{ref, compiler, flags}` (`ref` is the content of
   `TORC_REF`, e.g. `"v0.1.0"`; `compiler` e.g. `"clang 18.1.3 (libstdc++ 14)"`; `flags` the build flags, including `-ffp-contract=off`, which the trace build sets for TorC and the producers so that no
   fused multiply-add changes a result on a CPU that has one; the last two are informational and
-  are not compared by the drift check); `generator` = source file of the producer; `kind` = topic (`autograd` | `why` | `optim` | `linear` | `tensors` | `nonlinearity` | `modules` | `losses`);
+  are not compared by the drift check); `generator` = source file of the producer; `kind` = topic (`autograd` | `why` | `optim` | `linear` | `tensors` | `nonlinearity` | `modules` | `losses` | `training`);
   `lesson` = first lesson that uses the file. Everything else is topic data. Unknown keys must be ignored by consumers.
 - **Numbers.** Values the library computed in `float32` are written with 9 significant digits (they round-trip the float32 exactly, so
   `0.1f` appears as `0.100000001`; present them rounded). Values that are configuration or were derived in `double` (learning rates, `h`,
@@ -134,4 +134,15 @@ loss, grad[6]}` (the mild row with target 0 and the confident row with target 2)
 for logits `[z, 0]` with target 0, z from -6 to 6 in steps of 0.25: cross-entropy, and `nn::MSELoss` of `softmax(z, 1)` against the
 one-hot target; the gradients are with respect to `z` from `backward()`. `errors[]` = `{id, exception, what}` for `not-integer`,
 `out-of-range`, `rank-1-logits`, `length` and `column-targets` (`exception` `"none"`). Producer: `tools/trace/trace_losses.cpp`.
+
+## `training.json` (kind `training`, lesson `training-loop`)
+
+`setup` = `{samples, true_weight, true_bias, noise_std, data_seed, loader_seed, lr, epochs}`. `data` = `{x[100], y[100]}` from
+`SyntheticRegression::get`. `loaders[]` = `{batch_size: 10|32, shuffle, epochs[2][batches[indices]]}`: the indices are what
+`next_batch()` returned on a `TensorDataset` whose inputs are `0..99`, with `reset()` between the two epochs (a self-check confirms
+the same order on the regression data). `exhausted` = `{exception, what}` from `next_batch()` after the last batch. `runs[]` =
+`{batch_size: 100|32|10, epochs[{epoch, steps, loss, weight, bias}]}` for epochs 0 to 30; `loss` is `nn::MSELoss` on all samples
+with no gradient, `steps` counts all steps so far. `no_reset[]` = `{epoch, steps, loss}` for three epochs without `reset()`.
+`true_line_loss` = `nn::MSELoss` of `3x + 1` against the targets. `derived` = `{noise_variance}`. The values depend on libstdc++'s
+random distributions and `std::shuffle`. Producer: `tools/trace/trace_training.cpp`.
 

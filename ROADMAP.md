@@ -53,8 +53,9 @@ Status legend: `[x]` done · `[~]` in progress · `[ ]` planned. The detailed cu
 - [x] 05 Nonlinearity (2026-10-16): trace `nonlinearity.json` (activations, softmax, two models fitted in TorC), activation plot and curve fit
 - [x] 06 Modules (2026-10-16): trace `modules.json` (parameter counts, the mismatch error, call order), model viewer and call order
 - [x] 07 Losses (2026-10-16): trace `losses.json` (MSE, cross-entropy, batch mean, CE vs squared-error gradient, label errors), loss explorer and gradient comparison
+- [x] 08 The training loop (2026-10-20): trace `training.json` (batch orders, three batch sizes, the run without `reset()`, the loss of the true line), batch viewer and training curves
 
-Remaining: The training loop → Better optimizers → Generalization → MNIST MLP → Convolution →
+Remaining: Better optimizers → Generalization → MNIST MLP → Convolution →
 MNIST CNN. Specs in content-plan section 2 (v1 course map) and section 3.
 
 ## Open decisions
