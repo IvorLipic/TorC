@@ -104,7 +104,7 @@ loader.reset();                          // the next epoch</code></pre>
     },
     {
       kind: 'text',
-      html: () => '<section class="tr"><p>Go back to the <a href="../../">course map</a>. The next lesson compares plain gradient descent with momentum, Adam and AdamW.</p></section>',
+      html: () => '<section class="tr"><p>The next lesson, <a href="../optimizers/">Better optimizers</a>, compares plain gradient descent with momentum, Adam and AdamW.</p></section>',
     },
   ],
 };

@@ -226,7 +226,7 @@
         {
           "id": "optimizers",
           "title": "Better optimizers",
-          "outcome": "Momentum, Adam and AdamW change each step in different ways. You compare them on the same loss.",
+          "outcome": "Momentum, Adam and AdamW change each step in different ways. You compare them in the same narrow valley.",
           "prereqs": [
             "training-loop"
           ],
@@ -235,9 +235,11 @@
             "optim::Adam",
             "optim::AdamW"
           ],
-          "trace": [],
+          "trace": [
+            "optimizers.json"
+          ],
           "est_minutes": 7,
-          "status": "planned",
+          "status": "published",
           "widgets": [
             "optimizer race"
           ],
