@@ -23,8 +23,11 @@ for f in "${!SHA[@]}"; do
   fi
 done
 
-convert() {  # $1 images, $2 labels, $3 csv
-  [ -f "$3" ] && [ "$3" -nt "$DIR/$1" ] && return 0
+csv_ok() {  # $1 csv, $2 expected lines: the right number of lines, 785 integer fields (no "0.0039..." values from a p/255 file)
+  [ -f "$1" ] && [ "$1" -nt "$DIR/$3" ] && [ "$(wc -l < "$1")" -eq "$2" ] && head -n 1 "$1" | grep -Eq '^[0-9]+(,[0-9]+){784}$'
+}
+convert() {  # $1 images, $2 labels, $3 csv, $4 expected lines
+  csv_ok "$3" "$4" "$1" && return 0
   python3 -I - "$DIR/$1" "$DIR/$2" "$3" <<'PY'
 import gzip, struct, sys
 img_path, lab_path, out_path = sys.argv[1:4]
@@ -44,5 +47,7 @@ import os
 os.replace(out_path + '.tmp', out_path)
 PY
 }
-convert train-images-idx3-ubyte.gz train-labels-idx1-ubyte.gz "$DIR/mnist_train.csv"
-convert t10k-images-idx3-ubyte.gz t10k-labels-idx1-ubyte.gz "$DIR/mnist_test.csv"
+convert train-images-idx3-ubyte.gz train-labels-idx1-ubyte.gz "$DIR/mnist_train.csv" 60000
+convert t10k-images-idx3-ubyte.gz t10k-labels-idx1-ubyte.gz "$DIR/mnist_test.csv" 10000
+csv_ok "$DIR/mnist_train.csv" 60000 train-images-idx3-ubyte.gz && csv_ok "$DIR/mnist_test.csv" 10000 t10k-images-idx3-ubyte.gz \
+  || { echo "fetch_mnist: the CSV files do not have the expected lines or format" >&2; exit 1; }

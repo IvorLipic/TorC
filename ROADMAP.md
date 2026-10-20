@@ -61,7 +61,7 @@ Status legend: `[x]` done · `[~]` in progress · `[ ]` planned. The detailed cu
 - [x] 13 Digits with a CNN (2026-10-20): trace `mnist-cnn.json` (the example's CNN trained in TorC for 5 epochs, its weights, test images with TorC's logits, the first feature maps), kernels and feature maps, digit pad with a tested browser port of the CNN
 
 All planned lessons are published. Specs in content-plan section 2 (v1 course map) and section 3.
-Still open: an independent review of lessons 09 to 13, a pass with a real screen reader, Firefox and Safari, and a real touch
+Lessons 09 to 13 had an independent review on 2026-10-20; its findings are fixed. Still open: a pass with a real screen reader, Firefox and Safari, and a real touch
 device for the digit pads. TorC findings for `main` are in `docs/library-audit/v0.1.0-findings.md`.
 
 ## Open decisions

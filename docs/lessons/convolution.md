@@ -27,4 +27,6 @@ None.
 ## Lesson status
 Published 2026-10-20. Widgets: `conv-widgets.js` (sliding window, feature maps). Tests: `site/test/convolution.test.mjs`. The CNN
 code is the example's; the home-page snippet is compiled and run by the snippet check. Checked: Node tests, `check_site`,
-`tools/prose/check.sh`, Chromium at both widths, axe-core clean. Not done: independent review, screen reader.
+`tools/prose/check.sh`, Chromium at both widths, axe-core clean.
+Independent review 2026-10-20 (no blockers; fixed: the sign of the edge kernel's output is stated correctly, the formula
+names the bias, the small example has no bias, rows and columns count from zero). Not done: screen reader.

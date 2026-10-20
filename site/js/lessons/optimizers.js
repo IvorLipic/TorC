@@ -37,8 +37,8 @@ export default {
       items: () => [
         'If the loss is steep in one direction and flat in another, plain gradient descent is slow.',
         'Momentum keeps the movement in the flat direction.',
-        'Adam scales the step of each parameter by the size of its recent gradients.',
-        'AdamW also makes every weight a little smaller at each step.',
+        'Adam divides the step of each parameter by the size of its recent gradients.',
+        'AdamW also makes each weight that has a gradient a little smaller at each step.',
       ],
     },
     {
@@ -69,7 +69,7 @@ optim::Adam adam(params, 0.2f);                 // beta1 0.9, beta2 0.999, eps 1
       kind: 'text',
       html: () => sec('adam', '3 · Adam', `
     ${eq('m \\leftarrow \\beta_1 m + (1-\\beta_1)\\,g \\qquad s \\leftarrow \\beta_2 s + (1-\\beta_2)\\,g^2 \\qquad w \\leftarrow w - \\text{lr}\\cdot\\frac{\\hat m}{\\sqrt{\\hat s} + \\varepsilon}')}
-    <p>Adam keeps two averages for each parameter. ${math('m', false)} is the average gradient, and ${math('s', false)} is the average squared gradient. ${math('\\hat m', false)} and ${math('\\hat s', false)} correct both averages for their start at zero. Adam divides the average gradient by its typical size. So a parameter with small gradients and a parameter with large gradients move about the same distance. In the valley, the first steps move both parameters by the same distance.</p>`),
+    <p>Adam keeps two averages for each parameter. ${math('m', false)} is the average gradient, and ${math('s', false)} is the average squared gradient. ${math('\\hat m', false)} and ${math('\\hat s', false)} correct both averages for their start at zero. ${math('\\beta_1', false)} and ${math('\\beta_2', false)} set how fast the averages forget old gradients, and ${math('\\varepsilon', false)} prevents a division by zero. Adam divides the average gradient by its typical size. So a parameter with small gradients and a parameter with large gradients move about the same distance. In the valley, the first steps move both parameters by the same distance.</p>`),
     },
     {
       kind: 'check', id: 'c-first',
@@ -80,7 +80,7 @@ optim::Adam adam(params, 0.2f);                 // beta1 0.9, beta2 0.999, eps 1
       kind: 'text',
       html: (D, T) => sec('adamw', '4 · AdamW and weight decay', `
     ${eq('w \\leftarrow w - \\text{lr}\\cdot\\frac{\\hat m}{\\sqrt{\\hat s} + \\varepsilon} - \\text{lr}\\cdot\\lambda\\cdot w')}
-    <p>AdamW is Adam with weight decay. At each step, it also subtracts a small part of each weight, set by the weight decay ${math('\\lambda', false)}. A weight with a zero gradient keeps its value under Adam. Under AdamW, it falls from ${T(`${DECAY.adamw}.steps.0.w2`)} to ${T(`${DECAY.adamw}.steps.50.w2`)} in ${T(`${DECAY.adamw}.steps.50.step`)} steps. A parameter that the loss does not use has no gradient at all. <code>step()</code> skips it, so AdamW does not make it smaller.</p>
+    <p>AdamW is Adam with weight decay. At each step, it also subtracts a small part of each weight, set by the weight decay ${math('\\lambda', false)}. A weight whose gradient is always zero keeps its value under Adam. Under AdamW, it falls from ${T(`${DECAY.adamw}.steps.0.w2`)} to ${T(`${DECAY.adamw}.steps.50.w2`)} in ${T(`${DECAY.adamw}.steps.50.step`)} steps. A parameter that the loss does not use has no gradient at all. <code>step()</code> skips it, so AdamW does not make it smaller.</p>
     <pre class="op-code" tabindex="0" role="group" aria-label="AdamW in TorC"><code>optim::AdamW adamw(params, 0.1f, /*weight_decay=*/0.1f);</code></pre>`),
     },
     {

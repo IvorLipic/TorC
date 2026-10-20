@@ -28,5 +28,7 @@ None.
 ## Lesson status
 Published 2026-10-20. Widget: `generalization-widgets.js` (the model's curve and the two loss curves for three weight decays).
 Tests: `site/test/generalization.test.mjs`. The code block is the home-page snippet, which the snippet check compiles and runs.
-Checked: Node tests, `check_site`, `tools/prose/check.sh`, Chromium at both widths, axe-core clean. Not done: independent review,
-screen reader.
+Checked: Node tests, `check_site`, `tools/prose/check.sh`, Chromium at both widths, axe-core clean.
+Independent review 2026-10-20 (no blockers; fixed: the predict prompt no longer says the training loss falls at every step,
+which it does not after step 15000; weight decay 0.1 "stays almost the same" instead of "does not rise"; the y-axis label no
+longer overlaps the ticks). Not done: screen reader.

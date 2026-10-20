@@ -30,4 +30,7 @@ None. (The skipped decay for a parameter with no gradient is by design of the `h
 ## Lesson status
 Published 2026-10-20. Widget: `optimizer-widgets.js` (optimizer race, contour lines from the recorded loss grid). Tests:
 `site/test/optimizers.test.mjs`. The code lines were compiled and run against v0.1.0. Checked: Node tests, `check_site`,
-`tools/prose/check.sh`, Chromium at both widths, axe-core clean. Not done: independent review, screen reader.
+`tools/prose/check.sh`, Chromium at both widths, axe-core clean.
+Independent review 2026-10-20 (no blockers; fixed: the gradient fields of the decay runs were read after `zero_grad()` and
+are now read between `backward()` and `step()`, the summary says AdamW shrinks each weight that has a gradient, beta and epsilon
+are explained). Not done: screen reader.

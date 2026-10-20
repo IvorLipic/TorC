@@ -47,7 +47,8 @@ test('without weight decay the model overfits: the training loss goes to almost 
 test('weight decay 0.1 keeps the weights small and the test loss low; weight decay 1 underfits', () => {
   assert.ok(last(0.1).weight_sum_sq < last(0).weight_sum_sq / 10);
   assert.ok(last(0.1).test_loss < last(0).test_loss / 2);
-  assert.ok(last(0.1).test_loss < best(0.1).test_loss * 1.01, 'it does not rise');
+  const cs = run(0.1).checkpoints;
+  assert.ok(Math.abs(cs.at(-1).test_loss / cs.at(-3).test_loss - 1) < 0.02, '"stays almost the same in the last steps"');
   assert.ok(last(1).train_loss > 10 * last(0.1).train_loss, 'too much decay: the training loss stays high');
   assert.ok(last(1).test_loss > last(0).test_loss, 'and the test loss is the worst of the three');
   for (const r of data.runs) for (const c of r.checkpoints) assert.ok(c.test_loss > data.derived.noise_variance, 'no run gets below the noise');

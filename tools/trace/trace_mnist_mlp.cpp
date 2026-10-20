@@ -59,6 +59,12 @@ Eval evaluate(nn::Sequential& model, const data::MNISTDataset& ds) {
     return e;
 }
 
+int count_params(nn::Module& m) {
+    int n = 0;
+    for (Variable* p : m.parameters()) n += p->data().numel();
+    return n;
+}
+
 J layer_json(nn::Module& layer) {
     J o = J::object();
     const Tensor& w = layer.named_parameters().at("weight").data();
@@ -157,7 +163,7 @@ int main() {
     J setup = J::object();
     setup.set("train_samples", static_cast<int>(train_set.len())).set("test_samples", static_cast<int>(test_set.len()))
         .set("batch_size", BATCH).set("epochs", EPOCHS).set("lr", 0.0005).set("weight_decay", 0.01).set("optimizer", "optim::AdamW")
-        .set("loss", "nn::CrossEntropyLoss").set("image_side", 28).set("pixel_max", 255).set("parameters", static_cast<int>(784 * 32 + 32 + 32 * 32 + 32 + 32 * 10 + 10));
+        .set("loss", "nn::CrossEntropyLoss").set("image_side", 28).set("pixel_max", 255).set("parameters", count_params(model));
     J test_per_class = J::object();
     test_per_class.set("correct", trace::jarr(final_eval.per_correct)).set("total", trace::jarr(final_eval.per_total));
 

@@ -29,10 +29,10 @@ export default {
     {
       kind: 'tldr',
       items: () => [
-        'Each image is a grid of pixels. The model reads it as one long row of numbers.',
-        'Two hidden layers with ReLU and an output layer give one logit for each digit.',
-        'TorC trains the model with cross-entropy and AdamW, one batch at a time.',
-        'The accuracy on the test images shows how well the model works on new digits.',
+        'The model reads each image as one long row of pixel values.',
+        'It is an MLP with two hidden layers. Its output layer gives one logit for each digit.',
+        'TorC trains it with cross-entropy and AdamW, one batch at a time.',
+        'The share of test images that it reads correctly shows how well it works on new digits.',
       ],
     },
     {
@@ -54,7 +54,7 @@ model.add(std::make_unique&lt;nn::ReLU&gt;());
 model.add(std::make_unique&lt;nn::Linear&gt;(32, 10));   // one logit for each digit
 optim::AdamW opt(model.parameters(), 5e-4f);
 nn::CrossEntropyLoss loss_fn;</code></pre>
-    <p>This is the model of the TorC example <code>mnist_mlp</code>. It has ${T(`${F}.setup.parameters`)} parameters. The first layer has one weight row for each of its neurons, with one weight for each pixel. So you can show each row as an image.</p>`),
+    <p>A network of linear layers with activation functions between them is a multilayer perceptron, or MLP. The layers between the input and the output are hidden layers. This is the model of the TorC example <code>mnist_mlp</code>. It has ${T(`${F}.setup.parameters`)} parameters. The first layer has one weight row for each of its neurons, with one weight for each pixel. So you can show each row as an image.</p>`),
     },
     {
       kind: 'widget', id: 'weights', className: 'widget', label: 'The rows of the first weight matrix, drawn as images',
@@ -68,7 +68,7 @@ nn::CrossEntropyLoss loss_fn;</code></pre>
     {
       kind: 'predict', id: 'p-overfit', title: 'Before you try it',
       prompt: (D, T) => `<p>The training loss falls to ${T(`${F}.epochs.${lastEpoch(D)}.train_loss`)}. Does the model overfit, as in the lesson Generalization?</p>`,
-      reveal: (D, T) => `<p>Not in these epochs. The test accuracy rises in almost every epoch, from ${T(`${F}.epochs.1.test_correct`)} to ${T(`${F}.epochs.${lastEpoch(D)}.test_correct`)} correct images. The model has many parameters, but it also has many training images.</p>`,
+      reveal: (D, T) => `<p>Not in these epochs. The number of correct test images rises from ${T(`${F}.epochs.1.test_correct`)} to ${T(`${F}.epochs.${lastEpoch(D)}.test_correct`)}, with only small drops. When a model overfits, its results on the test images become worse. This model has many parameters, but it also has many training images.</p>`,
     },
     {
       kind: 'text',

@@ -64,17 +64,19 @@ J decay_run(const char* name, Opt& opt, Variable& w, const Variable& u) {
     J steps = J::array();
     // L = (w1 - 2)^2 + 0 * w2^2: w2 is in the graph, so it has a gradient, and the gradient is zero
     const Variable t(trace::make_tensor({2}, {2.0f, 0.0f}), false), c(trace::make_tensor({2}, {1.0f, 0.0f}), false);
+    // steps[k] = the values before step k + 1, and what backward() gave just before that step (zero_grad() at the end of each
+    // step clears has_grad, so the gradient fields are read between backward() and step()). The last entry has no step after it.
     for (int k = 0; k <= STEPS; ++k) {
         J s = J::object();
-        s.set("step", k).set("w1", w.data().data()[0]).set("w2", w.data().data()[1]).set("u", u.data().data()[0])
-            .set("u_has_grad", u.has_grad()).set("w2_grad", w.has_grad() ? w.grad().data()[1] : 0.0f);
-        steps.push(std::move(s));
-        if (k == STEPS) break;
+        s.set("step", k).set("w1", w.data().data()[0]).set("w2", w.data().data()[1]).set("u", u.data().data()[0]);
+        if (k == STEPS) { steps.push(std::move(s)); break; }
         Variable d = sub(w, t);
         Variable sq = mul(d, d);
         Variable cs = mul(c, sq);
         Variable L = sum(cs);
         L.backward();
+        s.set("w_has_grad", w.has_grad()).set("w2_grad", w.grad().data()[1]).set("u_has_grad", u.has_grad());
+        steps.push(std::move(s));
         opt.step();
         opt.zero_grad();
     }

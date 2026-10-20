@@ -22,6 +22,9 @@ test('the small example: each recorded output is the sum of the nine products in
       assert.equal(windowAt(E.input.values, n, E.kernel.values, k, R.stride, R.padding, i, j).sum, R.output.values[i * out + j], `(${i}, ${j})`);
   }
   assert.deepEqual(padded([1, 2, 3, 4], 2, 1), [0, 0, 0, 0, 0, 1, 2, 0, 0, 3, 4, 0, 0, 0, 0, 0]);
+  // the page: negative where the image turns from dark to bright (left to right), positive where it turns from bright to dark
+  const p1 = E.runs.find((r) => r.stride === 1 && r.padding === 1).output.values;
+  for (let i = 0; i < 5; i++) { assert.ok(p1[i * 5 + 1] < 0, `dark to bright, row ${i}`); assert.ok(p1[i * 5 + 4] > 0, `bright to dark at the padded edge, row ${i}`); }
 });
 
 test('the digit: the feature maps are conv2d with stride 1 and padding 1, and relu is max(0, x)', () => {

@@ -11,7 +11,7 @@ const data = readJson('data/mnist-cnn.json'), mlp = readJson('data/mnist-mlp.jso
 const D = buildD({ 'mnist-cnn': data, 'mnist-mlp': mlp });
 const T = makeT(D);
 const lesson = (await import('../js/lessons/mnist-cnn.js')).default;
-const { forwardCnn, cnnFirstMaps, conv2d, argmax } = await import('../js/widgets/digit-widgets.js');
+const { forwardCnn, cnnFirstMaps, conv2d, argmax, forward } = await import('../js/widgets/digit-widgets.js');
 
 test('the layers are Conv2d(1, 8, 3), Conv2d(8, 16, 3) and Linear(784, 10): 9098 parameters', () => {
   assert.deepEqual(data.layers.map((l) => l.weight_shape), [[8, 1, 3, 3], [16, 8, 3, 3], [10, 784]]);
@@ -34,12 +34,19 @@ test("the browser forward pass gives TorC's logits for all 20 images, and TorC's
   assert.deepEqual(conv2d([1, 2, 3, 4], 1, 2, 2, { weight_shape: [1, 1, 2, 2], weight: [1, 1, 1, 1], bias: [0.5] }, 1, 0).y, [10.5]);
 });
 
-test('the shown images: the first 16, then 4 that TorC reads wrongly; one of them the MLP also reads wrongly', () => {
+test('the shown images: the first 16, then 4 that the CNN reads wrongly; the MLP reads most of them wrongly too', () => {
   assert.deepEqual(data.shown.slice(0, 16).map((s) => s.index), Array.from({ length: 16 }, (_, i) => i));
   const wrong = data.shown.slice(16);
   for (const s of wrong) assert.notEqual(argmax(s.logits), s.label, `image ${s.index}`);
-  const mlpWrong = new Set(mlp.shown.slice(16).map((s) => s.index));
-  assert.equal(wrong.filter((s) => mlpWrong.has(s.index)).length, 1, 'the page says the MLP reads one of them wrongly too');
+  // the MLP's own forward pass (tested against TorC in mnist-mlp.test.mjs) on the same images
+  const mlpWrong = wrong.filter((s) => argmax(forward(mlp.layers, s.pixels)) !== s.label).length;
+  assert.ok(mlpWrong > wrong.length / 2, `the page says "most of them": ${mlpWrong} of ${wrong.length}`);
+});
+
+test('the comparison holds at equal epochs, and the CNN has about a third of the parameters', () => {
+  for (const e of [1, data.setup.epochs]) assert.ok(data.epochs[e].test_correct > mlp.epochs[e].test_correct, `epoch ${e}`);
+  const r = data.setup.parameters / mlp.setup.parameters;
+  assert.ok(r > 0.3 && r < 0.37, `course.json says "a third": ${r}`);
 });
 
 test('the training record, and the comparison the page makes: the CNN reads more test images correctly', () => {

@@ -30,7 +30,7 @@ export default {
       items: () => [
         'The CNN reads the image as a grid, so each kernel sees pixels that are near each other.',
         'It has fewer parameters than the MLP, but it reads more test images correctly.',
-        'Its first kernels learn to find simple parts of the digits, such as edges and strokes.',
+        'Each kernel of its first layer responds to a simple pattern of light and dark.',
         'Each training step takes longer, because each kernel works at every position.',
       ],
     },
@@ -50,12 +50,12 @@ optim::AdamW opt(model.parameters(), 1e-3f);</code></pre>
     {
       kind: 'predict', id: 'p-compare', title: 'Before you try it',
       prompt: (D, T) => `<p>The MLP has ${T(`${MLP}.setup.parameters`)} parameters, and the CNN has ${T(`${F}.setup.parameters`)}. Which one reads more test images correctly?</p>`,
-      reveal: (D, T) => `<p>The CNN. After ${T(`${F}.setup.epochs`)} epochs, it reads ${T(`${F}.epochs.${last(D, 'mnist-cnn')}.test_correct`)} of the test images correctly. The MLP reads ${T(`${MLP}.epochs.${last(D, 'mnist-mlp')}.test_correct`)} after ${T(`${MLP}.setup.epochs`)} epochs. Each kernel of the CNN uses the same weights at every position. So the model needs few parameters to find a stroke anywhere in the image.</p>`,
+      reveal: (D, T) => `<p>The CNN, with the settings of the two TorC examples. After ${T(`${F}.setup.epochs`)} epochs, it reads ${T(`${F}.epochs.${last(D, 'mnist-cnn')}.test_correct`)} of the test images correctly. The MLP reads ${T(`${MLP}.epochs.${last(D, 'mnist-mlp')}.test_correct`)} after ${T(`${MLP}.setup.epochs`)} epochs. Each kernel of the CNN uses the same weights at every position. So the model needs few parameters to find a stroke anywhere in the image.</p>`,
     },
     {
       kind: 'text',
       html: () => sec('kernels', '2 · What the first layer learned', `
-    <p>The first convolution has one kernel for each of its output channels. TorC started the kernels from random values. After training, several of them respond to strokes in one direction. Pick a test image to see the feature map of each kernel. A bright area shows where the kernel finds its pattern.</p>`),
+    <p>The first convolution has one kernel for each of its output channels. TorC started the kernels from random values. After training, each kernel responds to its own pattern of light and dark. Pick a test image to see the feature map of each kernel. A bright area shows where the kernel finds its pattern.</p>`),
     },
     {
       kind: 'widget', id: 'maps', className: 'widget', label: 'The kernels of the first convolution and their feature maps on a test image',
@@ -63,13 +63,13 @@ optim::AdamW opt(model.parameters(), 1e-3f);</code></pre>
     },
     {
       kind: 'check', id: 'c-size',
-      prompt: () => '<p>The input image has <code>28 × 28</code> pixels. Why does each feature map of the first layer have fewer values?</p>',
+      prompt: (D) => { const s = D.files['mnist-cnn'].setup.image_side; return `<p>The input image has <code>${s} × ${s}</code> pixels. Why does each feature map of the first layer have fewer values?</p>`; },
       reveal: (D, T) => `<p>The first convolution has stride two, so it moves the kernel two pixels at a time. Each feature map has ${T(`${F}.first_maps.shape.2`)} rows and ${T(`${F}.first_maps.shape.3`)} columns.</p>`,
     },
     {
       kind: 'text',
       html: () => sec('try', '3 · Draw a digit', `
-    <p>The page runs the forward pass of the CNN with the weights that TorC learned, on your drawing or on a test image. The last four test images are images that the CNN reads wrongly. The MLP also reads one of them wrongly.</p>`),
+    <p>The page runs the forward pass of the CNN with the weights that TorC learned, on your drawing or on a test image. The last four test images are images that the CNN reads wrongly. The MLP reads most of them wrongly too.</p>`),
     },
     {
       kind: 'widget', id: 'pad', className: 'widget', label: 'Interactive: draw a digit and see the probability of each digit, from the CNN',

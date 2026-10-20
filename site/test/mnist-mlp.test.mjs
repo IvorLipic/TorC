@@ -66,6 +66,9 @@ test('the training record: the final test count equals the per-class counts, and
   assert.ok(E.at(-1).test_correct > E[1].test_correct && E[1].test_correct > E[0].test_correct);
   E.slice(1).forEach((e, i) => assert.equal(e.steps, (i + 1) * Math.ceil(data.setup.train_samples / data.setup.batch_size)));
   assert.ok(E.at(-1).test_correct / data.setup.test_samples > 0.95);
+  // "rises, with only small drops": every drop is under half a percent of the test images
+  for (let e = 2; e < E.length; e++) assert.ok(E[e].test_correct > E[e - 1].test_correct - data.setup.test_samples * 0.005, `epoch ${e}`);
+  assert.ok(E.at(-1).test_correct >= Math.max(...E.slice(1, 10).map((x) => x.test_correct)));
 });
 
 test('every number in the prose is bound to the trace, with no hand-typed digits', () => {

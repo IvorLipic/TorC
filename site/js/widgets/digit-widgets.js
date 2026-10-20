@@ -134,30 +134,32 @@ export function mountDigitPad(host, D, { file = 'mnist-mlp', forward: fwd = forw
   const pad = el('canvas', { class: 'dw-pad', width: N, height: N, role: 'img', 'aria-label': 'Drawing area. Draw a digit with a mouse, a pen or a finger.' });
   const seen = el('canvas', { class: 'dw-seen', width: 28, height: 28, role: 'img', 'aria-label': 'The 28 by 28 image the model reads' });
   const bars = el('div', { class: 'dw-bars', 'aria-hidden': 'true' });
-  const read = el('p', { class: 'dw-read', 'aria-live': 'polite' });
+  const read = el('p', { class: 'dw-read' });                  // follows the drawing: not a live region
+  const say = el('p', { class: 'sr', 'aria-live': 'polite' }); // announced on a click and at the end of a stroke
   const clear = el('button', { type: 'button', class: 'btn small' }, 'Clear');
   const samples = M.shown.map((s) => el('button', { type: 'button', class: 'btn small', 'aria-pressed': 'false', 'aria-label': `Test image ${s.index}, label ${s.label}` }, `#${s.index}`));
   host.replaceChildren(el('div', { class: 'dw' },
+    el('div', { class: 'dw-btns', role: 'group', 'aria-label': 'Test images' }, clear, ...samples),
     el('div', { class: 'dw-row' }, pad,
-      el('div', { class: 'dw-side' }, el('span', { class: 'dw-lbl' }, 'What the model reads'), seen, el('span', { class: 'dw-lbl' }, 'Probability of each digit'), bars, read)),
-    el('div', { class: 'dw-btns', role: 'group', 'aria-label': 'Test images' }, clear, ...samples)));
+      el('div', { class: 'dw-side' }, el('span', { class: 'dw-lbl' }, 'What the model reads'), seen, el('span', { class: 'dw-lbl' }, 'Probability of each digit'), bars, read, say))));
   const ctx = pad.getContext('2d');
   const reset = () => { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, N, N); };
   reset();
 
-  function show(pixels, recorded) {
+  function show(pixels, recorded, announce = true) {
     paintGray(seen, pixels ?? new Array(784).fill(0));
-    if (!pixels) { bars.replaceChildren(); read.textContent = 'Draw a digit, or pick a test image.'; return; }
+    if (!pixels) { bars.replaceChildren(); read.textContent = 'Draw a digit, or pick a test image.'; if (announce) say.textContent = read.textContent; return; }
     const p = softmax(fwd(layers, pixels)), top = argmax(p);
     bars.replaceChildren(...p.flatMap((v, d) => [el('span', {}, String(d)), el('div', { class: `dw-bar${d === top ? ' top' : ''}`, style: `width:${(100 * v).toFixed(1)}%` }), el('span', {}, v.toFixed(3))]));
     read.textContent = recorded
       ? `Test image ${recorded.index}, label ${recorded.label}. The model reads ${top}, with probability ${p[top].toFixed(3)}. TorC also reads ${argmax(recorded.logits)}.`
       : `The model reads ${top}, with probability ${p[top].toFixed(3)}.`;
+    if (announce) say.textContent = read.textContent;
   }
-  function fromPad() {
+  function fromPad(announce = true) {
     const data = ctx.getImageData(0, 0, N, N).data, alpha = new Float64Array(N * N);
     for (let k = 0; k < N * N; k++) alpha[k] = data[4 * k] / 255;
-    show(preprocess(alpha, N));
+    show(preprocess(alpha, N), null, announce);
   }
   function loadSample(i) {
     const s = M.shown[i];
@@ -185,7 +187,7 @@ export function mountDigitPad(host, D, { file = 'mnist-mlp', forward: fwd = forw
     ctx.strokeStyle = '#fff'; ctx.lineWidth = 22; ctx.lineCap = 'round';
     ctx.beginPath(); ctx.moveTo(last[0], last[1]); ctx.lineTo(p[0], p[1]); ctx.stroke();
     last = p;
-    if (!pending) { pending = true; requestAnimationFrame(() => { pending = false; fromPad(); }); }
+    if (!pending) { pending = true; requestAnimationFrame(() => { pending = false; fromPad(false); }); }
   });
   const end = () => { if (drawing) { drawing = false; fromPad(); } };
   pad.addEventListener('pointerup', end);

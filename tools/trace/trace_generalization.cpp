@@ -6,8 +6,8 @@
 // the training loss, the test loss, the sum of the squared weights, and the model's curve on a grid.
 //
 // The data are made here, not by TorC: x is evenly spaced (training) or uniform in [-1, 1) (test), and the noise is uniform in
-// [-0.3, 0.3). Both come from std::mt19937, whose output the C++ standard fixes, and from plain arithmetic, so they are the same
-// with every standard library. The start weights are 0, set by hand. The data loaders are data::TensorDataset and
+// [-0.3, 0.3). The randomness comes from std::mt19937, whose output the C++ standard fixes, and plain arithmetic. The targets
+// use std::sin from the C library, which can differ in the last bit between C libraries; the drift check's tolerance covers that. The start weights are 0, set by hand. The data loaders are data::TensorDataset and
 // data::DataLoader, without shuffle (one batch holds all 10 training samples, so one epoch is one step).
 // Everything under "runs" is library output; "data" is input, and "derived" is plain arithmetic.
 #include "trace_util.hpp"

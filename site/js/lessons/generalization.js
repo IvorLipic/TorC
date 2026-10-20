@@ -52,8 +52,8 @@ optim::AdamW opt(params, 1e-3f, /*weight_decay=*/0.01f);</code></pre>
     },
     {
       kind: 'predict', id: 'p-test', title: 'Before you try it',
-      prompt: () => '<p>Without weight decay, the training loss falls at every step. Does the test loss also fall at every step?</p>',
-      reveal: (D, T) => `<p>No. The test loss is lowest after step ${T(`${RUN.none}.checkpoints.${bestIdx(D)}.step`)}, at ${T(`${RUN.none}.checkpoints.${bestIdx(D)}.test_loss`)}. Then it rises to ${T(`${RUN.none}.checkpoints.${lastIdx(D)}.test_loss`)}, while the training loss falls to ${T(`${RUN.none}.checkpoints.${lastIdx(D)}.train_loss`)}.</p>`,
+      prompt: () => '<p>Without weight decay, the training loss becomes very small. Does the test loss also become small?</p>',
+      reveal: (D, T) => `<p>No. The test loss is lowest after step ${T(`${RUN.none}.checkpoints.${bestIdx(D)}.step`)}, at ${T(`${RUN.none}.checkpoints.${bestIdx(D)}.test_loss`)}. Then it rises to ${T(`${RUN.none}.checkpoints.${lastIdx(D)}.test_loss`)}, and the training loss ends at ${T(`${RUN.none}.checkpoints.${lastIdx(D)}.train_loss`)}.</p>`,
     },
     {
       kind: 'widget', id: 'fit', className: 'widget', label: 'Interactive: the model and its training and test loss for three values of weight decay',
@@ -62,7 +62,7 @@ optim::AdamW opt(params, 1e-3f, /*weight_decay=*/0.01f);</code></pre>
     {
       kind: 'text',
       html: (D, T) => { const L = lastIdx(D); return sec('decay', '3 · Weight decay', `
-    <p>Weight decay makes every weight a little smaller at each step. A curve that swings between the samples needs large weights, so weight decay works against it. With a weight decay of ${T(`${RUN.mid}.weight_decay`)}, the sum of the squared weights ends at ${T(`${RUN.mid}.checkpoints.${L}.weight_sum_sq`)}, against ${T(`${RUN.none}.checkpoints.${L}.weight_sum_sq`)} without it. The test loss ends at ${T(`${RUN.mid}.checkpoints.${L}.test_loss`)} and does not rise.</p>
+    <p>Weight decay makes every weight a little smaller at each step. A curve that swings between the samples needs large weights, so weight decay works against it. With a weight decay of ${T(`${RUN.mid}.weight_decay`)}, the sum of the squared weights ends at ${T(`${RUN.mid}.checkpoints.${L}.weight_sum_sq`)}, against ${T(`${RUN.none}.checkpoints.${L}.weight_sum_sq`)} without it. The test loss ends at ${T(`${RUN.mid}.checkpoints.${L}.test_loss`)}, and it stays almost the same in the last steps.</p>
     <p>Too much weight decay makes the model too simple. With a weight decay of ${T(`${RUN.high}.weight_decay`)}, both losses stay high, at ${T(`${RUN.high}.checkpoints.${L}.train_loss`)} and ${T(`${RUN.high}.checkpoints.${L}.test_loss`)}. The name of this problem is underfitting.</p>`); },
     },
     {

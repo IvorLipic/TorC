@@ -93,7 +93,7 @@ export function mountGeneralization(host, D) {
     pl.dot(stepX(c.step), Math.log10(c.test_loss), { class: 'gw-dtest', r: 5, layer: 'live' });
   };
   const fit = createPlot(fitBox, { width: 640, height: 230, x: [-1.05, 1.05], y: [-1.7, 1.7], xLabel: 'x', yLabel: 't', ariaLabel: '', onResize: paintFit });
-  const loss = createPlot(lossBox, { width: 640, height: 230, x: [0, xMax], y: [-5, 0], xLabel: 'step', yLabel: 'loss (log scale)', ariaLabel: '', onResize: (pl) => paintLoss(pl) });
+  const loss = createPlot(lossBox, { width: 640, height: 230, x: [0, xMax], y: [-5, 0], xLabel: 'step', yLabel: 'loss (log scale)', margin: { l: 70 }, ariaLabel: '', onResize: (pl) => paintLoss(pl) });
 
   function draw() {
     pr.set(wd);

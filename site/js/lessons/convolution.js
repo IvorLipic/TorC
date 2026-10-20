@@ -45,8 +45,8 @@ export default {
     {
       kind: 'text',
       html: () => sec('slide', '1 · A kernel slides over the image', `
-    ${eq('y_{ij} = b + \\sum_{a}\\sum_{b\'} x_{\\,iS + a - P,\\; jS + b\' - P}\\; w_{a b\'}')}
-    <p>The kernel ${math('w', false)} is a small grid of weights. At each position, TorC multiplies the pixels under the kernel by the kernel weights and adds the products and the bias. ${math('S', false)} is the stride and ${math('P', false)} is the padding. TorC does not flip the kernel. This kernel gives large values where the image changes from left to right, so it finds vertical edges.</p>`),
+    ${eq('y_{ij} = \\text{bias} + \\sum_{u}\\sum_{v} x_{\\,iS + u - P,\\; jS + v - P}\\; w_{uv}')}
+    <p>The kernel ${math('w', false)} is a small grid of weights. At each position, TorC multiplies the pixels under the kernel by the kernel weights and adds the products and the bias. ${math('S', false)} is the stride and ${math('P', false)} is the padding. TorC does not flip the kernel. Rows and columns count from zero. From left to right, the kernel below gives negative values where the image changes from dark to bright. It gives positive values where the image changes from bright to dark. So it finds vertical edges. The small example has no bias.</p>`),
     },
     {
       kind: 'widget', id: 'window', className: 'widget', label: 'Interactive: the window of each output on a small input, for three settings of stride and padding',
@@ -61,7 +61,7 @@ export default {
     {
       kind: 'check', id: 'c-size',
       prompt: (D) => { const c = conv1(D); return `<p>An image of size <code>${c.in_shape[2]}</code> goes through a convolution with kernel size <code>${c.kernel}</code>, stride <code>${c.stride}</code> and padding <code>${c.padding}</code>. Then the result goes through the same convolution again. What are the two output sizes?</p>`; },
-      reveal: (D, T) => `<p>The first output has size ${T(`${F}.cnn.0.out_shape.2`)}, because the floor of the fraction is thirteen. The second has size ${T(`${F}.cnn.2.out_shape.2`)}.</p>`,
+      reveal: (D, T) => `<p>The first output has size ${T(`${F}.cnn.0.out_shape.2`)}, because TorC rounds the fraction down before it adds one. The second has size ${T(`${F}.cnn.2.out_shape.2`)}.</p>`,
     },
     {
       kind: 'text',

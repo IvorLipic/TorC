@@ -73,8 +73,14 @@ test('weight decay: AdamW multiplies a zero-gradient weight by 1 - lr·λ each s
   const [adam, adamw] = data.decay;
   const f = 1 - data.decay_setup.lr * data.decay_setup.weight_decay;
   assert.equal(data.derived.decay_factor, f);
-  adam.steps.forEach((s) => { assert.equal(s.w2, 3); assert.equal(s.u, 3); assert.equal(s.u_has_grad, false); });
-  adamw.steps.forEach((s, k) => { close(s.w2, 3 * f ** k, 1e-5, `adamw w2 step ${k}`); assert.equal(s.u, 3, 'no gradient, no decay'); assert.equal(s.u_has_grad, false); });
+  for (const run of [adam, adamw]) run.steps.slice(0, -1).forEach((s, k) => {
+    // read between backward() and step(): w has a gradient (its w2 part is exactly zero), u has none
+    assert.equal(s.w_has_grad, true, `${run.optimizer} step ${k}`);
+    assert.equal(s.w2_grad, 0);
+    assert.equal(s.u_has_grad, false);
+  });
+  adam.steps.forEach((s) => { assert.equal(s.w2, 3); assert.equal(s.u, 3); });
+  adamw.steps.forEach((s, k) => { close(s.w2, 3 * f ** k, 1e-5, `adamw w2 step ${k}`); assert.equal(s.u, 3, 'no gradient, no decay'); });
   close(adamw.steps.at(-1).w2, data.derived.w2_after_50_adamw, 1e-5, 'derived matches');
 });
 

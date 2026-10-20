@@ -8,7 +8,8 @@
 //    Flatten, Linear(784, 10), run on a batch of shape (2, 1, 28, 28): each module's output shape and parameter count, and a
 //    Linear layer from the same image to 8 outputs for comparison.
 // 4. The errors conv2d throws for a channel mismatch and for a kernel larger than the padded input.
-// Everything is library output. MNIST comes from MNIST_DIR (tools/trace/run.sh sets it; tools/trace/fetch_mnist.sh fills it).
+// Everything is library output, except the kernel, stride and padding of each convolution in "cnn" (the producer writes the
+// arguments it passes to nn::Conv2d) and the order of "params" (the order of an unordered_map). MNIST comes from MNIST_DIR (tools/trace/run.sh sets it; tools/trace/fetch_mnist.sh fills it).
 #include "trace_util.hpp"
 
 #include "torc/data.hpp"

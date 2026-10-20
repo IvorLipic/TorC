@@ -154,7 +154,9 @@ random distributions and `std::shuffle`. Producer: `tools/trace/trace_training.c
 parameter `w` of shape (2). `runs[]` = `{id: sgd|momentum|adam, optimizer, lr, momentum, path[51]{w1, w2, loss}}` (`path[k]` is the
 state before step `k + 1`). `surface` = `{w1[61], w2[49], order, loss[49][61]}` from the same forward pass, for the contour lines.
 `first_step[]` = `{optimizer, lr, grad[2], change[2]}` for SGD and Adam (lr 0.1) on gradients 0.001 and 1000. `decay_setup` =
-`{lr, weight_decay, target, start}`; `decay[]` = `{optimizer: Adam|AdamW, steps[51]{step, w1, w2, u, u_has_grad, w2_grad}}` for
+`{lr, weight_decay, target, start}`; `decay[]` = `{optimizer: Adam|AdamW, steps[51]{step, w1, w2, u, w_has_grad, w2_grad,
+u_has_grad}}` (the values before step `k + 1`; the three gradient fields are read between `backward()` and `step()`, and the last
+entry has none) for
 `(w1 - 2)² + 0·w2²` and a parameter `u` that the loss does not use. `derived` = `{sgd_lr_limit, decay_factor, w2_after_50_adamw}`.
 Producer: `tools/trace/trace_optimizers.cpp`.
 
@@ -176,6 +178,9 @@ batch loss of the epoch). `test_per_class` = `{correct[10], total[10]}` after tr
 for the three `Linear` layers (all trained values, row-major `(out, in)`). `shown[20]` = `{index, label, pixels[784] (0..255),
 logits[10]}`: test images 0 to 15 and the first four after them that the model reads wrongly. The values depend on libstdc++'s
 `normal_distribution` (start weights) and `std::shuffle` (batch order). Producer: `tools/trace/trace_mnist_mlp.cpp`.
+These two MNIST files come from thousands of training steps, and their values also depend on the C library's `exp` and `log`. A
+new compiler or standard library on the CI runner can move them past the drift check's tolerance. Then regenerate them with
+`run.sh`, check that the lesson tests still pass (they test the claims, not the exact values), and commit the new files.
 
 ## `conv.json` (kind `conv`, lesson `convolution`)
 
