@@ -82,7 +82,7 @@ optim::AdamW opt(params, 1e-3f, /*weight_decay=*/0.01f);</code></pre>
     },
     {
       kind: 'text',
-      html: () => '<section class="gn"><p>Go back to the <a href="../../">course map</a>. The next lesson trains a network on handwritten digits from start to end.</p></section>',
+      html: () => '<section class="gn"><p>The next lesson, <a href="../mnist-mlp/">Digits with an MLP</a>, trains a network on handwritten digits from start to end.</p></section>',
     },
   ],
 };

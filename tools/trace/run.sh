@@ -3,7 +3,8 @@
 #   tools/trace/run.sh           -> (re)writes all JSON files listed in TRACES below
 #   tools/trace/run.sh --check   -> regenerates into a temp dir and fails if any site/data/*.json differs from a fresh run
 #                                   (numeric tolerance, see compare.mjs), is missing, or has no generator (CI drift check)
-# Environment: CXX (default: clang++-18, otherwise c++; needs clang>=18 or GCC>=14), TORC_SRC=<dir> to use a local TorC checkout.
+# Environment: CXX (default: clang++-18, otherwise c++; needs clang>=18 or GCC>=14), TORC_SRC=<dir> to use a local TorC checkout,
+# MNIST_DIR=<dir> for the MNIST CSV files (default build/mnist; tools/trace/fetch_mnist.sh fills it, needs curl and python3).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 BUILD="$ROOT/build/trace"
@@ -23,7 +24,12 @@ TRACES=(
   "trace_training:training.json"
   "trace_optimizers:optimizers.json"
   "trace_generalization:generalization.json"
+  "trace_mnist_mlp:mnist-mlp.json"
 )
+
+# MNIST for trace_mnist_mlp: downloaded once into build/mnist (checksums checked), converted to the CSV that MNISTDataset reads.
+export MNIST_DIR="${MNIST_DIR:-$ROOT/build/mnist}"
+"$ROOT/tools/trace/fetch_mnist.sh" "$MNIST_DIR"
 
 ARGS=(-S "$ROOT/tools/trace" -B "$BUILD" -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER="$CXX")
 [ -n "${TORC_SRC:-}" ] && ARGS+=("-DFETCHCONTENT_SOURCE_DIR_TORC=$TORC_SRC")

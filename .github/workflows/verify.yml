@@ -26,6 +26,11 @@ jobs:
         run: tools/prose/check.sh
       - name: Toolchain (clang 18 + CMake)
         run: sudo apt-get update && sudo apt-get install -y clang-18 cmake
+      - name: MNIST files for the MNIST trace (the four IDX archives; run.sh checks their SHA-256 and converts them)
+        uses: actions/cache@v4
+        with:
+          path: build/mnist/*.gz
+          key: mnist-idx-${{ hashFiles('tools/trace/fetch_mnist.sh') }}
       - name: Trace drift check against the pinned TorC
         run: CXX=clang++-18 tools/trace/run.sh --check
       - name: Site tests (engine vs. real library output, LaTeX validity, registry, lessons, store, site tooling; after the trace step so the quoted library lines are compared with the fetched TorC source)

@@ -5,7 +5,7 @@ Every file in `site/data/` is written by a program in `tools/trace/` that runs t
 never edit a file there by hand. This page says what is in each file so a lesson author knows what can be quoted without typing a number.
 
 Producers, in `tools/trace/`: `trace_util.hpp` (shared: JSON writer, `Graph`, `Scene`/`run_scene`, tensor serialisation, finite-difference
-checker, envelope), `autograd_trace.cpp`, `trace_why.cpp`, `trace_optim.cpp`, `trace_linear.cpp`, `trace_tensors.cpp`, `trace_nonlinear.cpp`, `trace_modules.cpp`, `trace_losses.cpp`, `trace_training.cpp`, `trace_optimizers.cpp`, `trace_generalization.cpp`. Behaviour notes per lesson (what the
+checker, envelope), `autograd_trace.cpp`, `trace_why.cpp`, `trace_optim.cpp`, `trace_linear.cpp`, `trace_tensors.cpp`, `trace_nonlinear.cpp`, `trace_modules.cpp`, `trace_losses.cpp`, `trace_training.cpp`, `trace_optimizers.cpp`, `trace_generalization.cpp`, `trace_mnist_mlp.cpp`. Behaviour notes per lesson (what the
 numbers mean, derivations, library symbols): `docs/lessons/<lesson>.md`.
 
 ## Conventions
@@ -13,7 +13,7 @@ numbers mean, derivations, library symbols): `docs/lessons/<lesson>.md`.
 - **Envelope** (top of every file, in this order): `schema` = `"torc-trace/1"`; `library` = `{ref, compiler, flags}` (`ref` is the content of
   `TORC_REF`, e.g. `"v0.1.0"`; `compiler` e.g. `"clang 18.1.3 (libstdc++ 14)"`; `flags` the build flags, including `-ffp-contract=off`, which the trace build sets for TorC and the producers so that no
   fused multiply-add changes a result on a CPU that has one; the last two are informational and
-  are not compared by the drift check); `generator` = source file of the producer; `kind` = topic (`autograd` | `why` | `optim` | `linear` | `tensors` | `nonlinearity` | `modules` | `losses` | `training` | `optimizers` | `generalization`);
+  are not compared by the drift check); `generator` = source file of the producer; `kind` = topic (`autograd` | `why` | `optim` | `linear` | `tensors` | `nonlinearity` | `modules` | `losses` | `training` | `optimizers` | `generalization` | `mnist-mlp`);
   `lesson` = first lesson that uses the file. Everything else is topic data. Unknown keys must be ignored by consumers.
 - **Numbers.** Values the library computed in `float32` are written with 9 significant digits (they round-trip the float32 exactly, so
   `0.1f` appears as `0.100000001`; present them rounded). Values that are configuration or were derived in `double` (learning rates, `h`,
@@ -166,4 +166,14 @@ library output. `runs[]` = `{weight_decay: 0|0.1|1, checkpoints[27]{step, train_
 steps 0 to 20000: `nn::Linear(15, 1)` on the powers of x, `optim::AdamW`, full batch; the losses are `nn::MSELoss` on each whole set
 with no gradient, `curve` is the model on `grid`. `derived` = `{noise_variance}` (`a²/3` for noise uniform in `[-a, a)`).
 Producer: `tools/trace/trace_generalization.cpp`.
+
+## `mnist-mlp.json` (kind `mnist-mlp`, lesson `mnist-mlp`)
+
+Input: MNIST CSV files from `tools/trace/fetch_mnist.sh` (`MNIST_DIR`). `setup` = `{train_samples, test_samples, batch_size, epochs,
+lr, weight_decay, optimizer, loss, image_side, pixel_max, parameters}`. `epochs[]` = `{epoch, steps, train_loss, test_correct,
+per_class_correct[10]}` for epochs 0 to 20 (epoch 0 is before training and has no `steps` or `train_loss`; `train_loss` is the mean
+batch loss of the epoch). `test_per_class` = `{correct[10], total[10]}` after training. `layers[3]` = `{weight_shape, weight, bias}`
+for the three `Linear` layers (all trained values, row-major `(out, in)`). `shown[20]` = `{index, label, pixels[784] (0..255),
+logits[10]}`: test images 0 to 15 and the first four after them that the model reads wrongly. The values depend on libstdc++'s
+`normal_distribution` (start weights) and `std::shuffle` (batch order). Producer: `tools/trace/trace_mnist_mlp.cpp`.
 

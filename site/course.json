@@ -269,8 +269,8 @@
         },
         {
           "id": "mnist-mlp",
-          "title": "Project: MNIST MLP",
-          "outcome": "You train a network with three layers to recognize handwritten digits.",
+          "title": "Digits with an MLP",
+          "outcome": "TorC trains a network with three layers on handwritten digits. You draw a digit and see what it reads.",
           "prereqs": [
             "generalization"
           ],
@@ -280,14 +280,16 @@
             "optim::AdamW",
             "nn::CrossEntropyLoss"
           ],
-          "trace": [],
+          "trace": [
+            "mnist-mlp.json"
+          ],
           "est_minutes": 10,
-          "status": "planned",
+          "status": "published",
           "widgets": [
             "digit pad",
             "first-layer weights"
           ],
-          "code": "data::MNISTDataset train_set(path);\ndata::DataLoader loader(train_set, 64, /*shuffle=*/true);\noptim::AdamW opt(model.parameters(), 1e-3f);\nnn::CrossEntropyLoss loss_fn;   // 26,506 parameters"
+          "code": "data::MNISTDataset train_set(path);\ndata::DataLoader loader(train_set, 128, /*shuffle=*/true);\noptim::AdamW opt(model.parameters(), 5e-4f);\nnn::CrossEntropyLoss loss_fn;   // 26,506 parameters"
         }
       ]
     },

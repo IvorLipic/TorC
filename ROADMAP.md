@@ -56,8 +56,9 @@ Status legend: `[x]` done · `[~]` in progress · `[ ]` planned. The detailed cu
 - [x] 08 The training loop (2026-10-20): trace `training.json` (batch orders, three batch sizes, the run without `reset()`, the loss of the true line), batch viewer and training curves
 - [x] 09 Better optimizers (2026-10-20): trace `optimizers.json` (SGD, momentum and Adam in a narrow valley, Adam's first step, AdamW's decay), optimizer race
 - [x] 10 Generalization (2026-10-20): trace `generalization.json` (a degree-15 polynomial on 10 samples, three weight decays), model and loss curves
+- [x] 11 Digits with an MLP (2026-10-20): MNIST fetched and checked by `fetch_mnist.sh`, trace `mnist-mlp.json` (the example's model trained in TorC, its weights, 20 test images with TorC's logits), weights gallery and digit pad (a tested browser port of the forward pass)
 
-Remaining: MNIST MLP → Convolution →
+Remaining: Convolution →
 MNIST CNN. Specs in content-plan section 2 (v1 course map) and section 3.
 
 ## Open decisions

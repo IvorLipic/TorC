@@ -39,7 +39,7 @@ string(TOUPPER "${CMAKE_BUILD_TYPE}" TORC_TRACE_BT)
 string(STRIP "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_${TORC_TRACE_BT}} -std=c++23 ${TORC_TRACE_CONTRACT} TORC_NATIVE_ARCH=OFF" TORC_TRACE_FLAGS)
 
 # One executable per trace program; each writes its JSON to stdout (tools/trace/run.sh maps it to site/data/<file>.json).
-set(TRACE_TARGETS autograd_trace trace_why trace_optim trace_linear trace_tensors trace_nonlinear trace_modules trace_losses trace_training trace_optimizers trace_generalization)
+set(TRACE_TARGETS autograd_trace trace_why trace_optim trace_linear trace_tensors trace_nonlinear trace_modules trace_losses trace_training trace_optimizers trace_generalization trace_mnist_mlp)
 foreach(t IN LISTS TRACE_TARGETS)
   if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${t}.cpp")
     add_executable(${t} ${t}.cpp trace_util.hpp)
