@@ -1,559 +1,1038 @@
 # TorC Learn: pedagogical review and rework brief
 
-**For:** the next session working on the `web` branch (TorC Learn, https://ivorlipic.github.io/TorC/).
-**Reviewed:** `origin/web` @ `3b06118` (13 published lessons + Backprop lab), 2026-10-21.
-**Question asked by the owner:** how good is this material *for learning*? The target is a person who just finished high school
-and wants to understand how ML/DL works, and the site should be the best resource for them.
-
-Status: DRAFT v1 (will be revised after independent reviews).
+**For:** the next session that works on the `web` branch (TorC Learn, https://ivorlipic.github.io/TorC/).
+**Reviewed:** `origin/web` @ `3b06118` (13 published lessons and the Backprop lab), 2026-10-21.
+**Owner's question:** How good is this material *for learning*? The target reader has just finished high school and wants to
+understand how ML and deep learning work. The site should be the best resource for that reader.
+**Status:** v2. Revised after three independent reviews: a cold read by a simulated target learner, a learning-design critique,
+and a fact check of every claim against the `web` checkout. All corrections from those reviews are folded in.
 
 ---
 
-## 0. How to use this document
+## 0. Read this first
 
-1. Read §1 (verdict) and §11 (work plan) first. They are the contract.
-2. The `web` branch's own rules still apply: read `CLAUDE.md`, `docs/authoring.md`, `docs/decisions.md` on `web` before editing.
-   Several of the changes below **revise owner decisions** (7, 9, 12 in `docs/decisions.md`). Do not silently override them:
-   record each revision as a new numbered decision, citing this review, and get the owner's OK where §11 marks it.
-3. §10 lists concrete defects that can be fixed immediately without any design discussion.
-4. Every numbered recommendation has an id (`R1`, `R2`, ...) so commits and PRs can reference it.
+**Where this file lives.** This brief was written on a branch cut from `main`. The `web` branch must never merge `main`
+(`CLAUDE.md` on `web`). So **copy this file into `web` as `docs/pedagogy-review.md`** in your first commit, and refer to it there.
+
+**Rules that still apply.** `CLAUDE.md`, `docs/authoring.md`, `docs/decisions.md` and `docs/architecture.md` on `web`. This brief
+asks to change several of them. Do not change them silently. Record each change as a new numbered decision that cites this
+brief, and get the owner's approval where §12 says so.
+
+**Deploys are live.** `.github/workflows/pages.yml` deploys `site/` on every push to `web`. It runs only `check_site` and the
+Node tests. The prose linter, trace-drift check and snippet check run in `verify.yml` in parallel, so a commit can go live before
+those checks fail. Two safe ways to work:
+- **Preferred:** ask the owner for a work branch (for example `web-v3`). Merge it to `web` once per finished part.
+- **If not approved:** every new or rewritten lesson stays `"status": "draft"` (reachable by URL, not listed) until its part is
+  done. Then switch the whole part to `published` and renumber `course.json` in one commit.
+
+**Refer to lessons by id, never by number.** This brief proposes new numbering, so numbers are ambiguous. Ids are stable.
+
+**Ids of the recommendations.** R1–R12 are design changes, D1–D20 are defects, C1–C10 are conceptual errors in lesson
+content. Cite them in commits.
 
 ---
 
 ## 1. Verdict
 
-**What is excellent and must be kept.**
-- The correctness pipeline is unusually good: every number comes from a real run of the library, prose numbers are bound to trace
-  data with tests, the JS engine is checked against C++ output, KaTeX is validated, a11y is audited. Almost no learning site has this.
-- Lessons are segmented into short, user-paced sections, each with a heading that names its topic (Mayer's segmenting principle).
-- Predict-then-reveal prompts exist in every lesson. This is the single most effective pattern on the site.
-- Several widgets are genuinely good: the bowl with tangent and step presets, the matmul grid with the "paper work" panel, the
-  with/without ReLU curve fit, the optimizer race, the digit pad with a real forward pass.
-- It never lies. Claims are precise and verified.
+### What is excellent and must stay
+- **The correctness pipeline.** Every number comes from a real run of TorC, and tests bind prose numbers to trace data. The JS
+  engine is checked against the C++ output, KaTeX is validated, and accessibility is audited (205 Node tests pass). Almost no
+  learning site has this. It is the site's unique selling point: *real library, real numbers*.
+- **Short, user-paced sections**, each with a heading that names its topic.
+- **Predict-then-reveal prompts in every lesson.** The best of them are among the best questions anywhere, for example
+  `nonlinearity` "what does the model without ReLU learn?", `tensors` "(2) + (2, 3)?" and `convolution` "parameters of `Conv2d(1, 8, 3)`?".
+- **Strong widgets.** The bowl with tangent and lr presets. The matmul grid with "paper work". The "copy neuron 1 into neuron 2"
+  button. The with/without-ReLU curve fit. The optimizer race. The digit pad, which runs a real forward pass.
+- **Moments that click** for the target learner (from the cold read): the bowl as a parabola, "if you increase `w` by a small
+  amount, `L` changes by about −24 times that amount", the five-line training loop, "the loss does not go to zero because the data
+  has noise", "Adam divides the average gradient by its typical size", the sliding-window arithmetic, and the digit pad.
 
-**What keeps it from being the best resource for a high-school graduate.**
-The site is optimized for *verifiable correctness* and *lint-able style*, not for *understanding*. Every quality gate (trace binding,
-STE linter, word budget, independent reviewer) checks something other than "did the learner understand it". The result reads like a
-precise, well-tested tour of the TorC API with the math next to it. Concretely:
+### What keeps it from being the best resource for this learner
+The site is optimized for **verifiable correctness and lintable style**, not for **understanding**. Every quality gate checks
+something other than "did the learner understand it": trace binding, the STE linter, the word budget, the independent reviewer.
+The result reads like a precise, well-tested tour of the TorC API with the maths beside it.
 
-1. **Wrong audience.** `docs/content-plan.md` §1 targets "programmers and STEM students who know calculus vocabulary and some C++ or
-   NumPy". The owner's target (a high-school graduate) has no C++, no matrices, no partial derivatives, no Σ fluency. The first
-   thing they see in lesson 1 is `Variable w(Tensor({0.0f}, {1}), true);`.
-2. **No "whole game" and no "why".** There is no lesson that says what machine learning is, what a model is, what "learning from
-   data" means, or why anyone wants a gradient. Lesson 1 starts with "This lesson uses a model with one weight."
-3. **Numbers narrated instead of ideas explained** (the owner's observation, confirmed). About 130 sentences across 13 lessons
-   carry two or more numbers, roughly ten per lesson ("With `lr` = 0.05, one step moves `w` from 0 to 1.2. The loss falls from 36
-   to 12.96."). Most of them prove the site is accurate. They do not help the learner understand. See §4.
-4. **The writing standard works against learning.** ASD-STE100 is a controlled language for aircraft maintenance manuals. It
-   produces flat, voice-less prose with no analogies, no motivation and no story. Mayer's *personalization principle*
-   (conversational style beats formal style, one of the larger effects in multimedia-learning research) points the other way. See §7.
-5. **The core idea of deep learning is not on the main path.** Backpropagation through a network gets one section in lesson 1 and an
-   optional lab outside the lesson order. Classification is never shown visually (no decision boundary anywhere). The gradient as a
-   *vector* over many parameters is never taught; lesson 2 silently goes from one parameter to two.
-6. **Library engineering on lesson pages.** A whole lesson (`modules`) and parts of others teach TorC specifics: `parameters()`
-   order from an `unordered_map`, the forward-cache lifetime rule, `zero_grad` accumulation, `reshape` copying, MSELoss not checking
-   shapes. These matter to someone using TorC. They are noise for someone learning how DL works, and they cost scarce attention.
-7. **Too short to teach the subject.** Thirteen lessons at 6 to 10 minutes each is about 95 minutes for "from a gradient to a CNN".
-   A realistic, deep first pass for this learner is 6 to 10 hours. The 800-word cap and the 2-widget cap force density, and
-   density is the enemy of a novice (cognitive load).
-8. **Checks test recall more than understanding**, and "I got it" is self-reported. Several checks ask for a number that is only
-   on the page ("Which digit does the CNN read worst?" → "7, with 998 of 1028"). None revisit earlier lessons (no spacing, no
-   interleaving).
-9. **It stops abruptly at a CNN.** A 2026 high-school graduate wants to know how ChatGPT works. The course never connects what it
-   taught to modern models, even though the same loop (loss, gradient, optimizer) is exactly what trains them.
+1. **It is aimed at the wrong reader.** `docs/content-plan.md` §1 targets "programmers and STEM students who know basic calculus
+   vocabulary (slope, derivative) and some C++ or NumPy". The target reader has no C++, no matrices, no partial derivatives and
+   little Σ. The home page leads with C++ cards. Lessons use `Variable w(Tensor({0.0f}, {1}), true);`, `std::make_unique` and
+   `param->data() = …` in the main text.
+2. **There is no "whole game" and no "why".** No page says what machine learning is, or what a model, a prediction, a target or a
+   loss is in general. "Loss" is defined properly only in `losses` (lesson 7): "A loss turns the output of a model into one number
+   that says how wrong the model is." The cold reader wrote: *"This is the sentence I needed in lesson 1."* "Sample" and "dataset"
+   are defined only in `training-loop`.
+3. **Numbers are narrated instead of ideas explained** (the owner's observation, confirmed). 53 sentences carry two or more
+   bound numbers, about 4 per lesson, and 15 carry three or more. Most lessons are near the 25-number budget (`sgd-step` 25,
+   `losses` 24, `why-gradients` 23, `nonlinearity` 23, `optimizers` 20). The cold reader confirms the owner. "36 to 12.96",
+   "27.67", "5.489", "1442", "1.815" and "0.00008427" were "just numbers scrolling by". The momentum numbers in `sgd-step` actively
+   taught a wrong lesson: *"momentum makes the loss go up, so it's risky"*. Numbers *did* help when the learner could check them or
+   when they made a point (§4).
+4. **Several lessons teach wrong conclusions** through unfair comparisons, peeking at the test set, and demos that support the
+   misconception they should refute (§5, C1–C10).
+5. **The core of deep learning is not on the main path.**
+   - Backpropagation is an optional lab "not part of the lesson order". `why-gradients` §4 states the chain rule.
+     `linear-layer` §3 states the matrix rules for the layer's backward pass but does not derive them.
+   - No page says *why* backprop exists. Nudging each of 26 506 weights one at a time would cost 26 506 extra forward passes.
+     One backward pass costs about as much as one forward pass.
+   - Classification is never shown visually: no decision boundary anywhere.
+   - The gradient is never called "the slope" in the text, and its derivative `8(w − 3)` is never written.
+6. **TorC engineering sits on lesson pages.**
+   - `modules` is half API detail: `parameters()` order from an `unordered_map`, and the forward-cache lifetime rule.
+   - Other lessons carry more of the same:
+     - `reshape` copies;
+     - `transpose({1, 0})` argument order;
+     - "TorC does not flip the kernel";
+     - "`conv2d` is a plain loop";
+     - `step()` skips parameters without a gradient;
+     - error strings.
+   - `losses` §1 shows an audit finding outright, the MSE shape issue from `docs/library-audit/v0.1.0-findings.md`. That directly
+     breaks decision 4.
+7. **It assumes notation it never teaches.** The cold reader stalled on all of these:
+   - ←, Σ with index subscripts (`y_{ik} = Σ_j x_{ij} W_{kj}`), ∂, the overline gradient, ᵀ, ⌊ ⌋, hats and Greek letters;
+   - "log" (school "log" is base 10, so the reader got 0.477 instead of ln 3 = 1.099);
+   - "curvature", "variance", "standard deviation", "regression", "channels", "logit", "overflow", "MNIST".
+   Two kinds of plot are never explained either: contour maps and log axes.
+8. **Checks often test recall or look-up.**
+   - Some predictions give away their own answer, because the sentence just before says it or the heading names it.
+   - Some checks cannot be answered from what was taught: `linear-layer` x̄; the `sgd-step` c-zero check needs a gradient the page
+     never states; the `losses` log base.
+   - One check is a pure number look-up: `mnist-cnn` "which digit is worst?".
+   - "I got it" is a self-report, and no check revisits an earlier lesson.
+9. **It is short and it stops abruptly.**
+   - 13 lessons × 6–10 min = 96 min for "from a gradient to a CNN".
+   - The last page ends: "This is the last lesson of the course." Nothing connects to the modern models (ChatGPT) that motivate
+     this reader. The same loop of loss, gradient and optimizer is what pretrains them.
 
-**Bottom line.** The engineering foundation is a real competitive advantage. The content layer needs a rework of audience, structure
-and voice, not polish. The good news: most widgets, all of the trace tooling and most of the facts can be reused.
+**Bottom line.** The engineering foundation is a real advantage: keep all of it. The content layer needs a rework of audience,
+order, examples and checks. Most widgets, all of the trace tooling and most of the facts can be reused.
 
-**Top 10 changes, in priority order** (details in later sections):
+### The twelve changes, in priority order
 
-| # | Change | Section |
+| # | Change | § |
 |---|---|---|
-| R1 | Re-target the course at the high-school graduate; state prerequisites ("algebra and graphs; we teach the rest") | §2 |
-| R2 | Adopt the "numbers serve claims" rule; remove number-narration from prose; move trajectories into widgets | §4 |
-| R3 | Replace ASD-STE100 with a plain, warm, conversational teacher voice (keep short sentences and defined terms) | §7 |
-| R4 | Add lesson 0 "What does it mean for a machine to learn?" (the whole game, a demo first) | §5 |
-| R5 | Put backpropagation and the gradient-as-vector on the main path; add a 2D classification lesson with decision boundaries | §5 |
-| R6 | Make concepts the main layer and TorC code a second layer ("In TorC" panel); move TorC engineering to an appendix track | §5, §6 |
-| R7 | Every lesson opens with a question or a problem, uses concreteness fading (picture → numbers → symbols → code) | §3, §7 |
-| R8 | Real checks: commit an answer before reveal, feedback per wrong answer that names the misconception, cumulative review | §8 |
-| R9 | Add just-in-time math refreshers (derivative, Σ, vectors/dot product, matrix product, exp/log, probability) and a glossary | §8 |
-| R10 | Add an epilogue "From digits to ChatGPT" and change the QA process so pedagogy is reviewed, not only correctness | §5, §9 |
+| R1 | Re-target the course at the high-school graduate. State the prerequisites: "algebra and graphs; we teach the rest". | 2 |
+| R2 | Apply the "numbers serve claims" rule with role-tagged bindings. Translate losses into human units. Put trajectories in widgets. | 4 |
+| R3 | Fix the conceptual errors C1–C10: fair comparisons, no test-set peeking, refute misconceptions with evidence. | 5 |
+| R4 | Add `what-is-learning`, the whole game, with the digit pad and a hand-fitting game. Plant train and test there. | 6 |
+| R5 | Put backpropagation on the main path, opened with the cost argument. Teach the gradient as a vector. Add a 2D classification lesson. | 6 |
+| R6 | The concept text must be completable without reading C++. Keep 4–5 "this is the real line" moments, put the rest in an "In TorC" panel, and move TorC engineering to an appendix track. | 6 |
+| R7 | Use a new lesson template: a core plus a palette. Open with a question, put the prediction before the text that answers it, close with the answer. | 9 |
+| R8 | Keep STE's structure rules. Add *specified* teacher moves and a list of banned LLM tics. Add an analogy bank with stated limits. | 8 |
+| R9 | Introduce notation just in time and keep one notation guide. Add maths refreshers, a glossary, and a first-use legend for each plot type. | 8 |
+| R10 | Make checks commit-first, with feedback for each wrong option. Add transfer, cumulative and self-explanation checks. Bump the progress store to v2. | 9 |
+| R11 | Add "same thing in ChatGPT" asides and the epilogue `from-digits-to-chatgpt`. | 6 |
+| R12 | Change the quality gates. Add a pedagogy reviewer and an AI cold reader (a smoke test), plus a human think-aloud protocol. Replace the budgets that reward the wrong thing. | 10 |
 
 ---
 
-## 2. Who the learner is (R1)
+## 2. The learner (R1)
 
-**Persona.** Age 17 to 19, just finished high school. Knows: algebra, functions and their graphs, exponents and logarithms, basic
-probability, maybe one term of calculus (derivative as slope, shaky). Does not know: vectors and matrices, Σ notation beyond a
-glimpse, partial derivatives, C++, what a tensor is. May know a little Python. Motivation: "AI is everywhere; how does it actually
-work?" They will quit when they feel lost or bored, and they will not tell you which.
+**Persona.**
+- **Who:** aged 17–19, just finished high school.
+- **Knows:** algebra; functions and their graphs (lines, parabolas); exponents and logs (school log = base 10); basic
+  probability; maybe one term of calculus (derivative as slope, shaky); maybe a little Python.
+- **Does not know:** vectors, matrices, Σ with subscripts, partial derivatives, standard deviation, C++, what a tensor is.
+- **Motivation:** "AI is everywhere; how does it actually work, and roughly how does ChatGPT work?" They quit silently when lost
+  or bored.
 
 **Consequences for the whole course.**
-- State the prerequisites on the home page and in lesson 0: "You need algebra and graphs of functions. Everything else, including
-  the derivative and matrices, is explained when it is needed."
-- Never use a symbol before it is introduced in words. ∂, Σ, overline-gradient notation, ᵀ, ⌊ ⌋, `σ`, `\hat m` all appear today
-  without an introduction suited to this learner.
-- C++ is optional depth, not the entry point (R6). The learner should be able to complete the whole course without reading C++
-  and still understand how DL works. Readers who want to see the real code open the "In TorC" panel.
-- Use concrete, meaningful data before abstract data: house prices, exam scores vs study hours, cats vs dogs as 2D points,
-  handwritten digits. Abstract toys (`t = 2x + 1`, a narrow quadratic valley) are fine as second examples.
-- Update `docs/content-plan.md` §1 ("Who") to this persona and keep the old audience as a secondary one served by the TorC layer.
+- **State the prerequisites** on the home page and in `what-is-learning`: "You need algebra and graphs of functions. We explain
+  everything else when you need it, including derivatives and matrices."
+- **Never use a symbol or term before it is introduced**, in course order. A test enforces this (§10).
+- **Never ask the reader to differentiate a formula symbolically** before the backprop lesson. Get slopes by nudging: "raise `w`
+  by 0.01 and the loss changes by about −0.24, so the slope is about −24". The trace already has `nudge` and `secants` data that
+  no lesson uses.
+- **C++ is depth, not the entry point** (R6). The reader must be able to finish the course without reading C++. "Real library,
+  real numbers" stays visible through 4–5 short "this is the real line" moments, each with a plain-English comment:
+  - the `SGD::step` update line;
+  - `loss.backward()`;
+  - the five-line training loop;
+  - a `Sequential` model;
+  - the digit model.
+  Never show `Variable w(Tensor({0.0f}, {1}), true);` to a novice.
+- **Meaningful data first**: "two notebooks cost 6 euros", a line through points, coloured points in 2D, handwritten digits. Keep
+  abstract toys (the narrow valley) as second examples.
+- **Update `docs/content-plan.md` §1** to this persona. Keep the old audience as a secondary one, served by the "In TorC" layer
+  and the appendix.
 
 ---
 
-## 3. Teaching principles to adopt (research basis → rule for this site)
+## 3. Teaching principles (research → rule a reviewer can check)
 
-Each principle below has a concrete rule that a reviewer can check. Sources in §12.
+Sources are in §13. Effect sizes are given where the meta-analyses report them, and the brief does not claim more than they say.
 
-| Principle | Evidence (short) | Rule for TorC Learn |
+| Principle | What the evidence says | Rule for TorC Learn |
 |---|---|---|
-| **Play the whole game first** (Perkins, *Making Learning Whole*; fast.ai's top-down approach) | Learners who meet a whole, authentic version of the activity early are more motivated and see why the parts matter | Lesson 0 shows a working digit recognizer and the full loop (data → model → loss → adjust) before any part is taught. Each later lesson says where it sits in that loop |
-| **Concreteness fading** (Fyfe, McNeil, Son, Goldstone 2014) | Concrete → pictorial → abstract beats concrete-only or abstract-only for transfer | Each concept appears in this order: a picture or a thing you drag; then the same with numbers; then the symbol; then (optional) the TorC code |
-| **Pretraining** (Mayer) | Learners do better when they know the names and traits of key parts before the main explanation | Each lesson starts with a 2 to 4 item "Words you will meet" list with one-line plain definitions and an icon or picture; a site-wide glossary with hover |
-| **Coherence** (Mayer) | Removing interesting-but-unneeded material improves learning | Remove library quirks, error strings and implementation details from the concept layer (they go to "In TorC" or the appendix) |
-| **Signaling** (Mayer) | Cues that show the structure help | Each lesson has a visible "the question" at the top and "the answer" at the end; key sentence of each section is bold; the training-loop diagram reappears with the current part highlighted |
-| **Personalization** (Mayer; conversational style) | Conversational, second-person wording beats formal wording | Write to "you", ask questions, use "we" for shared exploration; see §7 |
-| **Segmenting** (Mayer) | User-paced chunks beat a continuous presentation | Keep the short sections; allow more of them (§6 budget) |
-| **Prediction / generation before explanation** (productive failure, Kapur; predict-observe-explain) | Attempting a problem before instruction improves conceptual understanding when learners have enough prior knowledge to try | Keep "Before you try it", but require a committed answer (choice, number or drag) before the reveal; place predictions *before* the explanation, not after it |
-| **Worked examples, then faded practice** (cognitive load theory) | For novices, studying a worked example beats solving the same problem cold; fade support as fluency grows | Each lesson has one fully worked example (every step shown), then a near-identical one with a step missing, then one the learner does |
-| **Retrieval, spacing and interleaving** | Recalling earlier material later, mixed with new material, improves long-term retention | Each lesson's checks include one question from an earlier lesson; a short "review" set appears every three lessons |
-| **Refutation of misconceptions** | Naming a misconception, then showing why it is wrong, changes beliefs more than just stating the correct idea | Each lesson names 1 to 2 common misconceptions and refutes them with the widget (list in §6) |
-| **Explorables are explanations, not sandboxes** (Bret Victor, Nicky Case) | A bare sandbox does not teach; build each mechanic separately, then combine; the text should work even if the widget is skipped | Every widget comes with 1 to 3 guided tasks ("Set lr to 0.3. What happens to the dot?") and an expected observation in the text; build mechanics one at a time |
+| Whole game first (Perkins; fast.ai) | Meeting an authentic whole version of the activity early motivates the parts | `what-is-learning` shows the digit pad and the full loop (data → model → loss → adjust) before any part. Every lesson shows a small loop diagram with its own part lit |
+| Prequestions and predict-observe-explain (Richland, Kornell & Kao 2009; Carpenter & Toftness 2017; Crouch et al. 2004) | Answering before instruction improves learning of the answered material. In physics demonstrations, students who predicted first understood better than students who only watched | The prediction comes **before** any heading or text that contains its answer. The learner **commits** to an answer. At least one wrong option must look plausible |
+| Productive failure (Kapur; Sinha & Kapur 2021 meta-analysis) | Attempting a rich problem before instruction helps conceptual learning when the attempt is real and well supported. The effect depends on how faithfully it is done | Use it once, deliberately: the learner fits a line by hand before the algorithm does (`what-is-learning`). Do not label every quiz "productive failure" |
+| Concreteness fading (Fyfe, McNeil, Son & Goldstone 2014) | Concrete → pictorial → symbolic beats concrete-only or abstract-only for transfer | Each idea goes: a thing you drag → the same with numbers → the symbol → (optionally) the TorC code |
+| Multiple representations (Ainsworth 2006) | Several representations help only if learners are shown how they map onto each other | Colour-link a symbol across the formula, the plot and the code (`w` is the same colour everywhere). Label curves directly on the plot, not in a legend under it |
+| Coherence and seductive details (Mayer; Rey 2012 meta-analysis) | Interesting but unneeded material hurts learning | Remove library quirks and error strings from the concept text. Use analogies only from the curated bank, and not for every idea |
+| Signalling and spatial contiguity (Mayer) | Cues that show structure, and labels next to what they label, help | Each lesson opens with "Questions this lesson answers" and closes with "The answer". Each key sentence is bold. Explain each plot type at its first use |
+| Pretraining (Mayer) | Knowing the names and traits of a system's parts before the main explanation helps | Name the parts on a labelled diagram (the network picture, the loop picture), with glossary hovers. No generic "words you will meet" list on every page |
+| Personalization (Ginns, Martin & Marsh 2013) | Conversational style helps modestly (about d = 0.30 for retention and 0.54 for transfer). The effect is weaker in lessons longer than 35 minutes. A 2024 replication found no gain from style alone | Write "you" for instructions and predictions. Do not expect style to rescue weak content (§8) |
+| Worked examples, fading, expertise reversal (Sweller; Kalyuga) | Novices learn more from studying worked examples than from cold problem-solving. Support should fade as skill grows, and full worked examples can hurt experts | One fully worked example per lesson, then the learner does the last step. Fewer worked steps in later parts |
+| Self-explanation (Bisra et al. 2018 meta-analysis, g ≈ 0.55) | Prompting learners to explain in their own words improves learning | One "explain it in one sentence" prompt per lesson, with a model answer to compare |
+| Retrieval, spacing, interleaving (Dunlosky et al. 2013) | Practice testing and distributed practice are the two techniques with high utility | One check per lesson revisits an earlier lesson. Each part ends with a short mixed review that recommends, never blocks |
+| Refutation texts (Schroeder & Kucera 2022 meta-analysis) | Stating a misconception, then refuting it with an explanation, changes beliefs more than stating the correct idea alone | Each lesson names one misconception and refutes it **with the widget's own evidence**, not by assertion |
+| Explorables (Victor; Case) | A bare sandbox does not teach. Build each mechanic separately, then combine. The text must work without the widget | Each widget gets 1–3 guided tasks, and the text states each task's observation |
 
 ---
 
 ## 4. The "x goes to y in z steps" problem (R2)
 
-**Diagnosis.** The owner is right. Sentences like these appear about ten times per lesson:
+### Diagnosis
+The owner is right. Examples from the pages:
 
 > With `lr` = 0.05, one step moves `w` from 0 to 1.2. The loss falls from 36 to 12.96. *(why-gradients)*
 > With μ = 0.5, the loss is 0.174 after two steps, and 1.09 without momentum. At step three it rises to 2.447. *(sgd-step)*
 > Under AdamW, it falls from 3 to 1.815 in 50 steps. *(optimizers)*
 > The test loss is lowest after step 200, at 0.05669. Then it rises to 0.1281, and the training loss ends at 0.00008427. *(generalization)*
-> After the first epoch, the model reads 9204 of the test images correctly. After the last epoch, it reads 9666 correctly. *(mnist-mlp)*
 
-Why they do not help:
-- The learner has no reason to care about 12.96 or 1.815. A number is meaningful only if the learner predicted it, computed it, or
-  can compare it with something they already understand.
-- They cost working memory. Each number is a thing to hold while reading the next sentence, and novices have little to spare.
-- They replace the explanation. "The loss falls from 36 to 12.96" says *that* it worked; it does not say *why*.
-- Over-precision signals noise: 0.00008427, 0.001145, 0.05669. Four significant digits on a loss value carries no meaning for this reader.
+Why they fail:
+1. **The learner has no reason to care.** A number means something only if the learner predicted it, computed it, or can
+   compare it with something they already understand. In `sgd-step` the three data points are never even listed, so nothing
+   there can be checked.
+2. **They use up working memory** that a novice needs for the idea.
+3. **They say *that* something happened, not *why*.**
+4. **Loss values have no unit a human can feel.** Rounding 0.05669 to 0.057 does not help. "Loss 0.057" still means nothing.
+5. **They are over-precise.** `fmt` prints 4 significant figures, which is the direct source of "0.00008427".
 
-**Root cause in the process.** `CLAUDE.md` says "Numbers on lesson pages come from `tools/trace` output... Prose that quotes a
-number needs a test that checks it." The `T()` binding and the budget ("≤ 25 numbers bound in the text") make a number on the page
-look like proof of quality. Authors fill prose with bound numbers to show that the page is grounded. The rule is good for honesty
-but it has become an incentive.
+Numbers that **did** help the cold reader:
+- `0 − 0.05 × (−24) = 1.2` (when the arithmetic was shown);
+- the MSE worked example 0.1667;
+- the learned weight 3.002 and bias 1.013 against the true 3 and 1;
+- 9204 → 9666 correct (but as percentages it would have been easier).
 
-**New rule ("numbers serve claims").** A number may appear in lesson prose only if one of these holds:
-1. The learner is asked to predict or compute it, and it appears in the reveal.
-2. It is an anchor the learner will remember and reuse: 784 pixels, 10 classes, about 97 % accuracy, 26 506 parameters vs 9 098.
-3. It makes a comparison where the size of the difference is the point, and the sentence states the point in words first:
-   "With momentum the loss drops much faster at first (0.17 after two steps instead of 1.09), but then it overshoots."
-Everything else (trajectories, per-step values, final losses of runs) goes into the widget readout, where the learner sees it
-while doing something. Round to 2 to 3 significant figures in prose; use percentages for accuracy; use a thin space or comma for
-thousands consistently (the home page says "26,506", lessons say "26506").
+### Root cause
+`CLAUDE.md` asks that "Numbers on lesson pages come from `tools/trace` output" and "Prose that quotes a number needs a test". The
+`T()` binding plus a budget of "≤ 25 numbers" made bound numbers look like proof of quality. The honesty rule is right. The budget
+turned it into an incentive.
 
-Keep `T()` for every number that remains; the honesty guarantee stays. Lower the prose budget to **≤ 10 bound numbers per lesson**
-(today ≤ 25) and add a test heuristic: flag any sentence with three or more bound numbers for a human look.
+### The rule, v2 (enforceable)
+1. **Every prose number has a role**, given in its binding: `T(path, {role})`. Untagged bindings fail the tests.
+   - `reveal`: inside a predict or check reveal, answering the prompt.
+   - `worked`: inside a calculation whose inputs are all visible in the same block.
+   - `anchor`: listed in a course-wide `site/anchors.json` of at most about 15 entries and reused in at least two lessons. For
+     example: 784 pixels, 28 × 28, 10 classes, 60 000 images, about 97 % accuracy, 26 506 vs 9 098 parameters, the bowl's
+     bottom at `w` = 3.
+   - `contrast`: half of a pair (A vs B) in one sentence that states the comparison in words first.
+   - `human`: a loss translated into a human unit:
+     - MSE → typical miss in the target's units (√MSE, "off by about 0.24 on average");
+     - cross-entropy → probability given to the right answer (e^−L, "66 % on the right class");
+     - accuracy → mistakes per 100.
+2. **Formatting by role, done inside `T()`.**
+   - Prose defaults to 2 significant figures. Exact values only for integers and in `worked` and `reveal` blocks.
+   - One thousands separator (decide: thin space or comma).
+   - Percentages for accuracy.
+   - Widgets keep their full precision.
+   - Leave `fmt` (`site/js/ops/texutil.js`) alone for TeX, and add a prose formatter in `makeT` (`site/js/core/trace.js`).
+3. **Mechanical limits.**
+   - At most 2 non-`worked` numbers per sentence.
+   - No bare loss value outside `worked` or `reveal`; use `human` instead.
+   - At most 10 non-`worked` numbers per lesson.
+   - Numbers in code blocks, widgets and reveals do not count toward the 10.
+   - Apply these limits per lesson as each lesson is rewritten, using an allow-map in the test. Ten lessons fail the limit today.
+4. **Reviewer heuristic.** Delete the number. If the sentence loses no meaning, leave it deleted.
+5. **Close the loophole.** Number *words* ("nineteen more passes") are numbers too. Bind them or avoid them.
 
-**Before/after examples** (the next session should rewrite every such sentence in this spirit):
+### Before and after
 
 | Before | After |
 |---|---|
-| "With `lr` = 0.05, one step moves `w` from 0 to 1.2. The loss falls from 36 to 12.96. Each step is shorter than the one before, because the gradient gets smaller near the lowest point." | "Press **Step** a few times and watch the dot. Each step is shorter than the one before. Why? The step is the learning rate times the slope, and the slope gets flatter as you approach the bottom. So gradient descent slows down by itself near the minimum, without anyone telling it to." |
-| "Under AdamW, it falls from 3 to 1.815 in 50 steps." | "Weight decay shrinks every weight a little at each step, like a slow leak. A weight that the loss does not care about drifts toward zero; a weight that matters is held up by its gradient." (the 3 → 1.815 curve is drawn in a widget) |
-| "After the first epoch, the model reads 9204 of the test images correctly. After the last epoch, it reads 9666 correctly." | "After one pass through the training images the network already gets 92 % of new digits right. Nineteen more passes bring it to about 97 %. Most of the learning happens early; the rest is slow polishing." |
-| "The test loss is lowest after step 200, at 0.05669. Then it rises to 0.1281, and the training loss ends at 0.00008427." | "Look at the two curves. The training loss keeps falling almost to zero. The test loss falls at first, then turns around and climbs. From that turning point on, the model is memorizing the noise in its ten training points, not learning the curve." |
-| "It takes 0 steps. After the first epoch, `has_next()` returns `false`, so the inner loop does not run. TorC gives no error, and the loss stays at 0.8618." | "None. The loader has already handed out every batch, so the inner loop never runs again, and the model silently stops learning after the first epoch. No error tells you." |
+| "With `lr` = 0.05, one step moves `w` from 0 to 1.2. The loss falls from 36 to 12.96. Each step is shorter than the one before, because the gradient gets smaller near the lowest point." | "One step with learning rate 0.05 is new `w` = 0 − 0.05 × (−24) = 1.2. Subtracting a negative number adds, so `w` goes up toward 3. *Your turn:* at `w` = 1.2 the gradient is −14.4. Where does the next step land? *(reveal: 1.92; the step shrank from 1.2 to 0.72 because the bowl is flatter there)*" |
+| "Under AdamW, it falls from 3 to 1.815 in 50 steps." | "Each step keeps 99 % of the weight, because 1 − lr·λ = 1 − 0.1 × 0.1 = 0.99. After 50 steps that is 0.99⁵⁰ ≈ 0.6, so the 3 has become about 1.8." (TorC fact for the "In TorC" panel: a parameter that gets *no* gradient is skipped by `step()` and does not decay.) |
+| "After the first epoch, the model reads 9204 of the test images correctly. After the last epoch, it reads 9666 correctly." | "After one pass through the training images, the network gets about 8 of every 100 new digits wrong. After 20 passes it gets about 3 wrong. The later passes remove more than half of the remaining mistakes." |
+| "The test loss is lowest after step 200, at 0.05669. Then it rises to 0.1281, and the training loss ends at 0.00008427." | "The training loss keeps falling almost to zero. The validation loss falls at first, then turns and climbs. From that turn on, the curve follows the noise of its ten training points instead of the sine curve." (and C2: this curve must be validation, not test) |
+| "It takes 0 steps. After the first epoch, `has_next()` returns `false`, so the inner loop does not run. TorC gives no error, and the loss stays at 0.8618." | (This check moves to the appendix: it is TorC API knowledge.) In `training-loop`, ask instead: "Why does the loader shuffle the samples again at each epoch?" |
 
 ---
 
-## 5. Structure and progression (R4, R5, R6, R10)
+## 5. Conceptual errors in the lesson content (R3)
 
-### 5.1 Problems with the current sequence
+These teach a wrong idea. Fix them in any version, before or during the redesign.
 
-Current order: 01 The gradient · 02 Using the gradient · 03 Tensors · 04 Layers · 05 Nonlinearity · 06 Modules · 07 Losses ·
-08 The training loop · 09 Better optimizers · 10 Generalization · 11 Digits with an MLP · 12 Convolution · 13 Digits with a CNN ·
-(Lab) Backprop lab.
+| # | Lesson | Problem | Fix |
+|---|---|---|---|
+| C1 | `training-loop` §3 | The batch-size prediction compares batch 10 against batch 100 *after the same number of epochs*. The answer, "batch 10 … took 300 steps", teaches "small batches are better". What the run actually shows is that more steps beat fewer steps. | Compare at equal steps *and* at equal samples seen. State the cost of each: a small batch means more steps but a noisier gradient estimate. Explain the "S" in SGD: the gradient of a batch is an *estimate* of the gradient over all the data. |
+| C2 | `generalization`, `mnist-mlp` | Both say "use the test set only once, at the end". Yet both choose the stopping point or diagnose overfitting from the test curve ("The test loss is lowest after step 200"; test accuracy after every epoch). | Rename these curves "validation" and record a validation split in the trace. Otherwise say explicitly: "we look at the test set here only to show you". |
+| C3 | `why-gradients` | "The gradient does not tell you how far away the lowest point is" is asserted. But in this bowl the gradient *is* proportional to the distance (8(w − 3)), so the widget supports the misconception. | Add a second bowl with the same minimum and a different steepness ("4 notebooks cost 12": L = 16(w − 3)², gradient −96 at w = 0). Same distance, four times the gradient. Needs a new trace scene. |
+| C4 | `optimizers` | The race runs Adam at lr 0.2 and SGD at lr 0.019, and the predict answer is "Adam ends lowest" with no caveat. This builds "Adam is always best". | Say: "Adam got a ten times larger learning rate here. No optimizer wins on every problem." Better: show each optimizer at its own best learning rate from a small sweep. |
+| C5 | all runs | Every run uses one seed, yet the prose states its results as general facts. | Say once per part: "a different random start gives slightly different numbers". For the headline comparisons (MLP vs CNN, batch sizes, optimizers), record 3 seeds and show the range. |
+| C6 | `sgd-step` | Momentum appears in lesson 2 with numbers that rise ("at step three it rises to 2.447"). The learner concludes that momentum makes things worse. The motivating case, the narrow valley, only comes in `optimizers`. | Teach momentum once, in `optimizers`. |
+| C7 | `why-gradients` §4 | "The error `e` appears twice in `L = e·e`. So `e` gets two contributions of −6." This confuses a learner who knows d(e²)/de = 2e = −12. | Say: "`e·e` is e², whose slope is 2e = −12. TorC gets the same answer a different way. It treats each use of `e` separately (each gives −6) and adds them. The Backprop lesson shows why adding is right." |
+| C8 | `convolution` (planned motivation) | "A pattern detector that slides does not care where the stroke is" mixes up equivariance and invariance. Measured on the 20 shown test images (16 correct before the shift): a 3 px shift right leaves MLP 10 and CNN 15 correct; 3 px left, 7 and 12; 3 px down, 8 and 9; 4 px right, 3 and 10. TorC's CNN ends in Flatten → Linear, so it is **not** shift-invariant. Also, the digit pad re-centres drawings by centre of mass, which undoes any shift drawn there. | Teach "the feature map moves with the digit", which holds exactly only for shifts that are multiples of the stride. Then show the measured robustness of both models honestly, from a trace with a test. |
+| C9 | `mnist-cnn` | "The CNN, with the settings of the two TorC examples": the trace trains 5 epochs, but `examples/mnist_cnn` uses 10. The page itself says "The TorC example trains for more epochs". The comparison is also confounded (5 vs 20 epochs, different learning rates). | Say plainly: "This comparison is not perfectly fair: different numbers of passes and step sizes. The CNN still wins, with a third of the parameters." Remove the false "settings of the two examples". |
+| C10 | `generalization` | The code block shows `DataLoader train(train_set, 64…)` and `AdamW(params, 1e-3f, 0.01f)`, but the run on the page uses 10 samples, lr 0.05, weight decay 0, 0.1 and 1, and 20 000 steps. The check answers "The model overfits" as a yes/no fact. Students treat overfitting as binary and over-diagnose it (Valdenegro-Toro & Sabatelli). | Show the experiment's real settings. Teach overfitting as a matter of degree, and refute "more parameters ⇒ overfitting" (the MNIST MLP has many parameters *and* many images). |
 
-- **No lesson 0.** Nothing says what ML is, what a model, data, a prediction or a loss is in general, or why we want gradients.
-- **Used before taught** (prerequisite violations):
-  - Lesson 2 uses "the mean squared error, `nn::MSELoss`" and a matrix-shaped `W·x + b`; MSE is taught in lesson 7, matrices in lesson 3.
-  - Lesson 2 teaches momentum; lesson 9 teaches it again. Momentum is premature in lesson 2 (no noisy or narrow-valley loss yet).
-  - Lesson 4's init-signal widget uses ReLU ("After each layer, a ReLU sets the negative values to zero"); ReLU is lesson 5.
-  - "Neuron" is defined in lesson 4 as "a row of W". The intuitive neuron (weighted vote + threshold) never appears.
-  - "Classifier" is first defined inside the softmax section of lesson 5. Classification as a task is never introduced.
-  - ∂ appears in lesson 7 with no introduction; lesson 1 uses d/dw. Overline notation for gradients appears in lessons 2 and 4.
-  - Lesson 4 derives `W̄ = ȳᵀx` and `x̄ = ȳW`. This is the hardest math on the site and it comes before the learner has trained anything with a layer.
-- **The gradient is never taught as a vector.** Lesson 1 has one weight; lesson 2 has two and shows a contour plot, but no section
-  says "with many parameters, the gradient is a list of slopes, one per parameter, and together they point uphill".
-- **Backpropagation is off the main path.** The heart of "how DL works" is the Backprop lab, explicitly "not part of the lesson order".
-- **No visual classification.** The course jumps from fitting lines and curves straight to MNIST. The most intuitive picture in all of
-  deep learning (coloured points in 2D and a boundary that bends as hidden units are added, as in TensorFlow Playground) is missing.
-- **`modules` is an API lesson.** Its four sections are: what a module is, Sequential, `parameters()` order from an unordered map,
-  and the forward-cache lifetime rule. Two of four are TorC limitations.
-- **Every lesson has a new toy problem** (a bowl, two different lines, x², a sine polynomial, a valley, digits). There is no
-  throughline that lets the learner build on a familiar example.
-- **No ending.** The last lesson ends with "This is the last lesson of the course." Nothing connects to modern DL.
+Other content issues (smaller):
+- **Unexplained "why"s:**
+  - why the error is squared;
+  - why `backward()` *accumulates* gradients (it reads like a bug);
+  - why identical neurons are bad (missing step: they get equal gradients and stay twins forever);
+  - why a tiny or huge signal spread at initialization matters (gradients vanish or explode, so the network cannot learn);
+  - why the 2 in √(2/in) (ReLU zeroes about half the values);
+  - why shuffle;
+  - why softmax uses exponentials (to make every score positive);
+  - why the bias needs broadcasting (to add one bias to every row).
+- **Magic numbers:**
+  - "a learning rate above about 0.1803 is too large" (`sgd-step`, from a Hessian eigenvalue);
+  - "below two divided by the steep curvature, here 0.02" (`optimizers`);
+  - "we know its curvature" (`why-gradients` check). "Curvature" is never defined.
+- **Symbol overloading:**
+  - `p` = prediction (`why-gradients`) and then parameter (`sgd-step`);
+  - the gradient is `g`, then `p̄`;
+  - the batch size is `B`, then `N`;
+  - "graph" means a plot and also the computation graph, in the same lesson;
+  - the bowl widget says "slope" while the prose says "gradient";
+  - `sgd-step` prose says `W` and "step", while its widgets say `w` and "update".
+- **Forward references:**
+  - MSE in `sgd-step` (taught in `losses`);
+  - "training loop" in `sgd-step`;
+  - ReLU in `linear-layer`'s init plot (taught in `nonlinearity`);
+  - Adam in `modules` code (taught in `optimizers`);
+  - batch and sample in `linear-layer` (defined in `training-loop`);
+  - 784 in `linear-layer` (explained as 28 × 28 only in `mnist-mlp`).
+- **Unread pictures:** the 32 first-layer weight images in `mnist-mlp` come with no instruction on what to look for.
+- **Wording:** "the model reads 9666 correctly" is odd; use "classifies" and percentages.
 
-### 5.2 Proposed curriculum (v3)
+---
 
-Main track = concepts, each lesson with an optional "In TorC" panel showing the real code. Lesson count goes from 13 to about 18;
-most new lessons reuse existing widgets and traces. ★ = new lesson, ◆ = substantially rewritten, ○ = mostly kept.
+## 6. Structure and the new curriculum (R4, R5, R6, R11)
+
+### Problems with the current order
+Today's order: `why-gradients`, `sgd-step`, `tensors`, `linear-layer`, `nonlinearity`, `modules`, `losses`, `training-loop`,
+`optimizers`, `generalization`, `mnist-mlp`, `convolution`, `mnist-cnn`, plus the `backprop-lab` lab.
+
+The problems are covered in §1 and §5:
+- no whole game;
+- forward references;
+- a lesson on the C++ API (`modules`);
+- backprop off the main path;
+- no classification picture;
+- a new toy problem in every lesson;
+- no ending.
+
+The cold reader's most likely quit points:
+- `sgd-step` (contour plot and numbers they cannot check);
+- `linear-layer` §3 (matrix gradient rules, with no loss defined in that lesson);
+- `modules` (C++ plumbing).
+
+### Curriculum v3
+
+Design choices, each supported by the reviews:
+- **Backprop belongs right after the learner has a network with many weights.** The question "how does it get all those
+  gradients?" exists only then. That is the order 3Blue1Brown and Nielsen use.
+- **No standalone linear-algebra lesson.** A maths-only lesson before the payoff is where this learner drops out. Introduce the
+  dot product inside "the neuron" (a weighted sum *is* a dot product). Introduce the matrix product as "a layer is many neurons at
+  once". Both get just-in-time refreshers.
+- **Plant generalization early.** `what-is-learning` scores the hand-fitted line on hidden points, because "does it work on new
+  data?" is the definition of learning.
+- **ChatGPT asides throughout**, not only at the end. Examples: cross-entropy is the next-word loss; softmax over the vocabulary;
+  Adam trains LLMs; parameter counts.
+- **Each part ends at a real stopping point**: "you can stop here and explain X".
+- **Time target:** about 3–4 hours for the core path, 12–18 minutes per lesson, with depth in optional panels. Part 0 plus Part 1
+  must deliver a complete payoff in under 45 minutes.
+
+★ = new id, ◆ = existing id, substantially rewritten, ○ = existing id, mostly kept. **Keep each existing id on the lesson that
+inherits most of its content** (ids hold URLs, progress, test files and SPEC keys; see §12).
 
 **Part 0. The whole game**
-- ★ **0. What does it mean for a machine to learn?** Open with the digit pad (already built). Then a hand-fitting game: drag a line
-  through points (hours studied vs exam score), see a "how wrong" number (the loss) update live, try to make it as small as you can.
-  Name the four parts: data, model, loss, adjust. Show the loop diagram that recurs in every lesson. Promise: "By the end you will
-  know exactly what happens inside this digit recognizer, and what is different in ChatGPT."
+- ★ `what-is-learning`: **What does it mean for a machine to learn?** Open with the digit pad (already built). Then the
+  hand-fitting game:
+  - drag a line through points;
+  - each miss is drawn as a square whose area adds to the loss (MSE, made visible);
+  - try to make the loss small (this is the deliberate productive-failure moment);
+  - press "let gradient descent take over" and watch it run live;
+  - score both lines on hidden points.
 
-**Part 1. Learning is making the loss small**
-- ◆ **1. Models and losses.** A model is a function with knobs (parameters). The loss measures how wrong it is on the data.
-  Introduce MSE here, visually (squares on the residuals). Reuses the hand-fitting game.
-- ◆ **2. The gradient** (today's lesson 1, rewritten). Derivative as slope, with a just-in-time refresher. The bowl widget.
-  No C++ in the main text.
-- ◆ **3. Gradient descent** (today's lessons 1 §2-3 + 2, merged). Step against the slope; learning rate too small, right, too big.
-  Then **two parameters**: the gradient as an arrow on a contour map (reuse the `contour2d` widget), "a list of slopes that
-  together point uphill". Drop momentum and `zero_grad` from here.
+  Name the four parts (data, model, loss, adjust) on the loop diagram that returns in every lesson. Promise what the course
+  delivers, including "what is different in ChatGPT".
 
-**Part 2. How the computer finds the gradient**
-- ◆ **4. The chain rule and computation graphs** (today's lesson 1 §4 + Backprop lab scenes 1-2 moved onto the main path). Gears
-  analogy: if p moves 2× as fast as w, and L moves −12× as fast as p, then L moves −24× as fast as w. Reuse of a value adds
-  contributions. `backward()` appears here as "the computer does this for every parameter at once".
+**Part 1. Learning means going downhill**
+- ◆ `why-gradients`: **The gradient.** The gold-standard section in Appendix B shows the target. It has:
+  - the notebook story;
+  - a slope found by nudging (the nudge-lens widget, using the existing `nudge` and `secants` trace data);
+  - one worked step and one step the learner does;
+  - the steep-bowl refutation (C3);
+  - the bowl with "fog mode";
+  - `L.backward()` as a "real line" moment.
 
-**Part 3. Neural networks**
-- ★ **5. Vectors, the dot product and the matrix product** (just enough linear algebra; today's `tensors` §4 + the matmul grid).
-  Dot product as a weighted vote / similarity score. Matrix product as "many dot products at once". Shapes as a bookkeeping tool.
-  Broadcasting and reductions move to the "In TorC" panel or the appendix.
-- ◆ **6. The neuron and the layer** (today's `linear-layer` §1-2). One neuron = weighted sum + bias, drawn as a node with
-  incoming arrows; then a layer = many neurons = one matrix product. Parameter counting. Initialization moves to lesson 10.
-- ◆ **7. Nonlinearity** (today's lesson 5, extended). Keep "two linear layers collapse". Add the key intuition that is missing
-  today: each ReLU neuron makes one bend; a sum of bends can draw any curve. Show the hidden neurons' individual hinge functions
-  in the curve-fit widget and how they add up.
-- ★ **8. Classification** (today's lesson 7 §2-3 + new widget). Points of two colours in 2D. A neuron with sigmoid draws a straight
-  boundary; with hidden ReLU neurons the boundary bends (a small Playground-style widget, trained live in JS, or precomputed from
-  TorC runs). Softmax turns scores into shares; cross-entropy measures surprise; why it beats squared error for classes.
-- ◆ **9. Backpropagation through a network** (today's lesson 4 §3 + Backprop lab scene 3). The layer's backward pass, done once
-  with numbers, then as the matrix rule. Vanishing gradients with sigmoid (from today's lesson 5 §2).
-- ◆ **10. Starting the weights** (today's lesson 4 §4). Why not zeros (symmetry, the "copy neuron 1 into neuron 2" button), why
-  not too big or too small (the six-layer signal plot, now after ReLU is taught).
+  The chain rule moves to `backprop`.
+- ◆ `sgd-step`: **Gradient descent with many weights.**
+  - The line `y = w·x + b` with its data points **listed**.
+  - The contour map, with a first-use legend: "each colour is the loss for one pair (w, b); dark is low".
+  - The gradient as an arrow, "a list of slopes, one per weight, which together point uphill".
+  - Fog mode in 2D.
+  - Why a learning rate can be too big in the steep direction, as a picture rather than a magic 0.1803.
+  - The `SGD::step` line as a "real line" moment.
 
-**Part 4. Training in practice**
-- ○ **11. The training loop** (today's lesson 8). Batches, epochs, the noise of small batches. `zero_grad` belongs here, in the
-  "In TorC" panel, as the reason each iteration clears the gradient.
-- ○ **12. Better optimizers** (today's lesson 9). Momentum taught once, here, with the ball-rolling analogy; Adam; AdamW.
-- ○ **13. Generalization** (today's lesson 10). Add the memorize-vs-understand analogy and a validation-set widget, not only text.
+  Momentum and `zero_grad` leave this lesson.
 
-**Part 5. Images**
-- ○ **14. Digits with an MLP** (today's lesson 11). Accuracy in percent; add "what the hidden neurons respond to" and a
-  confusion matrix (which digits get mixed up and why).
-- ◆ **15. Convolution** (today's lesson 12). Motivate it: shift a digit 3 pixels and watch the MLP's answer change, while a
-  pattern detector that slides does not care where the stroke is. Then kernels, stride, padding, channels.
-- ○ **16. Digits with a CNN** (today's lesson 13).
+**Part 2. Neural networks**
+- ◆ `linear-layer`: **The neuron and the layer.**
+  - One neuron = a weighted sum plus a bias, drawn as circles and arrows, with a dot-product refresher.
+  - A layer = many neurons = one matrix product (the matmul grid, 0-indexed).
+  - Shapes and parameter counts.
+  - The bias is added to every row; this is the place to explain broadcasting in words.
 
-**Part 6. Where this goes next**
-- ★ **17. From digits to ChatGPT** (concept only, no TorC code; honest that TorC stops at CNNs). Text as tokens, tokens as vectors
-  (embeddings), predicting the next token with cross-entropy, attention as "each word looks at the others and takes a weighted
-  average", and the punchline: it is trained with exactly the loop of lesson 11, at a vastly larger scale. Ends with a curated
-  "where to go next" list (3Blue1Brown's neural network series, Karpathy's *Zero to Hero*, Nielsen's *Neural Networks and Deep
-  Learning*, d2l.ai).
+  The backward rules move to `backprop`; initialization moves to `backprop`.
+- ◆ `nonlinearity`: **Bending: activation functions.**
+  - Two linear layers collapse into one. Show it with plain numbers first: f(x) = 2x + 1, g(x) = 3x + 4, so g(f(x)) = 6x + 7.
+  - The **hinge builder**: each hidden ReLU unit is a hinge; switch units on and off and see their sum change shape. This needs
+    the trace to record W1, b1, W2 and b2 at each checkpoint.
+  - Sigmoid stays. Softmax moves to `losses`.
+- ★ `classification`: **Two classes: decision boundaries.**
+  - Coloured points in 2D.
+  - With 0 hidden units the boundary is a straight line. With 2, 4 or 8 hidden units it bends, and each hidden unit's line is
+    drawn in the plane.
+  - The sigmoid output read as a probability.
+  - Precomputed presets from a new trace program (recommended), or live JS training (decide; see §11).
+- ◆ `losses`: **Many classes: softmax and cross-entropy.**
+  - Softmax turns scores into shares of 100 %; it uses exponentials so that every score becomes positive.
+  - Cross-entropy as "surprise", written as **ln**, with a refresher.
+  - Why it beats squared error for classes (keep the comparison widget).
+  - Ten digits as ten classes.
+  - ChatGPT aside: the same softmax, over about 50 000 tokens.
 
-**Appendix track: "Using TorC"** (outside the main order, like the labs today). Today's `modules` lesson, tensor storage and
-`reshape` copies, broadcasting rules in full, `zero_grad` and gradient accumulation, graph lifetime ("why did `backward()`
-throw?"), label checks in `CrossEntropyLoss`, MSELoss shape pitfall. These pages can keep today's precise, API-first style.
+  MSE is now taught in `what-is-learning`. The MSE shape pitfall goes to the appendix.
+- ★ `backprop`: **How the computer finds every gradient at once.** The parts:
+  1. The cost argument: 26 506 nudges against one backward pass. The **nudge-vs-backprop counter** widget shows it.
+  2. The chain rule as gears: 2 × 1 × (−12) = −24, taken from `why-gradients` §4, with C7 fixed.
+  3. Computation graphs: Backprop lab scenes "Reuse" and "Chain rule", embedded (one graph lab per page).
+  4. A layer's backward pass with real numbers, then as the matrix rule (from `linear-layer` §3).
+  5. Vanishing gradients with sigmoid.
+  6. Initialization: the "copy neuron" symmetry, *with* the missing reason, and the six-layer signal plot, now after ReLU.
 
-**Labs**: keep the Backprop lab as a free playground; add a "Train a tiny network" playground later.
+  This lesson can run long. If it does, split it into `backprop` and `backprop-network`.
 
-**Throughline.** Use one recurring example in Parts 0 to 3 (for example hours studied → exam score for regression, and
-pass/fail from two features for classification), so the learner meets each new idea on familiar data before seeing it elsewhere.
+**Part 3. Training in practice**
+- ○ `training-loop`: **The training loop.**
+  - Batches and epochs.
+  - The S in SGD (a batch's gradient is an estimate).
+  - Why shuffle.
+  - A fair batch-size comparison (C1).
+  - The five-line loop as a "real line" moment.
+  - `zero_grad` in the "In TorC" panel, with the reason: TorC adds each new gradient to the stored one. That lets one
+    `backward()` per use add up, so you must clear it between steps.
+- ○ `optimizers`: **Better optimizers.**
+  - Momentum, taught once, with the ball analogy.
+  - Adam as "a step size per weight, scaled by the typical size of its recent gradients".
+  - AdamW.
+  - The C4 caveat.
+  - Label the race curves directly on the plot, and replace the monospace readout table with a loss-vs-step plot.
+- ○ `generalization`: **Does it work on new data?**
+  - Train, validation and test (C2), with the **validation-stop game**: pick the stopping step from the validation curve, commit,
+    then see the test loss once.
+  - Overfitting as a matter of degree (C10).
+  - More data helps.
+  - Define "variance" before the noise-floor check, or rephrase that check without the word.
 
-**Time.** Plan for 10 to 20 minutes per lesson, about 4 to 6 hours in total. State honest times on the cards.
+**Part 4. Images**
+- ○ `mnist-mlp`: **Digits with an MLP.**
+  - Mistakes per 100.
+  - Say what to look for in the weight images.
+  - A **confusion matrix** and a **grid of the mistakes**, with "why might 4 and 9 get confused?". This needs a 10 × 10 confusion
+    matrix recorded in `trace_mnist_mlp.cpp` and a re-run.
+  - "Channels" explained (red, green, blue), ahead of `convolution`.
+- ◆ `convolution`: **Convolution.**
+  - Motivation: an MLP has a separate weight for every pixel. A kernel reuses the same small pattern detector everywhere, so it
+    needs few weights, and its feature map moves with the digit (C8).
+  - The sliding window, explained with a picture before the ⌊ ⌋ formula.
+  - Channels.
+  - The parameter-count prediction.
+  - "Does not flip the kernel" goes to "In TorC".
+- ○ `mnist-cnn`: **Digits with a CNN.**
+  - Fix C9.
+  - Replace the look-up check with a reasoning question.
+  - End with a recap of the whole course and the bridge to the epilogue.
 
----
+**Part 5. Where this goes next**
+- ★ `from-digits-to-chatgpt`: concepts only, no TorC code, and honest that TorC stops at CNNs.
+  - Text becomes tokens, and tokens become vectors (embeddings).
+  - **Next-token prediction with cross-entropy, where the label comes for free from the text itself** (self-supervision). This
+    one idea connects everything in the course.
+  - Attention as "each word takes a weighted average of the others, with weights it learns".
+  - Pretraining uses exactly this course's loop, at enormous scale. Later stages (fine-tuning, learning from human feedback) use
+    other objectives.
+  - End with a curated list: 3Blue1Brown's neural network series, Karpathy's *Zero to Hero*, Nielsen's *Neural Networks and Deep
+    Learning*, d2l.ai.
 
-## 6. Lesson-by-lesson notes
+**Appendix track: "Using TorC"** (outside the lesson order, like the labs; needs `kind: "appendix"`, see §11).
+- ◆ `tensors`: storage, `reshape` copies, the full broadcasting rules, reductions and axes, batched `matmul`. Keep the broadcast
+  grid and the axis explorer.
+- ◆ `modules`: `Module`, `Sequential`, `named_parameters()`, why `parameters()` has no fixed order, and the forward-cache rule.
+- ★ `torc-pitfalls`: "Why did my X fail?". Covers:
+  - `zero_grad` and gradient accumulation (with the `sgd-step` loop widget);
+  - graph lifetime;
+  - `step()` skipping parameters that have no gradient;
+  - removing `loader.reset()`;
+  - the MSE shape pitfall (move it here or to `docs/library-audit/` only; decide);
+  - `CrossEntropyLoss` label errors;
+  - recorded error strings.
 
-For each published lesson: keep (what works), fix (what hurts learning), and the misconception to refute.
+**Labs.** Keep `backprop-lab` as a free playground. Later, add a "train a tiny network" playground.
 
-**01 The gradient (`why-gradients`)**
-- Keep: the bowl widget with the tangent line; the lr presets including 0.25 (bounces) and 0.3 (diverges); "the gradient does not
-  tell you how far away the lowest point is" (a great refutation); the chain-rule product with numbers.
-- Fix: opens with C++ before the idea; the model has no meaning (why multiply by 2 and target 6?). Give it a story ("a price
-  per item; you saw 2 items cost 6"). "Local derivative" needs a picture. The §3 formula `w_{k+1} - 3 = f (w_k - 3)` is a detour
-  into convergence analysis; replace with the widget and one sentence. The "lr = 0.125 lands exactly" check teaches a fact that
-  the lesson itself calls special to this bowl; replace with a transfer question.
-- Misconceptions: "the gradient points to the minimum"; "a smaller learning rate is always better".
-
-**02 Using the gradient (`sgd-step`)**
-- Keep: the contour landscape with the step trail; the "four times the learning rate is not four times faster" prediction (excellent).
-- Fix: uses MSE and `W·x + b` before they are taught; momentum and `zero_grad` belong in later lessons; "a learning rate above about
-  0.1803 is too large" is an unexplained magic number (Hessian eigenvalue). Teach the gradient as a vector (arrow on the contour).
-  The closing link says "The next lesson, Layers" but the next lesson is Tensors (§10).
-- Misconceptions: "the optimizer computes the gradient"; "the loss must fall at every step".
-
-**03 Tensors (`tensors`)**
-- Keep: the shape-from-the-right broadcasting rule with the error message as a predict; the axis explorer.
-- Fix: for this learner, "tensor" needs a picture ladder (number → list → table → stack of tables, with an image as the
-  example of a 3D tensor). Row-major storage, `reshape` copying and `transpose({1, 0})` argument meaning are TorC engineering
-  (appendix). Matrix product needs intuition (dot product as weighted vote) before the index formula.
-- Misconception: "a tensor is something physics-y and deep"; "shape (2) and (2, 1) are the same".
-
-**04 Layers (`linear-layer`)**
-- Keep: the matmul grid with paper work; "copy neuron 1 into neuron 2" (the best symmetry demonstration I have seen); the
-  six-layer signal plot.
-- Fix: the hardest content of the course (backward matrix rules, Kaiming init) is packed into a 7-minute lesson before
-  nonlinearity. Split per §5.2 (lessons 6, 9, 10). The formula in §1 renders with literal semicolons (§10). The grid labels count
-  from 1 while the course says positions count from 0, and the check "increase `b[2]`" refers to a bias that does not exist under
-  0-indexing (§10). The page ends with "Go back to the course map" instead of the next lesson.
-- Misconceptions: "W is (in, out)"; "a neuron is a biological thing inside the computer"; "zero weights are a fine start".
-
-**05 Nonlinearity (`nonlinearity`)**
-- Keep: the algebra that collapses two linear layers; the with/without-ReLU fit with the horizontal-line reveal (memorable).
-- Fix: show *why* ReLU lets the model bend: plot each hidden neuron's hinge and their weighted sum. The softmax section is
-  out of place (it belongs with classification). The overflow trick (subtract the max) is implementation detail.
-- Misconception: "the activation function is what makes the network smart"; "more layers alone make a model more powerful".
-
-**06 Modules (`modules`)**
-- Move to the "Using TorC" appendix. Keep a two-sentence version of "a model is a list of layers with parameters" in lesson 6.
-- The parameter-count viewer is useful; reuse it in lessons 6 and 14.
-
-**07 Losses (`losses`)**
-- Keep: "cross-entropy gives a strong gradient when very wrong, squared error does not" with the comparison widget; the uniform
-  logits check (ln 3).
-- Fix: "TorC does not check that `y` and `t` have the same shape ... gives the loss 3.333 instead of 0.1667" is a library pitfall
-  on a lesson page (violates decision 4 in spirit); move it to the appendix. Introduce cross-entropy as "surprise": −log of the
-  probability you gave the right answer (100 % → 0 surprise, 1 % → large). Introduce ∂ before using it or keep d/d notation.
-- Misconception: "the loss is the accuracy".
-
-**08 The training loop (`training-loop`)**
-- Keep: the batch viewer; the batch-size curves; "the loss does not go to zero because the data has noise" (very good).
-- Fix: the code shows `0.10000000149011612f` (a float artefact from the trace, §10). The `reset()` check is TorC API trivia;
-  replace with "why shuffle?" or "what is the cost of a tiny batch?". Explain *why* noisy small-batch gradients are often fine
-  (the average direction is still downhill).
-
-**09 Better optimizers (`optimizers`)**
-- Keep: the narrow valley race; Adam's first step ≈ lr·sign(g) check (excellent).
-- Fix: the race readout is a small monospace table of w1, w2 and loss for each optimizer; for this learner a loss-vs-step plot
-  beside the path says more. Add the ball-rolling analogy for momentum and
-  "per-parameter step size" analogy for Adam. Do not repeat momentum from lesson 2 (remove it there).
-
-**10 Generalization (`generalization`)**
-- Keep: the degree-15 polynomial on 10 points; the "noise floor" check; underfitting with large weight decay.
-- Fix: say early what the model is in words ("a curve with 16 adjustable coefficients"); "the powers of x up to 15" is hard for
-  this learner. The validation set is only text; give it a widget moment (pick the stopping step by validation loss, then look at
-  the test loss once). Analogy: memorizing last year's exam answers vs understanding the subject.
-
-**11 Digits with an MLP (`mnist-mlp`)**
-- Keep: the digit pad, the misread test images, the first-layer weight gallery.
-- Fix: report accuracy in percent; explain the weight images (what amber/blue mean is in a tiny caption only); add a confusion
-  matrix and "which digits get mixed up and why". The "which digit is worst" check is a look-up; replace with a reasoning question
-  ("why might 4 and 9 get confused?").
-
-**12 Convolution (`convolution`)**
-- Keep: the sliding window, the edge-kernel feature maps, the parameter comparison (6 280 vs 80) as a predict.
-- Fix: motivate convolution with a failure of the MLP (shifted digit). "TorC does not flip the kernel" is a footnote for the
-  appendix. The output-size formula with ⌊ ⌋ needs a picture first (count the window positions on a strip).
-
-**13 Digits with a CNN (`mnist-cnn`)**
-- Keep: feature maps of the trained first layer; the CNN vs MLP comparison.
-- Fix: the comparison is confounded (5 epochs vs 20, different learning rates); the page says "with the settings of the two
-  examples", which this learner will not parse. Say plainly "the comparison is not perfectly fair, but the CNN wins with a third
-  of the parameters". End with the bridge to lesson 17 instead of "This is the last lesson of the course."
-
-**Backprop lab**
-- The scenes and math windows are strong. Move scenes 1-2 into lesson 4 and scene 3 into lesson 9; keep the lab as a playground.
+**Throughline.** Parts 0–2 reuse the same few datasets: the notebook price; one line-fitting set, which can come from
+`training.json` x in [−1, 1) or from a new, meaningful dataset with a new trace; and one 2D classification set. That way each new
+idea arrives on familiar data.
 
 ---
 
-## 7. Voice and writing (R3, R7)
+## 7. Lesson-by-lesson notes (current pages)
 
-**Diagnosis.** `docs/authoring.md` makes ASD-STE100 the writing standard. STE was designed for technical manuals read by
-non-native speakers under time pressure. Its rules that help here: short sentences, one idea per sentence, defined terms, one name
-per thing. Its effects that hurt here: no rhetorical questions, no analogies, no "you" in a story, no motivation, no humour, the
-same flat cadence everywhere ("This lesson shows ...", "The next lesson, X, shows ..."). The 2026-10 focus group found the pages
-"read like LLM output"; STE fixed the slogans but not the absence of a teacher.
+For the rewrite. Each entry gives what to keep, what to fix, and the misconception to refute. Ids are as today.
 
-**New voice rules** (replace the "Writing rules" section of `authoring.md`; keep the linter only for the rules that remain):
-- Write like a good teacher talking to one curious 18-year-old. Use "you" and "we". Ask the question the reader is about to ask.
-- Open every lesson with a question or a problem, not with "This lesson shows". Example: "You can see that this line fits the
-  points badly. But how would a computer know which way to move it?"
-- One idea per sentence; ≤ 25 words stays as a default, but readability wins over the count.
-- Define every term before use, in plain words, with a picture where possible. Keep "one name for one thing".
-- Use an analogy for every core idea, and say where it breaks.
-- Dashes, colons and semicolons are allowed when they help reading. Ban the actual problems instead: slogans, "X, not Y"
-  punchlines, empty transitions, sentences that only narrate numbers.
-- End every lesson with "the answer" to the opening question in two or three sentences, and with what the next lesson will
-  answer.
-
-**Analogy bank** (starting set; each needs its limit stated):
-- Gradient: standing on a hillside in fog, feeling which way the ground slopes under your feet. (Limit: tells direction and steepness here, not where the valley is.)
-- Learning rate: the length of your stride. (Too long and you jump over the valley.)
-- Momentum: a ball rolling downhill that keeps some of its speed.
-- Adam: each parameter gets its own stride length, based on how bumpy its recent path was.
-- Chain rule: gears; if gear B turns 2× as fast as A, and C 3× as fast as B, C turns 6× as fast as A.
-- Neuron: a weighted vote, with the bias as how easy it is to convince.
-- ReLU: a hinge; a sum of hinges can bend a line into any shape.
-- Softmax: turning raw scores into shares of 100 %.
-- Cross-entropy: surprise when the right answer comes out.
-- Overfitting: memorizing last year's exam instead of learning the subject.
-- Convolution kernel: a small stencil or flashlight that you slide over the image, asking "is my pattern here?" at every spot.
-- Weight decay: a slow leak that pulls every weight toward zero unless the data holds it up.
+- **`why-gradients`.**
+  - Keep: the bowl and tangent; the lr presets 0.25 (bounces) and 0.3 (diverges); "if you increase `w` by a small amount, `L`
+    changes by about −24 times that amount"; the check "why does lr 0.125 not work for a real network?" (a good reasoning
+    question, but define "curvature" or rephrase).
+  - Fix:
+    - Open with the story, not C++.
+    - Call the gradient "the slope of the loss curve" once (allow this in `authoring.md`).
+    - Get −24 by nudging.
+    - Explain ← ("replace `w` by").
+    - Write `lr` upright, so it does not read as l × r.
+    - Drop the formula `w_{k+1} − 3 = f(w_k − 3)` from the main text (its "8" is never derived); keep the widget and one sentence.
+    - Fix C3 and C7.
+    - The "predict lr 0.25" question needs the gradient at `w` = 6, which is not given. Give it, or ask only for the first step.
+  - Misconceptions: "the gradient points to the minimum"; "a smaller learning rate is always better".
+- **`sgd-step`.**
+  - Keep: the contour trail; "four times the learning rate is not four times faster" (but move it before the sentence that gives
+    the limit).
+  - Fix:
+    - List the three data points.
+    - Fix C6.
+    - Remove the magic 0.1803.
+    - Unify `W`/`w` and step/update.
+    - Explain the contour map and the log axis at first use.
+    - Fix c-zero (it needs the one-step gradient, −22.67, to be stated).
+    - Fix the two different "after ten steps" losses (0.001145 after 10 updates in §2; 0.001184 after 9 updates in §4).
+  - Misconceptions: "the optimizer computes the gradient"; "the loss must fall at every step".
+- **`tensors`** (to the appendix).
+  - Keep: "(2) + (2, 3)?" (it targets a real misconception); the broadcast grid; the axis explorer.
+  - Fix:
+    - "The number of a dimension is also called its axis" reads as "how many". Say "the position of a dimension".
+    - Give one worked 2 × 2 matrix product before the index formula.
+    - Show a 3D example (an image).
+- **`linear-layer`.**
+  - Keep: the matmul grid and its paper work; "copy neuron 1 into neuron 2"; the signal plot (moves to `backprop`).
+  - Fix:
+    - D1, D3, D4.
+    - Add the network picture.
+    - Explain why `W` is (out, in) and is transposed.
+    - The x̄ predict is not answerable for this persona; move it to `backprop` with a worked example.
+    - Give the reason the twins are bad.
+    - Explain 784.
+  - Misconceptions: "W is (in, out)"; "a neuron is a little brain"; "zero weights are a fine start".
+- **`nonlinearity`.**
+  - Keep: the collapse argument (add the plain-number version); the no-ReLU fit with the flat-line reveal (best question in the
+    course). Its prompt hint ("think about the best straight line through a curve that is symmetric around zero") gives the answer
+    away; drop the hint.
+  - Fix: add the hinge builder. Say the consequence of a small sigmoid gradient ("that weight barely learns"). Move softmax. Move
+    "overflow" to "In TorC".
+  - Misconception: "ReLU itself is the curve".
+- **`modules`** (to the appendix). Reuse the parameter-count viewer in `linear-layer` and `mnist-mlp`.
+- **`losses`.**
+  - Keep: the CE vs squared-error gradient comparison; the uniform-logits check (with ln stated).
+  - Fix:
+    - D6.
+    - Say "ln".
+    - Introduce ∂, or keep d/d (see §8 notation).
+    - Explain "logit" in words.
+    - The predict is half given away by the summary at the top; move the summary to the end (§9).
+- **`training-loop`.**
+  - Keep: the batch viewer; the commented five-line loop (the clearest thing in the course; show its picture already in
+    `what-is-learning`); the noise-floor section (3.002 / 1.013 vs 3 / 1 helped).
+  - Fix: C1, D5. Define "regression" and "synthetic". Give a reason to shuffle. Move the `reset()` check to the appendix.
+- **`optimizers`.**
+  - Keep: the narrow valley; "Adam divides the average gradient by its typical size"; the first-step check (≈ lr for both
+    gradients).
+  - Fix:
+    - C4.
+    - "Curvature" (define it or avoid it).
+    - Explain the hats on m and s in words before the formula, or drop the hats from the main text.
+    - The weight-decay purpose comes only in the next lesson; say "the next lesson shows why this helps".
+    - Label the curves directly; replace the table.
+- **`generalization`.**
+  - Keep: the degree-15 fit; underfitting with weight decay 1; the noise-floor idea.
+  - Fix: say "a polynomial of degree 15" (the persona knows polynomials) instead of "`nn::Linear` on the powers of `x`". Also C2,
+    C10, "variance", and the predict that its own heading gives away.
+- **`mnist-mlp`.**
+  - Keep: the digit pad, the misread images, the weight gallery (with guidance).
+  - Fix: D9; say what MNIST is; mistakes per 100; the confusion matrix; C2 (overfitting from train vs validation, not test alone).
+- **`convolution`.**
+  - Keep: the sliding window with its arithmetic; edge-kernel maps; the 6 280 vs 80 prediction.
+  - Fix: C8; a picture before ⌊ ⌋; "channels"; the code block that hides its shape comments (D14); `B` vs `N`.
+- **`mnist-cnn`.**
+  - Keep: the trained feature maps; the comparison (with C9).
+  - Fix: C9; replace "which digit does the CNN read worst?" (a look-up) with "why would a CNN confuse 7 and 1 less often than an
+    MLP?" or similar; a recap and bridge.
+- **`backprop-lab`.** Keep it as a lab. Its line "the value gets a gradient from each place; TorC adds them" is the explanation
+  that `why-gradients` §4 lacked; reuse it in `backprop`.
 
 ---
 
-## 8. Interaction design, checks and supporting material (R8, R9)
+## 8. Voice, notation and analogies (R8, R9)
 
-**Checks.**
-- Replace "Show the answer" + "I got it" with a committed answer: multiple choice (3 to 4 options, each wrong option written to
-  match a real misconception, with feedback that names it), a numeric input with tolerance, or "drag the dot to where you think
-  `w` lands". The reveal opens after the attempt. Store correctness, not self-report, in the progress store.
-- At least one check per lesson is a transfer question (new situation, same idea). Today most are look-ups or recall.
-- One check per lesson revisits an earlier lesson (spacing, interleaving). After lessons 4, 8, 12, 16 add a short mixed review.
-- Add one "explain it in one sentence" prompt per lesson (free text, not graded, shown next to a model answer). Self-explanation
-  is one of the strongest generative activities.
+### Voice: keep STE's structure and add specified teacher moves
+Decision 12 brought in STE *because* of an earlier complaint: the pages "read like LLM output". Do not drop it wholesale. The
+typical LLM tics (rhetorical questions everywhere, punchlines, decorative metaphors, "we" and "let's") would come back.
 
-**Widgets.**
-- Each widget gets 1 to 3 guided tasks in the text with the expected observation. The text must still work for someone who
-  skips the widget.
-- Relax the "≤ 2 widgets, ≤ 2 controls" cap (decision 7) to "every widget must earn its place with a guided task"; some lessons
-  need three small ones.
-- Load-bearing new widgets: the hand-fitting game (lesson 0/1), the gradient arrow on a contour map (lesson 3), the hinge
-  decomposition in the curve fit (lesson 7), a 2D classification playground with a bending boundary (lesson 8), a shifted-digit
-  demo (lesson 15), a confusion matrix (lesson 14). A recurring small "where are we in the loop" diagram highlights the part the
-  lesson is about.
-- Numeric readouts: 2 to 3 significant figures; units or meaning beside each number ("loss 1.2 (lower is better)").
+**Keep:**
+- complete sentences;
+- one idea per sentence, ≤ 25 words;
+- define every term before use;
+- one name for one thing;
+- active voice;
+- no slogans and no "X, not Y" punchlines;
+- headings that state the topic.
 
-**Math support.**
-- Just-in-time refreshers as collapsible boxes, each 100 to 200 words with a picture: derivative as slope; Σ notation; vectors and
-  the dot product; matrix product; exp and log; probability and "adds up to 1"; the normal distribution (for initialization).
-- A glossary page with hover definitions on first use in each lesson (one source of truth, e.g. `site/glossary.json`).
-- Notation: pick one gradient notation and introduce it once (∂L/∂w in words first: "how much L changes per unit change of w").
+**Change:**
+- **Allowed teacher moves:**
+  - At most one real question per section, answered by the next paragraph. Opening questions and prediction prompts don't count
+    toward this.
+  - "You" for instructions, tasks and predictions.
+  - Analogies only from the bank below, each with its limit stated at first use.
+  - A concrete situation before the abstraction ("Two notebooks cost 6 euros").
+- **Banned tics**, added to the linter as a word list:
+  - "let's", "here's the thing", "it turns out", "simply", "just", "magic", "crucially", "notice that", "the key insight",
+    "under the hood";
+  - three-item lists used for rhythm;
+  - a sentence after a full stop that only restates the paragraph as a punchline;
+  - "This lesson shows" as an opener.
+- **Punctuation:** keep the bans on semicolons and on dashes as punctuation. Allow a colon before a formula, list or code (as
+  today).
+- **`authoring.md` "one name" list:**
+  - Allow "slope" once, to *define* the gradient ("the gradient is the slope of the loss curve at the current point"). After
+    that, say "gradient".
+  - Allow "knob" only inside the lesson-0 analogy, with the explicit mapping "the knobs are the weights".
+- **The real test** is the owner's focus group and the human think-alouds (§10), not a principle.
 
-**Home page.**
-- Lead with the promise and the demo (the digit pad in the hero), not with a list of C++ snippets. Move the code to the lesson
-  pages' "In TorC" panels or behind a toggle on the cards.
-- State prerequisites and honest total time.
-- Keep the current progress ticks and filter.
+### Notation (decide once, record in `authoring.md`)
+- **Gradient.**
+  - In Part 1 prose: dL/dw, read aloud as "how much the loss changes per unit change of w".
+  - Introduce ∂ once, in `backprop`: "the same as d, used when the loss depends on many weights".
+  - Keep the overline only inside the graph-lab maths windows, defined there.
+  - This keeps `explain.js` and `ops/*` unchanged. The prose stops mixing three notations.
+- **Indices.**
+  - Tensor positions count from 0, everywhere (prose, widgets, TeX in `ops/*`, `linear-math.js`).
+  - Counts of epochs, steps and "the first neuron" in prose count from 1.
+  - Fix D4 and D12 under this rule.
+- **Symbols in one guide:** ←, Σ, subscripts, ᵀ, ⌊ ⌋, hats, the overline, and the Greek letters with their names (μ "mu",
+  β "beta", λ "lambda", ε "epsilon", σ "sigma").
+  - **The guide:** one page, `site/notation/`, or a refresher kind.
+  - **First use:** each symbol links to the guide when it first appears.
+  - **Logs:** "log" always means ln, and the site says so at first use.
+- **One letter per thing:** batch size is always `B`; the prediction `y` (or `ŷ` once defined); the parameter `w`/`W`. Never
+  reuse `p` for two things.
 
-**Visual design.** Dark-only theme with small grey text is hard to read for long sessions; add a light theme (already in the
-content plan's M6) and raise the minimum caption size in widgets.
+### Maths refreshers (just in time, collapsible, 100–200 words with a picture each)
+derivative as slope (found by nudging) · Σ notation · vectors and the dot product · the matrix product (a worked 2 × 2) · exp and
+ln · probability and "adds up to 1" · mean, variance and standard deviation · the normal distribution · how to read a contour map ·
+how to read a log axis.
+
+### Glossary
+One source of truth (`site/glossary.json`). A hover or tap definition at the first use of each term in each lesson. A test checks
+that every glossary term a lesson uses is linked at its first use.
+
+### Analogy bank (use at most one per section; state the limit)
+
+| Idea | Analogy | Where it breaks |
+|---|---|---|
+| Gradient | Standing on a hillside in thick fog: you feel the slope under your feet, but you cannot see the valley | It tells steepness and direction *here*, not where or how far the bottom is |
+| Learning rate | How far you step per unit of slope | A big step on steep ground overshoots, and the right size depends on the ground |
+| Momentum | A ball rolling downhill keeps part of its speed | A real ball has friction and mass; here μ sets how much speed is kept per step |
+| Adam | Each weight gets its own step size, scaled by the typical size of its recent gradients | It is not "smart". It can still diverge, and it needs its own learning rate |
+| Chain rule | Gears: if B turns 2 times as fast as A and C turns 3 times as fast as B, then C turns 6 times as fast as A | Real derivatives change from point to point; gears have fixed ratios |
+| Neuron | A weighted sum (for classification: a weighted vote) plus a bias that shifts the threshold | It is not a brain cell; it only multiplies, adds and applies one function |
+| ReLU units | Hinges: a sum of hinges bends a straight line into a curve | It gives straight pieces only. With enough hinges it approximates any continuous curve on an interval. 8 hinges give at most 8 bends |
+| Softmax | Turning raw scores into shares of 100 % | Shares say how sure the model is, not that it is right |
+| Cross-entropy | Surprise when the right answer is revealed: 100 % sure and right is zero surprise | The surprise is ln-based, and averaged over a batch |
+| Overfitting | Memorizing last year's exam answers instead of learning the subject | It is a matter of degree, and more data reduces it |
+| Weight decay | A slow leak that pulls each weight toward zero unless the data holds it up | In TorC a weight with *no* gradient is skipped and does not leak |
+| Convolution kernel | A small stencil slid over the image, asking "is my pattern here?" at every spot | The feature map moves with the image; the final answer of a CNN can still change when the digit moves |
 
 ---
 
-## 9. Process changes (why the site drifted, and how to stop it) (R10)
+## 9. Lesson template, checks and widgets (R7, R10)
 
-- **The quality gates do not measure learning.** The `independent-reviewer` agent's nine dimensions are source fidelity, numbers,
-  math, coverage, visuals, build, deployment, writing rules and scope. None asks "would the target learner understand this?".
-  Add a `pedagogy-reviewer` agent (read-only) with the checklist in Appendix A, and a `cold-reader` agent that role-plays the
-  persona of §2, reads the rendered lesson and reports every point of confusion. Run both on every new or changed lesson.
-- **Outside readers.** ROADMAP M3 already lists "outside cold reader per lesson" as not done. Make it a real gate: at least two
-  people from the target group per part, watching where they stop.
-- **Budgets that encourage the wrong thing.** Replace "≤ 25 bound numbers" with "≤ 10" plus the number-narration heuristic (§4).
-  Replace the 800-word cap with a per-lesson time target (10 to 20 minutes) and the rule that every paragraph must teach
-  (explain a why, set up a widget task, or answer a question).
-- **Decisions to revisit** (record new decisions in `docs/decisions.md`): 7 (concise lessons, ≤ 2 widgets), 9 (no visible
-  tables: fine, keep), 12 (STE writing). Also the `CLAUDE.md` rule "load the asd-ste100 skill before writing any visible text".
-- **Tests to add**: every lesson has an opening question and a closing answer; every term in the glossary used in a lesson is
-  linked on first use; no symbol from a "notation list" (∂, Σ, ᵀ, overline) appears before its introduction in the course order;
-  no sentence with three or more bound numbers without an allow-list entry.
+### The template: a core plus a palette
 
----
+**Core, in every lesson:**
+1. **"Questions this lesson answers"**: 1–3 questions the persona would ask, each set in a concrete situation. This replaces
+   the TL;DR at the top, which today answers the questions before the learner has asked them.
+2. **A committed prediction**, placed *before* any heading or text that contains its answer.
+3. **One "aha" interaction** with a guided task. The text also states the observation, so the page works without the widget.
+4. **One worked example** in which the learner does the last step.
+5. **One misconception refuted** with the widget's own evidence.
+6. **"The answer"**: two or three sentences that answer the opening questions. This is where the old summary goes. Then the next
+   question, which the next lesson answers.
 
-## 10. Defects to fix now (independent of the redesign)
+**Palette, pick 2–3 per lesson:**
+- an analogy with its limit;
+- a maths refresher;
+- an "In TorC" panel;
+- a self-explanation prompt with a model answer;
+- a transfer check;
+- a cumulative check from an earlier part;
+- a "same thing in ChatGPT" aside;
+- an end-of-part review (it recommends going back and never blocks).
 
-| # | Where | Defect | Evidence |
+A 14-item checklist ticked on every lesson would produce a formula, and a formula reads like LLM output. Use the core plus
+judgement instead.
+
+### Checks
+- **New section kind `quiz`.** It replaces "Show the answer" + "I got it".
+  - Answer types: multiple choice with 3–4 options, where each wrong option matches a real misconception and has feedback that
+    names it; a numeric answer with a tolerance; or "drag the marker to where you think `w` lands".
+  - The reveal opens after the attempt.
+  - Keyboard and screen-reader behaviour are specified and tested.
+  - It works with storage blocked.
+- **Progress store schema v2** (`torc:v2`). Record an attempt and its correctness, not a self-report. Migrate v1 "I got it" flags
+  as "seen", never as "correct". `site/js/core/store.js` `sanitize` today keeps only booleans, and `core.test.mjs` asserts this.
+- **Per lesson:**
+  - at least one transfer check (a new situation, the same idea);
+  - one cumulative check;
+  - one self-explanation prompt.
+- **Question quality rule:** no prompt may be answerable by re-reading the sentence just before it. Every number in a prompt that
+  the learner needs must be on the page (for example, `sgd-step` c-zero needs the gradient −22.67).
+
+### Widgets
+- Each widget has 1–3 guided tasks with the expected observation stated in the text.
+- **Readouts:**
+  - 2–3 significant figures;
+  - a meaning label ("loss 1.2, lower is better");
+  - only what the task needs;
+  - no visible multi-column tables (decision 9 stands; the `optimizers` race readout breaks it today).
+- **Labels and links:** label curves directly on the plot, and colour-link symbols across the formula, the plot and the code.
+- **Controls:** replace the "≤ 2 widgets, ≤ 2 controls" cap (decision 7 and `authoring.md`) with "every widget earns its place
+  with a guided task". Some lessons need three small widgets.
+
+**The "aha" widgets, with data sources:**
+
+| Widget | Lesson | Data today | Work needed |
 |---|---|---|---|
-| D1 | `site/js/lessons/linear-layer.js:56` | The shape formula renders with literal semicolons (`x ;·; Wᵀ ;+; b ;=; y`): `'\;'` in a single-quoted JS string is just `;`; it needs `\\;` | Visible on the Layers page at desktop and phone width |
-| D2 | `site/js/lessons/sgd-step.js:115` | "The next lesson, Layers" but the next lesson in `course.json` is Tensors | `course.json` order |
-| D3 | `site/js/lessons/linear-layer.js:105-106` | The page ends with "Go back to the course map." instead of naming the next lesson (Nonlinearity) like every other lesson | rendered text |
-| D4 | `site/js/widgets/matmul-grid.js:50-51,73,78,87` and `linear-layer.js:100-102` | The grid labels rows, columns and neurons from 1 (`i=1`, `k=1`, `Σ_{j=1}^{3}`), but `authoring.md` and the Tensors lesson say positions count from 0. The check "increase `b[2]`" names a bias that does not exist under 0-indexing (b has two entries) | widget code and lesson text |
-| D5 | `site/js/lessons/training-loop.js:46` (`cf(s.noise_std)`) | The code shows `data::SyntheticRegression dataset(100, 1, 3.0f, 1.0f, 0.10000000149011612f);`: the float32 noise value from the trace is printed as a double. Format it as the shortest float that round-trips (`0.1f`) | rendered code |
-| D6 | `site/js/lessons/losses.js` §1 | "TorC does not check that `y` and `t` have the same shape" is a library pitfall on a lesson page (decision 4); move to the appendix | rendered text |
-| D7 | `site/js/lessons/modules.js` §3 | `parameters()` order from an unordered map is a library quirk on a lesson page; move to the appendix | rendered text |
-| D8 | several lessons | Thousands formatting is inconsistent: home page "26,506"; lessons "26506", "25450", "9380" | rendered text |
-| D9 | `mnist-mlp`, `mnist-cnn` | Accuracy reported as counts ("reads 9666 correctly") rather than percent | rendered text |
+| Nudge lens (drag Δw, predicted vs actual change, zoom until straight) | `why-gradients` | `why-gradients.json` `nudge`, `secants` | Widget only |
+| Fog mode (hide the curve; step blind; then lift the fog), in 1D and 2D | `why-gradients`, `sgd-step` | `why-gradients.json` grid/trajectories, `optim.json` runs | Widget only |
+| Steep vs shallow bowl, same minimum | `why-gradients` | none | New trace scene (C3) |
+| Gradient arrow on the contour map | `sgd-step` | `optim.json` runs and surface (`contour2d.js` already draws a step arrow) | Small widget change |
+| Hand-fitting game with residual squares, then "let gradient descent take over", scored on hidden points | `what-is-learning` | `training.json` data (t = 3x + 1, x in [−1, 1)) and `runs[].epochs` | Widget and JS MSE/SGD (testable against the trace). A meaningful dataset needs a new trace |
+| Hinge builder | `nonlinearity` | `nonlinearity.json` has only predictions per checkpoint | Trace change: record W1, b1, W2, b2 at each checkpoint |
+| 2D classification playground (0, 2, 4, 8 hidden units; each unit's line drawn) | `classification` | none | New trace program with boundary grids per checkpoint (recommended). Live JS would need ports of sigmoid/softmax/CE and Adam, plus a trace scene for each new op (`ops.test.mjs`) |
+| Nudge-vs-backprop cost counter | `backprop` | parameter counts in `modules.json` / `linear.json` | Widget only (arithmetic) |
+| Validation-stop game | `generalization` | `generalization.json` has train/test only | Trace change: a validation split |
+| Confusion matrix and mistake grid | `mnist-mlp` | only `test_per_class.correct/total` | Trace change: 10 × 10 matrix and the misclassified indices; full MNIST re-run |
+| Feature map follows the shift, plus measured robustness | `convolution` | `mnist-cnn.json` weights; `cnnFirstMaps` in `digit-widgets.js` | Shifts as multiples of the stride. Robustness numbers from a new trace field with a test. Bypass the pad's re-centring |
+| Multi-seed ranges for headline comparisons | several | single seeds | Trace changes (C5) |
+
+Every new trace program needs a `TRACES` line in `tools/trace/run.sh` and an entry in `TRACE_TARGETS` in
+`tools/trace/CMakeLists.txt`. Regenerating needs clang ≥ 18 or GCC ≥ 14, network access (TorC v0.1.0, MNIST) and several
+minutes for the MNIST runs. `verify.yml` checks all of it for drift.
+
+### Home page
+- Lead with the promise and a live demo (the digit pad), the prerequisites, and an honest total time.
+- Move the C++ cards into a "Show the TorC code" toggle on each card. This revises decisions 10 and 11 (§12). If any
+  `course.json` `code` changes, its `SPEC` in `tools/snippets/check.mjs` must change too.
+- Keep the progress ticks and the filter. Add the appendix section.
+- **Light theme.** The shell template sets `<meta name="color-scheme" content="dark">` (`tools/check_site.mjs`), so all shells
+  must be rewritten with `--write-shells`. Raise the minimum caption size in widgets.
 
 ---
 
-## 11. Work plan for the next session
+## 10. Quality gates and process (R12)
 
-Order matters: decisions first, then the cheapest high-impact changes, then new lessons.
+- **The current gates do not measure learning.** The `independent-reviewer` agent's dimensions are about correctness. Its
+  "writing" dimension does ask for undefined terms, but nothing asks "would the target learner understand this?".
+- **Add `.claude/agents/pedagogy-reviewer.md`** (read-only). Its checklist is Appendix A, which is the core template plus C-type
+  checks: fair comparisons, no test peeking, misconceptions refuted with evidence.
+- **Add `.claude/agents/cold-reader.md`.**
+  - It role-plays the §2 persona. It reads `build/prose/<id>.md` (from `tools/prose/extract.mjs`) and the phone and desktop
+    screenshots.
+  - It answers every prompt *before* reading the reveal, and reports every confusion point.
+  - **This is a smoke test, not evidence.** The cold read for this brief found real problems (the log base, symbol overloading,
+    quit points), but it is not a learner.
+- **Human protocol**, the real gate:
+  - Test each part with 3–5 people from the target group, thinking aloud while one person observes.
+  - Before and after each lesson, ask three short questions, including "explain the main idea in one sentence".
+  - Record where each person stopped.
+  - The site is static, with no backend and no analytics, so this protocol is the only learning data there is. ROADMAP M3 lists
+    "outside cold reader per lesson" as not done.
+- **Budgets.** Replace the 800-word cap with a time target of 12–18 minutes, plus the rule "every paragraph explains a why, sets
+  up a task, or answers a question". Tests still need something measurable, so keep a soft word cap of 1 400 per lesson and the
+  number rules of §4.
+- **Tests to add:**
+  - every lesson has a "Questions" opener and an "Answer" closer;
+  - glossary terms are linked at first use;
+  - no symbol from the notation list appears before its introduction, in course order;
+  - role-tagged number bindings (§4);
+  - no LaTeX escape bugs (grep the source for a single backslash before `;`, `,`, `!`, `:` or a space; D1);
+  - the closing "next lesson" line matches `neighbors()` in `site/js/core/course.js` (D2);
+  - the visible UI strings in widgets and `lesson-boot.js` are linted too (D15).
 
-**Phase A. Decisions and quick fixes (one session)**
-1. Fix D1 to D5, D8, D9. Run `node --test site/test/`, `tools/prose/check.sh`, `node tools/check_site.mjs`. Publish.
-2. Write new decisions in `docs/decisions.md`: audience (R1), numbers-serve-claims (R2), voice (R3), concept layer + "In TorC"
-   layer + appendix (R6), relaxed budgets (§9). **Ask the owner to approve these before Phase B**; they revise decisions 7 and 12.
-3. Update `docs/content-plan.md` §1 (persona) and §2 (curriculum v3, §5.2 here), `docs/authoring.md` (voice, number rule, check
-   formats, budgets), `CLAUDE.md` (writing rule), and add the `pedagogy-reviewer` and `cold-reader` agents in `.claude/agents/`.
+**Files and tests that must change** (so the implementing session is not surprised):
 
-**Phase B. Rewrite existing lessons in the new voice (one lesson per commit)**
-- For each lesson: opening question, pretraining words, concreteness fading, analogies, number rule, misconception refutation,
-  committed-answer checks, one cumulative check, closing answer, "In TorC" panel for the code.
-- Start with the vertical slice: lessons 1 to 3 of v3 (models and losses, the gradient, gradient descent). Run the cold-reader
-  and pedagogy-reviewer agents and, if possible, two human readers from the target group. Adjust the rules, then continue.
-- Move `modules` and TorC pitfalls to the appendix track (needs a `kind: "appendix"` part in `course.json`, like `"lab"`).
-
-**Phase C. New lessons and widgets**
-- Lesson 0 (whole game + hand-fitting game), lesson 5 (vectors and matrices), lesson 8 (classification playground), lesson 17
-  (from digits to ChatGPT), math refreshers, glossary. Each new interactive part still gets a trace or a test, per `CLAUDE.md`.
-
-**Phase D. Checks and spacing**
-- Committed-answer check component with per-option feedback; progress store records correctness; review sets after each part.
-
-**Acceptance criteria for "best resource" (per lesson)**
-- A cold reader from the target group can answer the lesson's opening question in their own words afterwards.
-- No term, symbol or notation is used before it is introduced in the course order (test).
-- ≤ 10 bound numbers in prose; no sentence with three or more numbers unless allow-listed.
-- Every widget has at least one guided task with its expected observation in the text.
-- At least one transfer check and one cumulative check.
-- The pedagogy-reviewer checklist (Appendix A) passes with no High findings.
-- All existing gates still pass (trace drift, Node tests, site check, a11y).
-
----
-
-## 12. Sources
-
-- R. E. Mayer, *Multimedia Learning* (3rd ed., 2020) and principles summaries:
-  [Mayer 2020 handout](https://ugc.futurelearn.com/uploads/files/7d/d6/7dd6188d-c343-4311-b064-ac98d2c95abc/Multimedia_Principles._R._E._Mayer__2020.pdf),
-  [Lucidea summary of the 12 principles](https://lucidea.com/blog/mayers-12-principles-of-multimedia-learning).
-- D. Perkins, *Making Learning Whole* (2009): [Harvard Project Zero](https://pz.harvard.edu/resources/making-learning-whole-how-seven-principles-of-teaching-can-transform-education),
-  [interview](https://www.the74million.org/article/74-interview-author-and-harvard-scholar-david-perkins-on-what-traditional-classroom-teachers-can-learn-from-science-fairs-backyard-sports-whole-game-learning/).
-- Fyfe, McNeil, Son, Goldstone, "Concreteness fading in mathematics and science instruction: a systematic review" (2014):
-  [summary](https://pc.cogs.indiana.edu/?p=885), [Learning Scientists blog](https://learningscientists.org/blog/2018/2/1-1).
-- M. Kapur, productive failure: [Bold Science interview](https://boldscience.org/we-can-take-this-powerful-mechanism-and-deliberately-design-it-to-learn),
-  [Springer study on observing failure](https://link.springer.com/doi/10.1007/s11251-020-09528-z).
-- Worked examples and retrieval practice under cognitive load theory:
-  [Chartered College of Teaching](https://my.chartered.college/?p=3470), [Andy Matuschak's notes on the worked example effect](https://notes.andymatuschak.org/Worked_example_effect),
-  [2025 study on retrieval practice and transfer](https://link.springer.com/article/10.1007/s40593-025-00511-8).
-- Explorable explanations: [Nicky Case, workshop notes](https://blog.ncase.me/explorable-explanations),
-  [Red Blob Games notes on Case and Victor](https://redblobgames.com/x/2306-educ432); Bret Victor, "Explorable Explanations" (2011, worrydream.com).
-- C. Olah and S. Carter, ["Research Debt"](https://distill.pub/2017/research-debt/), Distill (2017).
-- ML education research: [9th graders' conceptual understanding of ML (AAAI 2026)](https://ojs.aaai.org/index.php/AAAI/article/view/41511)
-  (inner workings conceptions persist without direct engagement with misconceptions);
-  [Machine Learning Students Overfit to Overfitting](https://arxiv.org/pdf/2209.03032);
-  [Lessons learned teaching ML and NLP to high school students](https://mlanthology.org/aaai/2020/norouzi2020aaai-lessons).
-- Benchmarks for "best in class" (to study, not copy): 3Blue1Brown's *Neural networks* series (visual intuition), Andrej
-  Karpathy's *Neural Networks: Zero to Hero* (build from scratch), Michael Nielsen's *Neural Networks and Deep Learning*
-  (narrative prose with small interactive pieces), TensorFlow Playground (decision boundaries), CNN Explainer, MLU-Explain,
-  d2l.ai, fast.ai (top-down).
+| Change | Files and tests |
+|---|---|
+| Voice and linter rules | `site/test/helpers.mjs` `proseProblems`; `tools/prose/check.sh` and its step in `verify.yml`; `CLAUDE.md` writing section (owner approval); `docs/authoring.md` writing rules and the "one name" list; decision 12; `.claude/agents/independent-reviewer.md` dimension 8 |
+| Number rule and formatting | `site/js/core/trace.js` `makeT`; `site/js/core/sections.js` `boundNums`; `site/test/lessons.test.mjs` (the `T.text` equality and the ≤ 25 budget); the per-lesson budget tests in `why-gradients`, `linear-layer` and `sgd-step` `.test.mjs`; the per-lesson "no hand-typed digits" tests in all 13 `site/test/<id>.test.mjs` (allow anchors); tests that pin removed bound paths (for example `linear-layer.test.mjs`, `sgd-step.test.mjs`, `why-gradients.test.mjs`); `engine.test.mjs` only if `fmt` changes |
+| Template (Questions/Answer instead of TL;DR) | `lessons.test.mjs` (TL;DR right after the hero, ≤ 4 items, ≤ 60 words; ≤ 100 words per section; ≤ 4 numbered sections); `why-gradients.test.mjs`; decision 7 |
+| `quiz` kind and store v2 | `site/js/core/sections.js` `SECTION_KINDS` and `validateLesson`; `site/js/lesson-boot.js`; `site/js/core/store.js`; `core.test.mjs`; `lessons.test.mjs` question budget (≤ 1 predict + 2 checks) |
+| Appendix part | `site/js/core/course.js` (`validateCourse` rejects unknown kinds; `isLabPart`, `curriculum`, `labs` and `neighbors` need a three-way kind); `core.test.mjs`; `site/js/home.js`; prerequisites in `course.json` (for example `losses.prereqs` is `["modules"]`). `tools/check_site.mjs` needs no change |
+| A lesson numbered 0 | `curriculum()` numbers from 1 (`course.js`, `core.test.mjs`). Easiest: no "0"; start at 1 |
+| Lessons without trace data (`from-digits-to-chatgpt`, refreshers, glossary) | `lessons.test.mjs` footer check needs a lesson `footer`. `CLAUDE.md` "source of truth" needs a rule for content beyond TorC: cite sources, keep numbers out or cite them, label conceptual content as such (owner approval) |
+| Removing momentum and `zero_grad` from `sgd-step` | `sgd-step.test.mjs` pins the six runs and the presets; the `course.json` `code` for `sgd-step` and its SPEC |
+| New traces | `tools/trace/run.sh`, `tools/trace/CMakeLists.txt`, `site/data/`, tests per file |
 
 ---
 
-## Appendix A. Pedagogy review checklist (for the `pedagogy-reviewer` agent)
+## 11. Defects (fix in Phase A unless marked)
 
-For each lesson, answer yes/no with evidence (quote):
-1. Does the lesson open with a question or problem the persona would care about?
-2. Are 2 to 4 key words introduced before the main explanation?
-3. Is every term and symbol introduced before its first use, in the course order?
-4. Does each concept go picture → numbers → symbol → (optional) code?
-5. Is there at least one analogy per core idea, with its limit stated?
-6. Does every number in prose meet the "numbers serve claims" rule?
-7. Does every widget have a guided task with the expected observation in the text?
-8. Is there a prediction *before* the explanation, with a committed answer?
-9. Is there a worked example, and then a step the learner does?
-10. Is at least one misconception named and refuted?
-11. Is there a transfer check and a cumulative check?
-12. Is TorC-specific engineering kept out of the concept layer?
-13. Does the lesson close by answering its opening question, and point to the next question?
-14. Would a cold reader from the target group be able to explain the main idea in one sentence afterwards?
+| # | Where | Defect | Fix |
+|---|---|---|---|
+| D1 | `site/js/lessons/linear-layer.js:56` | The shape formula renders as `x ;·; Wᵀ ;+; b ;=; y`. In a single-quoted JS string, `'\;'` is a bare `;`, which KaTeX parses without error (so the test missed it). | Write `\\;`. Add the escape-grep test. No other broken escapes were found. |
+| D2 | `site/js/lessons/sgd-step.js:115` | "The next lesson, Layers", but the next lesson is Tensors (the nav button on the same page says Tensors). | Link `../tensors/`. Better: generate the line from `neighbors()`, or test it. |
+| D3 | `site/js/lessons/linear-layer.js:104-107` | Ends with "Go back to the course map." instead of naming the next lesson. | Name Nonlinearity and link `../nonlinearity/`. |
+| D4 | `site/js/widgets/matmul-grid.js:46-52, 73, 87`; `site/js/widgets/linear-math.js:2, 42-44`; `linear-layer.js:101-102`; `site/test/linear-layer.test.mjs:129, 137` | The grid and its TeX count from 1 (`i=1`, `k=1`, `\sum_{j=1}`, "Copy neuron 1 into neuron 2"). `linear-math.js:2` even documents "1-based, as in the rest of the site's paper work". But `authoring.md` and `tensors` say positions count from 0. The check "increase `b[2]` … the second column" is right only under 1-based indexing. | Apply the index rule of §8: tags `i=${i}`; `I = i`, `K = k`, `\sum_{j=0}^{n-1}`; button "Copy the first neuron into the second"; check `b[1]`; update the comment and tests. |
+| D5 | `site/js/lessons/training-loop.js:46` (`cf` at `:11`) | Code shows `0.10000000149011612f`: the float32 value from `training.json` is printed as a double. | Print the shortest precision p (1–9) with `Math.fround(Number(v.toPrecision(p))) === Math.fround(v)`. |
+| D6 | `site/js/lessons/losses.js:51` | The MSE shape issue ("3.333 instead of 0.1667") is an audit finding (`docs/library-audit/v0.1.0-findings.md`) on a lesson page, so it breaks decision 4 directly. | Remove from the lesson now. Later, put it in the appendix `torc-pitfalls` or keep it in the audit docs only (decide). |
+| D7 | `site/js/lessons/modules.js:64-67` | `parameters()` order from an unordered map is a library quirk on a lesson page. | Moves with `modules` to the appendix (Phase C). Until then, leave it. |
+| D8 | lessons vs home page | Thousands formatting differs. Home (hand-written comments in `course.json`) says "26,506" and "9,098"; lessons say "26506", "25450", "60000"; `matmul-grid.js:33` says "1,000,000". | A prose formatter in `makeT` (not `fmt`, which tests pin and which feeds KaTeX, where a comma needs `{,}`); one separator; update the tests that pin shown strings. |
+| D9 | `mnist-mlp.js:66, 71, 85`; `mnist-cnn.js:53, 81` | Accuracy shown as counts. No trace field holds a percentage. | A bound derived value (precedent: `sci()` in `linear-layer.js`, with per-lesson tests), or a new trace field. |
+| D10 | `mnist-cnn.js:53` | "with the settings of the two TorC examples" is false (5 epochs traced vs 10 in the example). | See C9. |
+| D11 | `generalization.js:43-45`, `course.json` code | The code shown does not match the experiment. | See C10. |
+| D12 | `site/js/ops/matmul.js:18`, `ops/elementwise.js:18`, `ops/relu.js:14`; `site/js/widgets/training-widgets.js:96` | More 1-based indices in the graph-lab TeX. The training readout says "epoch 1 … batch 0 of 4" while the code loops from `epoch = 0`. | Apply the §8 index rule. |
+| D13 | `sgd-step.js:68` and `:92` | Two "after ten steps" losses (0.001145 after 10 updates; 0.001184 after 9 updates), never explained. | Use the same quantity, or drop both (§4 rule). |
+| D14 | `convolution` "A small CNN" code block | Wider than its box at 1366 px (808 px of content in a 702 px box), so the shape comments are hidden unless the reader scrolls sideways. | Put the comments on their own lines, or shorten them. |
+| D15 | `matmul-grid.js:33` (semicolon), `:95` (mid-sentence colon); `contour2d.js:131, 250` (semicolons); `site/js/lesson-boot.js:32` (em dash, "✓ Done — click to undo"); `site/js/widgets/inputs-popover.js:7` ("recomputed in your browser") | Visible UI strings break the writing rules, and one uses provenance wording that `lessons.test.mjs` bans on lesson pages. Neither `proseProblems` nor `extract.mjs` covers widget strings, although `CLAUDE.md` says the rules apply to them. | Fix the strings. Extend the extraction to widget and UI strings. |
+| D16 | graph labs at 390 px (`why-gradients` chain lab, `backprop-lab`) | The step-timeline chips strip is clipped ("← BACKW…"). The graph needs horizontal scrolling (640 px in 356 px), so `L` is off-screen at the start. The hint "Press Next or → to start" shows on phones. | Wrap the chips or make them scrollable with a cue. Fit the graph to the width, or start the view at the active node. Use a touch-specific hint. |
+| D17 | `modules.js:56` | `optim::Adam` appears in code three lessons before Adam is taught. | Use `optim::SGD`, or move the lesson (Phase C). |
+| D18 | `optimizer-widgets.js` race readout | A visible monospace table, against decision 9. | A loss-vs-step plot with direct labels. |
+| D19 | `sgd-step` widgets | The prose says `W` and "step"; the widgets say `w` and "update" (`contour2d.js:131, 149`; `descent.js:29, 37`). | One name per thing. |
+| D20 | `why-gradients` bowl readout | Says "slope" while the prose says "gradient". | "gradient". Or define "slope" once, per §8. |
+
+---
+
+## 12. Work plan for the next session
+
+### Owner approvals needed before Phase B (ask in one message, list them)
+1. The audience change (R1). This changes the pitch in `content-plan.md` §1.
+2. The voice change: STE structure stays, but `CLAUDE.md`'s "load asd-ste100" rule and decision 12 change (R8).
+3. The concept layer, the "In TorC" panel and the appendix track. `modules` and `tensors` leave the main path (R6).
+4. The home page: demo first, code behind a toggle. This revises decisions 10 and 11.
+5. Decision 7 (the TL;DR becomes "Questions" and "The answer"; ≤ 2 widgets and ≤ 2 controls replaced) and the new budgets.
+6. A rule for content beyond TorC (`from-digits-to-chatgpt`, refreshers, glossary): sources are cited, and numbers are either left
+   out or cited.
+7. Adding the `pedagogy-reviewer` and `cold-reader` agents.
+8. A work branch (`web-v3`), or draft-status publishing on `web`.
+9. Live JS training vs precomputed presets for the playgrounds (recommend: precomputed presets first; live training later, under
+   decision 2 with conformance tests).
+
+### Phase A. Quick fixes (one session, safe on `web`)
+- Copy this brief to `web` as `docs/pedagogy-review.md`.
+- Fix D1, D2, D3, D5, D10, D13, D14, D15, D17, D19, D20 and the wording parts of C4, C9 and C10 (caveats, true settings).
+- Remove the D6 text.
+- Add the escape-grep test and the next-lesson test.
+- Run `node --test site/test/*.test.mjs`, `tools/prose/check.sh`, `node tools/check_site.mjs` and `tools/trace/run.sh --check`.
+  Check pages at 1366 × 768 and 390 × 844.
+- Push.
+
+### Phase B. Decisions, docs and the vertical slice
+- Record the approved decisions.
+- Update `content-plan.md` §1 and §2, `authoring.md` (voice, notation, index rule, number roles, template, budgets), `CLAUDE.md`
+  (with approval) and `.claude/agents/`.
+- Build the shared machinery:
+  - the `quiz` kind and store v2;
+  - role-tagged `T()` and the prose formatter (this also fixes D8 and D9);
+  - the "Questions" and "The answer" sections;
+  - the "In TorC" panel (a `<details>` inside text sections is enough);
+  - the refresher component, glossary and notation guide;
+  - `kind: "appendix"`.
+- **The vertical slice:** `what-is-learning`, `why-gradients`, `sgd-step` (Part 0 and Part 1), as drafts.
+- Run the pedagogy reviewer and the cold reader on them, then **at least three human readers** from the target group.
+- Adjust the rules in this brief from what they show, then continue.
+
+### Phase C. The rest of the main path, part by part
+- **Part 2:** `linear-layer`, `nonlinearity`, `classification`, `losses`, `backprop`.
+- **Part 3:** `training-loop`, `optimizers`, `generalization`.
+- **Part 4:** `mnist-mlp`, `convolution`, `mnist-cnn`.
+- **Part 5:** `from-digits-to-chatgpt`.
+- **Appendix:** `tensors`, `modules`, `torc-pitfalls`.
+- With each part: its trace work (§9 table), its C-fixes, and a human test before publishing.
+
+### Phase D. Spacing and polish
+- End-of-part reviews and cumulative checks.
+- The light theme.
+- Firefox and Safari.
+- A real screen reader.
+- The digit pad on a touch device.
+
+### Ids, URLs and progress
+- **Ids that stay:** `why-gradients`, `sgd-step`, `linear-layer`, `nonlinearity`, `losses`, `training-loop`, `optimizers`,
+  `generalization`, `mnist-mlp`, `convolution`, `mnist-cnn`, and `tensors` and `modules` (moved to the appendix).
+- **New ids:** `what-is-learning`, `classification`, `backprop`, `from-digits-to-chatgpt`, `torc-pitfalls`.
+- **No id is removed.** So no redirects are needed and stored progress keeps working. If an id is ever removed, keep a static
+  page at its URL that links to the new place.
+- When a lesson changes a lot, keep its "done" flag (it is per id), but its check ids may change. Store v2 treats unknown check
+  ids as absent.
+
+### Acceptance criteria (per lesson)
+- A human reader from the target group can answer the lesson's opening question in their own words afterwards.
+- No term, symbol or notation appears before its introduction in course order (test).
+- Every prose number has a role. At most 10 non-`worked` numbers. No sentence has three or more numbers unless allow-listed (test).
+- Every widget has a guided task, and the text states the observation.
+- At least one committed prediction placed before its answer; one transfer check; one cumulative check; one self-explanation
+  prompt.
+- No unfair comparison, no test-set peeking, and claims from a single seed are labelled.
+- The pedagogy reviewer reports no High findings.
+- All existing gates pass: trace drift, Node tests, site check, prose linter, accessibility audit.
+
+---
+
+## 13. Sources
+
+Learning science:
+- R. E. Mayer, *Multimedia Learning* (3rd ed., 2020); summary handout:
+  [Mayer 2020](https://ugc.futurelearn.com/uploads/files/7d/d6/7dd6188d-c343-4311-b064-ac98d2c95abc/Multimedia_Principles._R._E._Mayer__2020.pdf).
+- P. Ginns, A. Martin, H. Marsh (2013), "Designing instructional text in a conversational style: a meta-analysis",
+  *Educational Psychology Review*: [record](https://researchers.westernsydney.edu.au/en/publications/designing-instructional-text-in-a-conversational-style-a-meta-ana/);
+  2024 replication: [Frontiers in Psychology](https://www.frontiersin.org/journals/psychology/articles/10.3389/fpsyg.2024.1405308/epub).
+- D. Perkins (2009), *Making Learning Whole*: [Harvard Project Zero](https://pz.harvard.edu/resources/making-learning-whole-how-seven-principles-of-teaching-can-transform-education).
+- E. Fyfe, N. McNeil, J. Son, R. Goldstone (2014), "Concreteness fading in mathematics and science instruction: a systematic
+  review", *Educational Psychology Review* 26: [summary](https://pc.cogs.indiana.edu/?p=885).
+- L. Richland, N. Kornell, L. Kao (2009), "The pretesting effect", *J. Exp. Psych.: Applied*; S. Carpenter, A. Toftness (2017),
+  "The effect of prequestions on learning from video presentations", *J. Applied Research in Memory and Cognition*.
+- C. Crouch, A. Fagen, J. Callan, E. Mazur (2004), "Classroom demonstrations: learning tools or entertainment?", *American Journal
+  of Physics* 72.
+- M. Kapur, productive failure; T. Sinha, M. Kapur (2021), "When problem solving followed by instruction works: evidence for
+  productive failure", *Review of Educational Research* (meta-analysis); [Springer study on observing failure](https://link.springer.com/doi/10.1007/s11251-020-09528-z).
+- S. Ainsworth (2006), "DeFT: a conceptual framework for considering learning with multiple representations", *Learning and
+  Instruction* 16.
+- G. D. Rey (2012), "A review of research and a meta-analysis of the seductive detail effect", *Educational Research Review* 7.
+- J. Sweller, cognitive load theory and the worked-example effect; S. Kalyuga, the expertise-reversal effect;
+  [notes on the worked example effect](https://notes.andymatuschak.org/Worked_example_effect).
+- K. Bisra, Q. Liu, J. Nesbit, F. Salimi, P. Winne (2018), "Inducing self-explanation: a meta-analysis", *Educational Psychology
+  Review* 30.
+- J. Dunlosky, K. Rawson, E. Marsh, M. Nathan, D. Willingham (2013), "Improving students' learning with effective learning
+  techniques", *Psychological Science in the Public Interest* 14.
+- N. Schroeder, A. Kucera (2022), "Refutation text facilitates learning: a meta-analysis of between-subjects experiments",
+  *Educational Psychology Review* 34.
+
+Explanation design:
+- N. Case, [notes on explorable explanations](https://blog.ncase.me/explorable-explanations); B. Victor, "Explorable
+  Explanations" (2011, worrydream.com); [Red Blob Games notes](https://redblobgames.com/x/2306-educ432).
+- C. Olah, S. Carter (2017), ["Research Debt"](https://distill.pub/2017/research-debt/), Distill.
+
+ML education:
+- M. Valdenegro-Toro, M. Sabatelli, ["Machine Learning Students Overfit to Overfitting"](https://proceedings.mlr.press/v207/valdenegro-toro23a.html).
+- [Data-driven teaching and 9th graders' ML conceptions (AAAI 2026)](https://ojs.aaai.org/index.php/AAAI/article/view/41511):
+  workflow knowledge improved, but ideas about how models work inside persisted. Verify before quoting.
+- [Lessons learned teaching ML and NLP to high school students (AAAI 2020)](https://mlanthology.org/aaai/2020/norouzi2020aaai-lessons).
+
+Resources to study (not to copy):
+- 3Blue1Brown, *Neural networks* series (visual intuition; order: network → gradient descent → backprop).
+- A. Karpathy, *Neural Networks: Zero to Hero* (build from scratch; micrograd).
+- M. Nielsen, *Neural Networks and Deep Learning* (narrative prose).
+- TensorFlow Playground (decision boundaries).
+- CNN Explainer.
+- MLU-Explain.
+- d2l.ai.
+- fast.ai (top-down).
+
+Some research citations (Richland, Carpenter, Crouch, Sinha & Kapur, Ainsworth, Rey, Bisra, Dunlosky, Schroeder & Kucera) were
+added from the reviewers' and the author's knowledge, not from fetched pages. Check the details before quoting them on the site.
+
+---
+
+## Appendix A. Pedagogy reviewer checklist
+
+Answer each with evidence (quotes) and rank findings High, Medium or Low.
+
+1. Does the lesson open with questions the persona would ask, in a concrete situation?
+2. Is the prediction committed, and placed before any text or heading that answers it? Is a wrong option plausible?
+3. Is every term and symbol introduced before use, in course order? Is the notation consistent (one letter, one name)?
+4. Does each idea go picture → numbers → symbol → (optional) code? Does the text work without the widgets?
+5. Does every number have a role, and does it meet §4?
+6. Does every widget have a guided task, with the observation stated?
+7. Is there a worked example with a learner step?
+8. Is a misconception refuted with evidence from the page?
+9. Are comparisons fair? Is the test set left untouched? Are single-seed claims labelled? (C-type errors)
+10. Is TorC engineering kept out of the concept text?
+11. Does the lesson close by answering its questions, and point to the next question?
+12. Would a cold reader be able to explain the main idea in one sentence afterwards? Quote where they would stall.
+
+## Appendix B. Gold-standard example: `why-gradients`, core section
+
+This shows the target quality. It replaces "The model" and §1–2 of today's page.
+- **Bindings.** `{{path|role}}` marks a `T()` binding with its role. The paths are illustrative: use the real ones from
+  `why-gradients.json`.
+- **New trace values.** ★ marks a value that needs a new trace field.
+- **Checked arithmetic.** L = (2w − 6)² = 4(w − 3)², so dL/dw = 8(w − 3). The steep bowl is L = (4w − 12)² = 16(w − 3)²,
+  so dL/dw = 32(w − 3), and at w = 0 that is −96.
+
+> ### Questions this lesson answers
+> How does a computer know which way to change a weight? How big a change should it make?
+>
+> ### The price of a notebook
+> Two notebooks cost 6 euros. The model must learn the price of one notebook. It has one weight, `w`, its guess of the price. Its
+> prediction for two notebooks is 2 × `w`. The **loss** measures how wrong the prediction is: the miss, squared, (2`w` − 6)².
+> The model starts with the guess `w` = {{probes.0.w|worked}}. It predicts 0 euros, misses by 6, and the loss is {{probes.0.L|worked}}.
+>
+> **[quiz, before any explanation]** You raise `w` from 0 to 0.01. What happens to the loss?
+> (a) It goes up a little. (b) It goes down by about 0.24. (c) It goes down by about 6. (d) It does not change.
+> *Feedback (a):* "That happens only when the guess is already too high. Here the guess is too low, so a higher guess helps."
+> *(c):* "6 is the size of the miss. A tiny change of `w` makes only a tiny change of the loss."
+> *(d):* "The loss depends on `w`, so a change of `w` changes the loss, even if only a little."
+>
+> ### The gradient
+> The loss falls from {{probes.0.L|worked}} to {{nudge.L_after|worked}}, a change of {{nudge.dL|worked}}. With a nudge ten times
+> smaller, the change is about ten times smaller. The ratio stays near −24. This ratio is the **gradient**. It tells how much the
+> loss changes for each unit that you move `w`, at the point where you are. It is the slope of the loss curve at that point. A
+> negative gradient tells you that a larger `w` gives a smaller loss.
+>
+> **[widget: nudge lens]** *Task:* set the nudge to 0.5, then 0.1, then 0.01. *What you will see:* the curve and its straight
+> tangent line come closer together, so the prediction "gradient × nudge" becomes more exact.
+>
+> ### One step
+> Training moves `w` against the gradient, by a small part of it. That part is the **learning rate**, written lr.
+> new `w` = `w` − lr × gradient = 0 − {{trajectories.0.lr|worked}} × ({{probes.0.grad|worked}}) = **{{trajectories.0.steps.1.w|worked}}**.
+> A minus sign before a negative number adds, so `w` goes up, toward the true price.
+>
+> **Your turn [numeric quiz, tolerance 0.01].** At `w` = 1.2 the gradient is {{trajectories.0.steps.1.grad|worked}}. Where does the
+> next step land?
+> *Reveal:* 1.2 − 0.05 × (−14.4) = 1.92. The first step moved `w` by 1.2, and this step moves it by only 0.72. The steps get
+> shorter by themselves, because the curve is flatter near the bottom. The distance to 3 shrinks the same way at each step,
+> from 3 to 1.8 to 1.08.
+>
+> ### A tempting idea that is wrong
+> "A gradient of −24 means the answer is far away." Suppose instead that four notebooks cost 12 euros. The true price is still
+> 3, and the start is still 0, so the distance is the same. But the gradient at the start is now {{steep.probes.0.grad|contrast}}★,
+> four times larger. The gradient tells you how steep the ground is where you stand. It does not tell you how far away the
+> bottom is.
+>
+> *Analogy.* You stand on a hillside in thick fog. You can feel which way the ground slopes under your feet, and how steeply.
+> You cannot see the valley. *Where it breaks:* a hiker remembers the path. Plain gradient descent does not. The lesson
+> "Better optimizers" adds that memory.
+>
+> **[widget: bowl with fog mode]** *Task 1:* turn the fog on and reach the bottom in as few steps as you can with lr 0.05. Then
+> lift the fog. *Task 2:* before you press Step with lr 0.25, decide where `w` will land. *What you will see:* it jumps from 0 to 6
+> and back. Each jump goes past the bottom by exactly the distance it had to cover.
+>
+> **[In TorC, collapsed]** `L.backward();` puts the gradient into `w.grad()`. `SGD::step()` does the subtraction above:
+> `param->data() = param->data().sub(grad.mul(lr_));`
+>
+> ### The answer
+> The computer cannot see the whole loss curve. At its current point, it measures the gradient, which says which way is
+> downhill and how steep it is. Then it takes a step against the gradient, scaled by the learning rate.
+> *Next question:* what if the model has thousands of weights, not one?
+
+Why this meets the bar:
+- the prediction comes first and is committed;
+- every wrong option names a misconception;
+- every number is computed by the learner or used in a contrast;
+- no symbolic differentiation is needed;
+- the misconception is refuted with evidence;
+- the text works without the widgets, and each widget has a task;
+- there is one analogy, with its limit;
+- it closes with the answer and the next question;
+- about 600 words.
