@@ -4,8 +4,9 @@
 **Reviewed:** `origin/web` @ `3b06118` (13 published lessons and the Backprop lab), 2026-10-21.
 **Owner's question:** How good is this material *for learning*? The target reader has just finished high school and wants to
 understand how ML and deep learning work. The site should be the best resource for that reader.
-**Status:** v3. Revised over two rounds of independent review: a cold read by a simulated target learner, a learning-design critique
-(twice) and a fact check of every claim against the `web` checkout (twice). All accepted corrections are folded in.
+**Status:** v4 (final). Revised over three rounds of independent review: a cold read by a simulated target learner, a learning-design critique
+(twice), a fact check of every claim against the `web` checkout (twice) and a final consistency read. All accepted
+corrections are folded in.
 
 ---
 
@@ -28,6 +29,8 @@ those checks fail. Two safe ways to work:
   part is done. Then switch the part to `published` and renumber `course.json` in that same commit.
 
 **Refer to lessons by id, never by number.** This brief proposes new numbering, so numbers are ambiguous. Ids are stable.
+"Part 0" to "Part 5" in this brief are labels. The home page numbers parts from 1 (`curriculum()` in `course.js`). Part ids:
+keep `gradient`, `networks`, `training`, `images`, and add `whole-game` (first), `next` (last) and the appendix part `using-torc`.
 
 **Ids of the recommendations.** R1–R12 are design changes, D1–D20 are defects, C1–C10 are conceptual errors in lesson
 content. Cite them in commits.
@@ -59,7 +62,7 @@ The result reads like a precise, well-tested tour of the TorC API with the maths
    little Σ. The home page leads with C++ cards. Lessons use `Variable w(Tensor({0.0f}, {1}), true);`, `std::make_unique` and
    `param->data() = …` in the main text.
 2. **There is no "whole game" and no "why".** No page says what machine learning is, or what a model, a prediction, a target or a
-   loss is in general. "Loss" is defined properly only in `losses` (lesson 7): "A loss turns the output of a model into one number
+   loss is in general. "Loss" is defined properly only in `losses`: "A loss turns the output of a model into one number
    that says how wrong the model is." The cold reader wrote: *"This is the sentence I needed in lesson 1."* "Sample" and "dataset"
    are defined only in `training-loop`.
 3. **Numbers are narrated instead of ideas explained** (the owner's observation, confirmed). 53 sentences carry two or more
@@ -147,11 +150,11 @@ order, examples and checks. Most widgets, all of the trace tooling and most of t
   `site/js/widgets/landscape-model.js` already exports a tested `nudge()` (`why-gradients.test.mjs:105`).
 - **C++ is depth, not the entry point** (R6). The reader must be able to finish the course without reading C++. "Real library,
   real numbers" stays visible through 4–5 short "this is the real line" moments, each with a plain-English comment:
-  - the `SGD::step` update line;
-  - `loss.backward()`;
-  - the five-line training loop;
-  - a `Sequential` model;
-  - the digit model.
+  - `loss.backward()` (in `why-gradients`);
+  - the `SGD::step` update line (in `sgd-step`);
+  - a `Sequential` model (in `classification`);
+  - the five-line training loop (in `training-loop`);
+  - the digit model (in `mnist-mlp`).
   Never show `Variable w(Tensor({0.0f}, {1}), true);` to a novice.
 - **Meaningful data first**: "two notebooks cost 6 euros", a line through points, coloured points in 2D, handwritten digits. Keep
   abstract toys (the narrow valley) as second examples.
@@ -172,7 +175,7 @@ Sources are in §13. Effect sizes are given where the meta-analyses report them,
 | Concreteness fading (Fyfe, McNeil, Son & Goldstone 2014) | Concrete → pictorial → symbolic beats concrete-only or abstract-only for transfer | Each idea goes: a thing you drag → the same with numbers → the symbol → (optionally) the TorC code |
 | Multiple representations (Ainsworth 2006) | Several representations help only if learners are shown how they map onto each other | Colour-link a symbol across the formula, the plot and the code (`w` is the same colour everywhere). Label curves directly on the plot, not in a legend under it |
 | Coherence and seductive details (Mayer; Rey 2012 meta-analysis) | Interesting but unneeded material hurts learning | Remove library quirks and error strings from the concept text. Use analogies only from the curated bank, and not for every idea |
-| Signalling and spatial contiguity (Mayer) | Cues that show structure, and labels next to what they label, help | Each lesson opens with "Questions this lesson answers" and closes with "The answer". Each key sentence is bold. Explain each plot type at its first use |
+| Signalling and spatial contiguity (Mayer) | Cues that show structure, and labels next to what they label, help | Each lesson opens with "Questions this lesson answers" and closes with "The answer". Key sentences may be bold. Explain each plot type at its first use |
 | Pretraining (Mayer) | Knowing the names and traits of a system's parts before the main explanation helps | Name the parts on a labelled diagram (the network picture, the loop picture), with glossary hovers. No generic "words you will meet" list on every page |
 | Personalization (Ginns, Martin & Marsh 2013) | Conversational style helps modestly (about d = 0.30 for retention and 0.54 for transfer). The effect is weaker in lessons longer than 35 minutes. A 2024 replication found no gain from style alone | Write "you" for instructions and predictions. Do not expect style to rescue weak content (§8) |
 | Worked examples, fading, expertise reversal (Sweller; Kalyuga) | Novices learn more from studying worked examples than from cold problem-solving. Support should fade as skill grows, and full worked examples can hurt experts | One fully worked example per lesson, then the learner does the last step. Fewer worked steps in later parts |
@@ -218,11 +221,14 @@ turned it into an incentive.
    - `reveal`: inside a predict or check reveal, answering the prompt.
    - `worked`: valid only inside an element marked `class="worked"` (a calculation whose inputs are all visible in that block).
      Tested. At most 3 worked blocks per lesson, so the tag cannot become an escape from the limit.
-   - `setup`: a constant of the scenario (x = 2, t = 6, the lr presets), from the trace's `setup` block or a run's settings.
+   - `setup`: a constant or starting value of the scenario (x = 2, t = 6, the start `w` = 0 and its loss 36, the lr presets), or a
+     value that a prompt gives the learner (the gradient −14.4 in a "your turn" quiz). Shown exact.
    - `anchor`: listed in a course-wide `site/anchors.json` of trace **paths** (never typed values, per `CLAUDE.md`), at most about
      15, each reused in at least two lessons. For example: 784 pixels, 28 × 28, 10 classes, 60 000 images, about 97 % accuracy,
      26 506 vs 9 098 parameters, the bowl's bottom at `w` = 3. 784 and "10 classes" have no trace field today: add `setup.pixels`
-     and `setup.classes` to the MNIST traces.
+     and `setup.classes` to the MNIST traces. Loading: a small script in `tools/` copies the anchor values from their trace paths
+     into `site/data/anchors.json`, a test checks that they still equal the traces, and `lesson-boot.js` always loads that file.
+     So a lesson can bind 26 506 without loading the 422 KB `mnist-mlp.json`.
    - `contrast`: half of a pair (A vs B) in one sentence that states the comparison in words first.
    - `human`: a loss translated into a human unit:
      - MSE → typical miss in the target's units (√MSE, "off by about 0.24 on average");
@@ -231,10 +237,10 @@ turned it into an incentive.
 
      Derived values come from `T.human(path, 'rmse' | 'prob' | 'per100')`, which is tested. They are never typed.
 2. **Formatting by role, done inside `T()`.**
-   - Prose defaults to 2 significant figures. Exact values only for integers and in `worked` and `reveal` blocks.
+   - Prose defaults to 2 significant figures. Exact values only for integers and for `worked`, `setup` and `reveal` numbers.
    - One thousands separator (decide: thin space or comma).
    - Percentages for accuracy.
-   - Widgets keep their full precision.
+   - Widget readouts use 2–3 significant figures (§9). The graph-lab maths windows keep `fmt`.
    - Leave `fmt` (`site/js/ops/texutil.js`) alone for TeX, and add a prose formatter in `makeT` (`site/js/core/trace.js`).
 3. **Mechanical limits.**
    - At most 2 non-`worked` numbers per sentence.
@@ -266,13 +272,13 @@ These teach a wrong idea. Fix them in any version, before or during the redesign
 |---|---|---|---|
 | C1 | `training-loop` §3 | The batch-size prediction compares batch 10 against batch 100 *after the same number of epochs*. The answer, "batch 10 … took 300 steps", teaches "small batches are better". What the run actually shows is that more steps beat fewer steps. | Compare at equal steps *and* at equal samples seen. State the cost of each: a small batch means more steps but a noisier gradient estimate. Explain the "S" in SGD: the gradient of a batch is an *estimate* of the gradient over all the data. |
 | C2 | `generalization`, `mnist-mlp` | Both say "use the test set only once, at the end". Yet both choose the stopping point or diagnose overfitting from the test curve ("The test loss is lowest after step 200"; test accuracy after every epoch). | Rename these curves "validation" and record a validation split in the trace. Otherwise say explicitly: "we look at the test set here only to show you". |
-| C3 | `why-gradients` | "The gradient does not tell you how far away the lowest point is" is asserted. But in this bowl the gradient *is* proportional to the distance (8(w − 3)), so the widget supports the misconception. | Add a second bowl with the same minimum and a different steepness ("4 notebooks cost 12": L = 16(w − 3)², gradient −96 at w = 0). Same distance, four times the gradient. Needs a new trace scene. |
+| C3 | `why-gradients` | "The gradient does not tell you how far away the lowest point is" is asserted. But in this bowl the gradient *is* proportional to the distance (8(w − 3)), so the widget supports the misconception. | Add a second bowl with the same minimum and a different steepness ("4 notebooks cost 12": L = 16(w − 3)², gradient −96 at w = 0). Same distance, four times the gradient. Needs new trace data: a `steep` key in `why-gradients.json` (probes and trajectories), written by `trace_why.cpp`. |
 | C4 | `optimizers` | The race runs Adam at lr 0.2 and SGD at lr 0.019, and the predict answer is "Adam ends lowest" with no caveat. This builds "Adam is always best". | Say: "Adam got a ten times larger learning rate here. No optimizer wins on every problem." Better: show each optimizer at its own best learning rate from a small sweep. |
 | C5 | all runs | Every run uses one seed, yet the prose states its results as general facts. | Say once per part: "a different random start gives slightly different numbers". For the headline comparisons (MLP vs CNN, batch sizes, optimizers), record 3 seeds and show the range. |
-| C6 | `sgd-step` | Momentum appears in lesson 2 with numbers that rise ("at step three it rises to 2.447"). The learner concludes that momentum makes things worse. The motivating case, the narrow valley, only comes in `optimizers`. | Teach momentum once, in `optimizers`. |
-| C7 | `why-gradients` §4 | "The error `e` appears twice in `L = e·e`. So `e` gets two contributions of −6." This confuses a learner who knows d(e²)/de = 2e = −12. | Say: "`e·e` is e², whose slope is 2e = −12. TorC gets the same answer a different way. It treats each use of `e` separately (each gives −6) and adds them. The Backprop lesson shows why adding is right." |
+| C6 | `sgd-step` | Momentum appears in `sgd-step` with numbers that rise ("at step three it rises to 2.447"). The learner concludes that momentum makes things worse. The motivating case, the narrow valley, only comes in `optimizers`. | Teach momentum once, in `optimizers`. |
+| C7 | `why-gradients` §4 | "The error `e` appears twice in `L = e·e`. So `e` gets two contributions of −6." This confuses a learner who knows d(e²)/de = 2e = −12. | Say: "`e·e` is e², whose gradient is 2e = −12. TorC gets the same answer a different way. It treats each use of `e` separately (each gives −6) and adds them. The Backprop lab shows why adding is right." (Say "the lesson `backprop`" once it exists.) |
 | C8 | `convolution` (planned motivation) | "A pattern detector that slides does not care where the stroke is" mixes up equivariance and invariance. An informal probe on the 20 shown test images (16 correct before the shift; a biased sample, because four were chosen as misreads): a 3 px shift right leaves MLP 10 and CNN 15 correct; 3 px left, 7 and 12; 3 px down, 8 and 9; 4 px right, 3 and 10. TorC's CNN ends in Flatten → Linear, so it is **not** shift-invariant. Also, the digit pad re-centres drawings by centre of mass, which undoes any shift drawn there. | Teach "the feature map moves with the digit", which holds exactly only for shifts that are multiples of the stride. Record shifted-image accuracy of both models on the full 10 000 test images in the trace, and show it honestly, with a test. |
-| C9 | `mnist-cnn` | "The CNN, with the settings of the two TorC examples": the trace trains 5 epochs, but `examples/mnist_cnn` uses 10. The page itself says "The TorC example trains for more epochs". The comparison is also confounded (5 vs 20 epochs, different learning rates). | Say plainly: "This comparison is not perfectly fair: different numbers of passes and step sizes. The CNN still wins, with a third of the parameters." Remove the false "settings of the two examples". |
+| C9 | `mnist-cnn` | "The CNN, with the settings of the two TorC examples": the trace trains 5 epochs, but `examples/mnist_cnn` uses 10. The page itself says "The TorC example trains for more epochs". The comparison is also confounded (5 vs 20 epochs, different learning rates). | Say plainly: "This comparison is not perfectly fair. The two runs use different numbers of passes and step sizes. The CNN still wins, with a third of the parameters." Remove the false "settings of the two examples". |
 | C10 | `generalization` | The code block shows `DataLoader train(train_set, 64…)` and `AdamW(params, 1e-3f, 0.01f)`, but the run on the page uses 10 samples, lr 0.05, weight decay 0, 0.1 and 1, and 20 000 steps. The check answers "The model overfits" as a yes/no fact. Students treat overfitting as binary and over-diagnose it (Valdenegro-Toro & Sabatelli). | Show the experiment's real settings. Teach overfitting as a matter of degree, and refute "more parameters ⇒ overfitting" (the MNIST MLP has many parameters *and* many images). |
 
 Other content issues (smaller):
@@ -341,7 +347,8 @@ Design choices, each supported by the reviews:
 - **ChatGPT asides throughout**, not only at the end. Examples: cross-entropy is the next-word loss; softmax over the vocabulary;
   AdamW trains most LLMs; parameter counts.
 - **Each part ends at a real stopping point**: "you can stop here and explain X".
-- **Time target:** about 3–4 hours for the core path, 12–18 minutes per lesson, with depth in optional panels. Part 0 plus Part 1
+- **Time target:** about 4–5 hours for the 17 lessons of the core path, 12–18 minutes per lesson (`deep-nets` and
+  `from-digits-to-chatgpt` shorter), with depth in optional panels. Part 0 plus Part 1
   must deliver a complete payoff in under 45 minutes, so those three lessons aim at the low end (about 12–15 minutes each).
 
 ★ = new id, ◆ = existing id, substantially rewritten, ○ = existing id, mostly kept. **Keep each existing id on the lesson that
@@ -408,8 +415,8 @@ inherits most of its content** (ids hold URLs, progress, test files and SPEC key
   - Cross-entropy as "surprise", written as **ln**, with a refresher.
   - Why it beats squared error for classes (keep the comparison widget).
   - Ten digits as ten classes.
-  - ChatGPT aside: the same softmax, over a vocabulary of roughly 100 000 to 200 000 tokens in current models (cite the source;
-    GPT-2 had 50 257).
+  - ChatGPT aside: the same softmax, over a vocabulary of many thousands of tokens (GPT-2 had 50 257; current
+    models use more). Quote an exact size only with a cited source (owner-approval item 6).
 
   MSE is now taught in `what-is-learning`. The MSE shape pitfall goes to the appendix.
 - ★ `backprop`: **How the computer finds every gradient at once.** Four parts, no more:
@@ -419,8 +426,8 @@ inherits most of its content** (ids hold URLs, progress, test files and SPEC key
   3. The "Reuse" graph scene from the Backprop lab, embedded (one graph lab per page).
   4. One small network (2 inputs, 2 hidden units, 1 output) backward with real numbers: "blame flows back along the weights".
 
-  The matrix rule `W̄ = ȳᵀx` (today's `linear-layer` §3) goes to the "In TorC" panel or the `tensors` appendix. This learner
-  never needs it.
+  The matrix rule `W̄ = ȳᵀx` (today's `linear-layer` §3) goes to the "In TorC" panel of `backprop`, written there with
+  ∂ (the overline is kept for graph-lab windows only). This learner never needs it on the main path.
 - ★ `deep-nets`: **Why deep networks are hard to start.** Short. Vanishing gradients with sigmoid. Initialization: the "copy
   neuron" twins *with* the missing reason (equal gradients keep them equal forever), and the six-layer signal plot, now after
   ReLU, with the reason for the 2 in √(2/in).
@@ -454,8 +461,8 @@ inherits most of its content** (ids hold URLs, progress, test files and SPEC key
   - A **confusion matrix** and a **grid of the mistakes**, with "why might 4 and 9 get confused?". This needs a 10 × 10 confusion
     matrix recorded in `trace_mnist_mlp.cpp` and a re-run.
   - "Channels" explained (red, green, blue), ahead of `convolution`.
-- ★ `one-step`: **One training step, followed end to end.** The capstone of the course, and the strongest use of "real library,
-  real numbers". One test digit through the real MNIST MLP:
+- ★ `one-step`: **One training step, followed end to end.** The lesson where all the parts meet, and the strongest use of "real
+  library, real numbers". One test digit through the real MNIST MLP:
   1. Forward: pixels → hidden activations → ten scores → probabilities → surprise.
   2. `backward()` gives the gradient of one chosen pixel weight, traced back along its path.
   3. `step()` changes that weight by lr × gradient.
@@ -545,13 +552,12 @@ For the rewrite. Each entry gives what to keep, what to fix, and the misconcepti
     - Give one worked 2 × 2 matrix product before the index formula.
     - Show a 3D example (an image).
 - **`linear-layer`.**
-  - Keep: the matmul grid and its paper work; "copy neuron 1 into neuron 2"; the signal plot (moves to `deep-nets`).
+  - Keep: the matmul grid and its paper work. The "copy neuron 1 into neuron 2" button and the signal plot move to `deep-nets`.
   - Fix:
     - D1, D3, D4.
     - Add the network picture.
     - Explain why `W` is (out, in) and is transposed.
     - The x̄ predict is not answerable for this persona; drop it from the main path (the matrix rule goes to "In TorC").
-    - Give the reason the twins are bad.
     - Explain 784.
   - Misconceptions: "W is (in, out)"; "a neuron is a little brain"; "zero weights are a fine start".
 - **`nonlinearity`.**
@@ -606,7 +612,8 @@ For the rewrite. Each entry gives what to keep, what to fix, and the misconcepti
 
 ### Voice: keep STE's structure and add specified teacher moves
 Decision 12 brought in STE *because* of an earlier complaint: the pages "read like LLM output". Do not drop it wholesale. The
-typical LLM tics (rhetorical questions everywhere, punchlines, decorative metaphors, "we" and "let's") would come back.
+typical LLM tics (rhetorical questions everywhere, punchlines, decorative metaphors, "let's") would come back. "We" is allowed
+for the course itself ("we practise this on a simple problem"), at most once per section.
 
 **Keep:**
 - complete sentences;
@@ -638,7 +645,7 @@ typical LLM tics (rhetorical questions everywhere, punchlines, decorative metaph
 - **`authoring.md` "one name" list:**
   - Allow "slope" once, to *define* the gradient ("the gradient is the slope of the loss curve at the current point"). After
     that, say "gradient".
-  - Allow "knob" only inside the lesson-0 analogy, with the explicit mapping "the knobs are the weights".
+  - Allow "knob" only inside the `what-is-learning` analogy, with the explicit mapping "the knobs are the weights".
 - **The real test** is the owner's focus group and the human think-alouds (§10), not a principle.
 
 ### Notation (decide once, record in `authoring.md`)
@@ -673,9 +680,9 @@ that every glossary term a lesson uses is linked at its first use.
 
 | Idea | Analogy | Where it breaks |
 |---|---|---|
-| Gradient | Standing on a hillside in thick fog: you feel the slope under your feet, but you cannot see the valley | It tells steepness and direction *here*, not where or how far the bottom is |
+| Gradient | Standing on a hillside in thick fog: you feel the slope under your feet, but you cannot see the valley | It tells the steepness and direction at your point. It does not tell where the bottom is. A hiker also remembers the path, and plain gradient descent does not |
 | Learning rate | Stride length, scaled by how steep the ground is | A stride that is safe on gentle ground overshoots on steep ground |
-| Momentum | A ball rolling downhill keeps part of its speed | A real ball has friction and mass; here μ sets how much speed is kept per step |
+| Momentum | A ball rolling downhill keeps part of its speed | A real ball has friction and mass. Here μ sets how much speed is kept per step |
 | Adam | Each weight gets its own step size, scaled by the typical size of its recent gradients | It is not "smart". It can still diverge, and it needs its own learning rate |
 | Chain rule | Gears: if B turns 2 times as fast as A and C turns 3 times as fast as B, then C turns 6 times as fast as A | Real derivatives change from point to point; gears have fixed ratios |
 | Neuron | A weighted sum (for classification: a weighted vote) plus a bias that shifts the threshold | It is not a brain cell; it only multiplies, adds and applies one function |
@@ -684,7 +691,7 @@ that every glossary term a lesson uses is linked at its first use.
 | Cross-entropy | Surprise when the right answer is revealed: 100 % sure and right is zero surprise | Being sure *and wrong* costs without bound. Only the probability of the right answer counts, not how the rest is spread |
 | Overfitting | Memorizing last year's exam answers instead of learning the subject | The model does not choose to memorize. It fits noise because nothing stops it, and it is a matter of degree |
 | Weight decay | A slow leak that pulls each weight toward zero unless the data holds it up | In TorC a weight with *no* gradient is skipped and does not leak |
-| Convolution kernel | A small stencil slid over the image, asking "is my pattern here?" at every spot | The feature map moves with the image; the final answer of a CNN can still change when the digit moves |
+| Convolution kernel | A small stencil slid over the image, asking "is my pattern here?" at every spot | The feature map moves with the image. The final answer of a CNN can still change when the digit moves |
 
 ---
 
@@ -704,9 +711,15 @@ that every glossary term a lesson uses is linked at its first use.
 
 7. **One transfer question** (a new situation, the same idea) and **one self-explanation prompt** with a model answer.
 8. **One cumulative check** from an earlier lesson, from the third lesson on.
+9. **The loop diagram** with this lesson's part lit (main path only).
 
-**Palette, 0–2 per lesson:** an analogy with its limit; a maths refresher; an "In TorC" panel; a "same thing in ChatGPT" aside;
-an end-of-part review (it recommends going back and never blocks).
+**Per part:** the last lesson of each part ends with a short mixed review. It recommends going back and never blocks.
+
+**Palette, 0–2 per lesson:** an analogy with its limit; a maths refresher; an "In TorC" panel; a "same thing in ChatGPT" aside.
+
+**Section kinds and limits (replacing the current tests).** `quiz` replaces `predict` and `check`; keep the old kinds working
+until every lesson is migrated. Limits per lesson: "Questions" ≤ 3 questions; "The answer" ≤ 80 words; a text section ≤ 150
+words; ≤ 6 numbered sections; ≤ 6 quizzes; a soft cap of 1 400 words (§10).
 
 **Exceptions:** `from-digits-to-chatgpt` and the appendix pages need no worked example and no widget-based refutation.
 
@@ -742,7 +755,7 @@ judgement instead.
 |---|---|---|---|
 | Nudge lens (drag Δw, predicted vs actual change, zoom until straight) | `why-gradients` | `why-gradients.json` `nudge`, `secants` | Widget only |
 | Fog mode (hide the curve; step blind; then lift the fog), in 1D and 2D | `why-gradients`, `sgd-step` | `why-gradients.json` grid/trajectories, `optim.json` runs | Widget only |
-| Steep vs shallow bowl, same minimum | `why-gradients` | none | New trace scene (C3) |
+| Steep vs shallow bowl, same minimum | `why-gradients` | none | New `steep` key in `why-gradients.json` from `trace_why.cpp` (C3) |
 | Gradient arrow on the contour map | `sgd-step` | `optim.json` runs and surface (`contour2d.js` already draws a step arrow) | Small widget change |
 | Hand-fitting game with residual squares, then "let gradient descent take over", scored on hidden points | `what-is-learning` | `training.json` data (t = 3x + 1, x in [−1, 1)) and `runs[].epochs` | Widget and JS MSE/SGD (testable against the trace). A meaningful dataset needs a new trace |
 | Hinge builder | `nonlinearity` | `nonlinearity.json` has only predictions per checkpoint | Trace change: record W1, b1, W2, b2 at each checkpoint |
@@ -805,10 +818,10 @@ minutes for the MNIST runs. `verify.yml` checks all of it for drift.
 |---|---|
 | Voice and linter rules | `site/test/helpers.mjs` `proseProblems`; `tools/prose/check.sh` and its step in `verify.yml`; `CLAUDE.md` writing section (owner approval); `docs/authoring.md` writing rules and the "one name" list; decision 12; `.claude/agents/independent-reviewer.md` dimension 8 |
 | Number rule and formatting | `site/js/core/trace.js` `makeT`; `site/js/core/sections.js` `boundNums`; `site/test/lessons.test.mjs` (the `T.text` equality and the ≤ 25 budget); the per-lesson budget tests in `why-gradients`, `linear-layer` and `sgd-step` `.test.mjs`; the per-lesson "no hand-typed digits" tests in all 13 `site/test/<id>.test.mjs` (allow anchors); tests that pin removed bound paths (for example `linear-layer.test.mjs`, `sgd-step.test.mjs`, `why-gradients.test.mjs`); `engine.test.mjs` only if `fmt` changes |
-| Template (Questions/Answer instead of TL;DR) | `lessons.test.mjs:107` (TL;DR right after the hero), `:117-118` (≤ 60 / ≤ 100 words), `:121` (≤ 4 numbered sections); `why-gradients.test.mjs:149` (≤ 4 items); the `tldr` renderer in `sections.js` (heading "Summary"); `helpers.mjs` `lessonStats` and `sectionWords`; decision 7 |
-| `quiz` kind and store v2 | `site/js/core/sections.js` `SECTION_KINDS` and `validateLesson`; `site/js/lesson-boot.js`; `site/js/core/store.js` (`STORAGE_KEY` `torc:v1`, `sanitize`); `core.test.mjs:61`; `lessons.test.mjs` question budget (≤ 1 predict + 2 checks) |
+| Template (Questions/Answer instead of TL;DR) | `lessons.test.mjs:39` (TL;DR right after the hero), `:41` (≤ 800 words, ≤ 25 numbers, ≤ 2 widgets, ≤ 3 questions), `:49-50` (≤ 60 / ≤ 100 words), `:53` (≤ 4 numbered sections); `why-gradients.test.mjs:149` (≤ 4 items); the `tldr` renderer in `sections.js` (heading "Summary"); `helpers.mjs` `lessonStats` and `sectionWords`; decision 7 |
+| `quiz` kind and store v2 | `site/js/core/sections.js` `SECTION_KINDS` and `validateLesson`; `site/js/lesson-boot.js`; `site/js/core/store.js` (`STORAGE_KEY` `torc:v1`, `sanitize`); `core.test.mjs:61`; `lessons.test.mjs:54-55` question budget (≤ 1 predict + 2 checks) |
 | Appendix part | `site/js/core/course.js` (`validateCourse` rejects unknown kinds; `isLabPart`, `curriculum`, `labs` and `neighbors` need a three-way kind; header comment `:4-8`); `core.test.mjs:82` (asserts the rejection); `site/js/home.js`; `docs/architecture.md:36`; prerequisites in `course.json` (for example `losses.prereqs` is `["modules"]`). `tools/check_site.mjs` needs no change |
-| "In TorC" panel wording | `lessons.test.mjs:110` bans "recorded / recomputed / printed by / in your browser" |
+| "In TorC" panel wording | `lessons.test.mjs:42` bans "recorded / recomputed / printed by / in your browser" |
 | Widget and UI string linting (D15) | `tools/prose/extract.mjs`, `site/test/helpers.mjs` |
 | A lesson numbered 0 | `curriculum()` numbers from 1 (`course.js`, `core.test.mjs`). Easiest: no "0"; start at 1 |
 | Lessons without trace data (`from-digits-to-chatgpt`, refreshers, glossary) | `lessons.test.mjs` footer check needs a lesson `footer`. `CLAUDE.md` "source of truth" needs a rule for content beyond TorC: cite sources, keep numbers out or cite them, label conceptual content as such (owner approval) |
@@ -819,8 +832,11 @@ minutes for the MNIST runs. `verify.yml` checks all of it for drift.
 
 ## 11. Defects
 
-Phases: **A** = D1–D3, D5, D6, D10, D13–D15, D17, D19, D20, and also D4 and D12 (`authoring.md` already says positions count
-from 0). **B** = D8, D9 (they need the prose formatter). **C** = D7, D11 (with C10's code change), D16, D18.
+Phases:
+- **A:** D1–D6, D10–D15, D17, D19, D20. For D4 and D12, `authoring.md` already says tensor positions count from 0. In readouts,
+  epochs and batches are counts and start at 1. D11 goes with C10's wording.
+- **B:** D8, D9 (they need the prose formatter).
+- **C:** D7, D16, D18.
 Of the conceptual errors, the wording parts of C4, C7, C9 and C10 are Phase A. The rest go with their lesson's rewrite.
 
 | # | Where | Defect | Fix |
@@ -866,8 +882,7 @@ Of the conceptual errors, the wording parts of C4, C7, C9 and C10 are Phase A. T
 
 ### Phase A. Quick fixes (one session, safe on `web`)
 - Copy this brief to `web` as `docs/pedagogy-review.md`.
-- Fix D1–D3, D4, D5, D10, D12, D13, D14, D15, D17, D19, D20 and the wording parts of C4, C7, C9 and C10 (caveats, true settings).
-- Remove the D6 text.
+- Fix D1–D6, D10–D15, D17, D19, D20 (D6 by removing its text) and the wording parts of C4, C7, C9 and C10 (caveats, true settings).
 - Add the escape-grep test and the next-lesson test.
 - If C10 changes the `course.json` `code` of `generalization`, update its SPEC in `tools/snippets/check.mjs` and run
   `node tools/snippets/check.mjs --torc <TorC at v0.1.0>`.
@@ -898,6 +913,7 @@ Of the conceptual errors, the wording parts of C4, C7, C9 and C10 are Phase A. T
 - **Part 4:** `mnist-mlp`, `one-step`, `convolution`, `mnist-cnn`.
 - **Part 5:** `from-digits-to-chatgpt`.
 - **Appendix:** `tensors`, `modules`, `torc-pitfalls`.
+- **Defects:** D7 (with `modules`), D16 (graph labs at phone width, with `backprop`), D18 (with `optimizers`).
 - With each part: its trace work (§9 table), its C-fixes, and a human test before publishing.
 
 ### Phase D. Spacing and polish
@@ -920,7 +936,8 @@ Of the conceptual errors, the wording parts of C4, C7, C9 and C10 are Phase A. T
 ### Acceptance criteria (per lesson)
 - A human reader from the target group can answer the lesson's opening question in their own words afterwards.
 - No term, symbol or notation appears before its introduction in course order (test).
-- Every prose number has a role. At most 10 non-`worked` numbers. No sentence has three or more numbers unless allow-listed (test).
+- Every prose number has a role. At most 10 numbers outside `worked`, `setup` and `reveal`, and at most 2 non-`worked` numbers per
+  sentence (§4, test).
 - Every widget has a guided task, and the text states the observation.
 - The core template of §9 is met (exceptions as listed there).
 - No unfair comparison, no test-set peeking, and claims from a single seed are labelled.
@@ -1020,9 +1037,11 @@ role (§4). Real paths in `why-gradients.json`, each prefixed `files.why-gradien
 | lr 0.25; 6; back to 0 | `trajectories.3.lr`, `trajectories.3.states.1.w`, `trajectories.3.states.2.w` |
 
 The keys are `states`, not `steps`. There is no `nudge.L_after` or `nudge.dL`. These values are not in the trace yet: the step
-sizes 1.2 and 0.72, the distances 1.8 and 1.08, the shares 60 %, 100 % and 140 %, and the 0.02 / 5.98 of the nudge. Add trace
+sizes 1.2 and 0.72, the distances 1.8 and 1.08, and the shares 60 %, 100 % and 140 %. (The 0.02 and −5.98 of the nudge are
+`nudge.stages.0.after` and `nudge.stages.1.after`.) Add trace
 fields for them, or bind computed values with a test (precedent: `sci()` in `linear-layer.js`). The four-notebook numbers come from
-the new steep-bowl scene (★).
+the new `steep` key (★). The digits not marked below also bind: `reveal` inside reveals, `setup` for story constants (6 euros,
+12 euros, 0.01) and `anchor` for 26 506.
 
 **Arithmetic, checked twice.** L = (2w − 6)² = 4(w − 3)², so dL/dw = 8(w − 3). One step with lr keeps the fraction 1 − 8·lr of the
 distance to 3: 0.6 for lr 0.05, −1 for lr 0.25, −1.4 for lr 0.3. The steep bowl is L = (4w − 12)² = 16(w − 3)², so its gradient
@@ -1033,9 +1052,9 @@ at w = 0 is −96.
 >
 > ### The price of a notebook
 > Two notebooks cost 6 euros. The model must learn the price of one notebook. It has one weight, `w`, its guess of the price.
-> Its prediction for two notebooks is 2 × `w`. The **loss** measures how wrong the prediction is. It is the miss, squared:
+> Its prediction for two notebooks is 2 × `w`. The **loss** measures how wrong the prediction is. It is the square of the miss,
 > (2`w` − 6)². The model starts with the guess `w` = {{probes.0.w|setup}}. It predicts 0 euros, misses by 6, and the loss is
-> {{probes.0.L|worked}}.
+> {{probes.0.L|setup}}.
 >
 > You can find the price by dividing 6 by 2. A network with 26 506 weights has no such shortcut. So we practise the general
 > method on a problem with a known answer.
@@ -1049,8 +1068,9 @@ at w = 0 is −96.
 > **gradient**. It tells how much the loss changes for each unit that you move `w`, at the point where you are. It is the slope
 > of the loss curve at that point. A negative gradient tells you that a larger `w` gives a smaller loss.
 >
-> **[widget: nudge lens]** *Task:* set the nudge to 0.5, then 0.1, then 0.01. *What you will see:* the curve and its straight
-> tangent line come closer together. So the prediction "gradient × nudge" becomes more exact.
+> **[widget: nudge lens]** *Task:* set the nudge to 0.5, then 0.1, then 0.01.
+>
+> *What you will see:* the curve and its straight tangent line come closer together. So the prediction "gradient × nudge" becomes more exact.
 >
 > ### One step
 > Training changes `w` by the gradient times a small number, in the opposite direction. That small number is the
@@ -1076,12 +1096,17 @@ at w = 0 is −96.
 > the ground is where you stand. It does not tell you how far away the bottom is.
 >
 > *Analogy.* You stand on a hillside in thick fog. You can feel which way the ground slopes under your feet, and how steeply.
-> You cannot see the valley. *Where it breaks:* a hiker remembers the path. Plain gradient descent does not. The lesson
+> You cannot see the valley.
+>
+> *Where it breaks:* a hiker remembers the path. Plain gradient descent does not. The lesson
 > "Better optimizers" adds that memory.
 >
 > **[widget: bowl with fog mode]** *Task 1:* turn the fog on and reach the bottom in as few steps as you can with lr 0.05. Then
-> lift the fog. *Task 2:* before you press Step with lr 0.25, decide where `w` will land. *What you will see:* it lands as far
-> past the bottom as it started before it. With lr 0.25, each step keeps 100 % of the distance but jumps to the other side. With
+> lift the fog.
+>
+> *Task 2:* before you press Step with lr 0.25, decide where `w` will land.
+>
+> *What you will see:* it lands as far past the bottom as it started before it. With lr 0.25, each step keeps 100 % of the distance but jumps to the other side. With
 > lr 0.3 it keeps 140 %, so the jumps grow.
 >
 > **[In TorC, collapsed]** `SGD::step()` does the subtraction above, in one line:
@@ -1091,12 +1116,12 @@ at w = 0 is −96.
 > The computer cannot see the whole loss curve. At its current point, it measures the gradient. The gradient says which way is
 > downhill and how steep it is. Then the computer takes a step against the gradient, scaled by the learning rate. If the
 > learning rate is too large, each step overshoots by more than it gains. So you try a few learning rates and watch the loss.
-> *Next question:* what if the model has thousands of weights, not one?
+> *Next question:* what changes when the model has thousands of weights?
 
 Why this meets the bar:
 - The learner commits to an answer first, and computes it rather than guessing.
 - It answers the obvious objection ("why not just divide?").
-- Every number is a setup value, part of a worked calculation, or a contrast.
+- Every number is a setup value, part of a worked calculation, a contrast, or a reveal.
 - No symbolic differentiation is needed.
 - The misconception is refuted with evidence, and the obvious misreading of that evidence is blocked.
 - The text works without the widgets, and each widget has a task.
