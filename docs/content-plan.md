@@ -1,32 +1,125 @@
 # Content plan: a complete interactive course on TorC
 
-Status: proposal for owner review. Basis: TorC `main` @ 5416a87 (read-only checkout) plus the current `web` site.
+Status: sections 1 and 2 were rewritten on 2026-10-29 for curriculum v3 (decisions 13 to 23, owner-approved, from
+`docs/pedagogy-review.md`). Sections 2 (v2), 2 (v1) and 3 are kept as history and for their verified facts. Basis of the
+original plan: TorC `main` @ 5416a87 (read-only checkout) plus the current `web` site.
 Evidence tags used below: **(V)** = verified in this planning pass by reading the cited code and/or running it against a
 `libtorc` built from 5416a87 (clang++-18, -O1); **(NV)** = not verified. Behaviour claims follow CLAUDE.md's split:
 *Observed* (code/test), *Expected* (math), *Suspected* (inconsistency; goes to `docs/library-audit/`, never to a lesson page).
 
 ## 1. Audience and goals
 
-**Who.** Programmers and STEM students who know basic calculus vocabulary (slope, derivative) and some C++ or NumPy, but have
-never seen how a framework turns "compute a loss" into "update the weights". Not for ML researchers; not a PyTorch tutorial.
-TorC is small enough (about a dozen source files) that a learner can read the real code after each lesson, and that is the pitch.
+**Who (decision 13, brief R1).** The reader has just finished high school and wants to understand how machine learning and deep
+learning work, and roughly how ChatGPT works. Aged 17 to 19. The reader:
+- **knows** algebra; functions and their graphs (lines, parabolas); exponents and logs (school "log" is base 10); basic
+  probability; maybe one term of calculus (the derivative as a slope, shaky); maybe a little Python;
+- **does not know** vectors, matrices, sums with subscripts, partial derivatives, standard deviation, C++ or what a tensor is;
+- **quits silently** when lost or bored, so every page must earn the next one.
 
-**After each part a learner can:**
-1. *Big idea* - explain why moving against the gradient lowers a loss, perform one SGD step by hand, and say what `backward()` computed.
-2. *Tensors* - predict result shapes of elementwise ops, broadcasting, reductions, `matmul`; say why `transpose`/`reshape` copy in TorC.
-3. *Autograd in depth* - predict what `.grad` holds after repeated `backward()` calls, use `detach`/`NoGradGuard`, and fix "graph input expired".
-4. *Building blocks* - compute a `Linear` layer, activation and loss by hand; count parameters; choose an initialisation.
-5. *Data and training* - write and trace the five-line training loop; explain batching/shuffling; read a loss curve.
-6. *Optimizers* - write the update rules of SGD+momentum, Adam, AdamW and predict how each reacts to lr.
-7. *Convolution* - compute a `conv2d` output size and one output pixel; explain `dWeight` as a sum over window positions.
-8. *Capstones* - read TorC's three examples end to end; explain every shape and the parameter count of the MNIST MLP/CNN.
+**Prerequisite, stated on the home page and in `what-is-learning`.** "You need algebra and graphs of functions. We explain
+everything else when you need it, including derivatives and matrices."
 
-**Content rules.** Lesson pages teach what TorC *does* with the math beside it; no audit or bug talk (decision 4). Hazards the
-learner will hit (lifetime, `zero_grad`, silent `step()` skip) appear as "Why did my X fail?" gotchas with the recorded real
-message. Each lesson ends with 3 to 5 *predict, then reveal* checks whose answers come from the trace. Each lesson has an
-internal note `docs/lessons/<id>.md` (storyboard, symbols, Observed/Expected/Suspected) that is not shipped.
+**Rules that follow from the persona.**
+- No symbol or term appears before the lesson that introduces it, in course order (tested).
+- The reader is never asked to differentiate a formula symbolically before `backprop`. Slopes come from nudging a weight: "raise
+  `w` by 0.01 and the loss changes by about -0.24, so the gradient is about -24".
+- C++ is depth, not the entry point. The course can be finished without reading C++. "Real library, real numbers" stays visible
+  through 4 or 5 "this is the real line" moments; the rest of the TorC code is in "In TorC" panels and the appendix.
+- Meaningful data first ("two notebooks cost 6 euros", a line through points, coloured points in 2D, handwritten digits). Abstract
+  toys such as the narrow valley are second examples.
 
-## 2. Curriculum (v2, owner request 2026-10: follow the usual university order; supersedes the course map below)
+**Secondary audience.** Programmers and STEM students who know some C++ or NumPy and want to see how a framework turns "compute a
+loss" into "update the weights". They are served by the "In TorC" panels and the appendix part `using-torc`. Not for ML
+researchers; not a PyTorch tutorial. TorC is small enough (about a dozen source files) that a reader can read the real code after
+each lesson, and that stays part of the pitch.
+
+**After each part a learner can** (each part ends at a real stopping point: "you can stop here and explain X"):
+1. *The whole game* (`whole-game`) - say what it means for a machine to learn (data, model, loss, adjust), fit a line by hand, and
+   say why a model is scored on points it has not seen.
+2. *Learning means going downhill* (`gradient`) - find a gradient by nudging, take one step by hand, say what the learning rate
+   does and why a step that is too large fails, and read a contour map with two weights.
+3. *Neural networks* (`networks`) - describe a neuron and a layer, say why a network needs a bend (nonlinearity), read a decision
+   boundary, turn scores into probabilities, explain cross-entropy as surprise, say why backpropagation exists (the cost of
+   nudging every weight) and follow one backward pass, and say why a deep network is hard to start.
+4. *Training in practice* (`training`) - write and trace the five-line training loop, explain batches, epochs and shuffling,
+   compare optimizers fairly, and tell overfitting from a good fit using a validation set.
+5. *Images* (`images`) - follow one real training step end to end on a digit, explain what a kernel does and why a CNN needs
+   fewer weights than an MLP, and read the digit models.
+6. *Where this goes next* (`next`) - say how next-word prediction with the same loop trains a language model, and where TorC stops.
+7. *Using TorC* (appendix `using-torc`) - predict shapes, broadcasting and reductions; use `Module` and `Sequential`; avoid the
+   common pitfalls (`zero_grad`, graph lifetime, a mismatched `MSELoss`).
+
+**Content rules.**
+- Lesson pages teach the idea with TorC's real numbers; no audit or bug talk (decision 4). Hazards the learner will hit appear in
+  the appendix lesson `torc-pitfalls` as "Why did my X fail?" boxes with the recorded real message (decision 22).
+- Each lesson follows the template of `docs/authoring.md` ("Lesson template"): questions first, a committed prediction before the
+  answering text, a worked example, one refuted misconception, and "The answer" last. Answers to quizzes come from the trace.
+- Content beyond TorC (`from-digits-to-chatgpt`, refreshers, the glossary, ChatGPT asides) cites its sources (decision 18).
+- Each lesson has an internal note `docs/lessons/<id>.md` (storyboard, symbols, Observed/Expected/Suspected) that is not shipped.
+
+## 2. Curriculum v3 (decisions 13 to 23; supersedes the v2 table below)
+
+Source: `docs/pedagogy-review.md` section 6. Refer to lessons by **id**, never by number: the numbers below are display order only,
+and the home page numbers lessons from 1. **No id is removed**, so URLs and stored progress keep working. "New" = a new id,
+"Rewrite" = an existing id that inherits most of its content and is substantially rewritten, "Kept" = an existing id that is
+mostly kept with fixes.
+
+Design choices, each supported by the reviews:
+- **Whole game first.** `what-is-learning` shows the digit pad and the full loop (data, model, loss, adjust) before any part. Every
+  main-path lesson shows a small loop diagram with its own part lit.
+- **Backprop right after the learner has a network with many weights.** The question "how does it get all those gradients?" exists
+  only then.
+- **No standalone linear-algebra lesson.** The dot product comes inside "the neuron", the matrix product as "a layer is many
+  neurons at once", each with a just-in-time refresher.
+- **Generalization planted early.** `what-is-learning` scores the hand-fitted line on hidden points.
+- **ChatGPT asides throughout**, not only at the end (cross-entropy is the next-word loss, softmax over a vocabulary, AdamW trains
+  most LLMs, parameter counts).
+- **Time target:** 12 to 18 minutes per lesson (`deep-nets` and `from-digits-to-chatgpt` shorter), about 4 to 5 hours for the 17
+  lessons of the main path, with depth in optional panels. The first three lessons give a complete payoff in under 45 minutes.
+
+| # | Part (id) | Lesson (id) | State | What it teaches | Minutes |
+|---|---|---|---|---|---|
+| 1 | The whole game (`whole-game`) | What does it mean for a machine to learn? (`what-is-learning`) | New | Opens with the digit pad. The hand-fitting game: drag a line through points, each miss drawn as a square whose area adds to the loss (MSE made visible). Then "let gradient descent take over" runs live, and both lines are scored on hidden points. Names data, model, loss, adjust on the loop diagram. Promises what the course delivers, including what is different in ChatGPT | 12-15 |
+| 2 | Learning means going downhill (`gradient`) | The gradient (`why-gradients`) | Rewrite | The notebook story. A slope found by nudging (nudge lens). One worked step, one step the learner does. The steep-bowl refutation (the gradient says how steep, not how far, C3). The bowl with fog mode. `loss.backward()` as a real line. The chain rule moves to `backprop` | 12-15 |
+| 3 | | Gradient descent with many weights (`sgd-step`) | Rewrite | The line `y = w*x + b` with its data points listed. The contour map with a first-use legend. The gradient found by nudging `w` alone, then `b` alone, and drawn as an arrow. Fog mode in 2D. Why a learning rate can be too big in the steep direction. The `SGD::step` line as a real line. Momentum and `zero_grad` leave this lesson | 12-15 |
+| 4 | Neural networks (`networks`) | The neuron and the layer (`linear-layer`) | Rewrite | One neuron is a weighted sum plus a bias, drawn as circles and arrows, with a dot-product refresher. A layer is many neurons, one matrix product (the matmul grid, counting from 0). Shapes and parameter counts. The bias added to every row (broadcasting in words). The backward matrix rules go to the "In TorC" panel and initialization goes to `deep-nets` | 15 |
+| 5 | | Bending: activation functions (`nonlinearity`) | Rewrite | Two linear layers collapse into one (plain numbers first: 2x+1 then 3x+4 gives 6x+7). The hinge builder: each hidden ReLU unit is a hinge. The with/without-ReLU curve fit. Sigmoid stays. Softmax moves to `losses` | 15 |
+| 6 | | Two classes: decision boundaries (`classification`) | New | Coloured points in 2D. With 0 hidden units the boundary is a straight line; with 2, 4 or 8 it bends, each unit's line drawn. The loss is introduced as "surprise at the right colour" (TorC trains with `CrossEntropyLoss` on two scores; the page shows "probability of orange"). A `Sequential` model as a real line. Precomputed presets (decision 21) | 15 |
+| 7 | | Many classes: softmax and cross-entropy (`losses`) | Rewrite | Softmax as shares of 100 %. Cross-entropy as surprise, written with ln. Why it beats squared error for classes (the comparison widget stays). Ten digits as ten classes. ChatGPT aside: the same softmax over a vocabulary (exact sizes only with a cited source). MSE is taught in `what-is-learning`; the MSE shape pitfall goes to `torc-pitfalls` | 15 |
+| 8 | | How the computer finds every gradient at once (`backprop`) | New | The cost argument first (26,506 weights would need 26,506 nudges; the nudge-vs-backprop counter). The chain rule on the notebook model as gears. The "Reuse" graph scene from the Backprop lab, embedded. One small network (2 inputs, 2 hidden, 1 output) backward with real numbers. Introduces the symbol ∂. The matrix rule in an "In TorC" panel | 15-18 |
+| 9 | | Why deep networks are hard to start (`deep-nets`) | New | Short. Vanishing gradients with sigmoid. Initialization: the "copy neuron" twins with the missing reason (equal gradients stay equal), and the six-layer signal plot after ReLU, with the reason for the 2 in the square root of 2/in | 8-10 |
+| 10 | Training in practice (`training`) | The training loop (`training-loop`) | Kept | Batches and epochs. The S in SGD (a batch's gradient is an estimate). Why shuffle. A fair batch-size comparison (C1). The five-line loop as a real line. `zero_grad` in an "In TorC" panel with its reason | 15 |
+| 11 | | Better optimizers (`optimizers`) | Kept | Momentum, taught once, with the ball analogy. Adam as a step size per weight. AdamW. The fair-comparison caveat (C4). Curves labelled on the plot; the readout table becomes a loss-vs-step plot | 15 |
+| 12 | | Does it work on new data? (`generalization`) | Kept | Train, validation and test (C2), with the validation-stop game. Overfitting as a matter of degree (C10). More data helps. "Variance" defined before use | 15 |
+| 13 | Images (`images`) | Digits with an MLP (`mnist-mlp`) | Kept | Mistakes per 100. What to look for in the weight images. A confusion matrix and a grid of the mistakes. Channels explained (red, green, blue). The digit model as a real line | 15 |
+| 14 | | One training step, followed end to end (`one-step`) | New | One test digit through the real MNIST MLP: forward values, `backward()` for one chosen pixel weight, `step()` by lr times gradient, the same image again with a higher probability for the right digit, "now repeat this 9,380 times". Every number causes the next | 15-18 |
+| 15 | | Convolution (`convolution`) | Rewrite | Why: an MLP has a weight for every pixel, a kernel reuses one detector everywhere and its feature map moves with the digit (C8). The sliding window with a picture before the formula. Channels. The parameter-count prediction. "Does not flip the kernel" goes to "In TorC" | 15 |
+| 16 | | Digits with a CNN (`mnist-cnn`) | Kept | The comparison with the MLP stated fairly (C9). A reasoning question replaces the look-up check. Ends with a recap of the course and the bridge to the epilogue | 12-15 |
+| 17 | Where this goes next (`next`) | From digits to ChatGPT (`from-digits-to-chatgpt`) | New | Concepts only, no TorC code, honest that TorC stops at CNNs. Tokens and embeddings. Next-token prediction with cross-entropy, the label coming free from the text (self-supervision). Attention as a learned weighted average. Pretraining uses this course's loop at enormous scale. Ends with a curated list (3Blue1Brown, Karpathy's Zero to Hero, Nielsen, d2l.ai). `conceptual: true` with cited sources | 8-10 |
+
+**Appendix part "Using TorC"** (`using-torc`, `kind: "appendix"`, outside the lesson order and prev/next like the labs; for the
+secondary audience of section 1):
+- `tensors` (Rewrite, moved): storage, `reshape` copies, the full broadcasting rules, reductions and axes, batched `matmul`. Keeps
+  the broadcast grid and the axis explorer.
+- `modules` (Rewrite, moved): `Module`, `Sequential`, `named_parameters()`, why `parameters()` has no fixed order, the forward-cache rule.
+- `torc-pitfalls` (New): "Why did my X fail?". `zero_grad` and gradient accumulation, graph lifetime, `step()` skipping parameters
+  without a gradient, removing `loader.reset()`, the MSE shape mismatch and its `ShapeError` (since TorC PR #6), `CrossEntropyLoss`
+  label errors, recorded error strings.
+- `notation` and `glossary` (New, conceptual reference pages): the one guide to symbols and the one source of term definitions.
+
+**Labs.** `backprop-lab` stays as a free playground outside the lesson order. A "train a tiny network" playground may follow.
+
+**Throughline.** The first parts reuse the same few datasets, so each new idea arrives on familiar data: the notebook price; one
+line-fitting set (from `training.json` x in [-1, 1) or a new meaningful dataset with a new trace); one 2D classification set; then
+the digits.
+
+**Defects and conceptual errors.** The fixes for D1 to D20 and C1 to C10 of the brief go with the phase or the lesson named in
+`docs/pedagogy-review.md` sections 5 and 11. The lesson-by-lesson notes (what to keep, fix, and which misconception to refute) are in
+section 7 of the brief.
+
+**Delivery.** `ROADMAP.md` tracks the v3 phases A to D. A lesson is done only when it meets the acceptance criteria there.
+
+## 2 (v2). Previous curriculum (history; superseded by section 2 above on 2026-10-29)
 
 The order follows what the common introductory courses share, adapted to what TorC has (no RNNs or attention in TorC, so the
 course stops at convolution):
@@ -57,9 +150,9 @@ TorC Learn takes Karpathy's start (one scalar gradient before tensors) and d2l's
 | 13 | | Digits with a CNN (`mnist-cnn`) | published | the CNN example's model | digit pad, feature maps |
 | – | Labs | Backprop lab (`backprop-lab`) | published | `mul`, `add`, `backward()` on a reused value | graph lab |
 
-Every lesson pairs the real TorC code (shown beside it on the home page; compiled and run by `tools/snippets/check.mjs`) with
-at most two widgets, under the style budget of `docs/authoring.md`. Labs are playgrounds outside the lesson order and may grow.
-Planned lessons are specified in the course map below (section 2, v1); their order is the table above.
+This table is the order of the 13 lessons published before v3. Every lesson paired the real TorC code (compiled and run by
+`tools/snippets/check.mjs`) with at most two widgets, under the legacy budget of `docs/authoring.md`. The lessons that were
+planned but never built are specified in the course map below (section 2, v1) for their verified facts only.
 
 ## 2 (v1). Course map
 
@@ -137,6 +230,10 @@ screen-reader-only table (decision 9; the earlier visible "show as table" toggle
 `optimizer-race`, `shape-explorer` (reused by 5 lessons), `conv-window` and `train-playground`.
 
 ## 3. Detailed specs: the first three lessons
+
+Historical (v1 storyboards of lessons that curriculum v3 rewrites). The **Observed** and **Expected** facts and the trace
+additions remain valid. The storyboards, the TL;DR and the number-heavy walk-throughs are replaced by the v3 rewrite (section 2 and
+`docs/pedagogy-review.md` Appendix B for the target quality of `why-gradients`).
 
 Shared setup (from tools/trace/): each lesson gets its own trace program emitting `site/data/<topic>.json` in the existing node
 schema (`scenes[]`, `nodes[]`, `finite_difference`) plus topic-specific tables, under the envelope in section 4.
@@ -241,6 +338,10 @@ Because `std::normal_distribution` output is stdlib-specific, the JSON ships the
 
 ## 4. Site architecture for a full course
 
+Revised by v3 (`docs/v3-implementation.md` is the contract): the lesson module gains `template: 3`, `loop`, `conceptual` and
+`sources`; the section kinds `questions`, `quiz`, `explain` and `answer` replace `tldr`, `predict` and `check`; `T(path, role)`
+replaces `T(path)`; the progress key becomes `torc:v2`; `course.json` parts gain `kind: "appendix"`. The rest of this section stands.
+
 Principles kept from decisions.md: static, no framework, KaTeX vendored, tested JS port, real-run numbers. Additions:
 
 **Pages and URLs (all relative so `/TorC/` works).** `site/index.html` (course map + progress), `site/lessons/<id>/index.html` (a ~15-line committed shell per lesson that loads `../../js/lesson-boot.js` with its id),
@@ -279,11 +380,15 @@ Revisit decision 1 ("no build step") only if the 15-line lesson shells start to 
 **Per-lesson definition of done.** (1) `docs/lessons/<id>.md` with symbols and Observed/Expected/Suspected, claims tagged V/NV. (2) Trace program + JSON + schema check; `run.sh --check` clean.
 (3) Engine/explain tests vs the C++ run, FD check, KaTeX `throwOnError`, prose-number binding test. (4) `node --test site/test/` green; browser check at 360, 768 and 1280 px and under a `/TorC/` prefix server.
 (5) Accessibility: full keyboard path, focus kept on re-render, `aria-live` for step text, `prefers-reduced-motion` honoured, AA contrast, no colour-only encoding, table view for every plot.
-(6) Independent read-only review (CLAUDE.md method step 5) plus one outside reader doing the lesson cold and answering the checks. (7) No audit talk on the page. Report exactly what ran and what did not.
+(6) Independent read-only review (`independent-reviewer`), the `pedagogy-reviewer` with no High findings, and a `cold-reader` pass
+(a smoke test). Before a part merges into `web`, 3 to 5 readers from the target group do the human think-aloud test
+(`CLAUDE.md` "Verification"). (7) No audit talk on the page. (8) The per-lesson acceptance criteria of `ROADMAP.md` (v3 milestone)
+are met. Report exactly what ran and what did not.
 
 **Effort** (S = one specialist session plus review; M = 2 to 3; L = 4 or more; section 2 gives each lesson's size). Platform extraction is L. Roughly: Part 1 new = 2M; Part 2 = 1S+3M; Part 3 = 3S+1M; Part 4 = 3M+1S; Part 5 = 1M+1L+1M; Part 6 = 2M; Part 7 = 1L+1M; Part 8 = 2L; Part 9 = 1M.
 
 **Build order and milestones**
+- Historical: this build order produced the 13 lessons published before v3. The v3 delivery plan (phases A to D) is in `ROADMAP.md`.
 - **M0 Platform (L).** Extract core modules, `course.json`, home page, lesson shell, `ops/` registry, trace envelope, CI check. Gate: today's lab runs unchanged as `backprop-lab` under `/TorC/lessons/backprop-lab/`, old tests green.
 - **M1 Vertical slice (owner's three).** `why-gradients`, `sgd-step`, `linear-layer`. Builds `landscape1d`, `contour2d`, `optim.js`, `shape-explorer`, `transpose`, `mse`. Gate: review + outside reader; this slice fixes the lesson format for everything after.
 - **M2 Foundations.** Part 2 and Part 3 (they unblock everything else and are mostly S/M).
@@ -294,6 +399,9 @@ Revisit decision 1 ("no build step") only if the 15-line lesson shells start to 
 A reasonable "v1.0" is M0 to M3 (about 20 pages); M4 to M6 ship as they finish.
 
 ## 6. Risks and open questions for the owner (max 8)
+
+Status 2026-10-29: item 1 is resolved by decision 15 (tensors move to the appendix; the main path is concept-first) and item 7
+by decision 10 (planned lessons are shown, not linked). The other items stand.
 
 1. **Order: concept-first or tensors-first?** Recommend concept-first as mapped (why -> lab -> SGD, then tensors), with scene 3 of `backprop-lab` marked "easier after Part 2".
 2. **Port scope.** Porting every op to JS multiplies tests. Recommend porting only what editable widgets need (list in section 2), each with a C++ ground-truth scene, and keeping MNIST, init tables, shuffles and float32 sweeps precomputed.
