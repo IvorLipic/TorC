@@ -9,6 +9,11 @@
 //    is not a flat line, so the linear model visibly turns flat while it trains.
 //    Predictions on a grid are recorded at a few steps. For the linear model the two layers are also multiplied out to one
 //    line (w_eff, b_eff), and the trace checks that the model's predictions lie on that line.
+//    Every checkpoint also records the four parameter tensors W1 (8, 1), b1 (8), W2 (1, 8), b2 (1) as the library holds them.
+// 4. The hinges of the trained relu model (for the "hinge builder"): on the same grid, the contribution of each hidden unit k,
+//    W2_k * relu(W1_k x + b1_k), computed with the real ops (the first layer's forward pass, relu, and mul by the row W2), and
+//    the check that the eight contributions plus b2 add up to the model's prediction. Each unit's kink x = -b1_k / W1_k and
+//    the side on which it is active are derived (double arithmetic on the recorded weights).
 // Derived values (plain arithmetic, not library output) are under the key "derived". The input grids are built from integers
 // (k / 10, not -4 + 0.1 k) so that no float rounding or contraction can move a grid point off its exact value.
 #include "trace_util.hpp"
@@ -55,7 +60,57 @@ J activation(const char* name, const Tensor& z, bool use_relu) {
     return o;
 }
 
-J fit(const char* name, bool use_relu, const Tensor& x, const Tensor& t, const Tensor& grid, bool& ok) {
+// The four parameter tensors, by the names the lesson uses (TorC calls them "weight" and "bias" in each Linear).
+J params_json(nn::Linear& l1, nn::Linear& l2) {
+    J p = J::object();
+    p.set("W1", trace::tensor_json(l1.named_parameters().at("weight").data()))
+        .set("b1", trace::tensor_json(l1.named_parameters().at("bias").data()))
+        .set("W2", trace::tensor_json(l2.named_parameters().at("weight").data()))
+        .set("b2", trace::tensor_json(l2.named_parameters().at("bias").data()));
+    return p;
+}
+
+// Each hidden unit's contribution W2_k * relu(W1_k x + b1_k) on the grid, from the real forward ops of the trained model.
+J hinges_json(nn::Linear& l1, nn::Linear& l2, const Tensor& grid, int step, bool& ok) {
+    Variable::NoGradGuard ng;
+    const Variable gv(grid, false);
+    Variable h = l1(gv);                                                 // (45, 8): W1_k x + b1_k for every grid point
+    Variable r = relu(h);
+    const Variable w2(l2.named_parameters().at("weight").data(), false); // (1, 8), broadcast over the 45 rows
+    Variable c = mul(r, w2);                                             // (45, 8): column k is unit k's contribution
+    Variable s = sum(c, 1);                                              // (45): sum over the units
+    Variable y = l2(r);                                                  // the model's own prediction, (45, 1)
+    const Tensor& b2 = l2.named_parameters().at("bias").data();
+    const Tensor& w1 = l1.named_parameters().at("weight").data();
+    const Tensor& b1 = l1.named_parameters().at("bias").data();
+    const int n = grid.numel();
+    J units = J::array();
+    for (int k = 0; k < H; ++k) {
+        std::vector<float> col;
+        for (int i = 0; i < n; ++i) col.push_back(c.data().data()[i * H + k]);
+        const float a = w1.data()[k], b = b1.data()[k];
+        if (a == 0.0f) { ok = false; continue; }                        // a flat unit has no kink; never happens with this start
+        J d = J::object();
+        d.set("kink_x", -static_cast<double>(b) / a).set("active_for", a > 0 ? "x > kink_x" : "x < kink_x");
+        J u = J::object();
+        u.set("unit", k).set("w1", a).set("b1", b).set("w2", l2.named_parameters().at("weight").data().data()[k])
+            .set("contribution", trace::jarr(col)).set("derived", std::move(d));
+        units.push(std::move(u));
+    }
+    std::vector<float> total;
+    float max_diff = 0.0f;
+    for (int i = 0; i < n; ++i) {
+        total.push_back(s.data().data()[i] + b2.data()[0]);
+        max_diff = std::fmax(max_diff, std::fabs(total.back() - y.data().data()[i]));
+    }
+    ok = ok && max_diff < 1e-5f;
+    J o = J::object();
+    o.set("model", "relu").set("step", step).set("b2", b2.data()[0]).set("units", std::move(units))
+        .set("sum_plus_b2", trace::jarr(total)).set("max_abs_diff_vs_prediction", max_diff);
+    return o;
+}
+
+J fit(const char* name, bool use_relu, const Tensor& x, const Tensor& t, const Tensor& grid, bool& ok, J* hinges = nullptr) {
     nn::Linear l1(1, H, 0.1f, 1), l2(H, 1, 0.1f, 1);                   // the drawn weights are overwritten by init()
     init(l1, l2);
     std::vector<Variable*> params = l1.parameters();
@@ -83,7 +138,7 @@ J fit(const char* name, bool use_relu, const Tensor& x, const Tensor& t, const T
     J checkpoints = J::array();
     auto record = [&](int step) {
         J c = J::object();
-        c.set("step", step).set("loss", loss_now()).set("prediction", trace::jarr(predict(gv)));
+        c.set("step", step).set("loss", loss_now()).set("prediction", trace::jarr(predict(gv))).set("params", params_json(l1, l2));
         checkpoints.push(std::move(c));
     };
     record(0);
@@ -97,6 +152,7 @@ J fit(const char* name, bool use_relu, const Tensor& x, const Tensor& t, const T
         opt.zero_grad();
         for (int c : CHECKPOINTS) if (c == step) record(step);
     }
+    if (hinges) *hinges = hinges_json(l1, l2, grid, STEPS, ok);
     J o = J::object();
     o.set("name", name).set("checkpoints", std::move(checkpoints));
     if (!use_relu) {
@@ -148,7 +204,8 @@ int main() {
     for (int k = 0; k <= 44; ++k) gs.push_back(static_cast<float>(k - 22) / 10.0f);
     const Tensor x = trace::make_tensor({21, 1}, xs), t = trace::make_tensor({21, 1}, ts), grid = trace::make_tensor({45, 1}, gs);
     J models = J::array();
-    models.push(fit("linear", false, x, t, grid, ok)).push(fit("relu", true, x, t, grid, ok));
+    J hinges;
+    models.push(fit("linear", false, x, t, grid, ok)).push(fit("relu", true, x, t, grid, ok, &hinges));
     double mean_t = 0.0;
     for (float v : ts) mean_t += v;
     mean_t /= ts.size();
@@ -162,8 +219,9 @@ int main() {
 
     J doc = trace::envelope("nonlinearity", "nonlinearity", "tools/trace/trace_nonlinear.cpp");
     doc.set("z", trace::jarr(zs)).set("activations", std::move(acts)).set("softmax", std::move(softmax_rows))
-        .set("data", std::move(data)).set("setup", std::move(setup)).set("models", std::move(models)).set("derived", std::move(derived));
+        .set("data", std::move(data)).set("setup", std::move(setup)).set("models", std::move(models)).set("derived", std::move(derived))
+        .set("hinges", std::move(hinges));
     std::fputs(doc.dump().c_str(), stdout);
-    if (!ok) { std::cerr << "trace_nonlinear: the linear model's predictions are not on its multiplied-out line\n"; return 1; }
+    if (!ok) { std::cerr << "trace_nonlinear: a self-check failed (linear model off its multiplied-out line, or hinges do not add up)\n"; return 1; }
     return 0;
 }

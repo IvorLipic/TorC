@@ -19,6 +19,8 @@ TRACES=(
   "trace_linear:linear.json"
   "trace_tensors:tensors.json"
   "trace_nonlinear:nonlinearity.json"
+  "trace_classification:classification.json"
+  "trace_deep:deep.json"
   "trace_modules:modules.json"
   "trace_losses:losses.json"
   "trace_training:training.json"

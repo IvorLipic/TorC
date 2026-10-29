@@ -5,7 +5,7 @@ Every file in `site/data/` is written by a program in `tools/trace/` that runs t
 never edit a file there by hand. This page says what is in each file so a lesson author knows what can be quoted without typing a number.
 
 Producers, in `tools/trace/`: `trace_util.hpp` (shared: JSON writer, `Graph`, `Scene`/`run_scene`, tensor serialisation, finite-difference
-checker, envelope), `autograd_trace.cpp`, `trace_why.cpp`, `trace_optim.cpp`, `trace_linear.cpp`, `trace_tensors.cpp`, `trace_nonlinear.cpp`, `trace_modules.cpp`, `trace_losses.cpp`, `trace_training.cpp`, `trace_optimizers.cpp`, `trace_generalization.cpp`, `trace_mnist_mlp.cpp`, `trace_conv.cpp`, `trace_mnist_cnn.cpp`. Behaviour notes per lesson (what the
+checker, envelope), `autograd_trace.cpp`, `trace_why.cpp`, `trace_optim.cpp`, `trace_linear.cpp`, `trace_tensors.cpp`, `trace_nonlinear.cpp`, `trace_classification.cpp`, `trace_deep.cpp`, `trace_modules.cpp`, `trace_losses.cpp`, `trace_training.cpp`, `trace_optimizers.cpp`, `trace_generalization.cpp`, `trace_mnist_mlp.cpp`, `trace_conv.cpp`, `trace_mnist_cnn.cpp`. Behaviour notes per lesson (what the
 numbers mean, derivations, library symbols): `docs/lessons/<lesson>.md`.
 
 ## Conventions
@@ -13,7 +13,7 @@ numbers mean, derivations, library symbols): `docs/lessons/<lesson>.md`.
 - **Envelope** (top of every file, in this order): `schema` = `"torc-trace/1"`; `library` = `{ref, compiler, flags}` (`ref` is the content of
   `TORC_REF`, e.g. `"v0.1.0"`; `compiler` e.g. `"clang 18.1.3 (libstdc++ 14)"`; `flags` the build flags, including `-ffp-contract=off`, which the trace build sets for TorC and the producers so that no
   fused multiply-add changes a result on a CPU that has one; the last two are informational and
-  are not compared by the drift check); `generator` = source file of the producer; `kind` = topic (`autograd` | `why` | `optim` | `linear` | `tensors` | `nonlinearity` | `modules` | `losses` | `training` | `optimizers` | `generalization` | `mnist-mlp` | `conv` | `mnist-cnn`);
+  are not compared by the drift check); `generator` = source file of the producer; `kind` = topic (`autograd` | `why` | `optim` | `linear` | `tensors` | `nonlinearity` | `classification` | `deep` | `modules` | `losses` | `training` | `optimizers` | `generalization` | `mnist-mlp` | `conv` | `mnist-cnn`);
   `lesson` = first lesson that uses the file. Everything else is topic data. Unknown keys must be ignored by consumers.
 - **Numbers.** Values the library computed in `float32` are written with 9 significant digits (they round-trip the float32 exactly, so
   `0.1f` appears as `0.100000001`; present them rounded). Values that are configuration or were derived in `double` (learning rates, `h`,
@@ -119,6 +119,16 @@ prediction[45]}]}`, steps 0, 25, 100, 400; the linear model also has `derived` =
 Top-level `derived` = `{best_line_slope, best_line_intercept}` (mathematics, not library output). Start weights are set by hand, so
 no random generator is involved; the linear model starts as the line `0.4·x - 0.1`, not flat. Producer: `tools/trace/trace_nonlinear.cpp`.
 
+Added for the v3 hinge builder (appended keys, nothing else changed):
+- `models[*].checkpoints[*].params` = `{W1, b1, W2, b2}`, each `{shape, values}` as TorC holds them: `W1` (8, 1) is the first
+  `Linear`'s `weight` (out, in), `b1` (8), `W2` (1, 8), `b2` (1). Both models, every checkpoint.
+- `hinges` = `{model: "relu", step: 400, b2, units[8], sum_plus_b2[45], max_abs_diff_vs_prediction}` for the trained relu model on
+  `data.grid`. `units[k]` = `{unit, w1, b1, w2, contribution[45], derived{kink_x, active_for}}`: `contribution` is
+  `W2_k · relu(W1_k x + b1_k)` from the real ops (the first layer's forward pass, `relu`, `mul` by the row `W2`); `sum_plus_b2` is
+  `sum(contribution, axis 1)` (TorC) plus `b2`, and `max_abs_diff_vs_prediction` compares it with `models[1].checkpoints[3].prediction`
+  (0 in the committed run; the program fails above `1e-5`). `derived.kink_x = -b1_k / W1_k` (double) and `active_for` is
+  `"x > kink_x"` when `W1_k > 0`, else `"x < kink_x"`.
+
 ## `modules.json` (kind `modules`, lesson `modules`)
 
 `models[]` = `{id: mlp|mnist|no-relu|mismatch, input_shape, layers[{label, params[{name, shape, numel}] (sorted by name),
@@ -168,6 +178,77 @@ library output. `runs[]` = `{weight_decay: 0|0.1|1, checkpoints[27]{step, train_
 steps 0 to 20000: `nn::Linear(15, 1)` on the powers of x, `optim::AdamW`, full batch; the losses are `nn::MSELoss` on each whole set
 with no gradient, `curve` is the model on `grid`. `derived` = `{noise_variance}` (`a²/3` for noise uniform in `[-a, a)`).
 Producer: `tools/trace/trace_generalization.cpp`.
+
+Added for the validation split (C2) and the real settings (C10, D11), appended keys only (the training and test data are
+unchanged, because the validation samples are drawn from the same `std::mt19937` after the test samples):
+- `data.val_x[30]`, `data.val_t[30]`: the validation set, made like the test set (x uniform in `[-1, 1)`). The model never trains on it.
+- `runs[*].checkpoints[*].val_loss`: `nn::MSELoss` on the whole validation set with no gradient.
+- `runs[*].val_stop` = `{step, val_loss, test_loss, train_loss}`: the checkpoint with the lowest `val_loss` (the first one on a
+  tie), with the test loss at that checkpoint. This is the step the "validation-stop game" reveals.
+- `runs[*].best_test` = `{step, test_loss, val_loss}`: the checkpoint with the lowest `test_loss`, for comparison only.
+  Committed run: weight decay 0 stops at step 200 (also the best test step), 0.1 at step 1500 (best test 15000), 1 at 20000.
+- `settings` = `{train_samples 10, val_samples 30, test_samples 100, noise 0.3, data_seed 3, degree 15, features, model
+  "nn::Linear(15, 1)", start_weights "all 0", optimizer "optim::AdamW", lr 0.05, weight_decays [0, 0.1, 1], steps 20000,
+  batch_size 64, shuffle false, steps_per_epoch 1, loss "nn::MSELoss"}`: what the code on the page must show. `batch_size` is
+  the `DataLoader` batch size; it is larger than the 10 samples, so each step uses all of them.
+
+## `classification.json` (kind `classification`, lesson `classification`)
+
+A disc of class 1 inside a ring of class 0, so no straight line separates them. Producer: `tools/trace/trace_classification.cpp`.
+No scenes (the site's engine has no softmax or cross-entropy op).
+
+- `setup` = `{train_samples 200, test_samples 200, data_seed, class_1, class_0, r_inner 0.9, r_ring [1.1, 1.8], hidden [0, 2, 4, 8],
+  optimizer "optim::Adam", lr 0.05, steps 1000, batch, loss "nn::CrossEntropyLoss", init, checkpoints [0, 25, 100, 1000]}`.
+- `data` = `{train_xy[400], train_label[200], test_xy[400], test_label[200]}`: `xy` is row-major `(n, 2)` (x, y per point), point `i`
+  has label `i % 2`. Input made by the producer (`std::mt19937`, `std::cos`/`std::sin`), not library output.
+- `grid` = `{axis[41], n 41, lo -2, hi 2, order}`: `axis[k] = (k - 20) / 10`; `prob1[j * n + i]` is the point `(axis[i], axis[j])`.
+- `models[]` = `{hidden, architecture (text), parameters, seeds, checkpoints[4]}` for hidden 0 (`Linear(2, 2)`), 2, 4, 8
+  (`Linear(2, H) -> ReLU -> Linear(H, 2)` in an `nn::Sequential`). `checkpoints[k]` = `{step, train_loss, test_loss, train_correct,
+  train_accuracy, test_correct, test_accuracy, units[H] | derived, layers[], prob1[1681]}`, the state before step `step + 1`:
+  - losses: `nn::CrossEntropyLoss` on the whole set with no gradient;
+  - `*_correct`: points where the predicted class (1 when score 1 > score 0) equals the label, counted by the producer from the
+    library's scores; `*_accuracy` = correct / samples (double);
+  - `units[k]` (hidden > 0) = `{unit, w1, w2, b, active_train_points}`: row `k` of the first layer's `weight` and entry `k` of its
+    `bias`, so the unit's line is `w1·x + w2·y + b = 0`; `active_train_points` counts training points with `w1·x + w2·y + b > 0`
+    (where ReLU passes the value on; 0 would mean a dead unit);
+  - `derived.decision_line` (hidden 0) = `{w1, w2, b}`: row 1 minus row 0 of the weight and bias (double), the line where the
+    two scores are equal;
+  - `layers[]` = `{weight{shape, values}, bias{shape, values}}` for each `Linear`, in order;
+  - `prob1`: column 1 of `torc::softmax(scores, 1)` on the real forward pass over the grid points.
+  Committed run, last checkpoint, test accuracy: hidden 0 `0.53`, 2 `0.785`, 4 `0.995`, 8 `1`.
+- `sigmoid_identity[]` = `{scores [s0, s1], softmax[2], difference, sigmoid, abs_diff}` for six pairs: `softmax` is `torc::softmax`
+  along axis 1 of the `(1, 2)` scores, `difference = sub(s1, s0)` and `sigmoid = torc::sigmoid(difference)`; `abs_diff` is
+  `|softmax[1] - sigmoid|` (0 for all six; the program fails above `1e-6`).
+- Values depend on libstdc++'s `std::normal_distribution` (TorC's Kaiming start weights, seeds `100 + H` and `200 + H`) and on the
+  C library's `exp`/`log`. On one toolchain the output is bit-for-bit repeatable.
+
+## `deep.json` (kind `deep`, lesson `deep-nets`)
+
+Producer: `tools/trace/trace_deep.cpp`. No scenes. Per-layer statistics (mean absolute value, population std, rms, share of
+exact zeros) are computed by the producer in double from the library's tensors.
+
+- `setup` = `{depth 8, width 32, batch 64, data_seed, inputs, targets, weight_seeds, loss "nn::MSELoss", kaiming_std}`: a fixed batch
+  `x` (64, 32) uniform in `[-√3, √3)` (std 1) and targets (64, 1) uniform in `[-1, 1)` (producer input); `kaiming_std` is
+  `torc::kaiming_normal_std(32)` = `0.25`. The stack is 8 × (`Linear(32, 32)` → activation) and a head `Linear(32, 1)` in an
+  `nn::Sequential`; layer `l` uses seed `300 + l`, the head `309`.
+- `vanishing[]` = `{activation: sigmoid|relu, loss, input_std, layers[9], derived{first_over_last_hidden}}`, both with the same
+  start weights (TorC's default Kaiming init). `layers[l]` = `{layer 1..9, name ("hidden 1".."hidden 8", "head"), mean_abs_grad,
+  signal_std?}`: the mean of `|weight.grad|` after one forward pass and one `backward()` of the loss, and (hidden layers) the std of
+  the signal after the activation. `first_over_last_hidden` = layer 1's `mean_abs_grad` over layer 8's (derived). Committed run:
+  sigmoid `6.1e-5`, relu `0.49`.
+- `init[]` = `{name: kaiming|too_small|too_large, init_std (0 = TorC's default), weight_std, layer1_weight_std_observed, loss,
+  layers[9]}` for the ReLU stack with `nn::Linear(32, 32, init_std, seed)` and `init_std` 0, 0.05, 0.5. `layers[l]` = `{layer 0..8,
+  std, rms, frac_zero, mean_abs_grad?}`: layer 0 is the input, layer `l` the signal after the `l`-th ReLU; `mean_abs_grad` is layer
+  `l`'s weight gradient after one `backward()`. Committed run, std after layer 8: `1.2`, `3.1e-6`, `313`.
+- `twins_setup` = `{model "Linear(2, 2) -> ReLU -> Linear(2, 1)", x (4, 2) XOR inputs, t (4, 1), optimizer "optim::SGD", lr 0.2,
+  momentum 0, loss, recorded_steps 10, long_steps [0, 10, 100, 500, 2000], note}`. Start weights set by hand (no generator).
+- `twins[]` = `{id: twins|different, start{W1, b1, W2, b2}, steps[11], equal_every_step, long_run[5]}`. `steps[k]` = `{step, loss,
+  neuron0, neuron1, grad0, grad1, output_bias, neurons_equal}`: the state before update `k + 1`; `neuronN` = `{w[2] (row N of W1),
+  b (bias N), v (output weight N)}`, `gradN` the same fields of the gradients `step()` reads (after `backward()`);
+  `neurons_equal` is a bit-for-bit comparison of the two neurons' parameters and gradients. `equal_every_step` covers all 2000
+  steps (`true` for `twins`, `false` for `different`; the program fails otherwise). `long_run[k]` = `{step, loss, prediction[4],
+  neurons_equal}`. Committed run: the twins stay at loss `0.1667` (predictions 1/3, 1/3, 1, 1/3), the different start reaches `4e-14`.
+- Values of `vanishing` and `init` depend on libstdc++'s `std::normal_distribution`; on one toolchain they are bit-for-bit repeatable.
 
 ## `mnist-mlp.json` (kind `mnist-mlp`, lesson `mnist-mlp`)
 
