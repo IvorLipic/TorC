@@ -10,6 +10,9 @@
 namespace torc::nn {
 
 Variable MSELoss::forward(const Variable& input, const Variable& target) const {
+    if (input.data().shape() != target.data().shape())
+        throw ShapeError(std::format("MSELoss input shape {} must match target shape {}",
+                                     shape_to_string(input.data().shape()), shape_to_string(target.data().shape())));
     bool needs_grad = (input.requires_grad() || target.requires_grad()) && Variable::grad_enabled();
     Tensor diff_data = input.data().sub(target.data());
     Tensor squared_data = diff_data.mul(diff_data);
@@ -23,9 +26,7 @@ Variable MSELoss::forward(const Variable& input, const Variable& target) const {
         TapeEntry entry;
         entry.set_inputs({ const_cast<Variable*>(&input), const_cast<Variable*>(&target) });
 
-        // The loss is the mean over the broadcast result, so each element of (input - target)
-        // contributes 2 * diff / N_broadcast. The closure returns the gradient at the broadcast
-        // shape; Variable::backward_with_grad sums it down to each operand's own shape.
+        // The shapes are equal, so each element of (input - target) contributes 2 * diff / n.
         Tensor diff_copy = diff_data;
 
         entry.backward = [diff_copy](const Tensor& grad_output, std::vector<Tensor>& input_grads) {
