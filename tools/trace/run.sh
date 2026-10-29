@@ -27,6 +27,11 @@ TRACES=(
   "trace_mnist_mlp:mnist-mlp.json"
   "trace_conv:conv.json"
   "trace_mnist_cnn:mnist-cnn.json"
+  # These four read the trained weights from mnist-mlp.json / mnist-cnn.json (site/data, or $TRACE_DATA_DIR), so they come after them.
+  "trace_mnist_mistakes:mnist-mistakes.json"
+  "trace_one_step:one-step.json"
+  "trace_shift:shift.json"
+  "trace_mnist_seeds:mnist-seeds.json"
 )
 
 # MNIST for trace_mnist_mlp: downloaded once into build/mnist (checksums checked), converted to the CSV that MNISTDataset reads.

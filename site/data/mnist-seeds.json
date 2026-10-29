@@ -1,0 +1,41 @@
+{
+  "schema":"torc-trace/1",
+  "library":{"ref":"v0.1.0","compiler":"clang 18.1.3 (libstdc++ 13)","flags":"-O3 -DNDEBUG -std=c++23 -ffp-contract=off TORC_NATIVE_ARCH=OFF"},
+  "generator":"tools/trace/trace_mnist_seeds.cpp",
+  "kind":"mnist-seeds",
+  "lesson":"mnist-cnn",
+  "setup":{
+    "seed_sets":[
+      {"id":1,"layer_seeds":[1,2,3],"loader_seed":11,"source":"mnist-mlp.json and mnist-cnn.json (the runs of those traces)"},
+      {"id":2,"layer_seeds":[101,102,103],"loader_seed":111,"source":"trained by this trace"},
+      {"id":3,"layer_seeds":[201,202,203],"loader_seed":211,"source":"trained by this trace"}
+    ],
+    "test_samples":10000,
+    "note":"Each model keeps the settings of its own trace, so the two models still differ in epochs and learning rate."
+  },
+  "mlp":{
+    "model":"MLP",
+    "settings":{"epochs":20,"lr":5e-04,"batch_size":128,"optimizer":"optim::AdamW"},
+    "runs":[
+      {"seed_set":1,"test_correct_by_epoch":[1301,9204,9344,9407,9479,9518,9559,9563,9578,9598,9588,9618,9617,9620,9615,9643,9647,9625,9646,9651,9666],"test_correct":9666,"test_accuracy":0.9666},
+      {"seed_set":2,"test_correct_by_epoch":[1130,9200,9323,9406,9452,9521,9551,9566,9594,9589,9582,9613,9643,9633,9639,9654,9646,9658,9661,9662,9666],"test_correct":9666,"test_accuracy":0.9666},
+      {"seed_set":3,"test_correct_by_epoch":[536,9216,9356,9410,9496,9540,9566,9575,9588,9623,9609,9616,9616,9650,9623,9642,9659,9640,9635,9660,9651],"test_correct":9651,"test_accuracy":0.9651}
+    ],
+    "min_accuracy":0.9651,
+    "max_accuracy":0.9666,
+    "mean_accuracy":0.9661
+  },
+  "cnn":{
+    "model":"CNN",
+    "settings":{"epochs":5,"lr":0.001,"batch_size":128,"optimizer":"optim::AdamW"},
+    "runs":[
+      {"seed_set":1,"test_correct_by_epoch":[690,9435,9693,9715,9764,9794],"test_correct":9794,"test_accuracy":0.9794},
+      {"seed_set":2,"test_correct_by_epoch":[1057,9454,9625,9672,9711,9753],"test_correct":9753,"test_accuracy":0.9753},
+      {"seed_set":3,"test_correct_by_epoch":[942,9419,9638,9701,9741,9770],"test_correct":9770,"test_accuracy":0.977}
+    ],
+    "min_accuracy":0.9753,
+    "max_accuracy":0.9794,
+    "mean_accuracy":0.9772333333333333
+  },
+  "derived":{"cnn_min_minus_mlp_max":0.0087,"cnn_always_ahead":true}
+}

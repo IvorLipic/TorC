@@ -5,7 +5,9 @@ Every file in `site/data/` is written by a program in `tools/trace/` that runs t
 never edit a file there by hand. This page says what is in each file so a lesson author knows what can be quoted without typing a number.
 
 Producers, in `tools/trace/`: `trace_util.hpp` (shared: JSON writer, `Graph`, `Scene`/`run_scene`, tensor serialisation, finite-difference
-checker, envelope), `autograd_trace.cpp`, `trace_why.cpp`, `trace_optim.cpp`, `trace_linear.cpp`, `trace_tensors.cpp`, `trace_nonlinear.cpp`, `trace_modules.cpp`, `trace_losses.cpp`, `trace_training.cpp`, `trace_optimizers.cpp`, `trace_generalization.cpp`, `trace_mnist_mlp.cpp`, `trace_conv.cpp`, `trace_mnist_cnn.cpp`. Behaviour notes per lesson (what the
+checker, envelope), `autograd_trace.cpp`, `trace_why.cpp`, `trace_optim.cpp`, `trace_linear.cpp`, `trace_tensors.cpp`, `trace_nonlinear.cpp`, `trace_modules.cpp`, `trace_losses.cpp`, `trace_training.cpp`, `trace_optimizers.cpp`, `trace_generalization.cpp`, `trace_mnist_mlp.cpp`, `trace_conv.cpp`, `trace_mnist_cnn.cpp`, `trace_mnist_mistakes.cpp`, `trace_one_step.cpp`, `trace_shift.cpp`,
+`trace_mnist_seeds.cpp` (the MNIST programs share `trace_mnist.hpp`: the two example models, evaluation with a confusion matrix, image
+shifts, and reading trained weights back from a trace file). Behaviour notes per lesson (what the
 numbers mean, derivations, library symbols): `docs/lessons/<lesson>.md`.
 
 ## Conventions
@@ -13,7 +15,7 @@ numbers mean, derivations, library symbols): `docs/lessons/<lesson>.md`.
 - **Envelope** (top of every file, in this order): `schema` = `"torc-trace/1"`; `library` = `{ref, compiler, flags}` (`ref` is the content of
   `TORC_REF`, e.g. `"v0.1.0"`; `compiler` e.g. `"clang 18.1.3 (libstdc++ 14)"`; `flags` the build flags, including `-ffp-contract=off`, which the trace build sets for TorC and the producers so that no
   fused multiply-add changes a result on a CPU that has one; the last two are informational and
-  are not compared by the drift check); `generator` = source file of the producer; `kind` = topic (`autograd` | `why` | `optim` | `linear` | `tensors` | `nonlinearity` | `modules` | `losses` | `training` | `optimizers` | `generalization` | `mnist-mlp` | `conv` | `mnist-cnn`);
+  are not compared by the drift check); `generator` = source file of the producer; `kind` = topic (`autograd` | `why` | `optim` | `linear` | `tensors` | `nonlinearity` | `modules` | `losses` | `training` | `optimizers` | `generalization` | `mnist-mlp` | `conv` | `mnist-cnn` | `mnist-mistakes` | `one-step` | `shift` | `mnist-seeds`);
   `lesson` = first lesson that uses the file. Everything else is topic data. Unknown keys must be ignored by consumers.
 - **Numbers.** Values the library computed in `float32` are written with 9 significant digits (they round-trip the float32 exactly, so
   `0.1f` appears as `0.100000001`; present them rounded). Values that are configuration or were derived in `double` (learning rates, `h`,
@@ -182,6 +184,95 @@ These two MNIST files come from thousands of training steps, and their values al
 new compiler or standard library on the CI runner can move them past the drift check's tolerance. Then regenerate them with
 `run.sh`, check that the lesson tests still pass (they test the claims, not the exact values), and commit the new files.
 
+Added for v3 (additive: same model, seeds and settings, so `layers`, `shown` and every older value are unchanged; in each object the
+new keys come after the old ones). Accuracies are fractions `correct / total`, derived in double (D9).
+- `setup.pixels` (784, values per image as the dataset gives them) and `setup.classes` (10, outputs of the last `Linear`): anchors.
+- `epochs[]` also have `test_accuracy`, `test_loss` (mean `nn::CrossEntropyLoss` on the 10000 test images) and `train_subset` =
+  `{correct, total, accuracy, loss}`: the same model, measured the same way, on a fixed subset of its own training images (the first
+  `train_subset_samples` = 10000). This is train vs. test for the main model; the test curve is still a test curve (C2).
+- `test_per_class.accuracy[10]`.
+- `settings` (C9) = `{model, parameters, optimizer, lr, weight_decay, batch_size, epochs, steps (9380), steps_per_epoch, loss, shuffle,
+  loader_seed, init, init_seeds, train_samples, example{source, epochs, lr, batch_size}}`. `example` holds the values in
+  `examples/mnist_mlp/mnist_mlp.cpp` at the pinned ref (copied from that source; the trace does not run the example).
+- `final` = `{test_correct, test_samples, test_accuracy, test_mistakes, test_loss, train_subset}` for the final model.
+- `confusion` = `{rows: "true digit", columns: "predicted digit", matrix[10][10], total, correct, accuracy}` on all 10000 test images
+  (`matrix[t][p]` = images of digit `t` classified as `p`). The producer checks that the matrix sums to `total` and that its diagonal
+  equals `correct` (= `final.test_correct`).
+- `mistakes` = `{rule, total_wrong, count, pixels_in: "mnist-mistakes.json", items[24]{index, label, predicted, probabilities[10]}}`:
+  the first 24 wrong test images in test-set order, with TorC's softmax probabilities. Their pixels are in `mnist-mistakes.json`.
+- `validation_run` (C2) = `{note, train_samples 55000, validation_samples 5000, validation_first_index 55000, train_subset_samples 5000,
+  steps_per_epoch 430, epochs[21]{epoch, steps, train_loss, train_subset{correct, total, accuracy, loss}, validation{...}}, final_test{...}}`
+  (epoch 0 has no `steps` or `train_loss`): a second run of the same recipe (seeds 1, 2, 3 and 11, AdamW lr 5e-4, 20 epochs) on the
+  first 55000 training images only. The last 5000 are never trained on and are the validation set. The test set is measured once,
+  after training. Use this run to show overfitting as a train-validation gap that grows. Holding images out of the main run itself
+  would change its batch order and so its weights, which the digit pad and the tests use.
+
+## `mnist-mistakes.json` (kind `mnist-mistakes`, lesson `mnist-mlp`)
+
+The grid of mistakes, in its own file so that `mnist-mlp.json` stays small. `source` = `"mnist-mlp.json mistakes.items"`, `rule`,
+`total_wrong`; `items[24]` = `{index, label, predicted, probabilities[10], pixels[784] (0..255)}`, the images of
+`mnist-mlp.json mistakes.items` in the same order; `checks` = `{weights_reproduce_mnist_mlp_logits, predictions_match_mnist_mlp}`.
+Producer: `tools/trace/trace_mnist_mistakes.cpp` (a weight-reading producer, see below).
+
+## `one-step.json` (kind `one-step`, lesson `one-step`)
+
+One real training step of the final MLP (weights read from `mnist-mlp.json`) on one training image, with `optim::SGD`, no momentum,
+`lr` = 0.001 and a batch of one image, so that "change = -lr × gradient" is the update rule. The real run used AdamW and batches of 128.
+- `setup` = `{optimizer, lr, momentum, batch_size 1, loss, weights_from, model, parameters, rule}`.
+- `full_run` = `{steps 9380, epochs, batch_size, train_samples, steps_per_epoch, optimizer, lr, weight_decay, source}`, read from
+  `mnist-mlp.json` (`epochs[-1].steps` and `setup`): the number of `step()` calls of the real run.
+- `image` = `{rule, set "train", train_index, label, pixels[784]}`: the first training image that the model classifies correctly with a
+  probability of the true digit in [0.5, 0.9). A training image, because a training step on a test image would contradict C2.
+- `forward` = `{hidden1{pre[32], post[32]}, hidden2{pre[32], post[32]}, scores[10], probabilities[10], predicted, p_true, rival, p_rival,
+  loss}`: `pre` is the `Linear` output, `post` the ReLU output; `rival` is the most probable wrong digit.
+- `backward` = `{scores_grad[10], hidden1_pre_grad[32], hidden2_pre_grad[32]}`, read from the Variables after `loss.backward()`.
+- `weights[4]` = `{id, what, layer, param, row, col?, before, grad, lr_times_grad, after, change, path, update_exact}` for `first_layer`
+  (the layer-0 weight from the brightest pixel to the hidden unit where its gradient is largest), `output_true` and `output_rival` (the
+  layer-2 weights from the most active second-layer unit to the true and the rival score) and `output_bias_true`. `lr_times_grad` is
+  `grad * lr` in float32, as `Tensor::mul` computes it. `update_exact` is true when `after == before - lr_times_grad` bit for bit,
+  which is what `SGD::step()` does. `change = after - before` (float32) equals `-lr_times_grad` only up to the float spacing near `before`
+  (relative 1e-5 here), so quote `lr_times_grad` as the size of the step. `path`: for `first_layer` `{pixel, pixel_row, pixel_col,
+  pixel_value (0..1), pixel_255, unit, unit_pre, unit_post, unit_grad, product, grad_equals_product}` (the gradient is the pixel value
+  times the gradient at the unit, exactly); for the output weights `{unit, unit_post, class, score_grad, product, grad_equals_product}`;
+  for the bias `{class, score_grad, p_true_minus_one}`.
+- `after` = `{probabilities[10], predicted, p_true, p_rival, loss}`: the same image after the step. `changed_parameters`: how many of the
+  26506 numbers `step()` changed. `derived` = `{p_true_change, loss_change, loss_check (= -ln p_true), note}`. `checks` =
+  `{weights_reproduce_mnist_mlp_logits, modules_one_at_a_time_equal_sequential, every_update_exact, p_true_rose}`.
+Producer: `tools/trace/trace_one_step.cpp`.
+
+## `shift.json` (kind `shift`, lesson `convolution`; C8)
+
+Both final models (weights read from `mnist-mlp.json` and `mnist-cnn.json`) on all 10000 test images moved by whole pixels with zero
+fill. The producer moves the pixels; everything after that is TorC.
+- `setup` = `{test_samples, shifts [0..4], directions [left, right, up, down], fill "zero", note}`.
+- `accuracy` = `{mlp, cnn}`, each `{parameters, source, left|right|up|down: [{shift, correct, accuracy}] × 5}` (the index is the shift
+  in pixels; shift 0 is one evaluation, repeated in the four lists).
+- `feature_maps` = `{index 0, label, pixels[784], stride 2, shift_px 2, direction "right", cell_shift 1, shape (1, 8, 14, 14), original[],
+  shifted[], check{compared_cells, max_abs_diff, equal, ink_pixels_pushed_out}, not_a_multiple{shift_px 1, max_abs_diff_unmoved,
+  max_abs_diff_moved_one_cell}}`: the CNN's first convolution after relu. A move by the stride moves the map by exactly one cell
+  (`max_abs_diff` 0 over 1456 cells). A 1 px move changes the map instead (both differences are not 0). The CNN ends in Flatten and
+  Linear, so its accuracy still falls with the shift: it is not shift-invariant.
+- `single_image` = `{index, label, right[5]{shift, mlp_predicted, mlp_p_true, cnn_predicted, cnn_p_true}}`.
+- `checks`: the loaded weights reproduce the recorded logits, shift 0 equals the recorded final test counts, and `original` equals
+  `mnist-cnn.json first_maps`. The digit pad re-centres a drawing, so a learner cannot reproduce these shifts by drawing.
+Producer: `tools/trace/trace_shift.cpp`.
+
+## `mnist-seeds.json` (kind `mnist-seeds`, lesson `mnist-cnn`; C5)
+
+Each model at the exact settings of its own trace, with 3 seed sets. `setup` = `{seed_sets[3]{id, layer_seeds[3], loader_seed,
+source}, test_samples, note}`: set 1 is the run of `trace_mnist_mlp.cpp` / `trace_mnist_cnn.cpp` (its counts are read from those files),
+sets 2 and 3 (layer seeds 101-103 / 201-203, loader seeds 111 / 211) are trained here, in parallel threads. `mlp`, `cnn` = `{model,
+settings{epochs, lr, batch_size, optimizer}, runs[3]{seed_set, test_correct_by_epoch[epochs + 1], test_correct, test_accuracy},
+min_accuracy, max_accuracy, mean_accuracy}`. `derived` = `{cnn_min_minus_mlp_max, cnn_always_ahead}`. The models keep their own
+settings (20 vs. 5 epochs, lr 5e-4 vs. 1e-3), so the comparison is still not perfectly fair (C9). The values depend on the standard
+library like the training traces. Producer: `tools/trace/trace_mnist_seeds.cpp`.
+
+**Weight-reading producers.** `trace_mnist_mistakes`, `trace_one_step`, `trace_shift` and `trace_mnist_seeds` read `mnist-mlp.json`
+and `mnist-cnn.json` from `site/data` (or from `$TRACE_DATA_DIR`). `run.sh` lists them after the two training traces, so a full run uses
+the weights it has just written, and `run.sh --check` uses the committed weights. Each one checks that the loaded weights give the
+recorded logits bit for bit (the writer's 9 significant digits round-trip float32 exactly). When `mnist-mlp.json` or `mnist-cnn.json`
+is regenerated, regenerate these four files with it.
+
 ## `conv.json` (kind `conv`, lesson `convolution`)
 
 `example` = `{input (1, 1, 5, 5), kernel (1, 1, 3, 3), runs[{stride, padding, output}]}` (tensors as `{shape, values}`) for
@@ -197,4 +288,8 @@ The same layout as `mnist-mlp.json` (`setup`, `epochs[]` for epochs 0 to 5, `tes
 CNN of `examples/mnist_cnn`: `layers` are Conv2d (8, 1, 3, 3), Conv2d (16, 8, 3, 3) and Linear (10, 784), weights in TorC's
 row-major order. Extra: `first_maps` = `{index, shape (1, 8, 14, 14), values}`, the first convolution after relu for the first
 shown image. Producer: `tools/trace/trace_mnist_cnn.cpp`.
+Added for v3 (additive, same model): `setup.pixels`, `setup.classes`; `epochs[].test_accuracy`, `epochs[].test_loss`;
+`test_per_class.accuracy[10]`; `settings` (C9, as in `mnist-mlp.json`: `settings.example.epochs` is 10 while the trace trains 5, and the
+learning rate is 1e-3 against the MLP's 5e-4); `final` = `{test_correct, test_samples, test_accuracy, test_mistakes, test_loss}`;
+`confusion` (as in `mnist-mlp.json`). Shift robustness is in `shift.json`, the spread over seeds in `mnist-seeds.json`.
 
