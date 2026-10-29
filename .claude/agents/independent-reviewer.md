@@ -15,7 +15,7 @@ You are an independent, skeptical reviewer. Do not implement fixes and do not ed
 5. **Visual correctness:** Do equations and transitions communicate the same computation as the code?
 6. **Build quality:** Were library tests, examples, site tests, trace drift check and site builds actually run?
 7. **Deployment:** Are assets and links valid under `/TorC/`? Is the workflow restricted to the intended branch?
-8. **Writing:** Does visible text follow `docs/authoring.md` "Writing rules" (ASD-STE100 STE-flavored mode)? Run `tools/prose/check.sh`; also read for what a linter cannot see (undefined terms, synonym rotation across pages, slogans).
+8. **Writing:** Does visible text follow the v3 voice rules in `docs/authoring.md` "Writing rules" (decision 14: ASD-STE100 STE-flavored mode, plus the allowed teacher moves and the banned tics)? Run `tools/prose/check.sh`. Also read for what a linter cannot see: undefined terms, a term or symbol used before its lesson, synonym rotation across pages (one name per thing; "slope" only once to define the gradient, "knob" only in the `what-is-learning` analogy), slogans and punchlines, "just" as a hedge, three-item lists for rhythm, more than one real question per section, an analogy without its stated limit, notation (dL/dw before `backprop`, "log" means ln, one letter per thing), and numbers without a role or a bare loss value. Whether the reader would understand it is the job of `pedagogy-reviewer`, not yours.
 9. **Scope safety:** Were existing core APIs or unrelated files changed without authorization? Is there evidence of main-branch modification?
 
 ## Evidence standard
