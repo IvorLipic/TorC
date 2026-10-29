@@ -2,7 +2,7 @@
 
 Not shipped. Library symbols, and what is observed, expected and suspected.
 
-## Library symbols (TorC v0.1.0)
+## Library symbols (TorC `38785db`, `main` = v0.1.0 + PR #5 + PR #6)
 `data::TensorDataset`, `data::DataLoader` (one loader per set; the test loader is only read), `nn::Linear`, `nn::MSELoss`,
 `optim::AdamW(params, lr, weight_decay)` (decoupled decay `- lr·wd·p` each step, see `docs/lessons/optimizers.md`),
 `Variable::NoGradGuard` for the evaluation passes.

@@ -12,7 +12,7 @@ Status legend: `[x]` done · `[~]` in progress · `[ ]` planned. The detailed cu
 ## M1 — Project foundation (this branch as its own project)
 - [x] Library removed from this branch; TorC consumed at a pinned ref (`tools/trace/TORC_REF`)
 - [x] TorC packaged on `main` (CMake install/export, options, version; TorC PRs 2–3), `tools/trace` pinned to its merge commit
-- [x] TorC `v0.1.0` released (pre-release); `TORC_REF` now pins the tag
+- [x] TorC `v0.1.0` released (pre-release); `TORC_REF` pinned the tag until 2026-10-29
 - [x] Project docs: README, architecture, authoring guide, decisions, content plan
 - [x] Compact lab (fits one laptop screen), auto-play removed
 - [x] CI: trace drift check + Node tests + site check on every push/PR (`verify.yml`); TorC's own CI (build matrix, consumer smoke test, ASan/UBSan) lives on `main`
@@ -32,7 +32,8 @@ Status legend: `[x]` done · `[~]` in progress · `[ ]` planned. The detailed cu
 - [x] Independent review of M3.5–M3.6 (no blocker/high; 3 medium and 12 low findings, all fixed: CI now compares quoted library lines, snippet checker refuses other refs and checks more values, Kaiming wording uses the 10-draw range, budget limits per section/TL;DR/question type tested, a11y and formatting fixes)
 - [x] Automated accessibility audit (axe-core 4.10, WCAG 2.1 A/AA + best practice) clean on every page at 1366 and 390 px; keyboard walk of every page
 - [ ] Outside cold reader per lesson (definition-of-done item 6), a pass with a real screen reader, Firefox/Safari check (only Chromium available here)
-- [ ] Bump `TORC_REF` when TorC tags a release that includes the `MSELoss` broadcast-gradient fix (merged on `main`, not in v0.1.0)
+- [x] `TORC_REF` bumped to `38785db` (TorC `main` after PR #5 and PR #6: `MSELoss` throws `ShapeError` for unequal shapes); only the MSE-mismatch trace entries changed
+- [ ] Pin a release tag again when TorC tags one that includes PR #6 (`docs/decisions.md`, Open)
 
 ## M3.5 — Concise lessons (owner review: less prose, fewer numbers and features; decisions 7-9)
 - [x] Style budget in `docs/authoring.md`; `tldr` section kind; standard one-line footer; plot tables are screen-reader only
@@ -45,7 +46,7 @@ Status legend: `[x]` done · `[~]` in progress · `[ ]` planned. The detailed cu
 ## M3.6 — Curriculum home page (decisions 10-11)
 - [x] Curriculum in the usual university order (content-plan section 2): 4 parts, 13 lessons, planned ones shown, labs apart
 - [x] Home page: numbered lessons with the TorC code beside each and its widgets; Backprop lab moved to Labs
-- [x] `tools/snippets/check.mjs`: every snippet compiled and run against TorC v0.1.0 (13 run, 1 compile-only)
+- [x] `tools/snippets/check.mjs`: every snippet compiled and run against TorC v0.1.0 (13 run, 1 compile-only), and again against `38785db`
 - [x] The snippet check runs in CI (`verify.yml`, after the trace drift check, on the TorC source it fetched)
 
 ## M4+ — The planned lessons, in curriculum order

@@ -1,6 +1,6 @@
 # Lesson note: `why-gradients` (internal, not shipped)
 
-Behaviour note for the lesson author. Library = TorC `v0.1.0` (`4c1eabe`), fetched to `build/trace/_deps/torc-src/` by `tools/trace/run.sh`; paths below are relative to it.
+Behaviour note for the lesson author. Library = TorC `38785db` (`main` = v0.1.0 + PR #5 + PR #6), fetched to `build/trace/_deps/torc-src/` by `tools/trace/run.sh`; paths below are relative to it.
 Data: `site/data/why-gradients.json` (producer `tools/trace/trace_why.cpp`; schema in `docs/trace-schema.md`).
 Tags: **V** = verified by running the real library (or an independent NumPy/Python replica, stated), **NV** = not verified.
 No lesson prose here, and nothing here goes on the lesson page except what the page's own trace paths quote.

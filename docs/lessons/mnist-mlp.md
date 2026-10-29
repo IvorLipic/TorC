@@ -2,7 +2,7 @@
 
 Not shipped. Library symbols, and what is observed, expected and suspected.
 
-## Library symbols (TorC v0.1.0)
+## Library symbols (TorC `38785db`, `main` = v0.1.0 + PR #5 + PR #6)
 `data::MNISTDataset(path, max_samples = 0, sample_shape = {})` (`src/data.cpp`): one CSV line per image, the label then the
 pixels; every pixel is divided by 255. `nn::Sequential`, `nn::Linear(in, out, init_std = 0, seed)` (Kaiming normal start from
 `seed`), `nn::ReLU`, `nn::CrossEntropyLoss`, `optim::AdamW(params, lr, weight_decay = 0.01)`, `data::DataLoader`. The model and

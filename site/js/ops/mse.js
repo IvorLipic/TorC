@@ -1,7 +1,7 @@
 // ops/mse.js — nn::MSELoss as ONE node: inputs [prediction, target], output shape [1] = mean((prediction - target)^2).
 // Library rule (src/nn/losses.cpp): grad = (prediction - target) * (2 / N) with N = numel(prediction);
 //   prediction gets  grad * grad_output,   target gets  -grad * grad_output.
-// The JS port requires prediction and target to have the same shape (the library would also accept a broadcast pair).
+// The JS port requires prediction and target to have the same shape, as the library does (it throws ShapeError otherwise).
 import { T, zip, same, numel } from './tensor.js';
 import { tex, bar, mat, tn, par, plus, negate } from './texutil.js';
 

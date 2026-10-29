@@ -2,7 +2,7 @@
 
 Not shipped. Library symbols, and what is observed, expected and suspected.
 
-## Library symbols (TorC v0.1.0)
+## Library symbols (TorC `38785db`, `main` = v0.1.0 + PR #5 + PR #6)
 `optim::SGD(params, lr, momentum = 0)` (`src/optim.cpp`): `v = momentum·v + g; p -= lr·v`, or `p -= lr·g` without momentum.
 `optim::Adam(params, lr, beta1 = 0.9, beta2 = 0.999, eps = 1e-8)`: `m = b1·m + (1-b1)·g`, `v = b2·v + (1-b2)·g²`, bias correction
 with `t = step_++` (`step_` starts at 1), `p -= lr · m̂ / (sqrt(v̂) + eps)`. `optim::AdamW(params, lr, weight_decay = 0.01, ...)`:

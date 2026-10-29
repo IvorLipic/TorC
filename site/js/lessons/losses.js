@@ -11,7 +11,6 @@ const eq = (latex) => `<div class="ls2-eq" tabindex="0" role="group" aria-label=
 const sec = (id, title, body) => `<section class="ls2" aria-labelledby="ls2-${id}"><h2 id="ls2-${id}">${title}</h2>${body}</section>`;
 const err = (D, id) => { const e = D.files.losses.errors.find((x) => x.id === id); return `<code>${escapeHtml(e.exception)}: ${escapeHtml(e.what)}</code>`; };
 const list = (T, path) => [0, 1, 2].map((i) => T(`${path}.${i}`)).join(', ');
-const shp = (a) => `<code>(${a.join(', ')})</code>`;
 const errTargets = (D, id) => D.files.losses.errors.find((x) => x.id === id).targets.join(', ');
 
 const STYLE = `<style>
@@ -47,8 +46,7 @@ export default {
     ${eq('L = \\frac{1}{N}\\sum_{i=1}^{N} (y_i - t_i)^2 \\qquad \\frac{\\partial L}{\\partial y_i} = \\frac{2\\,(y_i - t_i)}{N}')}
     <p>Here <code>y</code> is the prediction, <code>t</code> is the target and <code>N</code> is the number of values. With the predictions ${list(T, `${F}.mse.prediction`)} and the targets ${list(T, `${F}.mse.target`)}, the loss is ${T(`${F}.mse.loss`)}. The third prediction is exactly right, so its gradient is ${T(`${F}.mse.grad.2`)}.</p>
     <pre class="ls2-code" tabindex="0" role="group" aria-label="Mean squared error in TorC"><code>nn::MSELoss mse;
-Variable L = mse(y, t);    // y and t must have the same shape</code></pre>
-    <p>TorC does not check that <code>y</code> and <code>t</code> have the same shape. With predictions of shape ${shp(D.files.losses.mse_broadcast.prediction_shape)} and targets of shape ${shp(D.files.losses.mse_broadcast.target_shape)}, it gives the loss ${T(`${F}.mse_broadcast.loss`)} instead of ${T(`${F}.mse.loss`)}, and no error.</p>`),
+Variable L = mse(y, t);    // y and t must have the same shape</code></pre>`),
     },
     {
       kind: 'text',

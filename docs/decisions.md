@@ -32,6 +32,7 @@ Lightweight decision log. Newest at the bottom of each section.
     defined terms, the per-section cap rose from 60 to 100 words and the summary cap from 50 to 60; the lesson cap stays 800.
 
 ## Open
-- Pin policy once TorC publishes a release tag: pin the tag (preferred) and bump via PR. Until then a commit SHA is pinned.
+- Pin policy: pin a release tag (preferred) and bump via PR. `v0.1.0` was pinned until 2026-10-29. The pin is now the commit
+  `38785db` on `main` (v0.1.0 + PR #5 + PR #6), because no tag includes the `MSELoss` fix yet. Pin the next tag that does.
 - Whether lessons beyond autograd need more of the library ported to JS (e.g. conv2d) or should stay precomputed/static.
 - Custom domain / repository split later (the layout is designed so `site/` + `tools/` + `docs/` can move to their own repo).

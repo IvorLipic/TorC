@@ -2,7 +2,7 @@
 
 Not shipped. Library symbols, and what is observed, expected and suspected.
 
-## Library symbols (TorC v0.1.0)
+## Library symbols (TorC `38785db`, `main` = v0.1.0 + PR #5 + PR #6)
 `Tensor::conv2d(weight, stride, padding)` (`src/tensor.cpp`): NCHW input, weight `(C_out, C_in, KH, KW)`, zero padding, output
 size `(H + 2P - K) / S + 1` with integer division, cross-correlation (the kernel is not flipped), no bias. `torc::conv2d(Variable,
 Variable, stride, padding)` with autograd. `nn::Conv2d(in, out, kernel, stride = 1, padding = 0, init_std = 0, seed)`: Kaiming

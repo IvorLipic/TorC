@@ -1,6 +1,6 @@
 # Lesson note: `linear-layer` (internal, not shipped)
 
-Library = TorC `v0.1.0` (`4c1eabe`) in `build/trace/_deps/torc-src/`; paths relative to it. Data: `site/data/linear.json`
+Library = TorC `38785db` (`main` = v0.1.0 + PR #5 + PR #6) in `build/trace/_deps/torc-src/`; paths relative to it. Data: `site/data/linear.json`
 (producer `tools/trace/trace_linear.cpp`; schema in `docs/trace-schema.md`). **V** = verified by running the real library (or the independent
 NumPy replica, said where used), **NV** = not verified. No lesson prose here.
 
@@ -12,7 +12,7 @@ NumPy replica, said where used), **NV** = not verified. No lesson prose here.
 | `Linear::forward` | `src/nn/linear.cpp:35-50` | `add(matmul(x, transpose(weight)), bias)`; the three intermediates are parked in `Module::forward_cache_` (a `std::deque`, `include/torc/nn.hpp`) so the returned Variable's graph stays alive until the next call of the module (`Module::operator()` clears the cache first). The intermediates are private: the site's hand-built graph is therefore checked for exact equality (below) |
 | `torc::transpose`, `matmul`, `add` | `src/autograd.cpp:689`, `:583`, `:159` | `transpose(a)` copies (no strides in TorC) with backward = transpose of the grad; `matmul` backward `dA = G B^T`, `dB = A^T G` (each reduced by `reduce_sum_to_shape`, `autograd.cpp:115`); `add` broadcasts `b{out}` over the batch, its gradient is summed back over the batch axis |
 | shape errors | `Tensor::matmul` `src/tensor.cpp:206-221` | texts in section 2 |
-| `nn::MSELoss` | `src/nn/losses.cpp:12-45` | fused `mean((y-t)^2)`; see `sgd-step.md` for its broadcast caveat |
+| `nn::MSELoss` | `src/nn/losses.cpp:12-42` | fused `mean((y-t)^2)`; throws `ShapeError` unless `y` and `t` have the same shape (PR #6; see `sgd-step.md` for the v0.1.0 broadcast caveat) |
 | `Sequential::parameters()` | `src/nn.cpp:45-53` | own parameters (none) + each child's, in layer order; within a layer the order is an `unordered_map` order (unspecified) |
 | `nn::Conv2d` | `src/nn/conv.cpp:8-45` | weight `{out, in, k, k}`, bias `{out}`; Kaiming with `fan_in = in*k*k` (used here only for the CNN parameter count) |
 | Tests that already pin this | `tests/test_nn.cpp:162` `Linear.ConstructionCreatesCorrectShapes`, `:179` `ForwardMatchesHandComputed`, `:234` `GradCheckForwardAndBackward`, `:680` `SeedProducesReproducibleWeights` | |
@@ -33,7 +33,7 @@ Loss `sum(y)` with `x` trainable (scene `linear-dx`): `S = 5.3`; every `y.grad =
 | `Linear(3,2)` applied to `x (4,4)` | `ShapeError` | `matmul inner dimensions must match, got (4, 4) and (3, 2)` |
 | `Linear(3,2)` applied to `x (3)` (no batch axis) | `ShapeError` | `matmul requires rank >= 2 operands, got (3) and (3, 2)` |
 | `Linear(0,2)` | `TorcError` | `Linear features must be positive` |
-| `MSELoss(y (2,2), t (3,2))` | `ShapeError` | `Cannot broadcast shapes (2, 2) and (3, 2)` |
+| `MSELoss(y (2,2), t (3,2))` | `ShapeError` | `MSELoss input shape (2, 2) must match target shape (3, 2)` (v0.1.0: `Cannot broadcast shapes (2, 2) and (3, 2)`) |
 | `Linear(3,2)` applied to `x (4,3)` | none | `y` has shape `(4, 2)` |
 
 The second operand in the message is the **transposed** weight `(in, out)`, not the `{out,in}` weight the learner declared: say this on the page (V; plan: same). Rank-3 input `x (2,2,3)` into `Linear(3,2)`: observed no error and output shape `(2,2,2)` (forward only, V by a scratch run); gradient correctness for rank 3 is **NV**, so do not claim anything about it (plan: same).
@@ -70,7 +70,7 @@ The plan's numbers (Kaiming 0.83, 0.83, 0.84, 0.91, 0.85, 0.82; 0.01: 0.094 ... 
 **Expected (math).** `Y = X W^T + 1 b^T` with `X{B,in}`, `W{out,in}`, `Y{B,out}`. For loss `L`: `dW = dY^T X` (`{out,B}{B,in}`), `db = 1^T dY` (column sums, because the bias row was broadcast over the batch), `dX = dY W`. For `L = mean((Y-T)^2)`: `dY = 2 (Y-T) / (B*out)`. Parameters: `in*out + out`. Kaiming: if a layer's inputs `a` have `E[a^2] = q` and the weights are independent with variance `s^2`, the pre-activation variance is `in * s^2 * q`; with `s^2 = 2/in` it is `2q`; ReLU of a symmetric variable keeps half the second moment, so `E[relu(z)^2] = q` again: the second moment is preserved layer to layer. The reported **std** of the ReLU output is `sqrt(E[a^2] - E[a]^2)` with `E[a] = sigma_z / sqrt(2 pi)`: for `q = 1`, `sigma_z = sqrt 2`, std `= sqrt(1 - 1/pi) = 0.8256` (shipped layer 1: 0.830, 0.57 % off; **V in NumPy**). For a fixed `s`: layer-1 `sigma_z = s sqrt(256)` and std `= 0.5842 sigma_z`: 0.0934 for `s = 0.01` (shipped 0.0939), 9.34 for `s = 1` (9.39). Each further layer multiplies the second moment by `256 s^2 / 2 = 128 s^2`, i.e. the std by `11.31 s`: 0.1131 per layer for 0.01 (0.0939 -> 0.0112 -> 0.00133 matches) and 11.31 for 1.0 (9.39 -> 112 -> 1330 matches); Kaiming gives exactly 1 (so the drift to 0.75-1.0 is sample noise of 256 random weights per output, not a trend of the method). Zero weights: all rows identical -> identical outputs -> identical gradients -> neurons never differentiate (only the **bias** is zero by default).
 
 **Suspected discrepancy (not for the lesson page).**
-1. `MSELoss` gradient with a broadcast target is `N` times too large relative to the loss (`sgd-step.md` section 3, minimal repro). Not triggered by any example on the lesson (all same shape).
+1. (v0.1.0, fixed at the pin by PR #5 and PR #6) `MSELoss` gradient with a broadcast target was `N` times too large relative to the loss (`sgd-step.md` section 3, minimal repro). Unequal shapes now throw `ShapeError`. Not triggered by any example on the lesson (all same shape).
 2. `std::normal_distribution` results are implementation-defined, so `Linear(in, out, 0, seed)` gives different weights under libc++ than under libstdc++: "seeded" means reproducible per standard library only (NV across libc++; V repeat runs identical on libstdc++ 14). The trace ships weights for this reason. Default `seed = std::random_device{}()` makes every unseeded `Linear` different on every run (documented design).
 3. `Module::parameters()` order unspecified (audit D5). `Sequential::parameters()` therefore cannot be matched to layers by position within a layer; the trace sorts `named_parameters()` by name.
 4. NV: rank-3 input backward (see above).

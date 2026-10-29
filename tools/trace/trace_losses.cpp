@@ -7,8 +7,8 @@
 // 4. Two-class logits [z, 0] with target 0 for z from -6 to 6: cross-entropy and its gradient, and the squared error between
 //    softmax probabilities and the one-hot target (softmax then nn::MSELoss) and its gradient, both from backward().
 // 5. The errors CrossEntropyLoss throws for bad targets and logits.
-// 6. nn::MSELoss on a prediction of shape (3, 1) and targets of shape (3): TorC does not check the shapes, so sub() broadcasts
-//    them to (3, 3). The loss and the gradient it reports are recorded as they are.
+// 6. nn::MSELoss on a prediction of shape (3, 1) and targets of shape (3): the exception forward() throws and its what() text
+//    (TorC after PR #6 requires equal shapes; v0.1.0 broadcast them to (3, 3) and threw nothing).
 // Everything is library output.
 #include "trace_util.hpp"
 
@@ -113,20 +113,18 @@ int main() {
         .push(error_case("column-targets", {2, 3}, {2, 1, 0.1f, 4, 1, -2}, {2, 1}, {0, 2}));
 
     // ---- 6. MSELoss with shapes that do not match ----------------------------------------------------------------------------
-    J mse_broadcast = J::object();
+    J mse_mismatch = J::object();
     {
-        Variable yb(trace::make_tensor({3, 1}, {2.5f, 0.0f, 2.0f}), true);
+        const Variable yb(trace::make_tensor({3, 1}, {2.5f, 0.0f, 2.0f}), true);
         const Variable tb3(trace::make_tensor({3}, {3.0f, -0.5f, 2.0f}), false);
         auto c = trace::catch_call([&] { (void)mse(yb, tb3); });
-        Variable Lb3 = mse(yb, tb3);
-        Lb3.backward();
-        mse_broadcast.set("prediction_shape", trace::jarr(yb.data().shape())).set("target_shape", trace::jarr(tb3.data().shape()))
-            .set("exception", c.type).set("loss", Lb3.data().data()[0]).set("grad", trace::jarr(trace::values_of(yb.grad())));
+        mse_mismatch.set("prediction_shape", trace::jarr(yb.data().shape())).set("target_shape", trace::jarr(tb3.data().shape()))
+            .set("exception", c.type).set("what", c.what);
     }
 
     J doc = trace::envelope("losses", "losses", "tools/trace/trace_losses.cpp");
     doc.set("mse", std::move(m)).set("ce", std::move(ce_rows)).set("batch", std::move(batch)).set("curves", std::move(curves))
-        .set("errors", std::move(errors)).set("mse_broadcast", std::move(mse_broadcast));
+        .set("errors", std::move(errors)).set("mse_mismatch", std::move(mse_mismatch));
     std::fputs(doc.dump().c_str(), stdout);
     return 0;
 }

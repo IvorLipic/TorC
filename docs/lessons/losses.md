@@ -2,9 +2,9 @@
 
 Not shipped. Library symbols, and what is observed, expected and suspected.
 
-## Library symbols (TorC v0.1.0)
-`nn::MSELoss` (`include/torc/nn/losses.hpp`, `src/nn/losses.cpp`): mean over all entries of `(y - t)²`. It does not check the
-shapes: `sub()` broadcasts them, and the backward pass divides by `input.numel()`, not by the broadcast count.
+## Library symbols (TorC `38785db`, `main` = v0.1.0 + PR #5 + PR #6)
+`nn::MSELoss` (`include/torc/nn/losses.hpp`, `src/nn/losses.cpp:12-42`): mean over all entries of `(y - t)²`. `y` and `t` must
+have the same shape; otherwise `forward()` throws `ShapeError` (PR #6). The backward pass is `2 (y - t) / n`, `n` the element count.
 `nn::CrossEntropyLoss`: rank-2 logits `(B, C)`, targets of shape `(B)` or `(B, 1)` holding integral class indices in `[0, C)`;
 log-softmax of each row, negative log-probability of the target, mean over the batch. Its backward is `(softmax - onehot) / B`.
 
@@ -15,8 +15,9 @@ log-softmax of each row, negative log-probability of the target, mean over the b
 - A batch of the two (mild, target 0; confident, target 2): loss 3.234, the mean; each gradient row is the single-sample row / 2.
 - Logits `[z, 0]`, target 0, z from -6 to 6: at z = -6 the cross-entropy gradient is -0.9975 and the gradient of the squared error
   on the softmax probabilities is -0.00492.
-- MSE with predictions of shape (3, 1) and targets of shape (3): no error, loss 3.333 (the mean over the 3 × 3 broadcast
-  differences), gradient `2, -3, 1`, which is 3 times the derivative of the reported loss. The page warns about this.
+- MSE with predictions of shape (3, 1) and targets of shape (3) (`mse_mismatch`): `ShapeError: MSELoss input shape (3, 1) must
+  match target shape (3)`. The page does not show it (audit findings stay in `docs/library-audit/`). At v0.1.0 the same call gave
+  no error, loss 3.333 (the mean over the 3 × 3 broadcast differences) and gradient `2, -3, 1`, 3 times the derivative of that loss.
 - Errors (all `ShapeError`): a non-integral label, a label out of `[0, C)`, rank-1 logits, a label count that differs from the batch
   size. Labels of shape `(B, 1)` are accepted.
 
@@ -25,10 +26,9 @@ log-softmax of each row, negative log-probability of the target, mean over the b
 `p = σ(z)`: CE gradient `p - 1`; squared-error gradient `-2(1 - p)² p`, which goes to zero as `p → 0`. The tests check all of these.
 
 ## Suspected discrepancy
-`MSELoss` with shapes that broadcast: no shape check, and a gradient that does not match the reported loss. Logged in
-`docs/library-audit/v0.1.0-findings.md`. The gradient is fixed on `main` by PR #5, after v0.1.0; the broadcasting without an error
-is kept there by design. When `TORC_REF` moves past PR #5, `mse_broadcast.grad` in the trace changes, and the losses test that
-expects the old gradient must change with it.
+None at the pin. At v0.1.0, `MSELoss` with shapes that broadcast gave no error and a gradient that did not match the reported loss
+(`docs/library-audit/v0.1.0-findings.md`). PR #5 fixed the gradient and PR #6 made unequal shapes a `ShapeError`. With the pin at
+`38785db`, the trace records the error (`mse_mismatch` replaces `mse_broadcast`) and the losses test checks the message.
 
 ## Lesson status
 Published 2026-10-16 as "Losses". Widgets: `loss-widgets.js` (loss explorer, gradient comparison). Tests:
@@ -37,3 +37,5 @@ Checked: Node tests, `check_site`, `tools/prose/check.sh`, Chromium at both widt
 Independent review 2026-10-20 (no blockers). Fixed after it: the gradient sign (the gradient is negative for the correct class,
 and the step raises that logit), the two-class setup of the comparison is stated, one name per thing (logit, label, one-hot
 target), the labels on the page come from the trace, the MSE shape warning. Not done: screen reader.
+2026-10-29 (pin bump to `38785db`): the MSE shape warning is removed from the page (pedagogy review D6). The library now throws
+for unequal shapes, and the code comment "y and t must have the same shape" stays.

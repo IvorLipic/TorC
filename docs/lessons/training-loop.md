@@ -2,7 +2,7 @@
 
 Not shipped. Library symbols, and what is observed, expected and suspected.
 
-## Library symbols (TorC v0.1.0)
+## Library symbols (TorC `38785db`, `main` = v0.1.0 + PR #5 + PR #6)
 `data::Dataset` (`len`, `get`, `get_batch`, `gather`), `data::TensorDataset`, `data::SyntheticRegression(n, features, weight,
 bias, noise_std, seed = 42)` (`include/torc/data.hpp`, `src/data.cpp`): `x ~ U(-1, 1)` from `std::uniform_real_distribution`,
 noise from `std::normal_distribution`, one `std::mt19937`. `data::DataLoader(dataset, batch_size, shuffle = false, seed =
