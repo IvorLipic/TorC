@@ -123,7 +123,9 @@ export function checkV3(lesson, { D, course, glossary, notation, source }) {
       if (n > LIMITS.answerWords) add('answer', `The answer has ${n} words, at most ${LIMITS.answerWords}`);
     }
   }
-  S.forEach((s, i) => { if (s.kind === 'text') { const n = sectionWords(parts[i].html); if (n > LIMITS.textWords) add('words', `text section ${i} has ${n} words, at most ${LIMITS.textWords}`); } });
+  // a refresher is collapsed, optional reading of 100-200 words (brief §8), so it does not count toward the section budget
+  const noRefresher = (h) => h.replace(/<details class="refresher"[\s\S]*?<\/details>/g, ' ');
+  S.forEach((s, i) => { if (s.kind === 'text') { const n = sectionWords(noRefresher(parts[i].html)); if (n > LIMITS.textWords) add('words', `text section ${i} has ${n} words, at most ${LIMITS.textWords}`); } });
   const numbered = (html.match(/<h2[^>]*>\s*\d+\s·/g) ?? []).length;
   if (numbered > LIMITS.numbered) add('budget', `${numbered} numbered sections, at most ${LIMITS.numbered}`);
   const quizzes = S.filter((s) => s.kind === 'quiz');
