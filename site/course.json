@@ -265,7 +265,7 @@
           "widgets": [
             "train and test curves"
           ],
-          "code": "data::DataLoader train(train_set, 64, /*shuffle=*/true);\ndata::DataLoader test(test_set, 256);   // never trained on\noptim::AdamW opt(params, 1e-3f, /*weight_decay=*/0.01f);"
+          "code": "// 10 samples: one batch\ndata::DataLoader train(train_set, 64, /*shuffle=*/false);\n// 100 samples that the model never trains on\ndata::DataLoader test(test_set, 256);\n// the other two runs use a weight decay of 0.0f and 1.0f\noptim::AdamW opt(params, 0.05f, /*weight_decay=*/0.1f);"
         },
         {
           "id": "mnist-mlp",

@@ -53,7 +53,7 @@ export default {
       kind: 'text',
       html: (D, T) => sec('shapes', '1 · Shapes', `
     <p>The input <code>x</code> holds a batch of <code>B</code> samples, one sample in each row. The weight matrix <code>W</code> has one row for each output and one column for each input. The bias <code>b</code> has one value for each output.</p>
-    ${eq('\\underset{(B,\\,\\text{in})}{x}\;\\cdot\;\\underset{(\\text{in},\\,\\text{out})}{W^{\\top}}\;+\;\\underset{(\\text{out})}{b}\;=\;\\underset{(B,\\,\\text{out})}{y}')}
+    ${eq('\\underset{(B,\\,\\text{in})}{x}\\;\\cdot\\;\\underset{(\\text{in},\\,\\text{out})}{W^{\\top}}\\;+\\;\\underset{(\\text{out})}{b}\\;=\\;\\underset{(B,\\,\\text{out})}{y}')}
     <p>For example, <code>Linear(784, 32)</code> has a weight of shape ${shp(T, `${WEIGHT}.shape`)} with ${T(`${WEIGHT}.numel`)} numbers and a bias with ${T(`${BIAS}.numel`)} numbers. That is ${T(`${P}.param_counts.0.total`)} parameters. If <code>x</code> has the wrong number of columns, TorC throws an error. This is the message for an input of shape <code>(8, 10)</code>.</p>
     <p><code>${escapeHtml(recorded(D, ERR).exception)}: ${escapeHtml(recorded(D, ERR).what)}</code></p>
     <p>The second shape in the message is the shape of <code>Wᵀ</code>, not of <code>W</code>.</p>`),
@@ -62,7 +62,7 @@ export default {
       kind: 'text',
       html: () => sec('neuron', '2 · One neuron is one row of W', `
     ${eq('y_{ik} = \\sum_{j} x_{ij}\\,W_{kj} + b_k')}
-    <p>Each output <code>y[i,k]</code> multiplies sample <code>i</code> by row <code>k</code> of <code>W</code>, element by element, adds the products, and adds the bias <code>b[k]</code>. Click an output in the grid to see the numbers it uses. You can change any number.</p>
+    <p>Each output <code>y[i,k]</code> multiplies sample <code>i</code> by row <code>k</code> of <code>W</code>, element by element, adds the products, and adds the bias <code>b[k]</code>. The indices <code>i</code>, <code>j</code> and <code>k</code> count from <code>0</code>, as in TorC. Click an output in the grid to see the numbers it uses. You can change any number.</p>
     <p>Then copy the first neuron into the second. The two output columns become identical, because two neurons with equal weights always give equal outputs. For this reason the weights start as random numbers.</p>`),
     },
     {
@@ -98,12 +98,12 @@ export default {
     },
     {
       kind: 'check', id: 'check-bias',
-      prompt: () => '<p>In the grid, increase <code>b[2]</code> by one. Which entries of <code>y</code> change, and by how much?</p>',
-      reveal: () => '<p>Only the second column changes. Both of its entries increase by exactly one, because the layer adds <code>b[2]</code> to the second output of every sample.</p>',
+      prompt: () => '<p>In the grid, increase <code>b[1]</code> by one. Which entries of <code>y</code> change, and by how much?</p>',
+      reveal: () => '<p>Only the second column changes, because the layer adds <code>b[1]</code> to the second output of every sample. Both entries of that column increase by exactly one.</p>',
     },
     {
       kind: 'text',
-      html: () => '<section class="ll"><p>Go back to the <a href="../../">course map</a>.</p></section>',
+      html: () => '<section class="ll"><p>The next lesson, <a href="../nonlinearity/">Nonlinearity</a>, shows why two linear layers in a row are still one linear layer, and how an activation function changes that.</p></section>',
     },
   ],
 };

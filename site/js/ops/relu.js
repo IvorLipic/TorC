@@ -11,7 +11,7 @@ export default {
   texForward: (n, [a]) => `${tex(n)}_i = \\max(0,\\, ${tex(a)}_i)`,
   whyForward: 'Keep positive numbers, replace negative ones by 0.',
   forwardNumbers: ({ name, inputs: [a], out }) => {
-    const rows = out.v.map((_, i) => `${out.v.length > 1 ? `n_{${i + 1}}` : 'n'} &= \\max(0,\\, ${tn(a.v[i])}) = ${tn(out.v[i])}`);
+    const rows = out.v.map((_, i) => `${out.v.length > 1 ? `n_{${i}}` : 'n'} &= \\max(0,\\, ${tn(a.v[i])}) = ${tn(out.v[i])}`);
     return { note: '', latex: [aligned(rows, name)] };
   },
   texBackward: (n, [a]) => [`${bar(a)}_i = \\begin{cases}${bar(n)}_i & ${tex(a)}_i > 0\\\\ 0 & ${tex(a)}_i \\le 0\\end{cases}`],

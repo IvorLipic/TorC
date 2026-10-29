@@ -29,7 +29,7 @@ function wireDone(id) {
   const paint = () => {
     const done = store.isDone(id);
     b.setAttribute('aria-pressed', String(done));
-    b.textContent = done ? '✓ Done — click to undo' : 'Mark as done';
+    b.textContent = done ? '✓ Done. Click to undo.' : 'Mark as done';
     b.classList.toggle('on', done);
   };
   b.addEventListener('click', () => { store.setDone(id, !store.isDone(id)); paint(); });

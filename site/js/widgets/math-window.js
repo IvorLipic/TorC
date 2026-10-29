@@ -9,8 +9,8 @@ function leafInputWindow(n) {
     title: `${n.name} · input`, kind: 'input',
     blocks: [
       { heading: n.requires_grad ? 'A learnable input' : 'A constant input', html: n.requires_grad
-        ? `<code>${n.name}</code> was created with <code>requires_grad = true</code>: TorC will compute the gradient of the output with respect to it. (In training these are the weights and biases.)`
-        : `<code>${n.name}</code> was created with <code>requires_grad = false</code>: it is data, not something we adjust, so no gradient is computed for it.`, latex: [] },
+        ? `<code>${n.name}</code> was created with <code>requires_grad = true</code>. TorC computes the gradient of the output with respect to it. In training, these are the weights and biases.`
+        : `<code>${n.name}</code> was created with <code>requires_grad = false</code>. It is data, so TorC computes no gradient for it.`, latex: [] },
       { heading: 'Value', latex: [`${'\\mathit{' + n.name + '}'} = ${mat(n.value)}`], html: `Shape (${n.value.shape.join(', ')}). Edit it in the <a href="#in-${n.name}" data-focus="${n.name}">Inputs</a> panel.` }],
   };
 }

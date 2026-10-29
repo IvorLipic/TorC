@@ -4,6 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildD, makeT } from '../js/core/trace.js';
 import { renderLesson, findUnboundNums, boundNums } from '../js/core/sections.js';
+import { readFileSync } from 'node:fs';
 import { readJson } from './helpers.mjs';
 
 const data = readJson('data/generalization.json');
@@ -76,4 +77,28 @@ test('the widget module imports in Node without touching the DOM; the step axis 
   assert.equal(m.stepX(9), 1);
   assert.deepEqual(m.DECAYS.map(([v]) => v), data.runs.map((r) => r.weight_decay));
   assert.equal(typeof document, 'undefined');
+});
+
+test('the code on the page is the code of the experiment (brief C10, D11): trace settings, loaders as in the trace program, and the home page snippet', async () => {
+  const { BATCH } = await import('../js/lessons/generalization.js');
+  const block = renderLesson(lesson, D).map((p) => p.html).join('\n').match(/<pre class="gn-code"[^>]*><code>([\s\S]*?)<\/code><\/pre>/)[1];
+  const src = readFileSync(new URL('../../tools/trace/trace_generalization.cpp', import.meta.url), 'utf8');
+  // the batch sizes are not in the JSON, so they are pinned to the program that made it
+  assert.ok(src.includes(`data::DataLoader train(train_set, ${BATCH.train}, /*shuffle=*/false);`));
+  assert.ok(src.includes(`${BATCH.test}`) && src.includes(`test(test_set, ${BATCH.test})`));
+  assert.ok(block.includes(`data::DataLoader train(train_set, ${BATCH.train}, /*shuffle=*/false);`));
+  assert.ok(block.includes(`data::DataLoader test(test_set, ${BATCH.test});`));
+  assert.ok(block.includes(`optim::AdamW opt(params, 0.05f, /*weight_decay=*/0.1f);`), 'learning rate and the middle weight decay of the trace');
+  assert.deepEqual(data.runs.map((r) => r.weight_decay), [0, 0.1, 1]);
+  assert.ok(block.includes('// 10 samples: one batch') && block.includes('// 100 samples that'));
+  assert.ok(block.includes('weight decay of 0.0f and 1.0f'));
+  assert.ok(data.setup.train_samples <= BATCH.train && data.setup.test_samples <= BATCH.test, 'each loader gives its set in one batch');
+  const home = readJson('course.json').parts.flatMap((p) => p.lessons).find((l) => l.id === 'generalization').code;
+  assert.equal(home, block.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&'), 'the home page snippet is the code of the lesson');
+});
+
+test('overfitting is taught as a matter of degree (brief C10)', () => {
+  const text = renderLesson(lesson, D).map((p) => p.html).join('\n');
+  assert.match(text, /Overfitting has degrees/);
+  assert.match(text, /overfits strongly/);
 });

@@ -206,3 +206,11 @@ test('widget modules import in Node without a DOM', async () => {
   assert.equal(typeof (await import('../js/widgets/contour2d.js')).mountContour2d, 'function');
   assert.equal(typeof document, 'undefined');
 });
+
+test('the page names one quantity for a loss after ten steps, and the widgets use the names of the prose: W and step (brief D13, D19)', () => {
+  const text = html.replace(/<[^>]+>/g, ' ');
+  assert.doesNotMatch(text, /after ten (steps|iterations)/, 'no loss is quoted as "after ten steps" next to a loss of another iteration');
+  assert.match(html, /In iteration ten the loss is/);
+  assert.match(html, /href="\.\.\/tensors\/">Tensors<\/a>/, 'D2: the next lesson is Tensors');
+  assert.equal(readFileSync(new URL('../js/widgets/descent.js', import.meta.url), 'utf8').match(/<b>(update|w)<\/b>/), null, 'the readout says step and W');
+});

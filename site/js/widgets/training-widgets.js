@@ -87,13 +87,14 @@ export function mountBatchViewer(host, D) {
     el('div', { class: 'tl-calls', role: 'group', 'aria-label': 'Calls on the loader' }, nextBtn, resetBtn),
     grid, live, batch, note, seed));
   const loader = () => R.loaders.find((l) => l.batch_size === bs && l.shuffle === shuffle);
+  const loaderEpochs = R.loaders[0].epochs.length;                   // epochs and batches are counts here, so they start at 1
 
   function draw() {
     sizes.set(bs); order.set(shuffle);
     const s = loaderState(loader(), epoch, taken);
     const cur = new Set(s.current);
     cells.forEach((c, i) => { c.className = `tl-cell${cur.has(i) ? ' cur' : s.used.has(i) ? ' used' : ''}`; });
-    status.innerHTML = `<span><b>epoch</b> ${epoch + 1}</span> <span><b>batch</b> ${taken} of ${s.batches}</span> <span><b>has_next()</b> ${s.hasNext}</span>`;
+    status.innerHTML = `<span><b>epoch</b> ${epoch + 1} of ${loaderEpochs}</span> <span><b>batches taken</b> ${taken} of ${s.batches}</span> <span><b>has_next()</b> ${s.hasNext}</span>`;
     batch.textContent = taken > 0 ? `Batch ${taken} holds ${s.current.length} samples: ${s.current.join(', ')}.` : 'No batch yet. Call next_batch().';
     err.hidden = !error;
     err.textContent = error ? `${R.exhausted.exception}: ${R.exhausted.what}` : '';

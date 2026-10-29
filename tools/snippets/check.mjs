@@ -55,8 +55,8 @@ export const SPEC = {
     check: 'auto down = [&](auto& opt) { float before = w.data().data()[0]; Variable sq = mul(w, w); Variable L = sum(sq); L.backward(); opt.step(); opt.zero_grad(); return w.data().data()[0] < before; };\nCHECK(down(sgd));\nCHECK(down(adam));\nCHECK(down(adamw));',
   },
   generalization: {
-    prelude: `Variable w(${shape(3)}, true);\nstd::vector<Variable*> params{&w};\ndata::TensorDataset train_set(${shape(128, 1)}, ${shape(128, 1)});\ndata::TensorDataset test_set(${shape(32, 1)}, ${shape(32, 1)});`,
-    check: 'int nt = 0, ns = 0;\nwhile (train.has_next()) { train.next_batch(); ++nt; }\nwhile (test.has_next()) { test.next_batch(); ++ns; }\nCHECK(nt == 2 && ns == 1);   // 128 / 64 and 32 / 256\n(void)opt;',
+    prelude: `Variable w(${shape(3)}, true);\nstd::vector<Variable*> params{&w};\ndata::TensorDataset train_set(${shape(10, 1)}, ${shape(10, 1)});\ndata::TensorDataset test_set(${shape(100, 1)}, ${shape(100, 1)});`,
+    check: 'int nt = 0, ns = 0;\nwhile (train.has_next()) { train.next_batch(); ++nt; }\nwhile (test.has_next()) { test.next_batch(); ++ns; }\nCHECK(nt == 1 && ns == 1);   // 10 samples in batches of 64, 100 samples in batches of 256\n(void)opt;',
   },
   'mnist-mlp': {
     run: false,

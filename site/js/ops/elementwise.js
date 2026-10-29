@@ -15,7 +15,7 @@ export function elementwiseForwardNumbers(sym, entry, alwaysElementwise) {
     if (expanded.length) { latex.push(expanded.join(',\\quad ')); note = 'The smaller input is copied (broadcast) so both have the same shape:'; }
     latex.push(`${mat(A)} ${sym} ${mat(B)} = ${mat(out)}`);
     if (out.v.length > 1 || alwaysElementwise) {
-      const rows = out.v.map((_, i) => `${out.v.length > 1 ? `n_{${i + 1}}` : 'n'} &= ${entry(A.v[i], B.v[i], out.v[i])}`);
+      const rows = out.v.map((_, i) => `${out.v.length > 1 ? `n_{${i}}` : 'n'} &= ${entry(A.v[i], B.v[i], out.v[i])}`);
       latex.push(aligned(rows, name));
     }
     return { note, latex };

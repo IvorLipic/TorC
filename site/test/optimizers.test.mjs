@@ -60,6 +60,10 @@ test('the race: Adam < momentum < plain SGD after the last step, and SGD is stil
   assert.ok(run('sgd').path.at(-1).w1 < -1);
   assert.ok(run('sgd').lr < data.derived.sgd_lr_limit);
   assert.equal(data.derived.sgd_lr_limit, 2 / V.curvature[1]);
+  // the reveal says Adam got "a learning rate about ten times larger" (brief C4): the race is not a fair comparison
+  const ratio = run('adam').lr / run('sgd').lr;
+  assert.ok(ratio > 9.5 && ratio < 11, `Adam's learning rate is ${ratio} times the SGD rate`);
+  assert.equal(run('sgd').lr, run('momentum').lr);
 });
 
 test('first step: Adam moves each parameter by about lr, SGD by lr times the gradient', () => {

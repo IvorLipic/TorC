@@ -232,7 +232,7 @@ export function mountCnnMaps(host, D) {
   host.replaceChildren(el('div', { class: 'dw' },
     el('div', { class: 'dw-btns', role: 'group', 'aria-label': 'Test images' }, ...btns),
     el('div', { class: 'dw-row' }, el('div', { class: 'dw-side' }, el('span', { class: 'dw-lbl' }, 'input'), img), gal),
-    el('div', { class: 'dw-key', 'aria-hidden': 'true' }, el('span', {}, 'top of each pair: the 3 × 3 kernel (amber positive, blue negative)'), el('span', {}, 'bottom: its 14 × 14 feature map after relu (brighter is larger; each map has its own scale)'))));
+    el('div', { class: 'dw-key', 'aria-hidden': 'true' }, el('span', {}, 'top of each pair: the 3 × 3 kernel (amber positive, blue negative)'), el('span', {}, 'bottom: its 14 × 14 feature map after relu (brighter is larger, and each map has its own scale)'))));
   // the kernels
   tiles.forEach((t, c) => {
     const w = L.weight.slice(c * k * k, (c + 1) * k * k), m = Math.max(...w.map(Math.abs)) || 1;

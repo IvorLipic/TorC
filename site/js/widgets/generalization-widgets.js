@@ -61,7 +61,7 @@ export function mountGeneralization(host, D) {
   host.replaceChildren(el('div', { class: 'gw' },
     el('div', { class: 'gw-ctl' }, pr.root, el('div', { class: 'gw-field' }, el('label', { for: 'gw-step', class: 'gw-lbl' }, 'after step'), input)),
     fitBox, fitKey, lossBox, lossKey, read));
-  const table = srTable(host, { columns: ['step', 'training loss', 'test loss'], rows: [], caption: 'Losses of the selected run at each recorded step' });
+  const table = srTable(host, { columns: ['step', 'training loss', 'test loss'], rows: [], caption: 'Losses of the selected run at each checkpoint step' });
 
   const paintFit = (pl) => {
     pl.axes({ xTicks: [-1, -0.5, 0, 0.5, 1], yTicks: [-1, 0, 1] });
