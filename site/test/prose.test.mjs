@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { flatLessons, isPublished } from '../js/core/course.js';
-import { buildD, stemOf } from '../js/core/trace.js';
+import { buildD, stemOf, anchorValues } from '../js/core/trace.js';
 import { renderLesson } from '../js/core/sections.js';
 import { course, readJson, SITE, proseProblems, ticsIn, uiStringProblems, LABEL_COLONS, BANNED_TICS, hasPunctuationDash } from './helpers.mjs';
 import { extractStringsFromSource, extractUiStrings, literalsOf, KNOWN_D15, UI_ALLOW } from '../../tools/prose/ui-strings.mjs';
@@ -132,7 +132,7 @@ const totals = {};
 for (const entry of lessonEntries) {
   test(`lesson ${entry.id}: no banned tic when it has template: 3 (otherwise counted)`, async () => {
     const lesson = (await import(new URL(`../js/lessons/${entry.id}.js`, import.meta.url))).default;
-    const D = buildD(Object.fromEntries(lesson.trace.map((f) => [stemOf(f), readJson('data/' + f)])));
+    const D = buildD(Object.fromEntries(lesson.trace.map((f) => [stemOf(f), readJson('data/' + f)])), anchorValues(readJson('data/anchors.json')));
     const saved = globalThis.katex;
     globalThis.katex = undefined;
     let html;

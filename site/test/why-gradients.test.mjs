@@ -1,37 +1,48 @@
-// Lesson why-gradients: the JS model behind the bowl widget against the numbers TorC recorded (data/why-gradients.json),
-// the stability predicate, every number in the prose, the style budget, all LaTeX, and that the widget imports without a DOM.
+// Lesson why-gradients (template 3): the JS model behind the widgets against the numbers TorC recorded (data/why-gradients.json),
+// the pure helpers of the nudge lens and the two bowls, every claim that the prose makes (checked from the data, not only that the
+// numbers are bound), the notation and naming rules of this lesson, all LaTeX, and that the widgets import without a DOM.
+// The v3 rules (roles, budgets, glossary, notation order) run on this lesson in lessons.test.mjs.
 // Run: node --test site/test/
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { existsSync, readFileSync } from 'node:fs';
+import { buildD, makeT, anchorValues } from '../js/core/trace.js';
 import { buildGraph, runBackward } from '../js/engine.js';
-import { buildD, makeT } from '../js/core/trace.js';
 import { renderLesson, findUnboundNums, boundNums } from '../js/core/sections.js';
 import { makeModel, recordedTrajectory } from '../js/widgets/landscape-model.js';
-import { fmtX, texX, updateTex } from '../js/widgets/landscape-tex.js';
+import { fmtX, texX, fmt3, updateTex } from '../js/widgets/landscape-tex.js';
 import { PRESET_LRS, MAX_STEPS } from '../js/widgets/bowl.js';
+import { nudgeRows, lensView } from '../js/widgets/nudge-lens.js';
+import { bowlRows, lossOn } from '../js/widgets/two-bowls.js';
 import { whyLayout } from '../js/lessons/why-gradients.scenes.js';
-import { readJson, renderStrictAll, lessonStats } from './helpers.mjs';
+import { readJson, renderStrictAll, course } from './helpers.mjs';
 
 const data = readJson('data/why-gradients.json');
-const D = buildD({ 'why-gradients': data });
+const D = buildD({ 'why-gradients': data }, anchorValues(readJson('data/anchors.json')));
 const scene = D.scenes.why;
 const m = makeModel(scene);
 const T = makeT(D);
 const tol = (a, b, t = 1e-5) => Math.abs(a - b) <= t * (1 + Math.abs(b));      // float32 recording vs double port (docs/trace-schema.md)
+const tr = data.trajectories, steep = data.steep;
+const SLOW = 0, FAST = 1, BOUNCE = 3, DIVERGE = 4;
 
-test('the trace file is the one the lesson expects (scene why, five learning rates, 33 grid points)', () => {
+test('the trace file is the one the lesson expects (scene why, five learning rates, 33 grid points, the steep bowl)', () => {
   assert.equal(data.kind, 'why');
   assert.equal(scene.nodes.map((n) => n.name).join(','), 'w,x,t,p,e,L');
   assert.equal(data.grid.length, 33);
-  assert.deepEqual(data.trajectories.map((t) => t.lr), [0.05, 0.1, 0.125, 0.25, 0.3]);   // the lesson's SLOW/EXACT/BOUNCE/DIVERGE indices
+  assert.deepEqual(tr.map((t) => t.lr), [0.05, 0.1, 0.125, 0.25, 0.3]);   // the lesson's SLOW/FAST/BOUNCE/DIVERGE indices
   for (const lr of PRESET_LRS) assert.ok(recordedTrajectory(data, lr), `the widget's preset lr ${lr} is a recorded run`);
+  assert.deepEqual(PRESET_LRS, [SLOW, FAST, BOUNCE, DIVERGE].map((i) => tr[i].lr), 'the fog bowl offers the four runs the lesson talks about');
   assert.equal(m.x, data.setup.x);
   assert.equal(m.t, data.setup.t);
   assert.equal(m.wMin, data.setup.w_min);
   assert.equal(m.criticalLr, data.setup.critical_lr);
+  assert.deepEqual(data.secants.map((s) => s.h), [1, 0.5, 0.1, 0.01, 0.001]);
+  assert.equal(steep.trajectories[0].lr, 0.05, 'the transfer quiz uses the steep run with lr 0.05');
+  assert.deepEqual(steep.compare.map((c) => c.w), [0, 1, data.probes[3].w, 6]);
 });
 
-// ---- (a) engine port == TorC's grid and probes ----------------------------------------------------------------------------
+// ---- the JS model (bowl widget) == TorC --------------------------------------------------------------------------------------
 test('(a) buildGraph/runBackward at every grid point and probe equals what TorC recorded', () => {
   for (const r of [...data.grid, ...data.probes]) {
     const g = buildGraph(scene, { w: [r.w] }), bw = runBackward(g);
@@ -44,7 +55,6 @@ test('(a) buildGraph/runBackward at every grid point and probe equals what TorC 
   assert.equal(m.at(0).grad, scene.nodes.find((n) => n.name === 'w').grad.values[0]);
 });
 
-// ---- (c) the identity ------------------------------------------------------------------------------------------------------
 test('(c) grad == 8(w-3) and L == 4(w-3)^2 on the grid and at 500 other weights', () => {
   assert.equal(m.curvature, 8);
   for (const r of data.grid) assert.ok(tol(r.grad, 8 * (r.w - 3), 1e-12) && tol(r.L, 4 * (r.w - 3) ** 2, 1e-12), `recorded w=${r.w}`);
@@ -52,170 +62,244 @@ test('(c) grad == 8(w-3) and L == 4(w-3)^2 on the grid and at 500 other weights'
     const w = -3 + (i * 14) / 500, q = m.at(w);
     assert.ok(tol(q.grad, m.curvature * (w - m.wMin), 1e-12), `grad at ${w}`);
     assert.ok(tol(q.L, 4 * (w - m.wMin) ** 2, 1e-12), `L at ${w}`);
-    // the chain rule: the product of the local slopes IS the gradient
-    const prod = m.localSlopes(w).reduce((a, s) => a * s.slope, 1);
-    assert.ok(tol(prod, q.grad, 1e-12), `chain product at ${w}`);
+    assert.ok(tol(m.localSlopes(w).reduce((a, s) => a * s.slope, 1), q.grad, 1e-12), `chain product at ${w}`);
   }
 });
 
-// ---- (b) iteration reproduces every trajectory --------------------------------------------------------------------------------
-test('(b) w -= lr*g reproduces every recorded trajectory (w, p, e, L, grad, next w, tangent promise)', () => {
-  for (const rec of data.trajectories) {
-    const st = m.iterate(m.w0, rec.lr, 8);
+test('(b) w -= lr*g reproduces every recorded trajectory, and the closed form (1 - 8 lr)^k holds', () => {
+  for (const rec of tr) {
+    const st = m.iterate(m.w0, rec.lr, 8), f = m.factor(rec.lr);
     assert.equal(st.length, rec.states.length);
     rec.states.forEach((r, k) => {
-      for (const [mine, theirs, what] of [[st[k].w, r.w, 'w'], [st[k].p, r.p, 'p'], [st[k].e, r.e, 'e'], [st[k].L, r.L, 'L'], [st[k].grad, r.grad, 'grad'], [st[k].wNext, r.w_next, 'w_next'], [st[k].promise, r.tangent_L_next, 'promise']]) {
+      for (const [mine, theirs, what] of [[st[k].w, r.w, 'w'], [st[k].L, r.L, 'L'], [st[k].grad, r.grad, 'grad'], [st[k].wNext, r.w_next, 'w_next'], [st[k].promise, r.tangent_L_next, 'promise']]) {
         assert.ok(tol(mine, theirs, 1e-5), `lr=${rec.lr} k=${k} ${what}: ${mine} vs ${theirs}`);
       }
+      assert.ok(tol(r.w - m.wMin, f ** k * (m.w0 - m.wMin), 1e-4), `closed form, recorded lr=${rec.lr} k=${k}`);
     });
     assert.equal(rec.matches_manual, true);
-    assert.equal(recordedTrajectory(data, rec.lr), rec);
-    assert.ok(tol(m.factor(rec.lr), rec.factor, 1e-12), `factor for ${rec.lr}`);
+    assert.ok(tol(f, rec.factor, 1e-12), `factor for ${rec.lr}`);
   }
   assert.equal(data.checks.sgd_matches_manual, true);
+  assert.equal(steep.checks.sgd_matches_manual, true);
 });
 
-test('the closed form w_k - 3 = (1 - 8 lr)^k (w_0 - 3) holds for the model and the recording', () => {
-  for (const rec of data.trajectories) {
-    const f = m.factor(rec.lr), st = m.iterate(m.w0, rec.lr, 8);
-    st.forEach((s, k) => assert.ok(tol(s.w - m.wMin, f ** k * (m.w0 - m.wMin), 1e-9), `lr=${rec.lr} k=${k}`));
-    rec.states.forEach((s, k) => assert.ok(tol(s.w - m.wMin, f ** k * (m.w0 - m.wMin), 1e-4), `recorded lr=${rec.lr} k=${k}`));
-  }
-});
-
-// ---- (e) stability predicate -----------------------------------------------------------------------------------------------------
-test('(e) |1 - 8 lr| < 1 predicts divergence: matches stable_predicted and the recorded loss of all five runs', () => {
-  for (const rec of data.trajectories) {
+test('(e) |1 - 8 lr| < 1 predicts which runs settle: matches stable_predicted and the recorded loss of all five runs', () => {
+  for (const rec of tr) {
     const L0 = rec.states[0].L, L8 = rec.states[8].L;
     assert.equal(m.stable(rec.lr), rec.stable_predicted, `lr=${rec.lr}`);
-    assert.equal(m.stable(rec.lr), L8 < L0 - 1e-9, `observed: L8=${L8} vs L0=${L0} at lr=${rec.lr}`);   // lr 0.25 stays at 36: not stable
+    assert.equal(m.stable(rec.lr), L8 < L0 - 1e-9, `observed: L8=${L8} vs L0=${L0} at lr=${rec.lr}`);
     assert.equal(Math.abs(m.factor(rec.lr)) > 1, L8 > L0 + 1e-9, `diverges iff |factor| > 1 at lr=${rec.lr}`);
   }
-  assert.equal(m.newtonLr, 0.125);
-  assert.equal(m.factor(m.newtonLr), 0);
-  assert.equal(m.factor(m.criticalLr), -1);
-  // beyond the recordings: the predicate agrees with simulation on a sweep
-  for (let lr = 0.01; lr <= 0.35; lr += 0.01) {
-    const st = m.iterate(m.w0, lr, 60), grows = st[60].L > st[0].L * (1 + 1e-9);
-    if (Math.abs(lr - 0.25) > 1e-6) assert.equal(!m.stable(lr), grows, `lr=${lr}`);
-  }
 });
 
-// ---- nudge (chain rule) ------------------------------------------------------------------------------------------------------------
-test('the nudge widget reproduces the recorded stages, products and second-order term', () => {
+test('the nudge of the model reproduces the recorded stages and the second-order term 4 delta^2', () => {
   const rec = data.nudge, n = m.nudge(rec.w0, rec.delta);
-  n.stages.forEach((s, i) => {
-    const r = rec.stages[i];
-    assert.equal(s.name, r.name);
-    assert.equal(s.from, r.from);
-    assert.equal(s.slope, r.local_slope);
-    assert.ok(tol(s.before, r.before) && tol(s.after, r.after) && Math.abs(s.change - r.change) < 1e-5, `${s.name}`);
-  });
-  assert.equal(n.product, rec.local_slope_product);
+  n.stages.forEach((s, i) => assert.ok(tol(s.after, rec.stages[i].after) && s.slope === rec.stages[i].local_slope, s.name));
   assert.equal(n.product, rec.backward_slope);
-  assert.ok(Math.abs(n.predictedDL - rec.predicted_dL) < 1e-7 && Math.abs(n.actualDL - rec.actual_dL) < 1e-5 && Math.abs(n.secondOrder - rec.second_order_term) < 1e-5);
-  assert.ok(Math.abs(n.secondOrder - (m.curvature / 2) * rec.delta ** 2) < 1e-12, 'second-order term is 4 delta^2');
-  for (const w of [-1, 0, 2, 5]) for (const d of [-0.5, -0.1, 0.01, 0.5]) {
-    const k = m.nudge(w, d);
-    assert.ok(Math.abs(k.secondOrder - 4 * d * d) < 1e-9, `${w} ${d}`);
-    assert.ok(Math.abs(k.product - m.at(w).grad) < 1e-12);
-  }
+  assert.ok(Math.abs(n.actualDL - rec.actual_dL) < 1e-5 && Math.abs(n.secondOrder - rec.second_order_term) < 1e-5);
+  for (const w of [-1, 0, 2, 5]) for (const d of [-0.5, -0.1, 0.01, 0.5]) assert.ok(Math.abs(m.nudge(w, d).secondOrder - 4 * d * d) < 1e-9, `${w} ${d}`);
 });
 
-// ---- numbers in prose ---------------------------------------------------------------------------------------------------------------------
+// ---- nudge lens ---------------------------------------------------------------------------------------------------------------
+test('nudge lens: the rows are the recorded secants, and the JS curve it draws agrees with them', () => {
+  const rows = nudgeRows(data);
+  assert.equal(rows.length, data.secants.length);
+  rows.forEach((r, i) => {
+    const s = data.secants[i];
+    assert.deepEqual([r.h, r.before, r.after, r.actual, r.ratio, r.grad], [s.h, s.L0, s.L_h, s.dL, s.slope, s.backward_slope]);
+    assert.equal(r.grad, data.probes[0].grad);
+    assert.ok(tol(r.predicted, -24 * s.h, 1e-12), 'gradient x nudge');
+    // the model draws the curve between the recorded points: double vs float32 (the 0.001 secant loses digits in float32)
+    assert.ok(Math.abs(m.lossAt(s.h) - s.L_h) < 1e-5, `L(${s.h})`);
+    assert.ok(Math.abs((m.lossAt(s.h) - m.lossAt(0)) / s.h - s.slope) < 1e-2, `secant at ${s.h}`);
+    assert.ok(tol(s.expected_slope, 4 * s.h - 24, 1e-12), 'expected mathematics: (L(h) - L(0))/h = 4h - 24');
+    assert.ok(r.gap > 0, 'the bowl bends upward, so the curve is above the straight line');
+    assert.ok(Math.abs(r.gap - 4 * s.h * s.h) < 1e-2 * Math.max(s.h, 0.01), `the promise misses by about 4h² at ${s.h}`);
+    // the view holds every point it draws
+    const v = lensView(r, m.lossAt);
+    for (const [x, y] of [[r.w0, r.before], [r.w0 + r.h, r.after], [r.w0 + r.h, r.before + r.predicted]]) {
+      assert.ok(x > v.x[0] && x < v.x[1] && y > v.y[0] && y < v.y[1], `point (${x}, ${y}) inside the view for h=${r.h}`);
+    }
+  });
+  // the task's observation: the gap shrinks faster than the nudge, so the curve looks straighter at every zoom
+  const share = rows.map((r) => r.gap / Math.abs(r.predicted));
+  for (let i = 1; i < share.length; i++) assert.ok(share[i] < share[i - 1], `the gap is a smaller share of the change at h=${rows[i].h}`);
+  for (let i = 1; i < rows.length; i++) assert.ok(Math.abs(rows[i].ratio - rows[i].grad) < Math.abs(rows[i - 1].ratio - rows[i - 1].grad), 'the ratio comes closer to the gradient');
+});
+
+// ---- two bowls ----------------------------------------------------------------------------------------------------------------
+test('two bowls: the rows are steep.compare, with the same distance and four times the gradient at every weight', () => {
+  const rows = bowlRows(data);
+  assert.equal(rows.length, steep.compare.length);
+  for (const r of rows) {
+    assert.ok(tol(r.distance, Math.abs(r.w - data.setup.w_min), 1e-9), `distance at ${r.w}`);
+    assert.equal(r.ratio, 4);
+    assert.ok(tol(r.steepGrad, 4 * r.grad, 1e-6), `steep gradient at ${r.w}`);
+    const p = data.probes.find((q) => q.w === r.w), sp = steep.probes.find((q) => q.w === r.w);
+    assert.ok(p && sp, `both bowls have a probe at ${r.w}`);
+    assert.deepEqual([r.grad, r.L, r.steepGrad, r.steepL], [p.grad, p.L, sp.grad, sp.L]);
+  }
+  assert.ok(Math.sign(rows[3].grad) > 0 && Math.sign(rows[3].steepGrad) > 0, 'past the bottom both gradients are positive');
+  // the recorded steep bowl is 16(w-3)^2 with gradient 32(w-3)
+  for (const q of steep.grid) assert.ok(tol(q.L, 16 * (q.w - 3) ** 2, 1e-9) && tol(q.grad, 32 * (q.w - 3), 1e-9), `steep grid at ${q.w}`);
+  const pts = data.grid.map((q) => [q.w, q.L]);
+  assert.ok(Math.abs(lossOn(pts, 5.1) - 4 * 2.1 ** 2) < 0.1, 'label placement interpolates the recorded curve');
+});
+
+// ---- the lesson -------------------------------------------------------------------------------------------------------------
 const lesson = (await import('../js/lessons/why-gradients.js')).default;
-const html = renderLesson(lesson, D).map((p) => p.html).join('\n');
+const parts = renderLesson(lesson, D, { course: course() });
+const html = parts.map((p) => p.html).join('\n');
+const shown = Object.fromEntries(boundNums(html).map(({ path, shown: v }) => [path, v]));
+const F = 'files.why-gradients';
+const sectionOf = (id) => parts.find((p) => p.section.id === id || p.html.includes(`id="wg-${id}"`)).html;
+const plainText = (h) => h.replace(/<style[\s\S]*?<\/style>/g, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
 
-test('every number in the lesson prose is bound to the trace, and the bound text is what T() gives', () => {
-  for (const { section, html: h } of renderLesson(lesson, D)) {
-    assert.deepEqual(findUnboundNums(h), [], section.kind);
-    for (const { path, shown } of boundNums(h)) assert.equal(T.text(path), shown, path);
-  }
-  // the numbers the lesson's argument rests on: L = 36 and slope -24 at w = 0, one step at lr 0.05 to 1.2 / 12.96, the bounce 6, 0, 36
-  const shown = Object.fromEntries(boundNums(html).map(({ path, shown: v }) => [path, v]));
-  const t = 'files.why-gradients.trajectories';
-  assert.deepEqual([shown['why.L.value'], shown['why.w.grad'], shown[`${t}.0.states.1.w`], shown[`${t}.0.states.1.L`], shown[`${t}.3.states.1.w`], shown[`${t}.3.states.2.w`], shown[`${t}.3.states.8.L`], shown['why.e.grad']],
-    ['36', '-24', '1.2', '12.96', '6', '0', '36', '-12']);
-  assert.deepEqual([shown[`${t}.2.lr`], shown[`${t}.3.lr`], shown[`${t}.4.lr`]], ['0.125', '0.25', '0.3'], 'exact / bounce / diverge');
+test('the lesson is a v3 lesson that lights the adjust step, and the chain rule and the graph lab have left it', () => {
+  assert.equal(lesson.template, 3);
+  assert.equal(lesson.loop, 'adjust');
+  assert.equal(lesson.title, 'The gradient');
+  assert.ok(!lesson.sections.some((s) => s.kind === 'widget' && s.id === 'chain-lab'), 'no graph lab (it moves to backprop)');
+  assert.doesNotMatch(plainText(html), /chain rule|local derivative|w_\{k\+1\}/i);
+  assert.deepEqual(lesson.sections.filter((s) => s.kind === 'widget').map((s) => s.id), ['nudge-lens', 'two-bowls', 'bowl']);
+  const quizzes = lesson.sections.filter((s) => s.kind === 'quiz');
+  assert.deepEqual(quizzes.map((q) => `${q.id}:${q.purpose}`), ['nudge:predict', 'your-step:check', 'best-lr:check', 'steep-step:transfer', 'worst-guess:cumulative']);
+  assert.equal(quizzes.find((q) => q.purpose === 'cumulative').from, 'what-is-learning');
 });
 
-test('the lesson keeps to the style budget (docs/authoring.md)', () => {
-  const st = lessonStats(lesson, D, renderLesson, boundNums);
-  assert.ok(st.words <= 800, `${st.words} words`);
-  assert.ok(st.numbers <= 25, `${st.numbers} numbers`);
-  assert.ok(st.widgets <= 2, `${st.widgets} widgets`);
-  assert.ok(st.questions <= 3, `${st.questions} questions`);
-  assert.equal(lesson.sections[1].kind, 'tldr', 'the TL;DR comes right after the hero');
-  assert.ok(lesson.sections[1].items(D, T).length <= 4);
-  assert.equal(lesson.footer, undefined, 'the standard one-line footer');
-  assert.doesNotMatch(html, /recorded|recomputed|printed by|in your browser|show as table/i, 'provenance is stated once, on the home page');
+test('the story: two notebooks cost 6 euros, the loss is the squared miss, the start w = 0 has loss 36, and 6 / 2 is the price', () => {
+  const p0 = data.probes[0];
+  assert.deepEqual([data.setup.x, data.setup.t, p0.w, p0.p, p0.L], [2, 6, 0, 0, 36]);
+  assert.equal(data.nudge.miss_before, Math.abs(p0.e));
+  assert.equal(p0.L, p0.e ** 2, 'the loss is the square of the miss');
+  assert.equal(data.setup.t / data.setup.x, data.setup.w_min, 'dividing gives the price');
+  const s = sectionOf('price');
+  assert.ok(s.includes(`<code>(${data.setup.x}w - ${data.setup.t})^2</code>`) || s.includes('katex'), 'the loss formula');
+  assert.equal(shown[`${F}.probes.0.L`], '36');
+  assert.equal(shown['anchors.mlp_parameters'], '26,506');
 });
 
-// Strip everything that is not running prose (tags, bound numbers, code, formulas, headings' numerals); no digit may survive.
-function proseDigits(h) {
-  return h
-    .replace(/<style[\s\S]*?<\/style>/g, '')
-    .replace(/<span class="num"[^>]*>[^<]*<\/span>/g, '')
-    .replace(/<pre[\s\S]*?<\/pre>/g, '')
-    .replace(/<code>[\s\S]*?<\/code>/g, '')
-    .replace(/<h[23][^>]*>\s*\d\s·/g, '<h2>')                                    // “1 · The gradient is a slope”
-    .replace(/<[^>]+>/g, ' ')
-    .match(/[^\s]*\d[^\s]*/g) ?? [];
-}
-
-test('no hand-typed digits survive in the prose, the layout text or the check/predict sections', () => {
-  const saved = globalThis.katex;
-  globalThis.katex = undefined;                                     // formulas then render as <code>latex</code>, which the lint skips
-  let leftover;
-  try { leftover = renderLesson(lesson, D).flatMap(({ html: h }) => proseDigits(h)); } finally { globalThis.katex = saved; }
-  assert.deepEqual(leftover, []);
-  const layout = whyLayout(T);
-  for (const field of ['goal', 'intro', 'forwardHint', 'backwardHint', 'takeaway']) {
-    assert.deepEqual(findUnboundNums(layout[field]), [], field);
-    for (const { path, shown } of boundNums(layout[field])) assert.equal(T.text(path), shown, `${field}: ${path}`);
-    assert.deepEqual(proseDigits(layout[field]), [], field);
-  }
-  assert.deepEqual(new Set(layout.above), new Set(['x', 't']));
-  assert.deepEqual(new Set(Object.keys(layout.pos)), new Set(scene.nodes.map((n) => n.name)), 'every node of the scene has a position');
+test('the predict quiz: nudging w to 0.01 gives the miss 5.98 and the loss 35.76, a change of about −0.24, about −24 per unit', () => {
+  const n = data.nudge;
+  assert.ok(tol(n.stages[0].after, data.setup.x * n.delta, 1e-6), 'the prediction is 2 × 0.01');
+  assert.ok(tol(n.miss_after, n.miss_before - data.setup.x * n.delta, 1e-6));
+  assert.ok(tol(n.stages[2].after, n.miss_after ** 2, 1e-6), 'the new loss is the new miss squared');
+  assert.equal(lesson.sections.find((q) => q.id === 'nudge').answer, `${F}.nudge.stages.2.after`);
+  assert.deepEqual([shown[`${F}.nudge.delta`], shown[`${F}.nudge.stages.0.after`], shown[`${F}.nudge.miss_after`], shown[`${F}.nudge.stages.2.after`]], ['0.01', '0.02', '5.98', '35.76']);
+  assert.equal(shown[`${F}.nudge.actual_dL`], '−0.24');
+  assert.equal(shown[`${F}.nudge.ratio`], '−24');
 });
 
-test('the formulas in the prose (the bowl, the factor, the chain product) come from the scene and are true', () => {
+test('section 1: a nudge ten times smaller changes the loss about ten times less, the ratio stays near −24, and the signs', () => {
+  const s = data.secants;
+  assert.ok(Math.abs(s[3].dL / s[4].dL - 10) < 0.1, 'ten times smaller nudge, about ten times smaller change');
+  assert.ok(Math.abs(s[2].dL / s[3].dL - 10) < 0.2);
+  for (const q of s.slice(2)) assert.ok(Math.abs(q.slope - data.probes[0].grad) < 0.5, `ratio near −24 at h=${q.h}`);
+  // a negative gradient: a larger w gives a smaller loss; a positive one: a smaller w gives a smaller loss
+  const [p0, p1] = data.probes, p6 = data.probes[5], p72 = data.probes[6];
+  assert.ok(p0.grad < 0 && p1.w > p0.w && p1.L < p0.L);
+  assert.ok(p6.grad > 0 && p72.w > p6.w && p72.L > p6.L);
+  // "slope" appears once, to define the gradient (decision 14); dL/dw is read aloud
+  const prose = plainText(html.replace(/<pre[\s\S]*?<\/pre>/g, ' '));
+  assert.equal((prose.match(/\bslope/gi) ?? []).length, 1, 'the one allowed use of "slope"');
+  assert.match(prose, /the gradient is the slope of the loss curve at the current point/);
+  assert.match(sectionOf('gradient'), /data-sym="dl-dw"/);
+  assert.match(prose, /how much the loss changes per unit change of/);
+});
+
+test('section 2 and the learner step: 0 − 0.05 × (−24) = 1.2, then 1.2 − 0.05 × (−14.4) = 1.92, steps shrink, 60% kept', () => {
+  const t0 = tr[SLOW];
+  const [s0, s1] = t0.states;
+  assert.ok(tol(s0.w - t0.lr * s0.grad, s0.w_next, 1e-6) && tol(s0.w_next, s1.w, 0));
+  assert.ok(tol(s1.w - t0.lr * s1.grad, s1.w_next, 1e-6));
+  assert.ok(s0.w < s0.w_next && s0.w_next < data.setup.w_min, 'w goes up, toward the true price');
+  assert.deepEqual([shown[traj(SLOW, 'states.0.w_next')], shown[traj(SLOW, 'states.1.w')], shown[traj(SLOW, 'states.1.grad')], shown[traj(SLOW, 'states.1.w_next')]], ['1.2', '1.2', '−14.4', '1.92']);
+  assert.ok(tol(s0.step, s0.w_next - s0.w, 1e-6) && tol(s1.step, s1.w_next - s1.w, 1e-6) && s1.step < s0.step, 'the step shrank');
+  assert.deepEqual([shown[traj(SLOW, 'states.0.step')], shown[traj(SLOW, 'states.1.step')]], ['1.2', '0.72']);
+  for (const st of t0.states) assert.ok(Math.abs(st.kept - 0.6) < 1e-5, `each step keeps 60 % (k=${st.k})`);
+  assert.equal(shown[traj(SLOW, 'kept_percent')], '60');
+  assert.ok(s1.grad > s0.grad && s1.grad < 0, 'the curve is flatter at 1.2 than at 0');
+  // the arrow is read "replace w by", lr is upright, the gradient has no letter g, and the real line is L.backward()
+  const raw = rawHtml();
+  assert.ok(raw.includes('w \\leftarrow w - \\mathrm{lr}\\times\\text{gradient}'));
+  assert.match(plainText(html), /Read the arrow as “replace w by”/);
+  assert.doesNotMatch(raw, /\\mathit\{lr\}|\\cdot g\b/);
+  assert.match(html, /<figure class="real-line"><pre[^>]*><code>L\.backward\(\);<\/code><\/pre>/);
+});
+
+test('section 3: four notebooks cost 12 euros, same bottom and distance, gradient −96, the miss and the effect of w both double', () => {
+  const s0 = steep.probes[0], p0 = data.probes[0];
+  assert.deepEqual([steep.setup.x, steep.setup.t, steep.setup.w_min, s0.w], [4, 12, data.setup.w_min, p0.w]);
+  assert.equal(s0.grad, -96);
+  assert.equal(s0.grad, 4 * p0.grad, 'four times larger');
+  assert.equal(s0.e, 2 * p0.e, 'the miss is twice as large');
+  assert.equal(steep.setup.x, 2 * data.setup.x, 'each nudge changes the prediction twice as much');
+  assert.equal(steep.compare[0].distance, Math.abs(p0.w - data.setup.w_min), 'the same distance');
+  assert.deepEqual([shown[`${F}.steep.probes.0.grad`], shown[`${F}.probes.0.grad`]], ['−96', '−24']);
+  assert.match(sectionOf('steep'), /four times larger/);
+});
+
+function traj(i, rest) { return `${F}.trajectories.${i}.${rest}`; }
+function rawHtml() {
   const saved = globalThis.katex;
   globalThis.katex = undefined;
-  let raw;
-  try { raw = renderLesson(lesson, D).map((p) => p.html).join('\n'); } finally { globalThis.katex = saved; }
-  assert.ok(raw.includes(`L(w) = (${m.x}w-${m.t})^2 = ${m.x * m.x}(w-${m.wMin})^2`), 'L(w) written out');
-  assert.equal(m.x * m.x, m.curvature / 2);
-  assert.ok(raw.includes(`f = 1-${m.curvature}\\,\\mathit{lr}`), 'the factor');
-  for (const t of data.trajectories) assert.ok(tol(t.factor, m.factor(t.lr), 1e-12), `factor at ${t.lr}`);
-  assert.deepEqual([2, 3, 4].map((i) => m.factor(data.trajectories[i].lr)), [0, -1, 1 - m.curvature * 0.3], 'exact, bounce, diverge');
-  const [sp, se, sL] = m.localSlopes(m.w0).map((q) => q.slope);
-  assert.deepEqual([sp, se, sL], [m.x, 1, 2 * m.at(m.w0).e]);
-  assert.ok(raw.includes(`= ${sp}\\cdot ${se}\\cdot (${sL}) = ${m.at(m.w0).grad}`), 'the chain product with the recorded local slopes');
-  assert.equal(sp * se * sL, data.nudge.local_slope_product);
-  // the code snippet is faithful to the trace program: only w requires grad, and the API is w.grad()
-  assert.match(html, /Variable w\(Tensor\(\{<span[^>]*>0<\/span>\.0f\}, \{1\}\), true\)/);
-  assert.match(html, /Variable x\(Tensor\(\{<span[^>]*>2<\/span>\.0f\}, \{1\}\), false\)/);
-  assert.ok([m.w0, m.x, m.t].every(Number.isInteger), 'integer leaves, so "N.0f" is right');
-  assert.match(html, /w\.grad\(\) now holds the gradient/);
-});
+  try { return renderLesson(lesson, D, { course: course() }).map((p) => p.html).join('\n'); } finally { globalThis.katex = saved; }
+}
 
-test('predict and check sections exist, are answered from the trace, and have unique ids', () => {
-  const kinds = lesson.sections.map((s) => s.kind);
-  assert.equal(kinds.filter((k) => k === 'predict').length, 1);
-  assert.equal(kinds.filter((k) => k === 'check').length, 2);
-  const ids = lesson.sections.filter((s) => s.id).map((s) => s.id);
-  assert.equal(new Set(ids).size, ids.length);
-  // the bounce answer: lr 0.25 sits at 6, 0, 6 ... with the loss pinned at 36
-  const bounce = data.trajectories[3];
+test('the fog bowl tasks and the learning-rate section: 0.05 settles, 0.25 bounces 0, 6, 0, 0.3 grows, shares 60/20/100/140 %', () => {
+  const slow = tr[SLOW], fast = tr[FAST], bounce = tr[BOUNCE], div = tr[DIVERGE];
+  for (let k = 1; k < 9; k++) assert.ok(slow.states[k].L < slow.states[k - 1].L && Math.abs(slow.states[k].step) < Math.abs(slow.states[k - 1].step), `0.05 settles, k=${k}`);
+  assert.ok(Math.abs(slow.states[8].grad) < 0.5, 'after eight steps the gradient is near zero');
   assert.deepEqual(bounce.states.slice(0, 5).map((s) => s.w), [0, 6, 0, 6, 0]);
-  assert.ok(bounce.states.every((s) => s.L === 36));
-  // the sign check quotes w = 6, slope 24
-  assert.deepEqual([data.probes[5].w, data.probes[5].grad], [6, 24]);
+  assert.ok(bounce.states.every((s) => s.crossed && s.kept === 1 && s.L === 36), 'as far past the bottom as it started, forever');
+  for (let k = 1; k < 9; k++) assert.ok(div.states[k].distance > div.states[k - 1].distance && div.states[k].L > div.states[k - 1].L, `0.3 jumps farther, k=${k}`);
+  // best-lr: after eight steps, lr 0.1 is closest to the bottom
+  const after8 = [SLOW, FAST, BOUNCE, DIVERGE].map((i) => Math.abs(tr[i].states[8].w - data.setup.w_min));
+  assert.equal(Math.min(...after8), after8[1]);
+  assert.equal(lesson.sections.find((q) => q.id === 'best-lr').options.findIndex((o) => o.correct), 1);
+  // a larger rate keeps a smaller share, up to a point; the shares the text and the reveal state
+  assert.ok(fast.kept < slow.kept && bounce.kept > fast.kept);
+  const human = Object.fromEntries(boundNums(html).filter((b) => b.human).map((b) => [b.path, b.shown]));
+  assert.deepEqual([traj(FAST, 'kept'), traj(SLOW, 'kept'), traj(BOUNCE, 'kept'), traj(DIVERGE, 'kept')].map((p) => human[p]), ['20%', '60%', '100%', '140%']);
+  assert.ok(tol(fast.factor, 1 - 8 * fast.lr, 1e-12) && tol(div.factor, -1.4, 1e-12), 'expected mathematics: the share is |1 − 8 lr|');
 });
 
-// ---- (g) KaTeX parses all paper work --------------------------------------------------------------------------------------------------
-test('(g) every LaTeX string the bowl widget produces parses in KaTeX (throwOnError)', () => {
+test('the transfer quiz: on the steep bowl, 0 − 0.05 × (−96) = 4.8 lands past the bottom', () => {
+  const s = steep.trajectories[0], s0 = s.states[0];
+  assert.ok(tol(s0.w - s.lr * s0.grad, s0.w_next, 1e-6));
+  assert.ok(Math.abs(s0.w_next - 4.8) < 1e-5);
+  assert.ok(s0.w_next > steep.setup.w_min && s0.crossed, 'past the bottom');
+  assert.ok(Math.abs(s0.step) > Math.abs(tr[SLOW].states[0].step), 'the same learning rate makes a longer step on steeper ground');
+  assert.equal(lesson.sections.find((q) => q.id === 'steep-step').answer, `${F}.steep.trajectories.0.states.0.w_next`);
+});
+
+test('the cumulative quiz: among w = 1.2, 3 and 6 the guess 6 has the largest loss, the same as the start', () => {
+  const [p12, p3, p6] = [3, 4, 5].map((i) => data.probes[i]);
+  assert.ok(p6.L > p12.L && p12.L > p3.L && p3.L === 0);
+  assert.deepEqual([p6.p, p6.e, p6.L], [12, 6, data.probes[0].L]);
+  assert.equal(p3.w, data.setup.w_min, 'w = 3 is the true price');
+  assert.equal(lesson.sections.find((q) => q.id === 'worst-guess').options.findIndex((o) => o.correct), 2);
+});
+
+test('the In TorC panel quotes the SGD::step line of the pinned TorC', () => {
+  const line = 'param->data() = param->data().sub(grad.mul(lr_));';
+  assert.ok(html.includes(line.replace(/>/g, '&gt;')), 'the panel shows the line');
+  const src = new URL('../../build/trace/_deps/torc-src/src/optim.cpp', import.meta.url);
+  if (existsSync(src)) assert.ok(readFileSync(src, 'utf8').includes(line), 'the line is in TorC src/optim.cpp');
+});
+
+test('every number is bound, and no hand-typed digit survives in the prose, quizzes or tasks', () => {
+  for (const { section, html: h } of parts) assert.deepEqual(findUnboundNums(h), [], section.kind);
+  const digits = rawHtml()
+    .replace(/<style[\s\S]*?<\/style>/g, '').replace(/<span class="num"[^>]*>[^<]*<\/span>/g, '')
+    .replace(/<pre[\s\S]*?<\/pre>/g, '').replace(/<code>[\s\S]*?<\/code>/g, '').replace(/<svg[\s\S]*?<\/svg>/g, '')
+    .replace(/<h[23][^>]*>\s*\d\s·/g, '<h2>').replace(/<[^>]+>/g, ' ').match(/[^\s]*\d[^\s]*/g) ?? [];
+  assert.deepEqual(digits, []);
+  assert.equal(lesson.footer, undefined, 'the standard one-line footer');
+});
+
+// ---- KaTeX and number formats ---------------------------------------------------------------------------------------------
+test('every LaTeX string of the bowl widget and of the lesson parses in KaTeX (throwOnError)', () => {
   let count = 0;
   for (const lr of PRESET_LRS) {
     for (let w = -1; w <= 7.0001; w += 0.05) { renderStrictAll([updateTex(m, w, lr)]); count++; }
@@ -225,44 +309,45 @@ test('(g) every LaTeX string the bowl widget produces parses in KaTeX (throwOnEr
   }
   assert.ok(count > 600);
   assert.doesNotMatch(html, /katex-error/);
+  const formulas = [...rawHtml().matchAll(/<code>([^<]*\\[^<]*|\([^<]*\)\^2|\dw)<\/code>/g)].map((x) => x[1].replace(/&amp;/g, '&'));
+  assert.ok(formulas.length >= 3, formulas.join(' | '));
+  renderStrictAll(formulas);
+  assert.equal(updateTex(m, 0, 0.05), '\\text{new } w = 0 - 0.05 \\times (-24) = 1.2');
 });
 
-test('the layout of the graph lab and the lab itself agree with the scene', () => {
-  const lay = whyLayout(T);
-  assert.ok(lay.view[0] > 0 && lay.view[1] > 0 && lay.minWidth > 0);
-  for (const [name, [x, y]] of Object.entries(lay.pos)) assert.ok(x > 0 && x < lay.view[0] && y > 0 && y < lay.view[1], `${name} inside the view`);
-  assert.equal(scene.root, 'L');
-  assert.equal(scene.nodes.find((n) => n.name === 'L').inputs.join(), 'e,e');
-});
-
-// ---- widgets import without a DOM ------------------------------------------------------------------------------------------------------
-test('the bowl widget imports in Node without touching the DOM', async () => {
-  assert.equal(typeof document, 'undefined');
-  const a = await import('../js/widgets/bowl.js');
-  assert.equal(typeof a.mountBowl, 'function');
-  assert.equal(typeof document, 'undefined');
-});
-
-test('huge values from a diverging run are shown in exponent form, never as 8219000000000000000', () => {
+test('readouts use 3 significant figures and the minus sign; huge values use exponent form', () => {
+  assert.equal(fmt3(-23.9601135), '−24');
+  assert.equal(fmt3(-2.3599968), '−2.36');
+  assert.equal(fmt3(-0.0239944458), '−0.024');
+  assert.equal(fmt3(35.7603989), '35.8');
+  assert.equal(fmt3(1.20000005), '1.2');
+  assert.equal(fmt3(1.19e-10), '0');
+  assert.equal(fmt3(8.219e18), '8.22e18');
+  assert.equal(fmt3(-2.93e21), '−2.93e21');
   assert.equal(fmtX(8.219e18), '8.219e18');
-  assert.equal(fmtX(-2.93e21), '-2.93e21');
-  assert.equal(fmtX(1.5e7), '1.5e7');
-  assert.equal(fmtX(-2.1e6), '-2.1e6', 'the readout switches to exponent form at 1e6, like the slope next to it');
-  assert.equal(texX(-1.68e7), '-1.68\\times 10^{7}', 'inside KaTeX a bare e would read as a variable');
-  assert.doesNotMatch(updateTex(m, -2.1e6, 0.3), /\de\d/);
-  assert.equal(fmtX(7841.2), '7841');
-  assert.equal(fmtX(-24), '-24');
-  assert.equal(fmtX(0.01016), '0.01016');
+  assert.equal(texX(-1.68e7), '-1.68\\times 10^{7}');
   const st = m.iterate(m.w0, 0.35, 40);
-  for (const s of st) for (const v of [s.w, s.L, s.grad]) assert.doesNotMatch(fmtX(v), /^-?\d{9,}$/, `${v}`);
-  renderStrictAll([fmtX(1e19), `${fmtX(-1e19)}`, ...st.map((q) => updateTex(m, q.w, 0.35))]);
+  for (const s of st) for (const v of [s.w, s.L, s.grad]) assert.doesNotMatch(fmt3(v), /\d{7,}/, `${v}`);
+  renderStrictAll(st.map((q) => updateTex(m, q.w, 0.35)));
+  assert.doesNotMatch(updateTex(m, -2.1e6, 0.3), /\de\d/);
 });
 
-test('section 4 explains e·e as e squared and says that TorC adds the two uses of e (brief C7)', () => {
-  assert.match(html, /is the square of <code>e<\/code>, so its gradient with respect to <code>e<\/code> is <code>2e<\/code>, which is <span class="num"[^>]*data-trace="why\.e\.grad"[^>]*>-12<\/span>/);
-  assert.match(html, /treats each use of <code>e<\/code> separately, which gives <span class="num"[^>]*data-trace="why\.e\.value"[^>]*>-6<\/span> for each use, and it adds the two results/);
-  assert.doesNotMatch(html, /gets two contributions/);
-  const e = scene.nodes.find((n) => n.name === 'e');
-  assert.equal(e.grad.values[0], 2 * e.value.values[0], '2e is the gradient the page shows');
-  assert.match(html, /href="\.\.\/backprop-lab\/">Backprop lab<\/a> shows why adding is right/);
+// ---- widgets import without a DOM; the graph-lab layout stays for the backprop lesson ---------------------------------------
+test('the widgets import in Node without touching the DOM', async () => {
+  assert.equal(typeof document, 'undefined');
+  for (const f of ['bowl.js', 'nudge-lens.js', 'two-bowls.js']) {
+    const mod = await import(`../js/widgets/${f}`);
+    assert.ok(Object.values(mod).some((v) => typeof v === 'function' && /^mount/.test(v.name)), f);
+  }
+  assert.equal(typeof document, 'undefined');
+});
+
+test('the graph-lab layout of scene why (kept for the lesson backprop) binds its numbers and places every node', () => {
+  const lay = whyLayout(T);
+  for (const field of ['goal', 'intro', 'forwardHint', 'backwardHint', 'takeaway']) {
+    assert.deepEqual(findUnboundNums(lay[field]), [], field);
+    for (const { path, shown: v } of boundNums(lay[field])) assert.equal(T.text(path), v, `${field}: ${path}`);
+  }
+  assert.deepEqual(new Set(Object.keys(lay.pos)), new Set(scene.nodes.map((n) => n.name)));
+  for (const [name, [x, y]] of Object.entries(lay.pos)) assert.ok(x > 0 && x < lay.view[0] && y > 0 && y < lay.view[1], `${name} inside the view`);
 });

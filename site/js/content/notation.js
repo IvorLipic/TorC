@@ -15,6 +15,15 @@ export const NOTATION = [
     match: { latex: ['\\leftarrow'], text: ['←'] },
   },
   {
+    key: 'dl-dw',
+    symbol: 'dL/dw',
+    name: 'the gradient of L with respect to w',
+    read: 'how much the loss changes per unit change of w',
+    meaning: 'The gradient of the loss L at the current value of the weight w. Until the lesson backprop, the course writes it with d.',
+    lesson: 'why-gradients',
+    match: { latex: ['\\frac{dL}{dw}', 'dL/dw'], text: ['dL/dw'] },
+  },
+  {
     key: 'sum',
     symbol: 'Σ',
     name: 'capital sigma',
