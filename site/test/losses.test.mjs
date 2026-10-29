@@ -70,14 +70,13 @@ test('bad labels and logits give the recorded errors', () => {
   assert.equal(e['column-targets'].exception, 'none', 'labels of shape (B, 1) are accepted');
 });
 
-test('MSELoss with a (3, 1) prediction and (3) targets broadcasts to (3, 3): no error, the mean over 9 differences, and a gradient 3 times too large', () => {
-  const m = data.mse_broadcast, y = data.mse.prediction, t = data.mse.target;
-  assert.deepEqual([m.prediction_shape, m.target_shape, m.exception], [[3, 1], [3], 'none']);
-  let sum = 0;
-  for (const yi of y) for (const tj of t) sum += (yi - tj) ** 2;
-  close(m.loss, sum / 9, 1e-5, 'broadcast loss');
-  // the true derivative of the reported loss is 2/9 sum_j (y_i - t_j); TorC divides by input.numel() = 3 instead of 9
-  y.forEach((yi, i) => close(m.grad[i], 3 * (2 / 9) * t.reduce((a, tj) => a + (yi - tj), 0), 1e-5, `grad ${i}`));
+test('MSELoss with a (3, 1) prediction and (3) targets throws a ShapeError (TorC after PR #6), and the page does not quote it', () => {
+  const m = data.mse_mismatch;
+  assert.deepEqual([m.prediction_shape, m.target_shape, m.exception], [[3, 1], [3], 'ShapeError']);
+  assert.equal(m.what, 'MSELoss input shape (3, 1) must match target shape (3)');
+  assert.equal(data.mse_broadcast, undefined, 'the v0.1.0 broadcast entry is gone');
+  const all = renderLesson(lesson, D).map((p) => p.html).join('\n');
+  assert.doesNotMatch(all, /mse_broadcast|mse_mismatch|does not check/, 'library findings stay in docs/library-audit, not on the page');
 });
 
 test('the labels quoted on the page are the ones the trace passed to CrossEntropyLoss', () => {

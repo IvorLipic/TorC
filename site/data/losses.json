@@ -1,6 +1,6 @@
 {
   "schema":"torc-trace/1",
-  "library":{"ref":"v0.1.0","compiler":"clang 18.1.3 (libstdc++ 13)","flags":"-O3 -DNDEBUG -std=c++23 -ffp-contract=off TORC_NATIVE_ARCH=OFF"},
+  "library":{"ref":"38785db59b98a78548b58a16c51a03ec56a65a9d","compiler":"clang 18.1.3 (libstdc++ 13)","flags":"-O3 -DNDEBUG -std=c++23 -ffp-contract=off TORC_NATIVE_ARCH=OFF"},
   "generator":"tools/trace/trace_losses.cpp",
   "kind":"losses",
   "lesson":"losses",
@@ -73,5 +73,5 @@
     {"id":"length","targets":[0,1,2],"exception":"ShapeError","what":"CrossEntropyLoss target length 3 does not match batch size 2"},
     {"id":"column-targets","targets":[0,2],"exception":"none","what":""}
   ],
-  "mse_broadcast":{"prediction_shape":[3,1],"target_shape":[3],"exception":"none","loss":3.33333325,"grad":[2,-3,1]}
+  "mse_mismatch":{"prediction_shape":[3,1],"target_shape":[3],"exception":"ShapeError","what":"MSELoss input shape (3, 1) must match target shape (3)"}
 }

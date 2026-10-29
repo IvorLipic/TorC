@@ -1,6 +1,6 @@
 {
   "schema":"torc-trace/1",
-  "library":{"ref":"v0.1.0","compiler":"clang 18.1.3 (libstdc++ 13)","flags":"-O3 -DNDEBUG -std=c++23 -ffp-contract=off TORC_NATIVE_ARCH=OFF"},
+  "library":{"ref":"38785db59b98a78548b58a16c51a03ec56a65a9d","compiler":"clang 18.1.3 (libstdc++ 13)","flags":"-O3 -DNDEBUG -std=c++23 -ffp-contract=off TORC_NATIVE_ARCH=OFF"},
   "generator":"tools/trace/trace_linear.cpp",
   "kind":"linear",
   "lesson":"linear-layer",
@@ -83,7 +83,7 @@
     {"id":"linear-3x2-(4, 4)","call":"Linear(3, 2) applied to x of shape (4, 4)","in":3,"out":2,"x_shape":[4,4],"exception":"ShapeError","what":"matmul inner dimensions must match, got (4, 4) and (3, 2)"},
     {"id":"linear-3x2-(3)","call":"Linear(3, 2) applied to x of shape (3)","in":3,"out":2,"x_shape":[3],"exception":"ShapeError","what":"matmul requires rank >= 2 operands, got (3) and (3, 2)"},
     {"id":"linear-zero-features","call":"Linear(0, 2)","exception":"TorcError","what":"Linear features must be positive"},
-    {"id":"mse-shapes","call":"MSELoss()(y of shape (2, 2), t of shape (3, 2))","exception":"ShapeError","what":"Cannot broadcast shapes (2, 2) and (3, 2)"},
+    {"id":"mse-shapes","call":"MSELoss()(y of shape (2, 2), t of shape (3, 2))","exception":"ShapeError","what":"MSELoss input shape (2, 2) must match target shape (3, 2)"},
     {"id":"linear-3x2-(4, 3)","call":"Linear(3, 2) applied to x of shape (4, 3)","in":3,"out":2,"x_shape":[4,3],"exception":"none","what":"","y_shape":[4,2]}
   ],
   "init_stats":[

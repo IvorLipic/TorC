@@ -11,7 +11,7 @@ numbers mean, derivations, library symbols): `docs/lessons/<lesson>.md`.
 ## Conventions
 
 - **Envelope** (top of every file, in this order): `schema` = `"torc-trace/1"`; `library` = `{ref, compiler, flags}` (`ref` is the content of
-  `TORC_REF`, e.g. `"v0.1.0"`; `compiler` e.g. `"clang 18.1.3 (libstdc++ 14)"`; `flags` the build flags, including `-ffp-contract=off`, which the trace build sets for TorC and the producers so that no
+  `TORC_REF`, a release tag such as `"v0.1.0"` or a full commit SHA such as `"38785db59b98a78548b58a16c51a03ec56a65a9d"`; `compiler` e.g. `"clang 18.1.3 (libstdc++ 14)"`; `flags` the build flags, including `-ffp-contract=off`, which the trace build sets for TorC and the producers so that no
   fused multiply-add changes a result on a CPU that has one; the last two are informational and
   are not compared by the drift check); `generator` = source file of the producer; `kind` = topic (`autograd` | `why` | `optim` | `linear` | `tensors` | `nonlinearity` | `modules` | `losses` | `training` | `optimizers` | `generalization` | `mnist-mlp` | `conv` | `mnist-cnn`);
   `lesson` = first lesson that uses the file. Everything else is topic data. Unknown keys must be ignored by consumers.
@@ -133,8 +133,9 @@ cases[{target, loss, softmax[3], grad[3]}]}` for targets 0, 1, 2 (`nn::CrossEntr
 loss, grad[6]}` (the mild row with target 0 and the confident row with target 2). `curves` = `{z[49], ce_loss, ce_grad, sq_loss, sq_grad}`
 for logits `[z, 0]` with target 0, z from -6 to 6 in steps of 0.25: cross-entropy, and `nn::MSELoss` of `softmax(z, 1)` against the
 one-hot target; the gradients are with respect to `z` from `backward()`. `errors[]` = `{id, targets, exception, what}` for `not-integer`,
-`out-of-range`, `rank-1-logits`, `length` and `column-targets` (`exception` `"none"`). `mse_broadcast` = `{prediction_shape [3, 1],
-target_shape [3], exception, loss, grad[3]}`: `nn::MSELoss` on shapes that broadcast (TorC does not check them). Producer:
+`out-of-range`, `rank-1-logits`, `length` and `column-targets` (`exception` `"none"`). `mse_mismatch` = `{prediction_shape [3, 1],
+target_shape [3], exception, what}`: `nn::MSELoss` on shapes that differ (`ShapeError` since TorC PR #6; v0.1.0 broadcast them,
+threw nothing and recorded `mse_broadcast` = `{…, loss, grad[3]}` instead). Not shown on the lesson page. Producer:
 `tools/trace/trace_losses.cpp`.
 
 ## `training.json` (kind `training`, lesson `training-loop`)

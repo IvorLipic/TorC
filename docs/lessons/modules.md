@@ -2,7 +2,7 @@
 
 Not shipped. Library symbols, and what is observed, expected and suspected.
 
-## Library symbols (TorC v0.1.0)
+## Library symbols (TorC `38785db`, `main` = v0.1.0 + PR #5 + PR #6)
 `nn::Module` (`include/torc/nn.hpp`, `src/nn.cpp`): `register_parameter` stores into an `std::unordered_map`, so `parameters()`
 returns pointers in the map's iteration order; `operator()` clears `forward_cache_` and calls `forward`. `nn::Sequential::add`
 (throws on null), `forward` (chains modules, caching each output), `parameters()` (its own, then each child's). `nn::ReLU`

@@ -1,12 +1,14 @@
 // Every published lesson renders in Node against the real trace data: text sections, no hand-typed numerals.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { flatLessons, isPublished } from '../js/core/course.js';
 import { buildD, makeT, stemOf } from '../js/core/trace.js';
 import { renderLesson, validateLesson, findUnboundNums, boundNums, defaultFooter } from '../js/core/sections.js';
 import { course, readJson, SITE, lessonStats, sectionWords, proseProblems } from './helpers.mjs';
 
+// the pinned TorC ref (first non-comment line of tools/trace/TORC_REF); every trace envelope records it as library.ref
+const TORC_REF = readFileSync(new URL('../tools/trace/TORC_REF', SITE), 'utf8').split('\n').map((l) => l.trim()).find((l) => l && !l.startsWith('#'));
 const lessons = flatLessons(course());
 
 test('course.json lists at least one published lesson', () => {
@@ -33,7 +35,11 @@ for (const entry of lessons.filter((l) => isPublished(l) || existsSync(new URL(`
       assert.doesNotMatch(html, /\bundefined\b|\[object Object\]|NaN/, `${section.kind} section contains a rendering accident`);
     }
     if (lesson.footer) assert.equal(typeof lesson.footer(D, T), 'string');
-    else assert.match(defaultFooter(lesson, D), /href="https:\/\/github\.com\/IvorLipic\/TorC\/tree\/v0\.1\.0"/, 'the source link points at the pinned release');
+    else {
+      const footer = defaultFooter(lesson, D);
+      assert.ok(footer.includes(`href="https://github.com/IvorLipic/TorC/tree/${encodeURIComponent(TORC_REF)}"`), `the source link points at the pinned ref ${TORC_REF}`);
+      assert.ok(footer.includes(`<code>${/^[0-9a-f]{40}$/.test(TORC_REF) ? TORC_REF.slice(0, 7) : TORC_REF}</code>`), 'the footer names the pinned ref');
+    }
     assert.match(parts[0].html, /<h1>/, 'the first section carries the lesson heading');
     // style budget (docs/authoring.md): TL;DR right after the hero, short prose, few numbers, at most two widgets and three questions
     assert.equal(lesson.sections[1]?.kind, 'tldr', 'the TL;DR comes right after the hero');

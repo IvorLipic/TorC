@@ -2,7 +2,7 @@
 
 Not shipped. Library symbols, and what is observed, expected and suspected.
 
-## Library symbols (TorC v0.1.0)
+## Library symbols (TorC `38785db`, `main` = v0.1.0 + PR #5 + PR #6)
 `relu` (`src/autograd.cpp`, forward `x > 0 ? x : 0`, backward passes the gradient only where the input is `> 0`, so the
 derivative at exactly 0 is 0), `sigmoid` (backward `s(1 - s)` from the saved output), `softmax(a, axis)` and `Tensor::softmax(axis)`
 (subtracts the maximum of each slice before `exp`), `nn::Linear`, `nn::MSELoss`, `optim::Adam`.

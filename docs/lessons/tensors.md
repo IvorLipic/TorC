@@ -2,7 +2,7 @@
 
 Not shipped. Storyboard, library symbols, and what is observed, expected and suspected.
 
-## Library symbols (TorC v0.1.0)
+## Library symbols (TorC `38785db`, `main` = v0.1.0 + PR #5 + PR #6)
 `Tensor(std::initializer_list<float>, std::vector<int>)`, `Tensor::operator[]` (deduced this, checked), `flat_index`
 (`idx = idx * shape[i] + indices[i]`, row-major), `Tensor::reshape` / `view` (copy the storage, `src/tensor.cpp` 517-527),
 `broadcast_shape` (`include/torc/utils.hpp`, right-aligned, size 1 repeats, else `ShapeError "Cannot broadcast shapes …"`),

@@ -1,6 +1,6 @@
 # Lesson note: `sgd-step` (internal, not shipped)
 
-Library = TorC `v0.1.0` (`4c1eabe`) in `build/trace/_deps/torc-src/`; paths relative to it. Data: `site/data/optim.json`
+Library = TorC `38785db` (`main` = v0.1.0 + PR #5 + PR #6) in `build/trace/_deps/torc-src/`; paths relative to it. Data: `site/data/optim.json`
 (producer `tools/trace/trace_optim.cpp`; schema in `docs/trace-schema.md`). **V** = verified by running the real library (or the independent
 NumPy float64 replica, said where used), **NV** = not verified. No lesson prose here.
 
@@ -12,7 +12,7 @@ NumPy float64 replica, said where used), **NV** = not verified. No lesson prose 
 | `SGD::step()` | `src/optim.cpp:17-30` | for each param **with `has_grad()`** (others silently skipped): no momentum `p = p - lr*grad`; momentum `v = mu*v + grad; p = p - lr*v` (velocity starts at 0, so the first momentum step equals a plain step: V, all `lr0.05` runs have `5.4885` after step 1). Does **not** touch `.grad` |
 | `SGD::zero_grad()` | `src/optim.cpp:32-36` -> `Variable::zero_grad` `src/autograd.cpp:110` | `has_grad_ = false`, `grad_` emptied |
 | `Variable::backward()`, `accumulate_grad` | `src/autograd.cpp:90`, `include/torc/autograd.hpp:75` | grads **add** into existing `.grad` (first call copies, later calls `+=`). `backward()` consumes the tape (`tape_.clear()` at its end), so accumulating needs a **fresh forward pass** before each `backward()`; a second `backward()` on the same root does nothing (V, see `grad-accumulation` in the content plan) |
-| `nn::MSELoss::forward` | `src/nn/losses.cpp:12-45` | `mean((input-target)^2)` as one fused op: one `TapeEntry` with inputs `[input, target]`; backward `2(input-target)/N * grad_output` for the input and its negative for the target. `N` is `input.numel()` (`losses.cpp:30`). Used as the loss node `L` (op name in the scene: `"mse"`) |
+| `nn::MSELoss::forward` | `src/nn/losses.cpp:12-42` | `mean((input-target)^2)` as one fused op: one `TapeEntry` with inputs `[input, target]`; throws `ShapeError` unless input and target have the same shape (`losses.cpp:13-15`); backward `2(input-target)/N * grad_output` for the input and its negative for the target. `N` is the element count of `input - target`, equal to `input.numel()` (`losses.cpp:33`). Used as the loss node `L` (op name in the scene: `"mse"`) |
 | `nn::Linear(1,1)`, `Module::named_parameters()` | `src/nn/linear.cpp:9-50`, `src/nn.cpp:10-16` | parameters `"weight"` ({1,1}) and `"bias"` ({1}); set through `named_parameters().at("weight").data()`. `Module::parameters()` iterates an `unordered_map`, so its **order is unspecified** (SGD does not care: per-parameter independent) |
 | `torc::transpose(a)`, `matmul`, `add` | `src/autograd.cpp:689`, `:583`, `:159` | transpose backward = transpose of the incoming grad; matmul `dA = G B^T`, `dB = A^T G`; add broadcasts the bias `{1}` over 3 rows and `reduce_sum_to_shape` sums its gradient back |
 | Tests that already pin this | `tests/test_nn.cpp:567` `SGD.StepWithoutMomentumUpdatesParams`, `:596` `StepWithMomentumAccumulatesVelocity`, `:617` `ZeroGradClearsAllParamGrads`, `:637` `RejectsNegativeLearningRate` | |
@@ -61,7 +61,7 @@ Independent replica (plain NumPy float64): all `runs[*].steps` (w, b, loss, gw, 
 **Expected (math).** `dL/dy_i = 2 e_i / N` with `e = y - t = [-3,-5,-7]` -> `[-2, -3.333, -4.667]`; `gw = sum_i (dL/dy_i) x_i = -2 - 6.667 - 14 = -22.667`; `gb = sum_i dL/dy_i = -10`; `L = (9+25+49)/3 = 27.667`; step: `w = 0 + 0.05*22.667 = 1.1333`, `b = 0.5`; new `L` by hand: `y = 1.1333x + 0.5 = [1.6333, 2.7667, 3.9]`, `e = [-1.3667, -2.2333, -3.1]`, `L = (1.8678+4.9878+9.61)/3 = 5.4885`. Matches the library.
 
 **Suspected discrepancy (do not put on a lesson page).**
-1. **`MSELoss` with a broadcasting target has a gradient that does not match its loss.** Forward averages over the broadcast result (`squared_data.mean()`, `losses.cpp:16`); backward scales by `2 / input.numel()` (`losses.cpp:30-32`). When `input` and `target` have different shapes that broadcast, the two normalisers differ. Minimal repro (V, run against `v0.1.0`):
+1. **(v0.1.0, fixed at the pin) `MSELoss` with a broadcasting target has a gradient that does not match its loss.** Forward averages over the broadcast result (`squared_data.mean()`, `losses.cpp:16`); backward scales by `2 / input.numel()` (`losses.cpp:30-32`). When `input` and `target` have different shapes that broadcast, the two normalisers differ. Minimal repro (V, run against `v0.1.0`):
    ```cpp
    Variable a(Tensor({1,2,3},{3,1}), true), b(Tensor({3,5,7},{3}), false);   // prediction (3,1), target (3)
    Variable l = nn::MSELoss{}(a, b);   // broadcasts to (3,3): loss = 111/9 = 12.3333
@@ -69,6 +69,7 @@ Independent replica (plain NumPy float64): all `runs[*].steps` (w, b, loss, gw, 
    // central finite differences of the same loss (h = 0.01): [-2.667, -2.0, -1.333]  -> the library gradient is 3x too large
    ```
    Expected: `dL/da_i = (2/9) sum_j (a_i - b_j) = -2.667` for `i=0`. The classic way to hit it is a prediction of shape `(N,1)` against a rank-1 target of shape `(N)`: no error, a plausible-looking loss, and a gradient `N` times too large. Same-shape inputs (this lesson, and `linear_regression.cpp`) are correct (V). **Consequence for the site:** the JS `mse` op must only be offered for equal shapes (or the lesson must say "same shape"); do not port the broadcast case. Report to the owner; fix on `main` with a test (suggested: normalise by the broadcast element count in backward), then bump the pin.
+   **Outcome:** PR #5 made the backward divide by the broadcast count; PR #6 (`38785db`, the pin) makes `forward()` throw `ShapeError` for unequal shapes, so the repro above now throws `MSELoss input shape (3, 1) must match target shape (3)`. Same-shape results are unchanged (V: every trace other than the mismatch entries is identical after the bump).
 2. `Module::parameters()` order is unspecified (`nn.cpp:18-24`, audit D5): never index it by position; use `named_parameters().at("weight")`.
 3. NV: whether `SGD` keeps working if the `Module` is moved after the optimizer was built (it stores raw pointers into the module's map); not tested, not needed.
 

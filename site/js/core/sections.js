@@ -83,5 +83,6 @@ export function renderLesson(lesson, D) {
 export function defaultFooter(lesson, D) {
   const ref = lesson.trace.map((f) => D.files[stemOf(f)]?.library?.ref).find(Boolean);
   const repo = 'https://github.com/IvorLipic/TorC';
-  return `<p>Numbers: TorC${ref ? ` <code>${escapeHtml(ref)}</code>` : ''} · <a href="${ref ? `${repo}/tree/${encodeURIComponent(ref)}` : repo}">source</a></p>`;
+  const shown = ref && /^[0-9a-f]{40}$/.test(ref) ? ref.slice(0, 7) : ref;   // a pinned commit SHA is shown short, linked in full
+  return `<p>Numbers: TorC${ref ? ` <code>${escapeHtml(shown)}</code>` : ''} · <a href="${ref ? `${repo}/tree/${encodeURIComponent(ref)}` : repo}">source</a></p>`;
 }

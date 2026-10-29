@@ -2,7 +2,7 @@
 
 Not shipped. Library symbols, and what is observed, expected and suspected.
 
-## Library symbols (TorC v0.1.0)
+## Library symbols (TorC `38785db`, `main` = v0.1.0 + PR #5 + PR #6)
 `data::MNISTDataset(path, 0, {1, 28, 28})` (samples of shape (1, 28, 28)), `nn::Conv2d`, `nn::ReLU`, `nn::Flatten`, `nn::Linear`,
 `nn::Sequential`, `nn::CrossEntropyLoss`, `optim::AdamW(params, 1e-3)`. The model is that of `examples/mnist_cnn/mnist_cnn.cpp`
 (see `docs/lessons/convolution.md` for `conv2d` itself).
