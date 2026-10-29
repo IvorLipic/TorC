@@ -97,7 +97,7 @@ Tensor r = a.reshape({3, 2});    // the same numbers, a new shape</code></pre>
     },
     {
       kind: 'text',
-      html: () => '<section class="tn"><p>The next lesson, <a href="../linear-layer/">Layers</a>, uses <code>matmul</code> and broadcasting to build a layer of a neural network.</p></section>',
+      html: () => '<section class="tn"><p>The next lesson, <a href="../modules/">Modules</a>, shows how TorC puts layers and activations together into one model.</p></section>',
     },
   ],
 };

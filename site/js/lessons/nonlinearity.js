@@ -99,7 +99,7 @@ Variable y = l2(r);      // with l2(h), the model is linear</code></pre>`),
     },
     {
       kind: 'text',
-      html: () => '<section class="nlx"><p>The next lesson, <a href="../modules/">Modules</a>, puts layers and activations together into one model.</p></section>',
+      html: () => '<section class="nlx"><p>The next lesson, <a href="../losses/">Losses</a>, shows how TorC measures how wrong a model is.</p></section>',
     },
   ],
 };

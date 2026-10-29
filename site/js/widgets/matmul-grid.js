@@ -30,7 +30,7 @@ export function mountMatmulGrid(host, D, ctx = {}) {
   const st = { x: clone2(base.x), W: clone2(base.W), b: base.b.slice(), pin: { i: 0, k: 1 }, hover: null };
   const bad = new Set();
   const badNote = el('div', { class: 'lin-err', id: 'mg-err', 'aria-live': 'polite' });
-  const MSG = 'Enter a number between −1,000,000 and 1,000,000; the last valid value is still in use.';
+  const MSG = 'Enter a number between −1,000,000 and 1,000,000. The grid keeps the last valid value.';
 
   const inputCell = (get, set, label) => {
     const inp = el('input', { type: 'number', step: 'any', class: 'lin-cell', value: String(get()), 'aria-label': label, 'aria-describedby': 'mg-err' });
@@ -43,13 +43,13 @@ export function mountMatmulGrid(host, D, ctx = {}) {
     return inp;
   };
 
-  const mx = matrixEl({ caption: '<code>x</code> · batch, one row per sample', rows: B, cols: nIn, rowTag: (i) => `i=${i + 1}`, colTag: (j) => `j=${j + 1}`,
-    cell: (i, j) => inputCell(() => st.x[i][j], (v) => { st.x[i][j] = v; }, `x, sample ${i + 1}, feature ${j + 1}`) });
-  const mw = matrixEl({ caption: '<code>W</code> · weights, one row per <b>neuron</b>', rows: nOut, cols: nIn, rowTag: (k) => `k=${k + 1}`, colTag: (j) => `j=${j + 1}`,
-    cell: (k, j) => inputCell(() => st.W[k][j], (v) => { st.W[k][j] = v; }, `W, neuron ${k + 1}, weight ${j + 1}`) });
-  const mb = matrixEl({ caption: '<code>b</code> · one bias per neuron', rows: 1, cols: nOut, colTag: (k) => `k=${k + 1}`,
-    cell: (_, k) => inputCell(() => st.b[k], (v) => { st.b[k] = v; }, `b, neuron ${k + 1}`) });
-  const my = matrixEl({ caption: '<code>y</code> · outputs (hover, focus or click one)', rows: B, cols: nOut, rowTag: (i) => `i=${i + 1}`, colTag: (k) => `k=${k + 1}`,
+  const mx = matrixEl({ caption: '<code>x</code> · batch, one row per sample', rows: B, cols: nIn, rowTag: (i) => `i=${i}`, colTag: (j) => `j=${j}`,
+    cell: (i, j) => inputCell(() => st.x[i][j], (v) => { st.x[i][j] = v; }, `x, sample ${i}, feature ${j}`) });
+  const mw = matrixEl({ caption: '<code>W</code> · weights, one row per <b>neuron</b>', rows: nOut, cols: nIn, rowTag: (k) => `k=${k}`, colTag: (j) => `j=${j}`,
+    cell: (k, j) => inputCell(() => st.W[k][j], (v) => { st.W[k][j] = v; }, `W, neuron ${k}, weight ${j}`) });
+  const mb = matrixEl({ caption: '<code>b</code> · one bias per neuron', rows: 1, cols: nOut, colTag: (k) => `k=${k}`,
+    cell: (_, k) => inputCell(() => st.b[k], (v) => { st.b[k] = v; }, `b, neuron ${k}`) });
+  const my = matrixEl({ caption: '<code>y</code> · outputs (hover, focus or click one)', rows: B, cols: nOut, rowTag: (i) => `i=${i}`, colTag: (k) => `k=${k}`,
     cell: (i, k) => {
       const b = el('button', { type: 'button', class: 'lin-cell lin-y', 'data-key': `mg-y-${i}-${k}` });
       b.addEventListener('mouseenter', () => { st.hover = { i, k }; update(); });
@@ -70,7 +70,7 @@ export function mountMatmulGrid(host, D, ctx = {}) {
     update();
   };
   const buttons = el('div', { class: 'lin-btns' },
-    el('button', { type: 'button', class: 'btn small', onclick: () => { st.W[1] = st.W[0].slice(); st.b[1] = st.b[0]; refresh(); } }, 'Copy neuron 1 into neuron 2'),
+    el('button', { type: 'button', class: 'btn small', onclick: () => { st.W[1] = st.W[0].slice(); st.b[1] = st.b[0]; refresh(); } }, 'Copy the first neuron into the second'),
     el('button', { type: 'button', class: 'btn small', onclick: () => { st.x = clone2(base.x); st.W = clone2(base.W); st.b = base.b.slice(); refresh(); } }, 'Reset'));
 
   host.replaceChildren(
@@ -84,7 +84,7 @@ export function mountMatmulGrid(host, D, ctx = {}) {
     for (let i = 0; i < B; i++) for (let k = 0; k < nOut; k++) {
       const c = my.cells[i][k];
       c.textContent = fmt(y[i][k]);
-      c.setAttribute('aria-label', `y, sample ${i + 1}, neuron ${k + 1}: ${fmt(y[i][k])}`);
+      c.setAttribute('aria-label', `y, sample ${i}, neuron ${k}: ${fmt(y[i][k])}`);
     }
     for (const m of [mx, mw, mb, my]) clearMarks(m);
     markRow(mx, act.i); markRow(mw, act.k); markCell(mb, 0, act.k); mb.colTags[act.k]?.classList.add('hl');
@@ -92,7 +92,7 @@ export function mountMatmulGrid(host, D, ctx = {}) {
     paper.innerHTML = math(neuronTex(st.x, st.W, st.b, act.i, act.k), true);
     // twin neurons: identical weights and biases give identical output columns
     const same = y.every((r) => Math.abs(r[0] - r[1]) < 1e-12);
-    twin.textContent = same ? 'The two columns of y are identical: the neurons are twins.' : '';
+    twin.textContent = same ? 'The two columns of y are identical, because the two neurons have the same weights and bias.' : '';
   }
 
   update();

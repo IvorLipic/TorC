@@ -28,20 +28,7 @@ export const UI_ALLOW = [
 // widgets). They are excluded from the checks only so that the branch is green; the lead empties this list after merging the
 // agent that fixes the strings. `from: 'brief'` is named in docs/pedagogy-review.md D15, `from: 'linter'` was found by this
 // extraction. Entry = {file, includes, rule, from}; it matches a string of `file` that contains `includes`.
-export const KNOWN_D15 = [
-  { file: 'matmul-grid.js', includes: 'the last valid value is still in use', rule: 'semicolon', from: 'brief' },
-  { file: 'matmul-grid.js', includes: 'The two columns of y are identical: the neurons are twins', rule: 'colon', from: 'brief' },
-  { file: 'contour2d.js', includes: 'Positions on the trail (before each update; ', rule: 'semicolon', from: 'brief' },
-  { file: 'contour2d.js', includes: 'The view zoomed out to keep the whole trail in sight; ', rule: 'semicolon', from: 'brief' },
-  { file: 'lesson-boot.js', includes: '✓ Done — click to undo', rule: 'dash', from: 'brief' },
-  { file: 'inputs-popover.js', includes: 'recomputed in your browser', rule: 'provenance', from: 'brief' },
-  { file: 'inputs-popover.js', includes: '— type new numbers; everything recomputes.', rule: 'semicolon, dash, provenance', from: 'linter' },
-  { file: 'inputs-popover.js', includes: 'your values (recomputed in browser)', rule: 'provenance (lines 31 and 52)', from: 'linter' },
-  { file: 'digit-widgets.js', includes: '(brighter is larger; each map has its own scale)', rule: 'semicolon', from: 'linter' },
-  { file: 'generalization-widgets.js', includes: 'at each recorded step', rule: 'provenance', from: 'linter' },
-  { file: 'math-window.js', includes: 'was created with code: TorC will compute', rule: 'colon', from: 'linter' },
-  { file: 'math-window.js', includes: 'was created with code: it is data', rule: 'colon', from: 'linter' },
-];
+export const KNOWN_D15 = [];
 
 const SINK_KEYS = new Set(['textContent', 'innerHTML', 'innerText', 'title', 'html', 'text', 'label', 'ariaLabel', 'aria-label',
   'aria-description', 'caption', 'alt', 'placeholder', 'xLabel', 'yLabel', 'tooltip']);

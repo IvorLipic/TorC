@@ -93,7 +93,7 @@ L.backward();               // w.grad() now holds the gradient</code></pre>
         return sec('chain', '4 · How backward() computes the gradient', `
     <p><code>w</code> changes <code>L</code> through three operations. Each operation has a local derivative, which tells how much its output changes when its input changes. The chain rule says that the gradient is the product of the three local derivatives.</p>
     ${eq(`\\frac{dL}{dw} = \\frac{dp}{dw}\\cdot\\frac{de}{dp}\\cdot\\frac{dL}{de} = ${par(s(0))}\\cdot ${par(s(1))}\\cdot ${par(s(2))} = ${T.num('why.w.grad')}`)}
-    <p>The error <code>e</code> appears twice in <code>L = e·e</code>. So <code>e</code> gets two contributions of ${T('why.e.value')}, and TorC adds them to get ${T('why.e.grad')}. The graph below shows each step of this calculation.</p>`);
+    <p>The loss <code>L = e·e</code> is the square of <code>e</code>, so its gradient with respect to <code>e</code> is <code>2e</code>, which is ${T('why.e.grad')}. TorC gets the same answer in a different way. It treats each use of <code>e</code> separately, which gives ${T('why.e.value')} for each use, and it adds the two results. The <a href="../backprop-lab/">Backprop lab</a> shows why adding is right.</p>`);
       },
     },
     {

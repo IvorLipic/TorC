@@ -114,3 +114,16 @@ test('the widget module imports in Node without touching the DOM', async () => {
   assert.equal(typeof m.mountTrainingCurves, 'function');
   assert.equal(typeof document, 'undefined');
 });
+
+test('float32 values from the trace are printed as float32 literals in the code (brief D5)', async () => {
+  const { cf } = await import('../js/widgets/cpp-literal.js');
+  assert.equal(data.setup.noise_std, 0.10000000149011612, 'the trace stores float32 0.1 as a double');
+  assert.equal(cf(data.setup.noise_std), '0.1f');
+  assert.equal(cf(3), '3.0f');
+  assert.equal(cf(Math.fround(0.001)), '0.001f');
+  assert.equal(cf(Math.fround(1 / 3)), '0.33333334f');
+  for (const v of [0.05, 0.9, 0.999, 1e-8, 123.456, 0.3].map(Math.fround)) assert.equal(Math.fround(Number(cf(v).slice(0, -1))), v, String(v));
+  const html = renderLesson(lesson, D).map((p) => p.html).join('\n');
+  assert.match(html, /SyntheticRegression dataset\(100, 1, 3\.0f, 1\.0f, 0\.1f\)/);
+  assert.doesNotMatch(html, /0\.100000001/);
+});

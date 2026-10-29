@@ -4,7 +4,7 @@
 import { $, el } from '../core/dom.js';
 
 const MATCH_TITLE = 'With the preset inputs, every value and gradient on this page equals what the real TorC C++ library printed.';
-const EDITED_TITLE = 'You changed the inputs: values are recomputed in your browser by a JavaScript port of TorC’s rules.';
+const EDITED_TITLE = 'You changed the inputs. This page now computes the values with a JavaScript copy of the TorC rules.';
 
 // 2-D tensors are shown as rows, matching how the matrices are written in the math windows
 function rowsOf(n) {
@@ -26,9 +26,9 @@ export function createInputsPopover(host, { onEdit, onReset, signal }) {
     inner.replaceChildren(
       el('div', { class: 'inputs-head' },
         el('strong', {}, 'Inputs'),
-        el('span', { class: 'hint' }, ' — type new numbers; everything recomputes.'),
+        el('span', { class: 'hint' }, ' Type new numbers. The whole graph uses them.'),
         el('span', { class: 'badge ' + (edited ? 'warn' : 'ok'), id: 'match-badge', title: edited ? EDITED_TITLE : MATCH_TITLE },
-          edited ? 'your values (recomputed in browser)' : '✓ matches the real TorC run'),
+          edited ? 'your values (JavaScript copy of TorC)' : '✓ matches the real TorC run'),
         edited ? el('button', { class: 'link', onclick: onReset }, 'reset') : null),
       el('div', { class: 'inputs-grid' }, leaves.map((n) => el('label', { class: 'input-row', id: 'in-' + n.name },
         el('span', { class: 'in-name' }, n.name, el('small', {}, n.requires_grad ? 'learnable' : 'constant')),
@@ -49,7 +49,7 @@ export function createInputsPopover(host, { onEdit, onReset, signal }) {
   function updateEdited(edited) {
     btn.classList.toggle('edited', edited);
     const b = $('#match-badge', host);
-    if (b) { b.className = 'badge ' + (edited ? 'warn' : 'ok'); b.title = edited ? EDITED_TITLE : MATCH_TITLE; b.textContent = edited ? 'your values (recomputed in browser)' : '✓ matches the real TorC run'; }
+    if (b) { b.className = 'badge ' + (edited ? 'warn' : 'ok'); b.title = edited ? EDITED_TITLE : MATCH_TITLE; b.textContent = edited ? 'your values (JavaScript copy of TorC)' : '✓ matches the real TorC run'; }
     const head = $('.inputs-head', host), link = $('.inputs-head .link', host);
     if (edited && head && !link) head.append(el('button', { class: 'link', onclick: onReset }, 'reset'));
     else if (!edited && link) link.remove();

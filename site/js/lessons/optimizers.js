@@ -53,7 +53,7 @@ optim::Adam adam(params, 0.2f);                 // beta1 0.9, beta2 0.999, eps 1
     {
       kind: 'predict', id: 'p-race', title: 'Before you try it',
       prompt: () => '<p>The three optimizers start at the same point and take the same number of steps. Plain SGD and SGD with momentum use the same learning rate. Which one ends with the lowest loss?</p>',
-      reveal: (D, T) => { const n = D.files.optimizers.valley.steps; return `<p>Adam ends lowest, at ${T(`${RUN.adam}.path.${n}.loss`)}. SGD with momentum ends at ${T(`${RUN.mom}.path.${n}.loss`)}. Plain SGD ends at ${T(`${RUN.sgd}.path.${n}.loss`)}, because it is still far along the valley, at ${math('w_1', false)} = ${T(`${RUN.sgd}.path.${n}.w1`)}.</p>`; },
+      reveal: (D, T) => { const n = D.files.optimizers.valley.steps; return `<p>Adam ends lowest, at ${T(`${RUN.adam}.path.${n}.loss`)}. SGD with momentum ends at ${T(`${RUN.mom}.path.${n}.loss`)}. Plain SGD ends at ${T(`${RUN.sgd}.path.${n}.loss`)}, because it is still far along the valley, at ${math('w_1', false)} = ${T(`${RUN.sgd}.path.${n}.w1`)}.</p><p>This race does not compare the optimizers fairly. Adam got a learning rate about ten times larger than SGD, ${T(`${RUN.adam}.lr`)} against ${T(`${RUN.sgd}.lr`)}. No optimizer wins on every problem.</p>`; },
     },
     {
       kind: 'widget', id: 'race', className: 'widget', label: 'Interactive: the paths of SGD, SGD with momentum and Adam in a narrow valley',

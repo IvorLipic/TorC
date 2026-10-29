@@ -37,7 +37,8 @@ export default {
     {
       kind: 'text',
       html: (D, T) => sec('train', '1 · The model and the training', `
-    <pre class="mc-code" tabindex="0" role="group" aria-label="The CNN training setup in TorC"><code>data::MNISTDataset train_set("mnist_train.csv", 0, {1, 28, 28});   // samples (1, 28, 28)
+    <pre class="mc-code" tabindex="0" role="group" aria-label="The CNN training setup in TorC"><code>// each sample has the shape (1, 28, 28)
+data::MNISTDataset train_set("mnist_train.csv", 0, {1, 28, 28});
 model.add(std::make_unique&lt;nn::Conv2d&gt;(1, 8, 3, 2, 1));
 model.add(std::make_unique&lt;nn::ReLU&gt;());
 model.add(std::make_unique&lt;nn::Conv2d&gt;(8, 16, 3, 2, 1));
@@ -50,7 +51,7 @@ optim::AdamW opt(model.parameters(), 1e-3f);</code></pre>
     {
       kind: 'predict', id: 'p-compare', title: 'Before you try it',
       prompt: (D, T) => `<p>The MLP has ${T(`${MLP}.setup.parameters`)} parameters, and the CNN has ${T(`${F}.setup.parameters`)}. Which one reads more test images correctly?</p>`,
-      reveal: (D, T) => `<p>The CNN, with the settings of the two TorC examples. After ${T(`${F}.setup.epochs`)} epochs, it reads ${T(`${F}.epochs.${last(D, 'mnist-cnn')}.test_correct`)} of the test images correctly. The MLP reads ${T(`${MLP}.epochs.${last(D, 'mnist-mlp')}.test_correct`)} after ${T(`${MLP}.setup.epochs`)} epochs. Each kernel of the CNN uses the same weights at every position. So the model needs few parameters to find a stroke anywhere in the image.</p>`,
+      reveal: (D, T) => `<p>The CNN. After ${T(`${F}.setup.epochs`)} epochs, it reads ${T(`${F}.epochs.${last(D, 'mnist-cnn')}.test_correct`)} of the test images correctly. The MLP reads ${T(`${MLP}.epochs.${last(D, 'mnist-mlp')}.test_correct`)} after ${T(`${MLP}.setup.epochs`)} epochs. This comparison is not perfectly fair, because the two runs use different numbers of epochs and different learning rates. The CNN still wins, with about a third of the parameters. Each kernel of the CNN uses the same weights at every position. So the model needs few parameters to find a stroke anywhere in the image.</p>`,
     },
     {
       kind: 'text',

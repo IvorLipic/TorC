@@ -65,7 +65,7 @@ export default {
     {
       kind: 'text',
       html: (D, T) => sec('lr', '2 · A learning rate that is too large', `
-    <p>Each step is the learning rate times the gradient. With <code>lr</code> = ${T(`files.optim.runs.${PLAIN}.lr`)}, the loss falls to ${T(fin(PLAIN, 'loss'))} after ten steps. For this loss, a learning rate above about ${T('files.optim.hessian.critical_lr')} is too large. Above that limit, each step moves the parameters past the lowest point, and each time by more than before.</p>`),
+    <p>Each step is the learning rate times the gradient. With <code>lr</code> = ${T(`files.optim.runs.${PLAIN}.lr`)}, the loss falls at every one of the ten steps. For this loss, a learning rate above about ${T('files.optim.hessian.critical_lr')} is too large. Above that limit, each step moves the parameters past the lowest point, and each time by more than before.</p>`),
     },
     {
       kind: 'predict', id: 'p-lr', title: 'Before you try it',
@@ -89,7 +89,7 @@ export default {
       html: (D, T) => sec('zg', '4 · Clear the gradient in each iteration', `
     <p><code>backward()</code> adds the new gradient to the value that is already in <code>.grad</code>.</p>
     <p>${quote('accumulate', 83)}</p>
-    <p>If you call <code>backward()</code> three times at the same <code>W</code>, <code>.grad</code> holds three times the gradient. Without <code>zero_grad()</code>, each <code>step()</code> uses the sum of all earlier gradients, and the loss does not settle. After ten iterations it is ${T(loop(9, 'loss'))}. With <code>zero_grad()</code> it is ${T(step(PLAIN, 9, 'loss'))}.</p>
+    <p>If you call <code>backward()</code> three times at the same <code>W</code>, <code>.grad</code> holds three times the gradient. Without <code>zero_grad()</code>, each <code>step()</code> uses the sum of all earlier gradients, and the loss does not settle. In iteration ten the loss is ${T(loop(9, 'loss'))}. With <code>zero_grad()</code> it is ${T(step(PLAIN, 9, 'loss'))}.</p>
     <p>A second mistake is also silent. <code>step()</code> skips each parameter that has no gradient, so a call to <code>step()</code> before <code>backward()</code> changes nothing.</p>
     <p>${quote('step', 20)}</p>`),
     },
@@ -112,7 +112,7 @@ export default {
     },
     {
       kind: 'text',
-      html: () => '<section class="sg"><p>The next lesson, <a href="../linear-layer/">Layers</a>, shows where parameters such as <code>W</code> and <code>b</code> come from.</p></section>',
+      html: () => '<section class="sg"><p>The next lesson, <a href="../linear-layer/">Layers</a>, shows how one layer of a neural network uses many weights at once.</p></section>',
     },
   ],
 };

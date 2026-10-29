@@ -78,3 +78,11 @@ test('the widget module imports in Node without touching the DOM', async () => {
   assert.equal(typeof m.mountCnnMaps, 'function');
   assert.equal(typeof document, 'undefined');
 });
+
+test('the comparison text says that it is not perfectly fair and no longer names the settings of the two examples (brief C9, D10)', () => {
+  const html = renderLesson(lesson, D).map((p) => p.html).join('\n');
+  assert.match(html, /This comparison is not perfectly fair, because the two runs use different numbers of epochs and different learning rates\. The CNN still wins, with about a third of the parameters\./);
+  assert.doesNotMatch(html, /settings of the two/);
+  assert.notEqual(data.setup.epochs, mlp.setup.epochs, 'the epochs differ, as the text says');
+  assert.notEqual(data.setup.lr, mlp.setup.lr, 'the learning rates differ, as the text says');
+});

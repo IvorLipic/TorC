@@ -15,7 +15,7 @@ export default {
     for (let i = 0; i < r; i++) for (let j = 0; j < c; j++) {
       const terms = [];
       for (let p = 0; p < k; p++) terms.push(`${par(a.v[i * k + p])}\\cdot ${par(b.v[p * c + j])}`);
-      rows.push(`n_{${i + 1}${j + 1}} &= ${terms.join(' + ')} = ${tn(out.v[i * c + j])}`);
+      rows.push(`n_{${i}${j}} &= ${terms.join(' + ')} = ${tn(out.v[i * c + j])}`);
     }
     if (rows.length <= 8) latex.push(aligned(rows, name));
     return { note: '', latex };

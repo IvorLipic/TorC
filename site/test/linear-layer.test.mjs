@@ -126,15 +126,17 @@ test('signal table: six layers per init, band over other seeds, Kaiming stays ne
 });
 
 // ---------------------------------------------------------------------------------------------- widgets' pure parts
-test('shapes the check answers with, and the KaTeX of the grid (y[1,2] = -0.7 with the real numbers)', () => {
+test('shapes the check answers with, and the KaTeX of the grid (y[0,1] = -0.7 with the real numbers, indices from 0)', () => {
   assert.deepEqual(linearShapes(784, 32, 8), { x: [8, 784], W: [32, 784], Wt: [784, 32], b: [32], y: [8, 32] });
   const ex = exampleFromScene(scene('linear'));
   for (let i = 0; i < 2; i++) for (let k = 0; k < 2; k++) katex.renderToString(neuronTex(ex.x, ex.W, ex.b, i, k), { throwOnError: true, displayMode: true });
   assert.match(neuronTex(ex.x, ex.W, ex.b, 0, 1), /= -0\.7\\end\{aligned\}$/);
+  assert.match(neuronTex(ex.x, ex.W, ex.b, 0, 1), /^\\begin\{aligned\}y_\{01\} &= \\sum_\{j=0\}\^\{2\} x_\{0j\}\\,W_\{1j\} \+ b_\{1\}/, 'positions count from 0');
+  assert.doesNotMatch(neuronTex(ex.x, ex.W, ex.b, 1, 1), /j=1/);
   // "copy the first neuron into the second" (weights and bias) makes the two output columns identical
   const W = [ex.W[0].slice(), ex.W[0].slice()], b = [ex.b[0], ex.b[0]];
   assert.ok(linearForward(ex.x, W, b).every((r) => r[0] === r[1]));
-  // raising b[2] by one moves only the second column, by exactly one
+  // raising b[1] by one moves only the second column, by exactly one
   const y0 = linearForward(ex.x, ex.W, ex.b), y1 = linearForward(ex.x, ex.W, [ex.b[0], ex.b[1] + 1]);
   y0.forEach((r, i) => { assert.equal(y1[i][0], r[0]); assert.ok(Math.abs(y1[i][1] - r[1] - 1) < 1e-12); });
 });
