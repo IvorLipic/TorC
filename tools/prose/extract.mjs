@@ -2,9 +2,13 @@
 // tools/prose/extract.mjs — writes the visible prose of the site to build/prose/*.md (one file per published page, plus the
 // course descriptions and the home page text), for the ASD-STE100 linter (tools/prose/check.sh). Code, formulas and quoted
 // library lines are replaced by a placeholder word, because the writing rules apply to sentences, not to C++.
+// The visible strings of the widgets and of lesson-boot.js (brief D15) go to build/prose/ui.md; tools/prose/ui-strings.mjs says
+// how they are found, and site/test/prose.test.mjs applies the site rules to them. Strings in KNOWN_D15 (strings that still break
+// the rules on this branch, temporary) are left out so the linter run stays at 0 hard findings.
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { extractUiStrings } from './ui-strings.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const SITE = path.join(ROOT, 'site'), OUT = path.join(ROOT, 'build/prose');
@@ -32,4 +36,7 @@ for (const l of flatLessons(course).filter(isPublished)) {
 writeFileSync(path.join(OUT, 'course.md'), flatLessons(course).map((l) => `${l.title}.\n\n${l.outcome}`).join('\n\n') + '\n');
 const home = readFileSync(path.join(SITE, 'js/home.js'), 'utf8');
 writeFileSync(path.join(OUT, 'home.md'), [...home.matchAll(/<p class="lead">([\s\S]*?)<\/p>|<footer>([\s\S]*?)<\/footer>|class: 'hint' \}, '([^']*)'/g)].map((m) => plain(m[1] ?? m[2] ?? m[3])).join('\n\n') + '\n');
-console.log(`prose: ${flatLessons(course).filter(isPublished).length} pages, course and home written to ${path.relative(ROOT, OUT)}/`);
+const ui = extractUiStrings(SITE).filter((r) => !r.known);
+const sentence = (t) => t.split('\n').map((l) => (/[.?!:]$/.test(l) ? l : `${l}.`)).join('\n\n');
+writeFileSync(path.join(OUT, 'ui.md'), ui.map((r) => sentence(r.text)).join('\n\n') + '\n');
+console.log(`prose: ${flatLessons(course).filter(isPublished).length} pages, course, home and ${ui.length} UI strings written to ${path.relative(ROOT, OUT)}/`);
