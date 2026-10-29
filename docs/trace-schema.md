@@ -5,7 +5,7 @@ Every file in `site/data/` is written by a program in `tools/trace/` that runs t
 never edit a file there by hand. This page says what is in each file so a lesson author knows what can be quoted without typing a number.
 
 Producers, in `tools/trace/`: `trace_util.hpp` (shared: JSON writer, `Graph`, `Scene`/`run_scene`, tensor serialisation, finite-difference
-checker, envelope), `autograd_trace.cpp`, `trace_why.cpp`, `trace_optim.cpp`, `trace_linear.cpp`, `trace_tensors.cpp`, `trace_nonlinear.cpp`, `trace_modules.cpp`, `trace_losses.cpp`, `trace_training.cpp`, `trace_optimizers.cpp`, `trace_generalization.cpp`, `trace_mnist_mlp.cpp`, `trace_conv.cpp`, `trace_mnist_cnn.cpp`. Behaviour notes per lesson (what the
+checker, envelope), `autograd_trace.cpp`, `trace_why.cpp`, `trace_optim.cpp`, `trace_linear.cpp`, `trace_tensors.cpp`, `trace_nonlinear.cpp`, `trace_modules.cpp`, `trace_losses.cpp`, `trace_training.cpp`, `trace_optimizers.cpp`, `trace_generalization.cpp`, `trace_mnist_mlp.cpp`, `trace_conv.cpp`, `trace_mnist_cnn.cpp`, `trace_whole_game.cpp`. Behaviour notes per lesson (what the
 numbers mean, derivations, library symbols): `docs/lessons/<lesson>.md`.
 
 ## Conventions
@@ -13,7 +13,7 @@ numbers mean, derivations, library symbols): `docs/lessons/<lesson>.md`.
 - **Envelope** (top of every file, in this order): `schema` = `"torc-trace/1"`; `library` = `{ref, compiler, flags}` (`ref` is the content of
   `TORC_REF`, e.g. `"v0.1.0"`; `compiler` e.g. `"clang 18.1.3 (libstdc++ 14)"`; `flags` the build flags, including `-ffp-contract=off`, which the trace build sets for TorC and the producers so that no
   fused multiply-add changes a result on a CPU that has one; the last two are informational and
-  are not compared by the drift check); `generator` = source file of the producer; `kind` = topic (`autograd` | `why` | `optim` | `linear` | `tensors` | `nonlinearity` | `modules` | `losses` | `training` | `optimizers` | `generalization` | `mnist-mlp` | `conv` | `mnist-cnn`);
+  are not compared by the drift check); `generator` = source file of the producer; `kind` = topic (`autograd` | `why` | `optim` | `linear` | `tensors` | `nonlinearity` | `modules` | `losses` | `training` | `optimizers` | `generalization` | `mnist-mlp` | `conv` | `mnist-cnn` | `whole-game`);
   `lesson` = first lesson that uses the file. Everything else is topic data. Unknown keys must be ignored by consumers.
 - **Numbers.** Values the library computed in `float32` are written with 9 significant digits (they round-trip the float32 exactly, so
   `0.1f` appears as `0.100000001`; present them rounded). Values that are configuration or were derived in `double` (learning rates, `h`,
@@ -60,6 +60,27 @@ One weight, one datum: `p = w*x`, `e = p - t`, `L = e*e`, `x = 2`, `t = 6`, so `
   `matches_manual` is `true` when every real `SGD::step()` produced bit-identically `w - lr*grad`.
 - `checks`: `{grid_matches_formula_max_abs_diff, grid_matches_formula, sgd_matches_manual}`.
 
+v3 additions (brief C3 and Appendix B). All are appended after the keys above; all are **derived** (double arithmetic on the recorded
+float32 values, so `1.2` is `1.2000000476837158`), and exist so that a lesson never computes a step, a distance or a share:
+- `trajectories[].states[]` also have `step` (`w_next - w`), `distance` (`|w - 3|`), `distance_next` (`|w_next - 3|`), `kept`
+  (`distance_next / distance`, the share of the distance that the step keeps; `null` when `distance` is 0, as in lr 0.125 after one
+  step) and `crossed` (`true` when `w_next` is on the other side of 3). Each trajectory also has `kept` and `kept_percent`: the share
+  kept by its first step. Appendix B values: step sizes 1.2 and 0.72 are `trajectories.0.states.0.step` and `.states.1.step`;
+  distances 3, 1.8 and 1.08 are `trajectories.0.states.0.distance`, `.states.1.distance`, `.states.2.distance`; the shares 60 %,
+  100 % and 140 % are `trajectories.0.kept_percent`, `trajectories.3.kept_percent`, `trajectories.4.kept_percent`.
+- `nudge` also has `miss_before` (6) and `miss_after` (5.98), the sizes `|e|` of the miss; `fall` (`-actual_dL`, 0.2396) and `ratio`
+  (`actual_dL / delta`, -23.96).
+- `steep`: four notebooks cost 12 euros, `x = 4`, `t = 12`, so `L(w) = (4w-12)^2 = 16(w-3)^2` with the same minimum `w = 3` and the
+  gradient `32(w-3)` (-96 at `w = 0`, where `L = 144`). The same real ops and `optim::SGD` as above.
+  `steep.setup` = `{x, t, w_min, loss_formula, grad_formula, critical_lr: 0.0625}` (Expected mathematics); `steep.grid[]`,
+  `steep.probes[]` (same weights), `steep.secants[]` (`expected_slope = 16h - 96`) in the formats above;
+  `steep.trajectories[]` in the format of `trajectories[]` including the v3 fields, for lr `0.05, 0.1, 0.125, 0.25, 0.3` (index `i` has
+  the learning rate of `trajectories[i]`; only 0.05 converges, the others diverge) and then `0.0125, 0.025, 0.03125, 0.0625, 0.075`
+  (index `5 + i` keeps the same share as `trajectories[i]`); `factor = 1 - 32 lr`, plus `same_factor_as_lr` (= `4 lr`, derived).
+  `steep.compare[]` = `{w, distance, grad, steep_grad, L, steep_L, grad_ratio}` at `w = 0, 1, 1.2, 6` from the two real backward
+  passes (`grad_ratio = steep_grad / grad` = 4, derived). `steep.checks` = `{grid_matches_formula_max_abs_diff, grid_matches_formula,
+  sgd_matches_manual}`.
+
 ## `optim.json` (kind `optim`, lesson `sgd-step`)
 
 A line `y = 2x + 1` fitted to `x = [1,2,3]`, `t = [3,5,7]` with `nn::Linear(1,1)` (w = b = 0), `nn::MSELoss`, `optim::SGD`.
@@ -80,6 +101,21 @@ A line `y = 2x + 1` fitted to `x = [1,2,3]`, `t = [3,5,7]` with `nn::Linear(1,1)
 - `ctor_errors[]`: `{call, exception, what}` for `SGD` with `lr <= 0` or `momentum < 0` (exact `what()` text).
 - `surface`: `{w[], b[], order, points[25]}` with `points[i] = {w, b, loss}`, loss from the real forward pass (conformance data for a live contour plot).
 - `checks`: `{parity_output_and_grads_equal}`.
+
+v3 additions (brief §6 `sgd-step`, the c-zero check of §7, D13), appended after the keys above:
+- `data.points[]` = `{x, t}`: the three data points listed one by one.
+- `start` = `{w, b, loss, gw, gb}` at `w = b = 0` from one forward and `backward()` of `nn::Linear` + `nn::MSELoss`: loss 27.67,
+  `gw = -22.67` (the one-pass gradient that the c-zero check needs), `gb = -10`.
+- `nudge_start` = `{w0, b0, L0, w[], b[], gradient, secant_gradient}`: the gradient found by nudging one parameter at a time. `w[]`
+  nudges `w` alone (`b` stays 0) and `b[]` nudges `b` alone, for `h = 1, 0.5, 0.1, 0.01, 0.001`: `{h, L_h, dL, slope, expected_slope,
+  backward_slope}`, with `L_h` from the real forward pass in float32 and `slope = dL / h` (float32, so cancellation shows at small
+  `h`, as in `why-gradients.json`); `expected_slope` is derived (`-68/3 + 14h/3` for `w`, `-10 + h` for `b`). `gradient = [gw, gb]` from
+  `backward()` (the gradient as a list of two slopes); `secant_gradient` = the two slopes at `h = 0.001`.
+- `after_ten_steps` = `{lr: 0.05, updates: 10, with_zero_grad{w, b, loss}, without_zero_grad{w, b, loss}, note}`: one quantity for "the
+  loss after ten steps" (D13), the state after the 10th `step()`. `with_zero_grad` equals `runs[0].final` (loss 0.001145);
+  `without_zero_grad` is the `no_zero_grad.training_loop` after its 10th step (loss 0.8042). Note that `runs[i].steps[9]` is the state
+  after **nine** updates (0.001184): do not call it "after ten steps".
+- `no_zero_grad.training_loop.final` = `{w, b, loss}` after the 10th step (the same as `after_ten_steps.without_zero_grad`).
 
 ## `linear.json` (kind `linear`, lesson `linear-layer`)
 
@@ -148,6 +184,17 @@ with no gradient, `steps` counts all steps so far. `no_reset[]` = `{epoch, steps
 `true_line_loss` = `nn::MSELoss` of `3x + 1` against the targets. `derived` = `{noise_variance}`. The values depend on libstdc++'s
 random distributions and `std::shuffle`. Producer: `tools/trace/trace_training.cpp`.
 
+v3 addition (brief C1 and C5), appended after the keys above: `batch_compare` = `{batch_sizes [10, 100], seeds [7, 8, 9], seed_decides,
+lr, steps: 300, runs[], band[], equal_steps[], equal_samples[], gradient_estimate}`. Every run uses the loop, data, lr 0.1 and start
+`w = b = 0` of `runs[]`; the loader seed (the shuffled order) is the only thing that changes. With seed 7, the loss after 3000 samples
+equals the 30-epoch loss of `runs[]` bit for bit (a self-check). `runs[]` = `{batch_size, seed, samples_per_step, loss[301]}`, where `loss[k]` is `nn::MSELoss` on all 100 samples after
+`k` steps (`loss[0]` is the start). `band[]` = `{batch_size, min[301], max[301]}` over the seeds, per step. `equal_steps[]` = one entry
+each for 30 and 300 steps, `{steps, results[{batch_size, seed, steps, samples_seen, loss}], summary[{batch_size, min, max, mean}]}`;
+`equal_samples[0]` = the same for 3000 samples seen (`samples`: 300 steps of batch 10, 30 steps of batch 100). The summaries are plain
+arithmetic on the recorded losses. Observed: batch 100 gives the same loss for every seed (one batch is all the data), so its min and
+max are equal. `gradient_estimate` = `{at{w, b}, batch_size 10, seed 7, full{gw, gb}, batches[10]{gw, gb}}`: at `w = b = 0`, the
+gradient from `backward()` on all 100 samples and on each batch of the first shuffled epoch (the batch gradient as an estimate).
+
 ## `optimizers.json` (kind `optimizers`, lesson `optimizers`)
 
 `valley` = `{curvature [1, 100], start [-4, 0.4], steps 50, runs[], surface}`: the loss `sum(c·w·w)` with `c = [0.5, 50]` on one
@@ -159,6 +206,18 @@ u_has_grad}}` (the values before step `k + 1`; the three gradient fields are rea
 entry has none) for
 `(w1 - 2)² + 0·w2²` and a parameter `u` that the loss does not use. `derived` = `{sgd_lr_limit, decay_factor, w2_after_50_adamw}`.
 Producer: `tools/trace/trace_optimizers.cpp`.
+
+v3 additions (brief C4), appended after the keys above:
+- `sweep` = `{lrs, start, steps, start_loss, diverged_rule, best_rule, optimizers[]}`: on the same valley, start and 50 steps, every
+  optimizer runs with every lr in `lrs` = `0.001, 0.003, 0.01, 0.019, 0.03, 0.1, 0.2, 0.3, 1, 3`. `optimizers[]` = `{id: sgd|momentum|
+  adam|adamw, optimizer, momentum (0.9 for momentum), weight_decay (0.01, TorC's default, for adamw), runs[], best{lr, final_loss}}`;
+  `runs[]` = `{lr, final_loss, finite, diverged, lowest_loss, steps_completed, exception, what}`. A run diverged when its final loss is
+  above `start_loss` (16), or when it did not finish: when `w` overflows, TorC's `sum()` throws `NumericalError` ("sum requires finite
+  input values"), the run stops, `final_loss` is `null`, `steps_completed` < 50 and `exception`/`what` hold the error (otherwise
+  `"none"` and `""`). `lowest_loss` is the lowest finite loss of the run. `best` is the lr with the lowest final loss among the runs
+  that did not diverge (the sweep is coarse: one run per lr).
+- `race[]` = `{id, optimizer, lr, momentum, weight_decay, final_loss, path[51]{w1, w2, loss}}`: each optimizer at its own `best.lr`,
+  with the path in the format of `valley.runs[].path`.
 
 ## `generalization.json` (kind `generalization`, lesson `generalization`)
 
@@ -198,3 +257,24 @@ CNN of `examples/mnist_cnn`: `layers` are Conv2d (8, 1, 3, 3), Conv2d (16, 8, 3,
 row-major order. Extra: `first_maps` = `{index, shape (1, 8, 14, 14), values}`, the first convolution after relu for the first
 shown image. Producer: `tools/trace/trace_mnist_cnn.cpp`.
 
+## `whole-game.json` (kind `whole-game`, lesson `what-is-learning`)
+
+Honestly synthetic data: hours of practice in a week (`x`, 0.5 to 4) and the score in a test out of 10 (`y`) for 15 students, made in
+the producer (not by TorC) from the true line `y = 1.5x + 2` plus noise with standard deviation 0.6, drawn with `std::mt19937` (seed
+2026, fully specified by the C++ standard) and a Box-Muller transform in double; `x` and `y` are rounded to one decimal. The first 10
+points train the model, the last 5 are hidden (never trained on).
+- `data` = `{story, x_name, y_name, true_line{w, b}, noise_std, seed, generator, n_train, n_hidden, train{x[10], y[10]}, hidden{x[5],
+  y[5]}, points[15]{i, x, y, set: train|hidden}}`.
+- `runs[]` = `{id, start{w, b}, lr: 0.1, optimizer, batch, settled, settle_rule, steps[], final{steps, w, b, train_loss, hidden_loss}}`:
+  `nn::Linear(1, 1)` with `w` and `b` set by hand, `nn::MSELoss` on `(10, 1)` vs `(10, 1)`, `optim::SGD` on all 10 training points per
+  step. `runs[0]` (`from-zero`) starts at `w = b = 0`, `runs[1]` (`from-w3`) at `w = 3, b = 0`. `steps[k]` = `{step, w, b, train_loss,
+  hidden_loss}` is the state after `k` steps (`train_loss` is the loss `backward()` was called on, `hidden_loss` the loss on the hidden
+  points with no gradient). A run stops after the first step that changes neither `w` nor `b` by more than `1e-5` (`settled`), or at
+  1000 steps; the last entry is the settled state. Observed: `from-zero` settles after 200 steps at `w = 1.595`, `b = 1.897`.
+- `probes[]` = `{id, w, b, train_loss, hidden_loss, train_pred[10], train_residual[10], hidden_pred[5], hidden_residual[5]}`: TorC's
+  `MSELoss` of fixed lines (`zero`, `flat-5`, `true`, `w1-b3`, `w2-b1`, `w3-b0`, `w-0.5-b6`), with the predictions of `nn::Linear` and
+  the residuals `prediction - target` (float32): conformance data for the JS that scores a hand-placed line.
+- `true_line` = `{w, b, train_loss, hidden_loss}`: `MSELoss` of the true line (the noise that no line removes).
+- `derived` = `{least_squares{w, b, train_loss}, hessian_lambda_max, critical_lr}`: the best line on the training points and the
+  stable-lr limit `2 / lambda_max`, in double (Expected mathematics; the producer checks `lr < critical_lr`).
+Producer: `tools/trace/trace_whole_game.cpp`.
