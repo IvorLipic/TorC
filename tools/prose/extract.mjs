@@ -14,7 +14,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const SITE = path.join(ROOT, 'site'), OUT = path.join(ROOT, 'build/prose');
 const imp = (rel) => import(pathToFileURL(path.join(SITE, rel)).href);
 const { renderLesson } = await imp('js/core/sections.js');
-const { buildD } = await imp('js/core/trace.js');
+const { buildD, anchorValues } = await imp('js/core/trace.js');
 const { flatLessons, isPublished } = await imp('js/core/course.js');
 const readJson = (rel) => JSON.parse(readFileSync(path.join(SITE, rel), 'utf8'));
 
@@ -30,7 +30,7 @@ mkdirSync(OUT, { recursive: true });
 const course = readJson('course.json');
 for (const l of flatLessons(course).filter(isPublished)) {
   const lesson = (await imp(`js/lessons/${l.id}.js`)).default;
-  const D = buildD(Object.fromEntries(lesson.trace.map((f) => [f.replace(/\.json$/, ''), readJson('data/' + f)])));
+  const D = buildD(Object.fromEntries(lesson.trace.map((f) => [f.replace(/\.json$/, ''), readJson('data/' + f)])), anchorValues(readJson('data/anchors.json')));
   writeFileSync(path.join(OUT, `${l.id}.md`), renderLesson(lesson, D).map((p) => plain(p.html)).filter(Boolean).join('\n\n') + '\n');
 }
 writeFileSync(path.join(OUT, 'course.md'), flatLessons(course).map((l) => `${l.title}.\n\n${l.outcome}`).join('\n\n') + '\n');

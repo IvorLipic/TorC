@@ -120,6 +120,23 @@ test('every lesson with code on the home page has a prelude and checks in tools/
   for (const id of Object.keys(SPEC)) assert.ok(withCode.some((l) => l.id === id), `snippet spec for ${id}, which has no code in course.json`);
 });
 
+// the v3 fixture as a draft lesson of a site copy (a fresh copy each time: Node caches an imported module by its path)
+async function withFixture(d, change = (s) => s) {
+  const src = readFileSync(new URL('./fixtures/v3-fixture.js', import.meta.url), 'utf8').replaceAll("'../../js/core/", "'../core/");
+  writeFileSync(path.join(d, 'js/lessons/v3-fixture.js'), change(src));
+  const c = JSON.parse(readFileSync(path.join(d, 'course.json'), 'utf8'));
+  const entry = { id: 'v3-fixture', title: 'Machinery fixture', outcome: 'Tests the machinery.', prereqs: [], symbols: [], trace: ['why-gradients.json', 'mnist-mlp.json'], est_minutes: 1, status: 'draft' };
+  c.parts[0].lessons.push(entry);
+  writeFileSync(path.join(d, 'course.json'), JSON.stringify(c));
+  mkdirSync(path.join(d, 'lessons/v3-fixture'), { recursive: true });
+  writeFileSync(path.join(d, 'lessons/v3-fixture/index.html'), shellFor(entry));
+  return messages(d);
+}
+test('check_site: a v3 lesson module (the fixture, as a draft with its shell) passes', () => withCopy(async (d) => assert.equal(await withFixture(d), '')));
+test('check_site: a malformed quiz in a v3 lesson module is rejected', () => withCopy(async (d) => assert.match(
+  await withFixture(d, (s) => s.replace("{ html: 'It makes <code>w</code> larger.', feedback:", "{ html: 'It makes <code>w</code> larger.', correct: true, feedback:")),
+  /v3-fixture\.js: section \d+ \(quiz "direction"\): exactly one option is correct/)));
+
 test('check_site: a planned lesson must not have a page yet', () => withCopy(async (d) => {
   // every lesson may be published, so the copy marks one as planned and keeps its page
   const c = course(), id = flatLessons(c).find((l) => l.status === 'published' && l.trace.length).id;

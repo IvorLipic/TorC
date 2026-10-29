@@ -1,0 +1,31 @@
+{
+  "schema": "torc-anchors/1",
+  "generator": "tools/anchors.mjs",
+  "source": "site/anchors.json",
+  "anchors": {
+    "mlp_parameters": {
+      "path": "files.mnist-mlp.setup.parameters",
+      "value": 26506
+    },
+    "cnn_parameters": {
+      "path": "files.mnist-cnn.setup.parameters",
+      "value": 9098
+    },
+    "train_images": {
+      "path": "files.mnist-mlp.setup.train_samples",
+      "value": 60000
+    },
+    "test_images": {
+      "path": "files.mnist-mlp.setup.test_samples",
+      "value": 10000
+    },
+    "image_side": {
+      "path": "files.mnist-mlp.setup.image_side",
+      "value": 28
+    },
+    "bowl_w_min": {
+      "path": "files.why-gradients.setup.w_min",
+      "value": 3
+    }
+  }
+}

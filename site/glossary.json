@@ -1,0 +1,23 @@
+{
+  "schema": "torc-glossary/1",
+  "terms": {
+    "loss": {
+      "term": "loss",
+      "forms": ["loss", "losses"],
+      "short": "The loss is a number that measures how wrong the predictions of the model are.",
+      "lesson": "what-is-learning"
+    },
+    "gradient": {
+      "term": "gradient",
+      "forms": ["gradient", "gradients"],
+      "short": "The gradient tells how much the loss changes when you change a weight by a small amount.",
+      "lesson": "why-gradients"
+    },
+    "learning-rate": {
+      "term": "learning rate",
+      "forms": ["learning rate", "learning rates"],
+      "short": "The learning rate is a small number that you choose. It sets the size of each training step.",
+      "lesson": "why-gradients"
+    }
+  }
+}

@@ -5,6 +5,8 @@
 #                                   (numeric tolerance, see compare.mjs), is missing, or has no generator (CI drift check)
 # Environment: CXX (default: clang++-18, otherwise c++; needs clang>=18 or GCC>=14), TORC_SRC=<dir> to use a local TorC checkout,
 # MNIST_DIR=<dir> for the MNIST CSV files (default build/mnist; tools/trace/fetch_mnist.sh fills it, needs curl and python3).
+# After the traces, tools/anchors.mjs writes site/data/anchors.json (the course-wide anchors of site/anchors.json, read from the
+# traces); --check fails if that file is stale. It is the one file in site/data that no trace program writes.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 BUILD="$ROOT/build/trace"
@@ -58,9 +60,11 @@ if [ "${1:-}" = "--check" ]; then
     if [ ! -f "$DATA/$f" ]; then echo "site/data/$f is missing; run tools/trace/run.sh and commit"; bad=1; continue; fi
     node "$ROOT/tools/trace/compare.mjs" "$DATA/$f" "$TMP/$f" || { echo "site/data/$f is stale; run tools/trace/run.sh and commit"; bad=1; }
   done
+  node "$ROOT/tools/anchors.mjs" --check || bad=1
   for f in "$DATA"/*.json; do
     [ -e "$f" ] || continue
     b="$(basename "$f")"; known=0
+    [ "$b" = "anchors.json" ] && known=1   # written by tools/anchors.mjs from the traces
     for t in "${TRACES[@]}"; do [ "${t##*:}" = "$b" ] && known=1; done
     [ "$known" = 1 ] || { echo "site/data/$b has no generator in tools/trace/run.sh (site/data is generated-only)"; bad=1; }
   done
@@ -69,4 +73,5 @@ else
   mkdir -p "$DATA"
   run_all "$DATA"
   for t in "${TRACES[@]}"; do echo "wrote site/data/${t##*:}"; done
+  node "$ROOT/tools/anchors.mjs"
 fi

@@ -131,6 +131,38 @@ the appendix pages need no worked example, widget or refutation.
 `localStorage["torc:v2"] = { "<lessonId>": { visited, done, quiz: { "<id>": { tries, correct } }, explained: { "<id>": true },
 seen: { "<id>": true } } }`. On first load, v1 data migrates: v1 `checks` become `seen`, never `correct`.
 
+### Machinery as built (wave 1): choices and deviations
+
+The machinery implements this API. Where the contract left a choice open, or could not work as written, this is what was built.
+The details are in `docs/authoring.md` ("Add a lesson", "Numbers in prose") and in the file heads of `site/js/core/`.
+
+1. **Scenario text before the first predict.** "A predict quiz before any text section" would forbid the gold-standard opening of
+   brief Appendix B ("The price of a notebook" comes before the quiz). A `text` section may carry `setup: true`: it sets the
+   scene and answers nothing. The test requires a predict quiz before every text section that is not `setup: true`. The
+   pedagogy reviewer checks that a setup text really answers nothing.
+2. **The next-lesson line stays pure.** `answer` renders "The next lesson is …" from `ctx.next`, which `lesson-boot.js` passes
+   from `neighbors()` (`renderLesson(lesson, D, {course, next})`). Node renders the same line, so the D2 test compares it with
+   `neighbors()`. Without a next lesson, the line links the course map.
+3. **Labels end with a full stop, not a colon** ("Analogy.", "Where it breaks.", "In TorC.", "Refresher."). Today's
+   `proseProblems` flags a colon inside a block, and the full stop works under both the old and the new linter.
+4. **`quiz.correct` is the result of the latest attempt**; `tries` counts every attempt. A reload shows the reveal of a quiz that
+   was tried before. The `explain` model answer opens only after the learner typed a sentence; the sentence is not stored.
+5. **`T(path, role, opts)` also accepts `T(path, {role, sig})`** (the brief's form). `T(path, 'anchor')` and `T(path, 'human')`
+   throw and name `T.anchor` / `T.human`. `T.anchor(name)` resolves `anchors.<name>` in `D.anchors`.
+6. **`T.human`**: `prob` and `pct` show a `%` sign ("97%"); `per100` is 100 minus the whole-number `pct`, so the two always add
+   to 100. `sig` applies to `rmse` only.
+7. **Exceptions** (brief §9): an appendix lesson needs no Questions/Answer frame and no predict, transfer, explain or cumulative
+   quiz, and may use every symbol. A `conceptual` lesson needs no predict before the text and no transfer quiz, but it needs an
+   explain prompt, a cumulative quiz from the third lesson on, and `sources` (which the default footer lists).
+8. **Also tested**: the palette limit (at most 2 of analogy, refresher, In TorC, ChatGPT), no legacy kind in a v3 lesson, a
+   `gotcha` only on appendix pages, no hand-typed digit in a quiz prompt, option, feedback or reveal, and a numeric quiz's
+   answer path. A notation symbol whose introducing lesson is not in `course.json` yet counts as not introduced.
+9. **Not tested yet**: "each anchor is used in at least two lessons" (no lesson is migrated), "no bare loss value" (the reviewer
+   checks it), and the contrast sentence wording. The MNIST anchors `setup.pixels` and `setup.classes` come with the MNIST trace
+   change; `site/anchors.json` lists only paths that exist today.
+10. **`site/data/anchors.json` is not a trace file.** `tools/trace/run.sh` writes it with `node tools/anchors.mjs` after the
+    traces, and `--check` runs `node tools/anchors.mjs --check` and knows the file in its "no generator" check.
+
 ## Curriculum v3 (ids in order)
 
 - Part 1 `whole-game`: `what-is-learning`.
