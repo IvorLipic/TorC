@@ -18,6 +18,18 @@
       "forms": ["learning rate", "learning rates"],
       "short": "The learning rate is a small number that you choose. It sets the size of each training step.",
       "lesson": "why-gradients"
+    },
+    "optimizer": {
+      "term": "optimizer",
+      "forms": ["optimizer", "optimizers"],
+      "short": "The optimizer is the part of a training program that uses the gradients to change the weights.",
+      "lesson": "sgd-step"
+    },
+    "vector": {
+      "term": "vector",
+      "forms": ["vector", "vectors"],
+      "short": "A vector is a list of numbers in a fixed order, for example one number for each weight.",
+      "lesson": "sgd-step"
     }
   }
 }

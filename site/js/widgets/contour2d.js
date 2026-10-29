@@ -1,9 +1,11 @@
-// widgets/contour2d.js — the loss landscape L(w, b) as a heat map with labelled contour lines, a trail of parameter values and an arrow
-// for the move the next step() would make. Everything is computed in the browser from the engine's model (optim.js makeModel), so the
+// widgets/contour2d.js — the loss landscape L(w, b) as a heat map with labelled contour lines, a trail of parameter values, an arrow
+// for the move the next step() would make, an optional gradient arrow (uphill) and an optional fog that hides the map. Everything is computed in the browser from the engine's model (optim.js makeModel), so the
 // picture and the numbers cannot disagree; the tests compare it with the 25 loss values TorC printed (data/optim.json surface).
 //
 //   const c = mountContour2d(host, { model, base: {w: [-1, 4.5], b: [-1.5, 3]}, optimum: {w: 2, b: 1} });
-//   c.draw({ trail: [{w, b, loss, gw, gb}, …], next: {w, b} | null, caption });
+//   c.draw({ trail: [{w, b, loss, gw, gb}, …], next: {w, b} | null, uphill: {w, b} | null, fog: false, caption });
+//   `uphill` is the tip of the gradient arrow drawn from the last trail point (the sgd-step lesson passes point + lr·gradient, the
+//   mirror image of the step). `fog: true` hides the heat map, the contour lines and the minimum, so only the trail and the arrows show.
 //
 // Pure helpers are exported for the tests (gridFor, contourSegments, niceLevels, fitView, chooseView, heatColor); the module touches
 // the DOM only when mountContour2d runs. Accessibility: role="img" with a live description, the trail is also in a screen-reader-only
@@ -108,6 +110,10 @@ const CSS = `
 .c2d .c2d-axis-note{margin:.2rem 0 0;color:var(--muted);font-size:.8rem}
 .c2d-legend{display:flex;flex-wrap:wrap;gap:4px 14px;margin:.3rem 0 0;padding:0;list-style:none;font-size:.8rem;color:#c4ccd5}
 .c2d-legend svg{width:18px;height:14px;vertical-align:-2px;margin-right:4px}
+.c2d .c2d-fogbg{fill:#39424d}
+.c2d .c2d-grad{fill:none;stroke:#ffb454;stroke-width:3px;stroke-linecap:round}
+.c2d .c2d-gradlbl{fill:#ffb454;font-size:12px;font-weight:700;stroke:#0b0f14;stroke-width:3.5px;paint-order:stroke;stroke-linejoin:round}
+.c2d.fog .layer-heat,.c2d.fog .layer-contour,.c2d.fog .layer-marks,.c2d-legend .c2d-hide{display:none}
 `;
 
 // ---- the widget -----------------------------------------------------------------------------------------------------
@@ -128,25 +134,26 @@ export function mountContour2d(host, { model, base = { w: [-1, 4.5], b: [-1.5, 3
   let built = null;                            // {key, plot, layers}
   let last = null;
   const trailTable = srTable(wrap, {
-    columns: ['step', 'W', 'b', 'loss', 'dL/dW', 'dL/db'], rows: [], caption: 'Positions on the trail. Each row is the position before a step. The last row is where the trail stands now.',
+    columns: ['step', 'w', 'b', 'loss', 'gradient for w', 'gradient for b'], rows: [], caption: 'Positions on the trail. Each row is the position before a step. The last row is where the trail stands now.',
     fmt: (v) => (typeof v === 'number' ? fmtTick(v) : String(v)),
   });
 
-  function legendItems(start) {
-    const item = (icon, text) => el('li', {}, icon, text);
+  function legendItems(start, { uphill, fog }) {
+    const item = (icon, text, show = true) => el('li', show ? {} : { class: 'c2d-hide' }, icon, text);
     const sv = (...k) => svg('svg', { viewBox: '0 0 18 14', 'aria-hidden': 'true' }, ...k);
     legend.replaceChildren(
       item(sv(svg('rect', { x: 3, y: 3, width: 9, height: 9, fill: '#0b0f14', stroke: '#fff', 'stroke-width': 2 })), `start (${fmtTick(start.w)}, ${fmtTick(start.b)})`),
       item(sv(svg('circle', { cx: 9, cy: 7, r: 5, fill: '#fc6255', stroke: '#fff', 'stroke-width': 2 })), 'now'),
-      item(sv(svg('line', { x1: 1, y1: 7, x2: 17, y2: 7, stroke: '#fff', 'stroke-width': 2, 'stroke-dasharray': '4 3' })), 'next step()'),
-      item(sv(svg('polygon', { points: STAR(9, 7.5, 7), fill: '#fff', stroke: '#0b0f14' })), `minimum (${fmtTick(optimum.w)}, ${fmtTick(optimum.b)})`));
+      item(sv(svg('line', { x1: 1, y1: 7, x2: 17, y2: 7, stroke: '#fff', 'stroke-width': 2, 'stroke-dasharray': '4 3' })), 'next step'),
+      item(sv(svg('line', { x1: 1, y1: 7, x2: 17, y2: 7, stroke: '#ffb454', 'stroke-width': 3 })), 'gradient times lr, uphill', Boolean(uphill)),
+      item(sv(svg('polygon', { points: STAR(9, 7.5, 7), fill: '#fff', stroke: '#0b0f14' })), `minimum (${fmtTick(optimum.w)}, ${fmtTick(optimum.b)})`, !fog));
   }
 
   function buildBase(view) {
     const key = [width, ...view.w, ...view.b].map((v) => Number(v).toFixed(3)).join('|');
     const fit = fitView(view.w, view.b, iw, ih);
     plotHost.replaceChildren();
-    const plot = createPlot(plotHost, { width, height, x: fit.w, y: fit.b, xLabel: 'W  (weight)', yLabel: 'b  (bias)', ariaLabel: 'Loss landscape over W and b', margin });
+    const plot = createPlot(plotHost, { width, height, x: fit.w, y: fit.b, xLabel: 'w', yLabel: 'b', ariaLabel: 'Loss map over w and b', margin });
     let entry = cache.get(key);
     if (!entry) {
       const grid = gridFor(model, fit.w, fit.b);
@@ -156,6 +163,8 @@ export function mountContour2d(host, { model, base = { w: [-1, 4.5], b: [-1.5, 3
     }
     const { grid } = entry;
     plot.axes({ xTicks: ticks(fit.w, 6), yTicks: ticks(fit.b, 6) });
+    // the fog: a plain field under the heat map, seen only when the fog hides the heat map
+    plot.layer('fog').append(svg('rect', { class: 'c2d-fogbg', x: margin.l, y: margin.t, width: iw, height: ih }));
     // heat map: one small canvas (one pixel per grid node) stretched over the plot, so the browser interpolates smoothly
     const heat = plot.layer('heat');
     const dw = (grid.xs[1] - grid.xs[0]) / 2, db = (grid.ys[1] - grid.ys[0]) / 2;
@@ -201,9 +210,10 @@ export function mountContour2d(host, { model, base = { w: [-1, 4.5], b: [-1.5, 3
     return built;
   }
 
-  function draw({ trail, next = null, caption = '' }) {
+  function draw({ trail, next = null, uphill = null, fog = false, caption = '' }) {
     const pts = [...trail, ...(next ? [next] : [])];
-    last = { trail, next, caption };
+    last = { trail, next, uphill, fog, caption };
+    wrap.classList.toggle('fog', fog);
     const w0 = width; setSize();
     if (width !== w0) built = null;
     const view = chooseView(base, [...pts, optimum]);
@@ -222,6 +232,18 @@ export function mountContour2d(host, { model, base = { w: [-1, 4.5], b: [-1.5, 3
         svg('path', { class: 'c2d-halo', d }), svg('path', { class: 'c2d-next', d, 'marker-end': `url(#${mid})` }));
     }
     if (trail.length > 1) layer.append(svg('path', { class: 'c2d-halo', d: path(trail) }), svg('path', { class: 'c2d-path', d: path(trail) }));
+    // the gradient arrow goes on top of the trail: from the second step on it points back along the path already walked
+    if (uphill) {
+      const from = trail.at(-1), x1 = sx(from.w), y1 = sy(from.b), x2 = sx(uphill.w), y2 = sy(uphill.b);
+      const len = Math.hypot(x2 - x1, y2 - y1);
+      if (len >= 3) {
+        const gid = uid('c2dg');
+        const d = `M${x1.toFixed(1)},${y1.toFixed(1)}L${x2.toFixed(1)},${y2.toFixed(1)}`;
+        layer.append(svg('defs', {}, svg('marker', { id: gid, viewBox: '0 0 10 10', refX: 7, refY: 5, markerWidth: 4.5, markerHeight: 4.5, orient: 'auto' }, svg('path', { d: 'M0,0L10,5L0,10z', fill: '#ffb454' }))),
+          svg('path', { class: 'c2d-halo', d }), svg('path', { class: 'c2d-grad', d, 'marker-end': `url(#${gid})` }));
+        if (len >= 28) layer.append(svg('text', { class: 'c2d-gradlbl', x: x2 + (x2 >= x1 ? 6 : -6), y: y2 + (y2 > y1 ? 14 : -6), 'text-anchor': x2 >= x1 ? 'start' : 'end' }, 'gradient'));
+      }
+    }
     const lastI = trail.length - 1;
     const labelled = [];                       // pixel positions of the numbers already written, so they never pile up
     const wantLabel = (cx, cy, force) => {
@@ -232,24 +254,26 @@ export function mountContour2d(host, { model, base = { w: [-1, 4.5], b: [-1.5, 3
     if (lastI > 0 && trail.length <= 13) wantLabel(sx(trail[lastI].w), sy(trail[lastI].b), true);
     trail.forEach((p, i) => {
       const cx = sx(p.w), cy = sy(p.b);
-      const tip = `after ${i} step${i === 1 ? '' : 's'}: W = ${fmt(p.w)}, b = ${fmt(p.b)}, loss = ${fmt(p.loss)}`;
+      const tip = `After ${i} step${i === 1 ? '' : 's'}, w = ${fmt(p.w)}, b = ${fmt(p.b)} and the loss is ${fmt(p.loss)}.`;
       if (i === 0) layer.append(svg('rect', { class: 'c2d-start', x: cx - 5, y: cy - 5, width: 10, height: 10 }, svg('title', {}, tip)));
       else if (i !== lastI) layer.append(svg('circle', { class: 'c2d-pt', cx, cy, r: 4 }, svg('title', {}, tip)));
       if (i > 0 && i !== lastI && trail.length <= 13 && wantLabel(cx, cy, false)) layer.append(svg('text', { class: 'c2d-lbl', x: cx + 7, y: cy - 6 }, String(i)));
     });
     if (lastI > 0) {
       const p = trail[lastI], cx = sx(p.w), cy = sy(p.b);
-      layer.append(svg('circle', { class: 'c2d-cur', cx, cy, r: 7 }, svg('title', {}, `after ${lastI} steps: W = ${fmt(p.w)}, b = ${fmt(p.b)}, loss = ${fmt(p.loss)}`)));
+      layer.append(svg('circle', { class: 'c2d-cur', cx, cy, r: 7 }, svg('title', {}, `After ${lastI} steps, w = ${fmt(p.w)}, b = ${fmt(p.b)} and the loss is ${fmt(p.loss)}.`)));
       if (trail.length <= 13) layer.append(svg('text', { class: 'c2d-lbl', x: cx + 10, y: cy - 8 }, String(lastI)));
     } else {
       const p = trail[0], cx = sx(p.w), cy = sy(p.b);
-      layer.append(svg('circle', { class: 'c2d-cur', cx, cy, r: 7 }, svg('title', {}, `start: W = ${fmt(p.w)}, b = ${fmt(p.b)}, loss = ${fmt(p.loss)}`)));
+      layer.append(svg('circle', { class: 'c2d-cur', cx, cy, r: 7 }, svg('title', {}, `At the start, w = ${fmt(p.w)}, b = ${fmt(p.b)} and the loss is ${fmt(p.loss)}.`)));
     }
     const cur = trail.at(-1);
-    plot.root.setAttribute('aria-label', `Loss landscape over W and b. ${caption} The parameters are at W = ${fmt(cur.w)}, b = ${fmt(cur.b)} where the loss is ${fmt(cur.loss)}. The minimum is at W = ${fmt(optimum.w)}, b = ${fmt(optimum.b)}.`);
-    note.textContent = view.zoomedOut ? 'The view zoomed out to keep the whole trail in sight. The bowl you saw before is the small region around the star.' : '';
+    plot.root.setAttribute('aria-label', fog
+      ? `Loss map over w and b, hidden by fog. ${caption} The point is at w = ${fmt(cur.w)} and b = ${fmt(cur.b)}, and the loss there is ${fmt(cur.loss)}.`
+      : `Loss map over w and b. ${caption} The point is at w = ${fmt(cur.w)} and b = ${fmt(cur.b)}, and the loss there is ${fmt(cur.loss)}. The lowest loss is at w = ${fmt(optimum.w)} and b = ${fmt(optimum.b)}.`);
+    note.textContent = view.zoomedOut ? 'The view zoomed out to keep the whole trail in sight. The map you saw before is the small region around the star.' : '';
     trailTable.update(trail.map((p, i) => [i, p.w, p.b, p.loss, p.gw ?? '–', p.gb ?? '–']));
-    legendItems(trail[0]);
+    legendItems(trail[0], { uphill, fog });
     return { view };
   }
 

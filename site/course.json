@@ -55,28 +55,28 @@
         },
         {
           "id": "sgd-step",
-          "title": "Using the gradient",
-          "outcome": "You can explain how gradient descent changes two weights at the same time. You can also say why a learning rate that is too large makes the loss grow.",
+          "title": "Gradient descent with many weights",
+          "outcome": "You can find the gradient of a loss with two weights by nudging each weight alone. You can explain how one step changes both weights, and why a learning rate that is too large makes the loss grow.",
           "prereqs": [
             "why-gradients"
           ],
           "symbols": [
             "optim::SGD",
             "optim::SGD::step",
-            "optim::SGD::zero_grad",
-            "nn::MSELoss",
-            "Variable::zero_grad"
+            "Variable::backward",
+            "nn::MSELoss"
           ],
           "trace": [
-            "optim.json"
+            "optim.json",
+            "why-gradients.json"
           ],
-          "est_minutes": 7,
+          "est_minutes": 14,
           "status": "published",
           "widgets": [
-            "loss landscape",
-            "zero_grad loop"
+            "the loss map with fog",
+            "three learning rates on the map"
           ],
-          "code": "optim::SGD opt({&W, &b}, /*lr=*/0.05f);\nloss.backward();   // fills W.grad, b.grad\nopt.step();        // W -= lr * W.grad, same for b\nopt.zero_grad();   // clear before the next backward"
+          "code": "optim::SGD opt(line.parameters(), /*lr=*/0.05f);\nfor (int step = 1; step <= 10; ++step) {\n    Variable y = line(x);      // the predicted prices, y = w·x + b\n    Variable loss = mse(y, t); // the mean of the squared misses\n    loss.backward();           // finds the gradient, one number for w and one for b\n    opt.step();                // w -= lr * (gradient for w), the same for b\n    opt.zero_grad();           // clears the gradients before the next step\n}"
         }
       ]
     },

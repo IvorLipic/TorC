@@ -112,7 +112,7 @@ L.backward();               // w.grad() now holds the gradient</code></pre>
     },
     {
       kind: 'text',
-      html: () => `<section class="wg"><p>The next lesson, <a href="../sgd-step/">Using the gradient</a>, does the same step with TorC's optimizer. The <a href="../backprop-lab/">Backprop lab</a> shows the chain rule on larger graphs.</p></section>`,
+      html: () => `<section class="wg"><p>The next lesson, <a href="../sgd-step/">Gradient descent with many weights</a>, does the same step with TorC's optimizer. The <a href="../backprop-lab/">Backprop lab</a> shows the chain rule on larger graphs.</p></section>`,
     },
   ],
 };

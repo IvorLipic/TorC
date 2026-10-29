@@ -6,7 +6,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { flatLessons, isPublished, neighbors } from '../js/core/course.js';
-import { buildD, stemOf } from '../js/core/trace.js';
+import { buildD, stemOf, anchorValues } from '../js/core/trace.js';
 import { renderLesson } from '../js/core/sections.js';
 import { course, readJson, SITE } from './helpers.mjs';
 
@@ -16,9 +16,18 @@ const entries = flatLessons(C).filter((l) => isPublished(l) || existsSync(new UR
 for (const entry of entries) {
   test(`lesson ${entry.id}: the closing next-lesson link matches neighbors()`, async () => {
     const lesson = (await import(new URL(`../js/lessons/${entry.id}.js`, import.meta.url))).default;
-    const D = buildD(Object.fromEntries(lesson.trace.map((f) => [stemOf(f), readJson('data/' + f)])));
-    const naming = renderLesson(lesson, D).filter((p) => p.section.kind === 'text' && /next lesson/i.test(p.html));
+    const D = buildD(Object.fromEntries(lesson.trace.map((f) => [stemOf(f), readJson('data/' + f)])), anchorValues(readJson('data/anchors.json')));
     const next = neighbors(C, entry.id).next;
+    // a v3 lesson ends with "The answer", whose next-lesson line is generated from neighbors() (core/sections.js answerHtml)
+    if (lesson.sections.some((s) => s.kind === 'answer')) {
+      const answer = renderLesson(lesson, D, { course: C, next: next ?? null }).find((p) => p.section.kind === 'answer').html;
+      if (next) assert.match(answer, new RegExp(`The next lesson is <a href="\\.\\./${next.id}/">${next.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}</a>`));
+      else assert.match(answer, /course map/);
+      assert.equal(renderLesson(lesson, D).filter((p) => p.section.kind === 'text' && /next lesson/i.test(p.html)).length, 0, 'no second, hand-written next-lesson line');
+      if (next) assert.ok(existsSync(new URL(`lessons/${next.id}/index.html`, SITE)), 'the next lesson has a page');
+      return;
+    }
+    const naming = renderLesson(lesson, D).filter((p) => p.section.kind === 'text' && /next lesson/i.test(p.html));
     if (!next) {
       assert.equal(naming.length, 0, 'the last lesson of its sequence must not name a next lesson');
       return;

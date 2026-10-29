@@ -26,9 +26,10 @@ export const SPEC = {
     prelude: 'Variable x(Tensor({2.0f}, {1}), false);\nVariable t(Tensor({6.0f}, {1}), false);',
     check: 'CHECK(w.grad().data()[0] == -24.0f);',
   },
+  // ten plain SGD steps from w = b = 0 must land where TorC's recorded run does (data/optim.json runs[0].final, after_ten_steps)
   'sgd-step': {
-    prelude: `Variable W(Tensor({0.0f}, {1, 1}), true);\nVariable b(Tensor({0.0f}, {1}), true);\nVariable xin(Tensor({1.0f, 2.0f, 3.0f}, {3, 1}), false);\nVariable tgt(Tensor({3.0f, 5.0f, 7.0f}, {3, 1}), false);\nVariable Wt = transpose(W);\nVariable xW = matmul(xin, Wt);\nVariable yhat = add(xW, b);\nnn::MSELoss mse;\nVariable loss = mse(yhat, tgt);`,
-    check: 'CHECK(!W.has_grad() && !b.has_grad());\nCHECK(std::abs(W.data().data()[0] - 1.1333334f) < 1e-5f);',
+    prelude: 'nn::Linear line(1, 1);\nline.named_parameters().at("weight").data().data()[0] = 0.0f;\nline.named_parameters().at("bias").data().data()[0] = 0.0f;\nVariable x(Tensor({1.0f, 2.0f, 3.0f}, {3, 1}), false);\nVariable t(Tensor({3.0f, 5.0f, 7.0f}, {3, 1}), false);\nnn::MSELoss mse;',
+    check: 'const auto& np = line.named_parameters();\nCHECK(std::abs(np.at("weight").data().data()[0] - 2.0386283f) < 1e-4f);\nCHECK(std::abs(np.at("bias").data().data()[0] - 0.9104864f) < 1e-4f);\nCHECK(!np.at("weight").has_grad() && !np.at("bias").has_grad());',
   },
   tensors: { prelude: '', check: 'CHECK((c.shape() == std::vector<int>{2, 3}));\nCHECK(c.data()[3] == 14.0f);\nCHECK((g.shape() == std::vector<int>{2, 2}));\nCHECK(g.data()[0] == 14.0f);' },
   'linear-layer': {

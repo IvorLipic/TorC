@@ -1,29 +1,38 @@
 // Run: node --test site/test/
-// The sgd-step lesson: the model against TorC's surface samples, hand formulas for transpose/mse, the widgets' pure helpers, quoted source
-// lines, the claims the prose makes (each one asserted against the recorded runs), and "modules import in Node without a DOM".
+// The sgd-step lesson (template 3): the model against TorC's surface samples, the hand formulas for transpose/mse, the widgets' pure
+// helpers, the quoted SGD::step line, and every claim the prose and the guided tasks make, each one asserted against the recorded
+// data (data/optim.json, data/why-gradients.json). The v3 rules themselves (roles, budgets, glossary) run in lessons.test.mjs.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
+import { buildD, makeT, anchorValues } from '../js/core/trace.js';
 import { buildGraph, runBackward } from '../js/engine.js';
 import { makeModel, simulate, trainingLoop } from '../js/optim.js';
-import { buildD, makeT } from '../js/core/trace.js';
-import { renderLesson, findUnboundNums, boundNums } from '../js/core/sections.js';
-import lesson from '../js/lessons/sgd-step.js';
+import { renderLesson, boundNums } from '../js/core/sections.js';
+import { fmt } from '../js/ops/texutil.js';
+import lesson, { STEP_LINE } from '../js/lessons/sgd-step.js';
 import { gridFor, contourSegments, niceLevels, fitView, chooseView, heatColor } from '../js/widgets/contour2d.js';
-import { LR_PRESETS, MU_PRESETS, STEPS } from '../js/widgets/descent.js';
+import { LR_PRESETS, STEPS, arrowsAt, r3 } from '../js/widgets/descent.js';
 import { ITERATIONS } from '../js/widgets/loop-timeline.js';
 import { yRange, fmt as sfmt } from '../js/widgets/sgd-ui.js';
 import { SOURCES } from '../js/widgets/sgd-code.js';
-import { readJson, SITE, lessonStats } from './helpers.mjs';
+import { readJson, SITE, course } from './helpers.mjs';
 
 const O = readJson('data/optim.json');
-const D = buildD({ optim: O });
+const WG = readJson('data/why-gradients.json');
+const D = buildD({ optim: O, 'why-gradients': WG }, anchorValues(readJson('data/anchors.json')));
 const T = makeT(D);
 const scene = O.scenes[0];
 const model = makeModel(scene);
 const near = (a, b, tol = 1e-5) => Math.abs(a - b) <= tol * (1 + Math.abs(b));
-const run = (id) => O.runs.find((r) => r.id === id);
 const rowsOf = (r) => [...r.steps, r.final];
+const BASE = { w: [-1, 5], b: [-1.5, 3] };                 // the view descent.js passes to contour2d
+const [PLAIN, ZIG, BIG] = [0, 2, 3];                        // the run indices the lesson binds
+const run = (i) => O.runs[i];
+// coordinates of a point along the steep and the flat direction of the valley, measured from the lowest point
+const [steepV, flatV] = O.hessian.eigenvectors;
+const along = (p, v) => (p.w - O.data.optimum.w) * v[0] + (p.b - O.data.optimum.b) * v[1];
+const rmse = (loss) => Math.sqrt(loss);
 
 // ---- the scene and the model ---------------------------------------------------------------------------------------
 test('engine: the sgd scene (transpose, matmul, add, mse) equals the real run, values and gradients', () => {
@@ -40,15 +49,12 @@ test('engine: the sgd scene (transpose, matmul, add, mse) equals the real run, v
 test('the mse and transpose rules equal the hand formulas and the scene gradients', () => {
   const { x, t, n } = model;
   const g = buildGraph(scene), bw = runBackward(g);
-  const e = x.map((xi, i) => 0 * xi + 0 - t[i]);                       // y - t at w = b = 0
-  const dy = e.map((v) => (2 * v) / n);                                // mse backward: 2 (y - t) / N
+  const dy = x.map((xi, i) => (2 * (0 * xi + 0 - t[i])) / n);          // mse backward at w = b = 0: 2 (y - t) / N
   const trace = Object.fromEntries(scene.nodes.map((q) => [q.name, q]));
   dy.forEach((v, i) => { assert.ok(near(v, trace.y.grad.values[i])); assert.ok(near(v, bw.grad.xW.v[i])); });
-  const gW = dy.reduce((s, v, i) => s + v * x[i], 0), gb = dy.reduce((s, v) => s + v, 0);   // matmul: x^T dy ; add: sum over rows
+  const gW = dy.reduce((s, v, i) => s + v * x[i], 0), gb = dy.reduce((s, v) => s + v, 0);
   assert.ok(near(gW, trace.W.grad.values[0]) && near(gb, trace.b.grad.values[0]));
   assert.ok(near(bw.grad.Wt.v[0], bw.grad.W.v[0]), 'transpose passes the gradient on (a 1x1 swap)');
-  assert.ok(near(model.eval(0, 0).loss, trace.L.value.values[0]));
-  assert.ok(near(model.eval(0, 0).gw, trace.W.grad.values[0]) && near(model.eval(0, 0).gb, trace.b.grad.values[0]));
 });
 
 test('surface conformance: the engine loss equals the 25 loss values TorC printed', () => {
@@ -57,9 +63,9 @@ test('surface conformance: the engine loss equals the 25 loss values TorC printe
   assert.ok(near(model.loss(O.data.optimum.w, O.data.optimum.b), O.data.optimum.loss, 1e-9));
 });
 
-// ---- contour helpers ---------------------------------------------------------------------------------------------------
+// ---- contour helpers -------------------------------------------------------------------------------------------------
 test('contour2d: marching squares puts every segment end on the requested level', () => {
-  const grid = gridFor(model, [-1, 5], [-1.5, 3], 64, 56);
+  const grid = gridFor(model, BASE.w, BASE.b, 64, 56);
   const levels = niceLevels(grid.zmin, grid.zmax);
   assert.ok(levels.length >= 4 && levels.length <= 9, `levels ${levels}`);
   for (const lev of levels) {
@@ -67,78 +73,159 @@ test('contour2d: marching squares puts every segment end on the requested level'
     assert.ok(segs.length > 0, `level ${lev} has segments`);
     for (const [a, b] of segs) for (const [px, py] of [a, b]) {
       const real = model.loss(px, py);
-      assert.ok(Math.abs(real - lev) <= 0.04 * lev + 0.02, `level ${lev}: loss at a segment end is ${real}`);   // linear interpolation on a quadratic
+      assert.ok(Math.abs(real - lev) <= 0.04 * lev + 0.02, `level ${lev}: loss at a segment end is ${real}`);
     }
   }
   assert.deepEqual(niceLevels(0, 5), [1, 2]);
 });
 
-test('contour2d: equal pixel scale, view selection and colour map', () => {
-  const f = fitView([-1, 5], [-1.5, 3], 506, 384);
-  assert.ok(near((506) / (f.w[1] - f.w[0]), 384 / (f.b[1] - f.b[0]), 1e-9), 'one unit of w is as long as one unit of b');
+test('contour2d: equal pixel scale (so the gradient arrow looks perpendicular), view selection and colour map', () => {
+  const f = fitView(BASE.w, BASE.b, 506, 384);
+  assert.ok(near(506 / (f.w[1] - f.w[0]), 384 / (f.b[1] - f.b[0]), 1e-9), 'one unit of w is as long as one unit of b');
   assert.ok(f.w[0] <= -1 && f.w[1] >= 5 && f.b[0] <= -1.5 && f.b[1] >= 3);
-  const base = { w: [-1, 5], b: [-1.5, 3] };
-  assert.equal(chooseView(base, [{ w: 0, b: 0 }, { w: 4, b: 2 }]).zoomedOut, false);
-  const wide = chooseView(base, [{ w: 0, b: 0 }, { w: -12.7, b: -5.6 }]);
-  assert.ok(wide.zoomedOut && wide.w[0] < -12.7 && wide.w[1] >= 5);
+  assert.equal(chooseView(BASE, [{ w: 0, b: 0 }, { w: 4, b: 2 }]).zoomedOut, false);
   const c = (v) => heatColor(v, 100).match(/\d+/g).map(Number);
-  assert.deepEqual(c(0), [20, 33, 80]);
+  assert.deepEqual(c(0), [20, 33, 80], 'dark is low');
   assert.ok(c(100).every((x, i) => x === [244, 162, 97][i]));
-  assert.ok(c(1)[1] < c(50)[1] || c(1)[0] < c(50)[0], 'colour changes with the loss');
+  assert.ok(c(1).reduce((s, v) => s + v) < c(50).reduce((s, v) => s + v), 'a higher loss is a lighter colour');
 });
 
-// ---- the claims the lesson makes about the recorded runs -------------------------------------------------------------------
-test('the run order the lesson relies on, and the widget presets are recorded runs', () => {
-  assert.deepEqual(O.runs.map((r) => [r.lr, r.momentum]), [[0.05, 0], [0.1, 0], [0.15, 0], [0.2, 0], [0.05, 0.5], [0.05, 0.9]]);
-  for (const lr of LR_PRESETS) assert.ok(O.runs.some((r) => r.lr === lr && r.momentum === 0), `lr ${lr}`);
-  for (const mu of MU_PRESETS) assert.ok(O.runs.some((r) => r.lr === 0.05 && r.momentum === mu), `mu ${mu}`);
-  assert.equal(STEPS, 10); assert.equal(ITERATIONS, 10);
-  assert.equal(O.runs[0].steps.length, STEPS, '"ten updates"');
-  assert.equal(O.no_zero_grad.training_loop.iterations.length, ITERATIONS, '"iteration ten"');
+// ---- the widget against TorC's runs -------------------------------------------------------------------------------------
+test('the presets are recorded plain-SGD runs, in the order the lesson binds them', () => {
+  assert.deepEqual(O.runs.map((r) => [r.lr, r.momentum]).slice(0, 4), [[0.05, 0], [0.1, 0], [0.15, 0], [0.2, 0]]);
+  assert.deepEqual(LR_PRESETS, [run(PLAIN).lr, run(ZIG).lr, run(BIG).lr]);
+  assert.equal(STEPS, 10);
+  for (const i of [PLAIN, ZIG, BIG]) assert.equal(run(i).steps.length, STEPS, '"ten steps"');
 });
 
-test('what the prose says is true of the runs: steady, divergent, momentum overshoots, zero_grad matters', () => {
-  const plain = rowsOf(O.runs[0]).map((x) => x.loss), big = rowsOf(O.runs[3]).map((x) => x.loss);
-  for (let i = 1; i < plain.length; i++) assert.ok(plain[i] < plain[i - 1], 'lr 0.05 falls at every update');
-  for (let i = 1; i < big.length; i++) assert.ok(big[i] > big[i - 1], 'lr 0.2 grows at every update');
-  const w = (r) => rowsOf(r).map((x) => x.w), sw = (ws) => ws.slice(1).map((x, i) => Math.abs(x - ws[i]));
-  const s20 = sw(w(O.runs[3]));
-  for (let i = 1; i < s20.length; i++) assert.ok(s20[i] > s20[i - 1], 'every step overshoots further');
-  assert.ok(O.hessian.critical_lr > 0.15 && O.hessian.critical_lr < 0.2, 'the limit sits between the converging and diverging presets');
-  assert.ok(Math.abs(O.hessian.critical_lr - 2 / O.hessian.eigenvalues[0]) < 1e-12, 'two over the largest curvature');
-  const m5 = O.runs[4].steps, p = O.runs[0].steps;
-  for (const k of ['w', 'b', 'loss']) assert.equal(m5[1][k], p[1][k], 'the first update with momentum is the plain one');
-  assert.ok(m5[2].loss < p[2].loss && m5[3].loss > m5[2].loss, 'ahead after two updates, then up');
-  const m9 = O.runs[5].steps;
-  assert.ok(m9[2].w - m9[1].w > p[2].w - p[1].w, 'mu 0.9: the second update moves W more than plain SGD');
-  const acc = O.no_zero_grad.accumulate_only;
-  acc.forEach((a, i) => assert.ok(near(a.gw, (i + 1) * acc[0].gw)));
-  const noZ = O.no_zero_grad.training_loop.iterations;
-  assert.ok(noZ[9].loss > 1000 * p[9].loss, 'without zero_grad the loop never settles');
-  assert.ok(near(-0.05 * acc[2].gw, 3.4), 'the c-zero answer');
-  O.data.x.forEach((x, i) => assert.equal(O.data.t[i], O.data.true_w * x + O.data.true_b, 'the points lie on t = 2x + 1'));
-  assert.deepEqual(O.skipped_step.map((s) => [s.changed, s.threw]), [[false, false], [false, false], [false, false], [true, false]], 'step() silently skips a parameter without a gradient');
-});
-
-test('the widgets reproduce the recorded runs they show', () => {
-  for (const r of O.runs) {
-    const run = simulate(model, { lr: r.lr, momentum: r.momentum, steps: STEPS }), rows = [...run.steps, run.final];
-    rowsOf(r).forEach((x, i) => assert.ok(near(rows[i].loss, x.loss, 1e-4) && near(rows[i].w, x.w, 1e-4), `${r.id} update ${i}`));
+test('the widget reproduces the recorded runs it shows, and its arrows are the step and its mirror image', () => {
+  for (const r of O.runs.filter((x) => x.momentum === 0)) {
+    const sim = simulate(model, { lr: r.lr, steps: STEPS }), rows = [...sim.steps, sim.final];
+    rowsOf(r).forEach((x, i) => assert.ok(near(rows[i].loss, x.loss, 1e-4) && near(rows[i].w, x.w, 1e-4) && near(rows[i].b, x.b, 1e-4), `${r.id} step ${i}`));
+    rows.slice(0, -1).forEach((p, i) => {
+      const { uphill, step } = arrowsAt(p, r.lr);
+      assert.ok(near(step.w, rows[i + 1].w, 1e-9) && near(step.b, rows[i + 1].b, 1e-9), 'the dashed arrow ends at the next point');
+      assert.ok(near(uphill.w - p.w, p.w - step.w, 1e-12) && near(uphill.b - p.b, p.b - step.b, 1e-12), 'the gradient arrow is the step turned around');
+      assert.ok(model.loss(uphill.w, uphill.b) > p.loss || Math.hypot(p.gw, p.gb) < 1e-3, 'the gradient arrow points uphill');
+    });
   }
-  const noZ = trainingLoop(model, { lr: O.no_zero_grad.training_loop.lr, iterations: ITERATIONS, zeroGrad: false });
-  O.no_zero_grad.training_loop.iterations.forEach((x, i) => assert.ok(near(noZ[i].loss, x.loss, 1e-4) && near(noZ[i].gw, x.gw, 1e-4), `loop ${i}`));
 });
 
-test('yRange and the number format', () => {
-  assert.deepEqual(yRange([27.67, 0.001145]), [-3, 2]);
-  assert.deepEqual(yRange([1, 5]), [0, 2]);
-  assert.deepEqual(yRange([27.67, 1442, NaN, Infinity]), [1, 4]);
-  assert.equal(sfmt(1.2345e18), '1.23e18');
-  assert.equal(sfmt(27.67), '27.67');
-  assert.equal(sfmt(NaN), 'not a number');
+test('map task 1: the gradient is perpendicular to the contour line, and each step is shorter than the one before (lr 0.05)', () => {
+  const rows = rowsOf(run(PLAIN));
+  for (const p of rows.slice(0, 4)) {
+    const g = Math.hypot(p.gw, p.gb), t = [-p.gb / g, p.gw / g], h = 1e-4;   // t is perpendicular to the gradient
+    const along = (model.loss(p.w + h * t[0], p.b + h * t[1]) - model.loss(p.w - h * t[0], p.b - h * t[1])) / (2 * h);
+    assert.ok(Math.abs(along) < 1e-3 * g, `no change of the loss along the contour line at (${p.w}, ${p.b})`);
+  }
+  const len = rows.slice(1).map((q, i) => Math.hypot(q.w - rows[i].w, q.b - rows[i].b));
+  for (let i = 1; i < len.length; i++) assert.ok(len[i] < len[i - 1], `step ${i + 1} is shorter than step ${i}`);
 });
 
-// ---- quoted library source ----------------------------------------------------------------------------------------------------
+test('map task 2: after ten steps in the fog the trail is in the dark part of the map', () => {
+  const f = run(PLAIN).final;
+  assert.ok(f.loss < 0.01 * run(PLAIN).steps[0].loss);
+  assert.ok(Math.hypot(f.w - O.data.optimum.w, f.b - O.data.optimum.b) < 0.1);
+});
+
+// ---- the claims of the prose ------------------------------------------------------------------------------------------
+test('the three rides are the data points, and they lie exactly on y = 2x + 1 (the lowest loss is zero there)', () => {
+  assert.deepEqual(O.data.points, O.data.x.map((x, i) => ({ x, t: O.data.t[i] })));
+  O.data.points.forEach((p) => assert.equal(p.t, O.data.true_w * p.x + O.data.true_b));
+  assert.deepEqual([O.data.optimum.w, O.data.optimum.b, O.data.optimum.loss], [O.data.true_w, O.data.true_b, 0]);
+});
+
+test('the start: w = b = 0, the loss, and the gradient that backward() gives', () => {
+  const nodes = Object.fromEntries(scene.nodes.map((n) => [n.name, n]));
+  assert.deepEqual([O.start.w, O.start.b], [0, 0]);
+  assert.ok(near(O.start.loss, nodes.L.value.values[0]) && near(O.start.loss, O.nudge_start.L0));
+  assert.ok(near(O.start.gw, nodes.W.grad.values[0]) && near(O.start.gb, nodes.b.grad.values[0]));
+  assert.deepEqual(O.nudge_start.gradient, [O.start.gw, O.start.gb], 'the gradient is the list of both numbers');
+  assert.ok(near(rmse(O.start.loss), 5.26, 1e-2), 'a typical miss of about 5.3 euros');
+});
+
+test('nudging one weight at a time: each ratio comes closer to the backward() gradient as the nudge shrinks', () => {
+  for (const [k, g] of [['w', O.start.gw], ['b', O.start.gb]]) {
+    const rows = O.nudge_start[k];
+    assert.deepEqual(rows.map((r) => r.h), [1, 0.5, 0.1, 0.01, 0.001]);
+    for (const r of rows) {
+      assert.ok(near(r.dL, r.L_h - O.nudge_start.L0, 1e-4) && near(r.slope, r.dL / r.h, 1e-4), `${k}, h = ${r.h}`);
+      assert.ok(r.dL < 0, 'the loss falls');
+      assert.equal(r.backward_slope, g);
+    }
+    const gap = rows.map((r) => Math.abs(r.slope - g));
+    for (let i = 1; i < gap.length; i++) assert.ok(gap[i] < gap[i - 1], `${k}: closer with a smaller nudge`);
+  }
+});
+
+test('the predict quiz can be answered from the rounded numbers on the page', () => {
+  const q = lesson.sections.find((s) => s.id === 'nudge-w');
+  const r = O.nudge_start.w[2];
+  assert.equal(q.answer, 'files.optim.nudge_start.w.2.slope');
+  const fromPage = (Number(fmt(r.L_h)) - Number(fmt(O.nudge_start.L0))) / r.h;
+  assert.ok(Math.abs(fromPage - r.slope) <= q.tolerance, `${fromPage} vs ${r.slope}`);
+  const b = O.nudge_start.b[3];
+  assert.ok(Math.abs((Number(fmt(b.L_h)) - Number(fmt(O.nudge_start.L0))) / b.h - O.start.gb) < 0.2, 'the b nudge on the page gives about -10');
+});
+
+test('one step for both weights: the worked w, the learner\'s b, and the loss after it', () => {
+  const s1 = run(PLAIN).steps[1], lr = run(PLAIN).lr;
+  assert.ok(near(s1.w, O.start.w - lr * O.start.gw) && near(s1.b, O.start.b - lr * O.start.gb));
+  assert.ok(s1.w > 0 && s1.w < O.data.true_w, 'w grows toward the true price');
+  const q = lesson.sections.find((s) => s.id === 'b-step');
+  assert.ok(Math.abs(T.num(q.answer) - (O.start.b - lr * O.start.gb)) < 1e-6);
+  assert.ok(rmse(s1.loss) < rmse(O.start.loss), 'the typical miss falls');
+});
+
+test('a learning rate four times as large: every step lands further away and the loss grows (D13: one quantity after ten steps)', () => {
+  assert.ok(near(run(BIG).lr, 4 * run(PLAIN).lr, 1e-12), '"four times as large"');
+  const big = rowsOf(run(BIG));
+  for (let i = 1; i < big.length; i++) {
+    assert.ok(big[i].loss > big[i - 1].loss, 'the loss grows at every step');
+    const d = (p) => Math.hypot(p.w - O.data.optimum.w, p.b - O.data.optimum.b);
+    assert.ok(d(big[i]) > d(big[i - 1]), 'each step lands further from the star');
+    assert.ok(model.loss(big[i - 1].w - 1e-3 * big[i - 1].gw, big[i - 1].b - 1e-3 * big[i - 1].gb) < big[i - 1].loss, 'each step starts downhill');
+  }
+  assert.ok(run(BIG).final.loss > run(BIG).steps[0].loss);
+  assert.deepEqual(O.after_ten_steps.with_zero_grad, { w: run(PLAIN).final.w, b: run(PLAIN).final.b, loss: run(PLAIN).final.loss });
+  assert.equal(O.after_ten_steps.updates, STEPS);
+  assert.equal(O.after_ten_steps.lr, run(PLAIN).lr);
+});
+
+test('the narrow valley: lr 0.15 jumps across and settles, lr 0.2 jumps higher each time, and the floor is slow', () => {
+  const [lamSteep, lamFlat] = O.hessian.eigenvalues;
+  assert.ok(lamSteep / lamFlat > 10, 'steep walls, an almost flat floor');
+  const zig = rowsOf(run(ZIG)), big = rowsOf(run(BIG));
+  for (let i = 1; i < zig.length; i++) {
+    assert.ok(zig[i].loss < zig[i - 1].loss, 'lr 0.15: the loss falls at every step');
+    assert.ok(along(zig[i], steepV) * along(zig[i - 1], steepV) < 0, 'lr 0.15: each step jumps to the other wall');
+    assert.ok(Math.abs(along(zig[i], steepV)) < Math.abs(along(zig[i - 1], steepV)), 'lr 0.15: each jump is shorter than the last');
+    assert.ok(along(big[i], steepV) * along(big[i - 1], steepV) < 0 && Math.abs(along(big[i], steepV)) > Math.abs(along(big[i - 1], steepV)), 'lr 0.2: each jump lands higher');
+  }
+  for (const r of [run(PLAIN), run(ZIG)]) assert.ok(Math.abs(1 - r.lr * lamFlat) > 0.95, 'along the floor the distance shrinks by less than 5 % per step');
+  // rates tasks: within five steps, lr 0.15 stays in the base view and lr 0.2 makes it zoom out
+  assert.equal(chooseView(BASE, zig.slice(0, 6)).zoomedOut, false);
+  assert.equal(chooseView(BASE, big.slice(0, 6)).zoomedOut, true);
+});
+
+test('the cumulative quiz: four notebooks give four times the gradient at the same start and the same true price', () => {
+  assert.equal(WG.steep.probes[0].grad, 4 * WG.probes[0].grad);
+  assert.equal(WG.steep.probes[0].w, WG.probes[0].w);
+  assert.equal(WG.steep.setup.w_min, WG.setup.w_min);
+  assert.equal(D.anchors.bowl_w_min, WG.setup.w_min);
+  assert.equal(WG.steep.setup.t, 2 * WG.setup.t, 'twelve euros for four notebooks, six for two');
+  assert.ok(WG.steep.setup.critical_lr < WG.setup.critical_lr, 'the steeper case needs a smaller learning rate');
+});
+
+// ---- the real line ----------------------------------------------------------------------------------------------------
+test('the real line is SGD::step without momentum, quoted from SOURCES', () => {
+  assert.equal(STEP_LINE, 'param->data() = param->data().sub(grad.mul(lr_));');
+  assert.equal(SOURCES.step.file, 'src/optim.cpp');
+  assert.equal(SOURCES.step.lines[27 - SOURCES.step.from].trim(), STEP_LINE);
+  const html = renderLesson(lesson, D).map((p) => p.html).join('\n');
+  assert.ok(html.includes('param-&gt;data() = param-&gt;data().sub(grad.mul(lr_));'), 'the lesson shows the line');
+});
+
 const SRC = new URL('../build/trace/_deps/torc-src/', SITE);
 test('quoted library lines equal the library source at the pinned ref (skipped when the fetched source is absent)', (t) => {
   if (!existsSync(SRC)) {
@@ -151,66 +238,60 @@ test('quoted library lines equal the library source at the pinned ref (skipped w
   }
 });
 
-const html = renderLesson(lesson, D).map((p) => p.html).join('\n');
-const unescape = (x) => x.replace(/&gt;/g, '>').replace(/&lt;/g, '<').replace(/&amp;/g, '&');
-
-test('every inline quote in the lesson is a line of SOURCES, and they are the intended lines', () => {
-  const quotes = [...html.matchAll(/<code class="quote" data-src="(\w+):(\d+)">([^<]*)<\/code>/g)];
-  assert.deepEqual(quotes.map((q) => `${q[1]}:${q[2]}`), ['step:27', 'step:24', 'accumulate:83', 'step:20']);
-  for (const [, key, n, text] of quotes) assert.equal(unescape(text), SOURCES[key].lines[n - SOURCES[key].from].trim());
-  const line = (key, n) => SOURCES[key].lines[n - SOURCES[key].from].trim();
-  assert.equal(line('step', 20), 'if (!param->has_grad()) continue;');
-  assert.equal(line('step', 27), 'param->data() = param->data().sub(grad.mul(lr_));');
-  assert.match(line('step', 24), /velocities_\[i\]\.mul\(momentum_\)\.add\(grad\)/);
-  assert.equal(line('accumulate', 83), 'grad_.data()[i] += local_grad.data()[i];');
-  assert.ok(html.includes(['loss.backward();', 'optimizer.step();', 'optimizer.zero_grad();'].join('\n')), 'the loop lines');
-});
-
-// ---- lesson text ----------------------------------------------------------------------------------------------------------------
-test('every number in the lesson is bound to the trace, with the values the argument rests on', () => {
-  for (const { section, html: h } of renderLesson(lesson, D)) {
-    assert.deepEqual(findUnboundNums(h), [], section.kind);
-    for (const { path, shown } of boundNums(h)) assert.equal(T.text(path), shown, path);
-  }
-  const shown = Object.fromEntries(boundNums(html).map(({ path, shown: v }) => [path, v]));
-  const r = 'files.optim.runs';
-  assert.deepEqual([shown['sgd.L.value'], shown['files.optim.data.true_w'], shown[`${r}.0.steps.1.w`], shown[`${r}.0.steps.1.loss`], shown[`${r}.3.final.loss`], shown[`${r}.4.steps.3.loss`]],
-    ['27.67', '2', '1.133', '5.489', '1442', '2.447']);
-});
-
-test('the lesson keeps to the style budget (docs/authoring.md)', () => {
-  const st = lessonStats(lesson, D, renderLesson, boundNums);
-  assert.ok(st.words <= 800, `${st.words} words`);
-  assert.ok(st.numbers <= 25, `${st.numbers} numbers`);
-  assert.ok(st.widgets <= 2, `${st.widgets} widgets`);
-  assert.ok(st.questions <= 3, `${st.questions} questions`);
-  assert.equal(lesson.sections[1].kind, 'tldr');
-  assert.equal(lesson.footer, undefined);
-  assert.doesNotMatch(html, /recorded|recomputed|printed by|in your browser|show as table/i);
-});
-
-test('no hand-typed digits in the prose (numbers come from the trace)', () => {
+// ---- lesson text -------------------------------------------------------------------------------------------------------
+const plainHtml = () => {
   const saved = globalThis.katex;
   globalThis.katex = undefined;
-  let raw;
-  try { raw = renderLesson(lesson, D).map((p) => p.html).join('\n'); } finally { globalThis.katex = saved; }
+  try { return renderLesson(lesson, D, { course: course() }).map((p) => p.html).join('\n'); } finally { globalThis.katex = saved; }
+};
+
+test('every bound number shows what the data gives, with the values the argument rests on', () => {
+  const shown = Object.fromEntries(boundNums(plainHtml()).filter((x) => x.role !== 'human').map((x) => [x.path, x]));
+  for (const b of Object.values(shown)) assert.equal(T.reformat(b), b.shown, b.path);
+  assert.equal(shown['files.optim.start.loss'].shown, '27.67');
+  assert.equal(shown['files.optim.start.gw'].shown, '−22.67');
+  assert.equal(shown['files.optim.runs.0.steps.1.w'].shown, '1.133');
+  assert.equal(shown['files.optim.runs.0.lr'].shown, '0.05');
+  assert.equal(shown['files.optim.runs.3.lr'].shown, '0.2');
+});
+
+test('no hand-typed digits in the prose, and the names of decision 14: w and b, step (not update or iteration), no momentum or zero_grad', () => {
+  const raw = plainHtml();
   const left = raw.replace(/<style[\s\S]*?<\/style>/g, '').replace(/<span class="num"[^>]*>[^<]*<\/span>/g, '').replace(/<pre[\s\S]*?<\/pre>/g, '')
-    .replace(/<code[^>]*>[\s\S]*?<\/code>/g, '').replace(/<h2[^>]*>\s*\d\s·/g, '<h2>').replace(/<[^>]+>/g, ' ').match(/[^\s]*\d[^\s]*/g) ?? [];
+    .replace(/<svg[\s\S]*?<\/svg>/g, '').replace(/<h2[^>]*>\s*\d\s·/g, '<h2>').replace(/<[^>]+>/g, ' ').match(/[^\s]*\d[^\s]*/g) ?? [];
   assert.deepEqual(left, []);
+  const text = raw.replace(/<style[\s\S]*?<\/style>/g, '').replace(/<pre[\s\S]*?<\/pre>/g, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+  for (const bad of [/\bupdates?\b/i, /\biterations?\b/i, /momentum/i, /zero_grad/, /\bslope\b/i, /\bknob/i, /\bW\b/, /\bbias\b/i, /curvature/i, /\bHessian\b/i]) assert.doesNotMatch(text, bad);
+  assert.doesNotMatch(text, /0\.18/, 'no magic critical learning rate');
+  assert.match(text, /Each colour is the loss for one pair \( w , b \)\. Dark is low\./, 'the contour map legend at first use');
+});
+
+test('the widget readout says step, w and b, and formats with 3 significant figures', () => {
+  const src = readFileSync(new URL('../js/widgets/descent.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(src, /<b>(update|W|iteration)<\/b>/);
+  assert.equal(r3(27.666666), '27.7');
+  assert.equal(r3(-22.6666679), '−22.7');
+  assert.equal(r3(1442.35742), '1,440');
+  assert.equal(r3(0.00114498998), '0.00114');
+  assert.equal(r3(NaN), 'not a number');
+});
+
+test('the loop-timeline widget (kept for the appendix) still reproduces the loop without zero_grad', () => {
+  assert.equal(ITERATIONS, O.no_zero_grad.training_loop.iterations.length);
+  const noZ = trainingLoop(model, { lr: O.no_zero_grad.training_loop.lr, iterations: ITERATIONS, zeroGrad: false });
+  O.no_zero_grad.training_loop.iterations.forEach((x, i) => assert.ok(near(noZ[i].loss, x.loss, 1e-4) && near(noZ[i].gw, x.gw, 1e-4), `loop ${i}`));
+});
+
+test('yRange and the number format of the shared widget helpers', () => {
+  assert.deepEqual(yRange([27.67, 0.001145]), [-3, 2]);
+  assert.deepEqual(yRange([1, 5]), [0, 2]);
+  assert.equal(sfmt(1.2345e18), '1.23e18');
+  assert.equal(sfmt(27.67), '27.67');
 });
 
 test('widget modules import in Node without a DOM', async () => {
   assert.equal(typeof document, 'undefined');
   assert.equal(typeof (await import('../js/widgets/descent.js')).mountDescent, 'function');
-  assert.equal(typeof (await import('../js/widgets/loop-timeline.js')).mountLoopTimeline, 'function');
   assert.equal(typeof (await import('../js/widgets/contour2d.js')).mountContour2d, 'function');
   assert.equal(typeof document, 'undefined');
-});
-
-test('the page names one quantity for a loss after ten steps, and the widgets use the names of the prose: W and step (brief D13, D19)', () => {
-  const text = html.replace(/<[^>]+>/g, ' ');
-  assert.doesNotMatch(text, /after ten (steps|iterations)/, 'no loss is quoted as "after ten steps" next to a loss of another iteration');
-  assert.match(html, /In iteration ten the loss is/);
-  // D2: the closing link names the next lesson; site/test/next-lesson.test.mjs checks it against neighbors() for every lesson
-  assert.equal(readFileSync(new URL('../js/widgets/descent.js', import.meta.url), 'utf8').match(/<b>(update|w)<\/b>/), null, 'the readout says step and W');
 });
