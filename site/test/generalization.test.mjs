@@ -84,7 +84,8 @@ test('the code on the page is the code of the experiment (brief C10, D11): trace
   const block = renderLesson(lesson, D).map((p) => p.html).join('\n').match(/<pre class="gn-code"[^>]*><code>([\s\S]*?)<\/code><\/pre>/)[1];
   const src = readFileSync(new URL('../../tools/trace/trace_generalization.cpp', import.meta.url), 'utf8');
   // the batch sizes are not in the JSON, so they are pinned to the program that made it
-  assert.ok(src.includes(`data::DataLoader train(train_set, ${BATCH.train}, /*shuffle=*/false);`));
+  assert.ok(src.includes('data::DataLoader train(train_set, BATCH, /*shuffle=*/false);') && src.includes(`BATCH = ${BATCH.train};`));
+  assert.equal(data.settings.batch_size, BATCH.train, 'the trace records the batch size the page shows');
   assert.ok(src.includes(`${BATCH.test}`) && src.includes(`test(test_set, ${BATCH.test})`));
   assert.ok(block.includes(`data::DataLoader train(train_set, ${BATCH.train}, /*shuffle=*/false);`));
   assert.ok(block.includes(`data::DataLoader test(test_set, ${BATCH.test});`));
