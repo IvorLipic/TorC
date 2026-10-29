@@ -3,14 +3,39 @@
   "title": "TorC Learn",
   "parts": [
     {
+      "id": "whole-game",
+      "title": "What it means to learn",
+      "lessons": [
+        {
+          "id": "what-is-learning",
+          "title": "What it means for a machine to learn",
+          "outcome": "You can say what it means for a machine to learn. You fit a line by hand, then let the computer fit it, and test both lines on new points.",
+          "prereqs": [],
+          "symbols": [
+            "nn::MSELoss",
+            "optim::SGD"
+          ],
+          "trace": [],
+          "est_minutes": 12,
+          "status": "planned",
+          "widgets": [
+            "digit pad",
+            "fit a line by hand"
+          ]
+        }
+      ]
+    },
+    {
       "id": "gradient",
-      "title": "Learning from a gradient",
+      "title": "The gradient and gradient descent",
       "lessons": [
         {
           "id": "why-gradients",
           "title": "The gradient",
-          "outcome": "You change one weight by hand and see what the gradient tells you.",
-          "prereqs": [],
+          "outcome": "You can find how much the loss changes when one weight changes a little. This number is the gradient, and it tells you which way to move the weight.",
+          "prereqs": [
+            "what-is-learning"
+          ],
           "symbols": [
             "Variable::backward",
             "optim::SGD",
@@ -31,7 +56,7 @@
         {
           "id": "sgd-step",
           "title": "Using the gradient",
-          "outcome": "TorC's optimizer changes the parameters. You see what the learning rate, momentum and zero_grad() do.",
+          "outcome": "You can explain how gradient descent changes two weights at the same time. You can also say why a learning rate that is too large makes the loss grow.",
           "prereqs": [
             "why-gradients"
           ],
@@ -57,44 +82,14 @@
     },
     {
       "id": "networks",
-      "title": "Building a network",
+      "title": "Neural networks",
       "lessons": [
-        {
-          "id": "tensors",
-          "title": "Tensors",
-          "outcome": "A tensor is a block of numbers with a shape. You see how shapes combine in broadcasting and in matrix products.",
-          "prereqs": [
-            "sgd-step"
-          ],
-          "symbols": [
-            "Tensor",
-            "Tensor::operator[]",
-            "Tensor::reshape",
-            "Tensor::add",
-            "broadcast_shape",
-            "Tensor::sum",
-            "Tensor::mean",
-            "Tensor::max",
-            "Tensor::transpose",
-            "Tensor::matmul"
-          ],
-          "trace": [
-            "tensors.json"
-          ],
-          "est_minutes": 7,
-          "status": "published",
-          "widgets": [
-            "broadcast grid",
-            "axis explorer"
-          ],
-          "code": "Tensor a({1.f, 2.f, 3.f, 4.f, 5.f, 6.f}, {2, 3});\nTensor b({10.f, 20.f, 30.f}, {3});\nTensor c = a.add(b);    // (2, 3): b added to each row\nTensor g = a.matmul(a.transpose({1, 0}));   // (2, 2)"
-        },
         {
           "id": "linear-layer",
           "title": "Layers",
-          "outcome": "A linear layer is a matrix product plus a bias. You see its shapes, its gradients and the start values of its weights.",
+          "outcome": "You can calculate the output of one neuron from its inputs and weights. You can explain why a layer of many neurons is one matrix product.",
           "prereqs": [
-            "tensors"
+            "sgd-step"
           ],
           "symbols": [
             "nn::Linear",
@@ -117,7 +112,7 @@
         {
           "id": "nonlinearity",
           "title": "Nonlinearity",
-          "outcome": "Two linear layers in a row are still one linear layer. An activation function such as ReLU changes that.",
+          "outcome": "You can explain why two layers without an activation function act like one layer. You can see how ReLU units bend a straight line into a curve.",
           "prereqs": [
             "linear-layer"
           ],
@@ -143,44 +138,32 @@
           "code": "Variable h = relu(z);                 // max(0, z)\nVariable s = sigmoid(z);              // 1 / (1 + e^-z)\nVariable p = softmax(z, /*axis=*/1);  // each row sums to 1"
         },
         {
-          "id": "modules",
-          "title": "Modules",
-          "outcome": "A model is a set of parameters and a forward() function. Sequential puts layers in a row.",
+          "id": "classification",
+          "title": "Two classes and the line between them",
+          "outcome": "You can explain how a network sorts points into two classes. You can see how more hidden units bend the line between the classes.",
           "prereqs": [
             "nonlinearity"
           ],
           "symbols": [
-            "nn::Module",
             "nn::Sequential",
-            "Module::parameters",
-            "Module::named_parameters",
-            "Module::register_parameter",
-            "Module::operator()",
-            "nn::ReLU"
+            "nn::Linear",
+            "nn::ReLU",
+            "nn::CrossEntropyLoss",
+            "sigmoid"
           ],
-          "trace": [
-            "modules.json"
-          ],
-          "est_minutes": 6,
-          "status": "published",
+          "trace": [],
+          "est_minutes": 15,
+          "status": "planned",
           "widgets": [
-            "model viewer",
-            "call order"
-          ],
-          "code": "nn::Sequential model;\nmodel.add(std::make_unique<nn::Linear>(784, 32));\nmodel.add(std::make_unique<nn::ReLU>());\nmodel.add(std::make_unique<nn::Linear>(32, 10));\nstd::vector<Variable*> params = model.parameters();"
-        }
-      ]
-    },
-    {
-      "id": "training",
-      "title": "Training",
-      "lessons": [
+            "decision boundary"
+          ]
+        },
         {
           "id": "losses",
           "title": "Losses",
-          "outcome": "The loss measures how wrong the model is. Mean squared error is for numbers, and cross-entropy is for classes.",
+          "outcome": "You can turn the scores of a network into probabilities with softmax. You can explain why cross-entropy is a better loss than squared error for classes.",
           "prereqs": [
-            "modules"
+            "classification"
           ],
           "symbols": [
             "nn::MSELoss",
@@ -200,11 +183,57 @@
           "code": "nn::MSELoss mse;                      // regression\nnn::CrossEntropyLoss ce;              // classification\nVariable loss = ce(logits, labels);   // logits (B, 10), labels (B)"
         },
         {
-          "id": "training-loop",
-          "title": "The training loop",
-          "outcome": "A data loader splits the data into batches. Each step trains on one batch, and one pass over all batches is one epoch.",
+          "id": "backprop",
+          "title": "How the computer finds every gradient at once",
+          "outcome": "You can explain why it is too slow to find each gradient by changing one weight at a time. You can follow the chain rule backward through a small network.",
           "prereqs": [
             "losses"
+          ],
+          "symbols": [
+            "Variable::backward",
+            "TapeEntry",
+            "accumulate_grad"
+          ],
+          "trace": [],
+          "est_minutes": 18,
+          "status": "planned",
+          "widgets": [
+            "nudge counter",
+            "graph lab"
+          ]
+        },
+        {
+          "id": "deep-nets",
+          "title": "Why deep networks are hard to start",
+          "outcome": "You can explain why the gradients can become very small in a deep network. You can also say why the start values of the weights are important.",
+          "prereqs": [
+            "backprop"
+          ],
+          "symbols": [
+            "sigmoid",
+            "relu",
+            "kaiming_normal_std",
+            "nn::Linear"
+          ],
+          "trace": [],
+          "est_minutes": 10,
+          "status": "planned",
+          "widgets": [
+            "signal through six layers"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "training",
+      "title": "Training in practice",
+      "lessons": [
+        {
+          "id": "training-loop",
+          "title": "The training loop",
+          "outcome": "You can explain why training uses small groups of examples, called batches. You can follow the five lines of the training loop in TorC.",
+          "prereqs": [
+            "deep-nets"
           ],
           "symbols": [
             "data::Dataset",
@@ -226,7 +255,7 @@
         {
           "id": "optimizers",
           "title": "Better optimizers",
-          "outcome": "Momentum, Adam and AdamW change each step in different ways. You compare them in the same narrow valley.",
+          "outcome": "You can compare momentum, Adam and AdamW on the same problem. You can say how each of them changes the size of a step.",
           "prereqs": [
             "training-loop"
           ],
@@ -248,7 +277,7 @@
         {
           "id": "generalization",
           "title": "Generalization",
-          "outcome": "A model can fit its training data and still fail on new data. Weight decay helps to prevent this.",
+          "outcome": "You can tell when a model only memorizes its training data. You can use a separate set of data to choose when to stop training.",
           "prereqs": [
             "optimizers"
           ],
@@ -266,11 +295,17 @@
             "train and test curves"
           ],
           "code": "data::DataLoader train(train_set, 64, /*shuffle=*/true);\ndata::DataLoader test(test_set, 256);   // never trained on\noptim::AdamW opt(params, 1e-3f, /*weight_decay=*/0.01f);"
-        },
+        }
+      ]
+    },
+    {
+      "id": "images",
+      "title": "Reading handwritten digits",
+      "lessons": [
         {
           "id": "mnist-mlp",
           "title": "Digits with an MLP",
-          "outcome": "TorC trains a network with three layers on handwritten digits. You draw a digit and see what it reads.",
+          "outcome": "You can train a network that reads handwritten digits and count its mistakes. You can say which digits it mixes up, and why.",
           "prereqs": [
             "generalization"
           ],
@@ -290,19 +325,33 @@
             "first-layer weights"
           ],
           "code": "data::MNISTDataset train_set(path);\ndata::DataLoader loader(train_set, 128, /*shuffle=*/true);\noptim::AdamW opt(model.parameters(), 5e-4f);\nnn::CrossEntropyLoss loss_fn;   // 26,506 parameters"
-        }
-      ]
-    },
-    {
-      "id": "images",
-      "title": "Images",
-      "lessons": [
+        },
+        {
+          "id": "one-step",
+          "title": "One training step from start to end",
+          "outcome": "You can follow one training step on one digit, from the pixels to the changed weight. You see the probability of the right digit go up.",
+          "prereqs": [
+            "mnist-mlp"
+          ],
+          "symbols": [
+            "nn::Sequential",
+            "nn::CrossEntropyLoss",
+            "Variable::backward",
+            "optim::SGD::step"
+          ],
+          "trace": [],
+          "est_minutes": 15,
+          "status": "planned",
+          "widgets": [
+            "one step, end to end"
+          ]
+        },
         {
           "id": "convolution",
           "title": "Convolution",
-          "outcome": "A small kernel slides across the image. The stride and the padding set the size of the output.",
+          "outcome": "You can explain how a small pattern detector slides over an image. You can count the weights of a convolution layer and find the size of its output.",
           "prereqs": [
-            "mnist-mlp"
+            "one-step"
           ],
           "symbols": [
             "nn::Conv2d",
@@ -324,7 +373,7 @@
         {
           "id": "mnist-cnn",
           "title": "Digits with a CNN",
-          "outcome": "A small convolutional network recognizes the same digits with a third of the parameters.",
+          "outcome": "You can explain why a convolutional network reads the same digits with fewer weights than the first network for digits.",
           "prereqs": [
             "convolution"
           ],
@@ -348,6 +397,130 @@
       ]
     },
     {
+      "id": "next",
+      "title": "Where this goes next",
+      "lessons": [
+        {
+          "id": "from-digits-to-chatgpt",
+          "title": "From digits to ChatGPT",
+          "outcome": "You can explain how ChatGPT learns to predict the next word with the same loop as this course. You know where TorC stops and where to learn more.",
+          "prereqs": [
+            "mnist-cnn"
+          ],
+          "symbols": [],
+          "trace": [],
+          "est_minutes": 10,
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "id": "using-torc",
+      "title": "Using TorC",
+      "kind": "appendix",
+      "lessons": [
+        {
+          "id": "tensors",
+          "title": "Tensors",
+          "outcome": "You can read the shape of a tensor in TorC. You can predict the result of broadcasting, of a sum along an axis and of a batched matrix product.",
+          "prereqs": [
+            "linear-layer"
+          ],
+          "symbols": [
+            "Tensor",
+            "Tensor::operator[]",
+            "Tensor::reshape",
+            "Tensor::add",
+            "broadcast_shape",
+            "Tensor::sum",
+            "Tensor::mean",
+            "Tensor::max",
+            "Tensor::transpose",
+            "Tensor::matmul"
+          ],
+          "trace": [
+            "tensors.json"
+          ],
+          "est_minutes": 7,
+          "status": "published",
+          "widgets": [
+            "broadcast grid",
+            "axis explorer"
+          ],
+          "code": "Tensor a({1.f, 2.f, 3.f, 4.f, 5.f, 6.f}, {2, 3});\nTensor b({10.f, 20.f, 30.f}, {3});\nTensor c = a.add(b);    // (2, 3): b added to each row\nTensor g = a.matmul(a.transpose({1, 0}));   // (2, 2)"
+        },
+        {
+          "id": "modules",
+          "title": "Modules",
+          "outcome": "You can build a TorC model from Module and Sequential. You can list its parameters and explain the rule for the forward cache.",
+          "prereqs": [
+            "classification"
+          ],
+          "symbols": [
+            "nn::Module",
+            "nn::Sequential",
+            "Module::parameters",
+            "Module::named_parameters",
+            "Module::register_parameter",
+            "Module::operator()",
+            "nn::ReLU"
+          ],
+          "trace": [
+            "modules.json"
+          ],
+          "est_minutes": 6,
+          "status": "published",
+          "widgets": [
+            "model viewer",
+            "call order"
+          ],
+          "code": "nn::Sequential model;\nmodel.add(std::make_unique<nn::Linear>(784, 32));\nmodel.add(std::make_unique<nn::ReLU>());\nmodel.add(std::make_unique<nn::Linear>(32, 10));\nstd::vector<Variable*> params = model.parameters();"
+        },
+        {
+          "id": "torc-pitfalls",
+          "title": "Common errors in TorC programs",
+          "outcome": "You can find the cause of the most common errors in TorC programs. You can read the error messages that TorC gives.",
+          "prereqs": [
+            "training-loop"
+          ],
+          "symbols": [
+            "Variable::zero_grad",
+            "optim::SGD::step",
+            "data::DataLoader",
+            "nn::MSELoss",
+            "nn::CrossEntropyLoss",
+            "ShapeError"
+          ],
+          "trace": [],
+          "est_minutes": 10,
+          "status": "planned",
+          "widgets": [
+            "zero_grad loop"
+          ]
+        },
+        {
+          "id": "notation",
+          "title": "The symbols of this course",
+          "outcome": "You can look up each symbol of this course, with its name and the lesson that introduces it.",
+          "prereqs": [],
+          "symbols": [],
+          "trace": [],
+          "est_minutes": 5,
+          "status": "planned"
+        },
+        {
+          "id": "glossary",
+          "title": "Glossary",
+          "outcome": "You can look up each term of this course, with a short definition in plain words.",
+          "prereqs": [],
+          "symbols": [],
+          "trace": [],
+          "est_minutes": 5,
+          "status": "planned"
+        }
+      ]
+    },
+    {
       "id": "labs",
       "title": "Labs",
       "kind": "lab",
@@ -355,7 +528,7 @@
         {
           "id": "backprop-lab",
           "title": "Backprop lab",
-          "outcome": "Run small computations forward and backward, and see where each gradient comes from.",
+          "outcome": "You can run small calculations forward and backward, and see where each gradient comes from.",
           "prereqs": [],
           "symbols": [
             "Variable",

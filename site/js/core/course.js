@@ -1,16 +1,22 @@
 // core/course.js — the course map (site/course.json): loading, validation, ordering, filtering. Pure functions
 // (no DOM) so Node tests and tools/check_site.mjs use exactly the code the browser uses.
 //
-// course.json:  { schema: "torc-course/1", title, parts: [ { id, title, kind?: "lab", lessons: [ {
+// course.json:  { schema: "torc-course/1", title, parts: [ { id, title, kind?: "lab" | "appendix", lessons: [ {
 //   id, title, outcome, prereqs: [id], symbols: [string], trace: [file in site/data/], est_minutes,
 //   status: "published" | "draft" | "planned", widgets?: [string], code?: string, legacy_hashes?: [string] } ] } ] }
-// A part with kind "lab" holds labs (playgrounds outside the lesson sequence). "planned" lessons have no page yet; the home page
-// shows them as the rest of the curriculum. Drafts have a page reachable by URL but are listed nowhere.
+// A part has one of three kinds. A part without "kind" is on the main path: its lessons form the curriculum, numbered from 1
+// in course order. A part with kind "appendix" holds reference pages about the library ("Using TorC"), and a part with kind
+// "lab" holds labs (playgrounds). Both are outside the lesson order. Prev/next links stay within one kind.
+// "planned" lessons have no page yet; the home page shows them as the rest of the curriculum. Drafts have a page reachable by
+// URL but are listed nowhere.
 
 export const STATUSES = ['published', 'draft', 'planned'];
 export const isPublished = (l) => l.status === 'published';
 export const isPlanned = (l) => l.status === 'planned';
+export const PART_KINDS = ['lab', 'appendix'];
 export const isLabPart = (p) => p.kind === 'lab';
+export const isAppendixPart = (p) => p.kind === 'appendix';
+export const partKind = (p) => p.kind ?? 'main';            // 'main' | 'lab' | 'appendix'
 export const lessonHref = (id) => `lessons/${id}/`;          // relative to the site root
 
 export function flatLessons(course) {
@@ -18,21 +24,46 @@ export function flatLessons(course) {
 }
 export const lessonById = (course, id) => flatLessons(course).find((l) => l.id === id) ?? null;
 
-// Home page, the curriculum: lesson parts (not labs) with their published and planned lessons, numbered in course order
-// (drafts are left out and take no number); parts with nothing to show are omitted.
+// Home page, the curriculum: main-path parts (not labs, not the appendix) with their published and planned lessons, numbered
+// from 1 in course order (drafts are left out and take no number); parts with nothing to show are omitted.
 export function curriculum(course) {
   let n = 0;
-  return (course.parts ?? []).filter((p) => !isLabPart(p))
+  return (course.parts ?? []).filter((p) => partKind(p) === 'main')
     .map((p) => ({ id: p.id, title: p.title, lessons: (p.lessons ?? []).filter((l) => isPublished(l) || isPlanned(l)).map((l) => ({ ...l, number: ++n })) }))
     .filter((p) => p.lessons.length > 0);
 }
 // Home page, the labs: published lessons of the lab parts.
 export const labs = (course) => (course.parts ?? []).filter(isLabPart).flatMap((p) => (p.lessons ?? []).filter(isPublished));
+// Home page, the appendix ("Using TorC"): published and planned pages of the appendix parts, without numbers.
+export const appendix = (course) => (course.parts ?? []).filter(isAppendixPart)
+  .flatMap((p) => (p.lessons ?? []).filter((l) => isPublished(l) || isPlanned(l)).map((l) => ({ ...l, partId: p.id, partTitle: p.title })));
 
-// Previous/next among published pages of the same kind (lessons with lessons, labs with labs), in course order; planned lessons
-// have no page and are skipped. A draft (reachable by URL only) is placed by its own position.
+// The time the main path takes: the number of lessons and the sum of their est_minutes, published and planned.
+export function studyTime(course) {
+  const lessons = curriculum(course).flatMap((p) => p.lessons);
+  return { lessons: lessons.length, minutes: lessons.reduce((s, l) => s + l.est_minutes, 0) };
+}
+// "about 3 hours": minutes rounded to the nearest half hour (at least half an hour).
+export function aboutHours(minutes) {
+  const h = Math.max(0.5, Math.round(minutes / 30) / 2);
+  return `about ${h} ${h === 1 ? 'hour' : 'hours'}`;
+}
+
+// The home page's filter box: every word of the query must occur in the lesson's title, outcome, id, symbols or widgets
+// (case-insensitive). An empty query keeps every lesson.
+export function filterLessons(lessons, query) {
+  const words = String(query ?? '').toLowerCase().split(/\s+/).filter(Boolean);
+  if (!words.length) return lessons;
+  return lessons.filter((l) => {
+    const hay = [l.title, l.outcome, l.id, ...(l.symbols ?? []), ...(l.widgets ?? [])].join(' \n ').toLowerCase();
+    return words.every((w) => hay.includes(w));
+  });
+}
+
+// Previous/next among published pages of the same kind (main path, appendix, labs), in course order; planned lessons have no
+// page and are skipped. A draft (reachable by URL only) is placed by its own position.
 export function neighbors(course, id) {
-  const kindOf = new Map((course.parts ?? []).flatMap((p) => (p.lessons ?? []).map((l) => [l.id, isLabPart(p)])));
+  const kindOf = new Map((course.parts ?? []).flatMap((p) => (p.lessons ?? []).map((l) => [l.id, partKind(p)])));
   const list = flatLessons(course).filter((l) => (isPublished(l) || l.id === id) && kindOf.get(l.id) === kindOf.get(id));
   const i = list.findIndex((l) => l.id === id);
   if (i < 0) return { prev: null, next: null };
@@ -60,7 +91,7 @@ export function validateCourse(course) {
   const ids = new Set(), partIds = new Set();
   for (const p of course.parts) {
     if (!isStr(p.id) || !isStr(p.title) || !Array.isArray(p.lessons)) { errs.push(`part ${JSON.stringify(p?.id)}: needs id, title, lessons[]`); continue; }
-    if (p.kind !== undefined && p.kind !== 'lab') errs.push(`part "${p.id}": kind must be "lab" or absent`);
+    if (p.kind !== undefined && !PART_KINDS.includes(p.kind)) errs.push(`part "${p.id}": kind must be "lab", "appendix" or absent`);
     if (partIds.has(p.id)) errs.push(`duplicate part id "${p.id}"`);
     partIds.add(p.id);
     for (const l of p.lessons) {

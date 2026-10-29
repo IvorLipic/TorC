@@ -67,6 +67,7 @@ const sample = () => ({ title: 'T', parts: [
   { id: 'p1', title: 'One', lessons: [L('a'), L('b', { prereqs: ['a'], status: 'draft' }), L('c', { prereqs: ['a'], legacy_hashes: ['old1'] })] },
   { id: 'p2', title: 'Two', lessons: [L('d', { status: 'draft' })] },
   { id: 'p3', title: 'Three', lessons: [L('e', { status: 'planned', code: 'f();', widgets: ['w'] }), L('f')] },
+  { id: 'ref', title: 'Reference', kind: 'appendix', lessons: [L('r1'), L('r2', { status: 'planned' }), L('r3')] },
   { id: 'lab', title: 'Labs', kind: 'lab', lessons: [L('x'), L('y', { status: 'draft' }), L('z')] },
 ] });
 
@@ -79,25 +80,31 @@ test('course: validation catches duplicate ids, unknown/self/cyclic prereqs, bad
   const st = sample(); st.parts[0].lessons[0].status = 'soon'; assert.match(validateCourse(st).join(), /status/);
   const bad = sample(); bad.parts[0].lessons[0].trace = ['../x.json']; assert.match(validateCourse(bad).join(), /plain \*\.json/);
   const leg = sample(); leg.parts[1].lessons[0].legacy_hashes = ['old1']; assert.match(validateCourse(leg).join(), /legacy hash "old1"/);
-  const kind = sample(); kind.parts[0].kind = 'appendix'; assert.match(validateCourse(kind).join(), /kind must be "lab"/);
+  const kind = sample(); kind.parts[0].kind = 'appendices'; assert.match(validateCourse(kind).join(), /kind must be "lab", "appendix" or absent/);
+  const kinds = sample(); kinds.parts[0].kind = 'appendix'; kinds.parts[1].kind = 'lab'; assert.deepEqual(validateCourse(kinds), [], 'lab and appendix are both valid kinds');
   const code = sample(); code.parts[0].lessons[0].code = ''; assert.match(validateCourse(code).join(), /"code"/);
   const wid = sample(); wid.parts[0].lessons[0].widgets = 'graph'; assert.match(validateCourse(wid).join(), /"widgets"/);
   const legp = sample(); legp.parts[2].lessons[0].legacy_hashes = ['gone']; assert.match(validateCourse(legp).join(), /planned lesson has no page/);
 });
 
-test('course: the curriculum lists published and planned lessons, numbered; drafts and labs are not in it; labs listed apart', () => {
+test('course: the curriculum lists published and planned lessons, numbered from 1; drafts, the appendix and labs are not in it; labs listed apart', () => {
   const c = sample();
   assert.deepEqual(curriculum(c).map((p) => [p.id, p.lessons.map((l) => `${l.number}:${l.id}`)]), [['p1', ['1:a', '2:c']], ['p3', ['3:e', '4:f']]], 'p2 has only a draft');
   assert.deepEqual(labs(c).map((l) => l.id), ['x', 'z']);
-  assert.deepEqual(flatLessons(c).map((l) => l.id), ['a', 'b', 'c', 'd', 'e', 'f', 'x', 'y', 'z']);
+  assert.deepEqual(flatLessons(c).map((l) => l.id), ['a', 'b', 'c', 'd', 'e', 'f', 'r1', 'r2', 'r3', 'x', 'y', 'z']);
+  // an appendix part before the main path takes no numbers either
+  const first = sample(); first.parts.unshift(first.parts.splice(3, 1)[0]);
+  assert.deepEqual(curriculum(first).flatMap((p) => p.lessons.map((l) => `${l.number}:${l.id}`)), ['1:a', '2:c', '3:e', '4:f']);
 });
 
-test('course: prev/next skip drafts and planned lessons, stay within lessons or within labs; a draft gets neighbours by position', () => {
+test('course: prev/next skip drafts and planned lessons, stay within one kind (main path, appendix, labs); a draft gets neighbours by position', () => {
   const c = sample();
   assert.deepEqual([neighbors(c, 'a').prev, neighbors(c, 'a').next?.id], [null, 'c']);
   assert.deepEqual([neighbors(c, 'c').prev?.id, neighbors(c, 'c').next?.id], ['a', 'f'], 'the planned lesson e has no page and is skipped');
-  assert.deepEqual([neighbors(c, 'f').prev?.id, neighbors(c, 'f').next], ['c', null], 'lessons never lead into the labs');
+  assert.deepEqual([neighbors(c, 'f').prev?.id, neighbors(c, 'f').next], ['c', null], 'lessons never lead into the appendix or the labs');
   assert.deepEqual([neighbors(c, 'b').prev?.id, neighbors(c, 'b').next?.id], ['a', 'c']);
+  assert.deepEqual([neighbors(c, 'r1').prev, neighbors(c, 'r1').next?.id], [null, 'r3'], 'appendix pages link to appendix pages only, planned ones skipped');
+  assert.deepEqual([neighbors(c, 'r3').prev?.id, neighbors(c, 'r3').next], ['r1', null], 'the appendix never leads into the labs');
   assert.deepEqual([neighbors(c, 'x').prev, neighbors(c, 'x').next?.id], [null, 'z'], 'labs link to labs only');
   assert.deepEqual(neighbors(c, 'nope'), { prev: null, next: null });
 });
