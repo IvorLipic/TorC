@@ -4,6 +4,17 @@
 // nn::MSELoss and optim::SGD. Everything below is produced by running the real library; quantities that are plain
 // mathematics computed here in double (the Hessian, its eigenvalues, convergence factors) sit under keys named
 // "hessian", "analysis" or "derived" so a lesson can tell them apart from library output.
+//
+// v3 additions (brief §6 `sgd-step`, §7 c-zero and D13; appended after the existing keys, nothing renamed or reordered):
+//   - `data.points[]`: the three data points listed one by one, {x, t}.
+//   - `start`: the state at w = b = 0 from one forward + backward pass of nn::Linear + nn::MSELoss: {w, b, loss, gw, gb}. `gw`
+//     is the one-pass gradient the c-zero check needs.
+//   - `nudge_start`: the gradient found by nudging one parameter at a time from the start. For `w` alone (b stays 0) and for `b`
+//     alone (w stays 0), and h = 1, 0.5, 0.1, 0.01, 0.001: {h, L_h, dL, slope, expected_slope, backward_slope}, with L from the
+//     real forward pass in float32 and slope = (L_h - L0)/h; `expected_slope` is derived (-68/3 + 14h/3 for w, -10 + h for b).
+//     `gradient` = [gw, gb] from backward(), the list of the two slopes; `secant_gradient` = the two slopes at h = 0.001.
+//   - `after_ten_steps`: one quantity for "the loss after ten steps" (D13): lr 0.05, the state after the 10th update, with
+//     zero_grad() (equal to runs[0].final) and without it (the no_zero_grad training loop), plus `no_zero_grad.training_loop.final`.
 #include "trace_util.hpp"
 
 #include "torc/nn.hpp"
@@ -214,6 +225,9 @@ int main() {
         }
         J b = J::object();
         b.set("lr", 0.05).set("momentum", 0).set("iterations", std::move(loop));
+        J fin = J::object();  // v3: after the 10th step (no forward/backward after it, so no gradient fields)
+        fin.set("w", S2.W->data().data()[0]).set("b", S2.B->data().data()[0]).set("loss", S2.loss_only());
+        b.set("final", std::move(fin));
         no_zero.set("training_loop", std::move(b));
     }
 
@@ -288,10 +302,65 @@ int main() {
         surface.set("w", trace::jarr(ws)).set("b", trace::jarr(bs)).set("order", "w-major: for w in w: for b in b").set("points", std::move(pts));
     }
 
+    // ---- v3: the start point, and the gradient found by nudging one parameter at a time -----------------------------
+    J start = J::object();
+    bool start_ok = true;
+    J nudge_start = J::object();
+    {
+        Setup S;
+        const State st = S.fwd_bwd();
+        start.set("w", st.w).set("b", st.b).set("loss", st.loss).set("gw", st.gw).set("gb", st.gb);
+        const float L0 = Setup().loss_only();
+        auto nudges = [&](bool on_w) {
+            J arr = J::array();
+            for (double hd : {1.0, 0.5, 0.1, 0.01, 0.001}) {
+                const float h = static_cast<float>(hd);
+                const float Lh = on_w ? Setup(h, 0.0f).loss_only() : Setup(0.0f, h).loss_only();
+                const float dL = Lh - L0;  // float32 difference, as in why-gradients.json secants
+                J o = J::object();
+                o.set("h", hd).set("L_h", Lh).set("dL", dL).set("slope", dL / h)
+                    .set("expected_slope", on_w ? -68.0 / 3.0 + 14.0 / 3.0 * hd : -10.0 + hd)  // derived: (L(h) - L(0))/h of the exact loss
+                    .set("backward_slope", on_w ? st.gw : st.gb);
+                arr.push(std::move(o));
+            }
+            return arr;
+        };
+        J nw = nudges(true), nb = nudges(false);
+        const float sw = Setup(0.001f, 0.0f).loss_only(), sb = Setup(0.0f, 0.001f).loss_only();
+        nudge_start.set("w0", 0).set("b0", 0).set("L0", L0).set("w", std::move(nw)).set("b", std::move(nb))
+            .set("gradient", trace::jarr(std::vector<float>{st.gw, st.gb}))
+            .set("secant_gradient", trace::jarr(std::vector<float>{(sw - L0) / 0.001f, (sb - L0) / 0.001f}));
+        start_ok = L0 == st.loss;  // the no-gradient forward pass gives the loss of the traced pass
+    }
+
+    // ---- v3: one "loss after ten steps" (D13) -----------------------------------------------------------------------
+    J after_ten = J::object();
+    {
+        auto ten = [](bool zero) {
+            Setup S;
+            optim::SGD opt(S.lin.parameters(), 0.05f);
+            for (int i = 0; i < 10; ++i) {
+                (void)S.fwd_bwd();
+                opt.step();
+                if (zero) opt.zero_grad();
+            }
+            J o = J::object();
+            o.set("w", S.W->data().data()[0]).set("b", S.B->data().data()[0]).set("loss", S.loss_only());
+            return o;
+        };
+        after_ten.set("lr", 0.05).set("updates", 10).set("with_zero_grad", ten(true)).set("without_zero_grad", ten(false))
+            .set("note", "Parameters and loss after the 10th step() call. with_zero_grad equals runs[0].final; without_zero_grad is the no_zero_grad training loop after its 10th step.");
+    }
+
     // ---- assemble ---------------------------------------------------------------------------------------------------
     J data = J::object();
     data.set("x", trace::jarr(XS)).set("t", trace::jarr(TS)).set("true_w", 2).set("true_b", 1).set("n", 3)
         .set("optimum", [] { J o = J::object(); o.set("w", 2).set("b", 1).set("loss", 0); return o; }());  // derived: t = 2x + 1 exactly
+    {
+        J pts = J::array();
+        for (size_t i = 0; i < XS.size(); ++i) { J o = J::object(); o.set("x", XS[i]).set("t", TS[i]); pts.push(std::move(o)); }
+        data.set("points", std::move(pts));
+    }
 
     J hess = J::object();
     {
@@ -317,11 +386,16 @@ int main() {
     scenes.push(scene.json);
     doc.set("scenes", std::move(scenes)).set("data", std::move(data)).set("hessian", std::move(hess)).set("runs", std::move(runs))
         .set("no_zero_grad", std::move(no_zero)).set("skipped_step", std::move(skipped)).set("ctor_errors", std::move(ctor_errors))
-        .set("surface", std::move(surface)).set("checks", std::move(checks));
+        .set("surface", std::move(surface)).set("checks", std::move(checks)).set("start", std::move(start))
+        .set("nudge_start", std::move(nudge_start)).set("after_ten_steps", std::move(after_ten));
     std::fputs(doc.dump().c_str(), stdout);
 
     if (!ok) {
         std::cerr << "trace_optim: parity check failed (nn::Linear+MSELoss differs from the hand-built graph)\n";
+        return 1;
+    }
+    if (!start_ok) {
+        std::cerr << "trace_optim: the start loss differs between the traced and the no-gradient forward pass\n";
         return 1;
     }
     return 0;

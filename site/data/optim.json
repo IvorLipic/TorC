@@ -26,7 +26,7 @@
       "parity":{"against":"nn::Linear(1,1) + nn::MSELoss","output_equal":true,"grads_equal":true,"loss_equal":true,"max_abs_diff":0}
     }
   ],
-  "data":{"x":[1,2,3],"t":[3,5,7],"true_w":2,"true_b":1,"n":3,"optimum":{"w":2,"b":1,"loss":0}},
+  "data":{"x":[1,2,3],"t":[3,5,7],"true_w":2,"true_b":1,"n":3,"optimum":{"w":2,"b":1,"loss":0},"points":[{"x":1,"t":3},{"x":2,"t":5},{"x":3,"t":7}]},
   "hessian":{
     "derived":true,
     "note":"Expected mathematics, computed in double from x: H = (2/N) [[sum x^2, sum x],[sum x, N]]. Not library output.",
@@ -183,7 +183,8 @@
         {"w":0.163587213,"b":0.110269964,"loss":23.0651875,"gw":5.88890839,"gb":2.3875227,"gw_this_pass":-20.6987724,"gb_this_pass":-9.12511158,"iteration":8},
         {"w":-0.130858213,"b":-0.00910617411,"loss":30.808609,"gw":-18.0355263,"gb":-8.15412235,"gw_this_pass":-23.9244347,"gb_this_pass":-10.5416451,"iteration":9},
         {"w":0.770918131,"b":0.398599923,"loss":10.3680258,"gw":-31.9125576,"gb":-14.2732506,"gw_this_pass":-13.8770313,"gb_this_pass":-6.11912823,"iteration":10}
-      ]
+      ],
+      "final":{"w":2.36654615,"b":1.11226249,"loss":0.804195404}
     }
   },
   "skipped_step":[
@@ -229,5 +230,34 @@
       {"w":4,"b":3,"loss":38.6666679}
     ]
   },
-  "checks":{"parity_output_and_grads_equal":true}
+  "checks":{"parity_output_and_grads_equal":true},
+  "start":{"w":0,"b":0,"loss":27.666666,"gw":-22.6666679,"gb":-10},
+  "nudge_start":{
+    "w0":0,
+    "b0":0,
+    "L0":27.666666,
+    "w":[
+      {"h":1,"L_h":9.66666698,"dL":-18,"slope":-18,"expected_slope":-18,"backward_slope":-22.6666679},
+      {"h":0.5,"L_h":17.5,"dL":-10.166666,"slope":-20.3333321,"expected_slope":-20.333333333333336,"backward_slope":-22.6666679},
+      {"h":0.1,"L_h":25.4466648,"dL":-2.22000122,"slope":-22.2000122,"expected_slope":-22.200000000000003,"backward_slope":-22.6666679},
+      {"h":0.01,"L_h":27.4404659,"dL":-0.226200104,"slope":-22.6200104,"expected_slope":-22.62,"backward_slope":-22.6666679},
+      {"h":0.001,"L_h":27.6440067,"dL":-0.0226593018,"slope":-22.6592999,"expected_slope":-22.662000000000003,"backward_slope":-22.6666679}
+    ],
+    "b":[
+      {"h":1,"L_h":18.666666,"dL":-9,"slope":-9,"expected_slope":-9,"backward_slope":-10},
+      {"h":0.5,"L_h":22.916666,"dL":-4.75,"slope":-9.5,"expected_slope":-9.5,"backward_slope":-10},
+      {"h":0.1,"L_h":26.6766663,"dL":-0.989999771,"slope":-9.89999771,"expected_slope":-9.9,"backward_slope":-10},
+      {"h":0.01,"L_h":27.5667629,"dL":-0.0999031067,"slope":-9.99031067,"expected_slope":-9.99,"backward_slope":-10},
+      {"h":0.001,"L_h":27.6566677,"dL":-0.00999832153,"slope":-9.99832153,"expected_slope":-9.999,"backward_slope":-10}
+    ],
+    "gradient":[-22.6666679,-10],
+    "secant_gradient":[-22.6592999,-9.99832153]
+  },
+  "after_ten_steps":{
+    "lr":0.05,
+    "updates":10,
+    "with_zero_grad":{"w":2.03862834,"b":0.9104864,"loss":0.00114498998},
+    "without_zero_grad":{"w":2.36654615,"b":1.11226249,"loss":0.804195404},
+    "note":"Parameters and loss after the 10th step() call. with_zero_grad equals runs[0].final; without_zero_grad is the no_zero_grad training loop after its 10th step."
+  }
 }
