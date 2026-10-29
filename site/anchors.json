@@ -1,0 +1,8 @@
+{
+  "mlp_parameters": "files.mnist-mlp.setup.parameters",
+  "cnn_parameters": "files.mnist-cnn.setup.parameters",
+  "train_images": "files.mnist-mlp.setup.train_samples",
+  "test_images": "files.mnist-mlp.setup.test_samples",
+  "image_side": "files.mnist-mlp.setup.image_side",
+  "bowl_w_min": "files.why-gradients.setup.w_min"
+}

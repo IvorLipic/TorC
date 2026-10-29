@@ -31,7 +31,8 @@ Lessons are short and dense. The interactive parts carry the lesson; the text on
   recorded-run overlays on lesson pages. The guarantee lives in the tests (`T()` binding, engine == trace), not in the prose.
 - **Widgets**: ≤ 2 controls plus Step/Reset; preset buttons instead of a slider where a slider adds nothing; a compact readout
   instead of explanations inside the widget; no visible tables (`srTable` gives screen readers the values).
-- `site/test/lessons.test.mjs` asserts the budget for every published lesson (`lessonStats` in `site/test/helpers.mjs`).
+- `site/test/lessons.test.mjs` asserts this budget for every lesson that is not `template: 3` yet (`lessonStats` in
+  `site/test/helpers.mjs`). A `template: 3` lesson has the v3 budgets instead (`site/test/v3.mjs`, see "Add a lesson").
 
 ## Add a lesson
 1. **Trace data**: write the C++ trace program(s) (see "Add a scene"); the lesson lists the files it reads, e.g. `["why-gradients.json"]`.
@@ -41,30 +42,97 @@ Lessons are short and dense. The interactive parts carry the lesson; the text on
    Start the page with `"status": "draft"`: a draft has a page and is reachable at `lessons/<id>/`, but is not listed on the home page or in
    anyone's prev/next. Switch to `"published"` when the lesson has passed review. Optional `legacy_hashes: ["reuse", …]` forwards old
    `/#reuse/3` links from the home page to this lesson.
-3. **Module `site/js/lessons/<id>.js`**: `export default {id, title, trace:[files], sections:[…], footer?: (D, T) => html}`.
-   `id`, `title` and `trace` must equal the course.json entry (checked). Section kinds:
-   - `{kind:'tldr', items:(D, T) => ['…', …]}` — the TL;DR box; second section, right after the hero.
-   - `{kind:'text', html:(D, T) => '<section>…</section>'}` — markup is used as given. `D` is the loaded trace data
-     (`D.scenes[id]`, `D.files[file stem]`); `T` puts numbers from it into prose (below). Must not touch the DOM.
-   - `{kind:'widget', id, className?, label?, mount(host, D, ctx)}` — an interactive part; `host` is an empty `<section>`.
-     `mount` runs in the browser only; return `{destroy()}` if it registers global listeners.
-   - `{kind:'gotcha', title, html}` — "Why did my X fail?" box with the recorded real message.
-   - `{kind:'predict', id, prompt, reveal}` and `{kind:'check', id, prompt, reveal}` — think first, then open the answer
-     (`check` also stores "I got it" in the progress store). `prompt`/`reveal` are `(D, T) => html`.
+3. **Module `site/js/lessons/<id>.js`**: `export default {id, title, trace:[files], template: 3, loop, conceptual?, sources?,
+   sections:[…], footer?: (D, T) => html}`. `id`, `title` and `trace` must equal the course.json entry (checked). `template: 3`
+   turns on the v3 rules (below); a module without it keeps the old template until it is migrated. `loop` (`'data'`, `'model'`,
+   `'loss'`, `'adjust'` or `'all'`) is the part of the training loop that the lesson lights in its loop diagram (main path only).
+   `conceptual: true` marks content beyond TorC; it needs `sources: [{title, url}]`, which the default footer lists.
+   Section kinds (all `(D, T) => …` fields may also be plain strings; option html sits in a `<label>`, so it is inline markup):
+   - `{kind:'text', html:(D, T) => '<section>…</section>', setup?}` — markup is used as given. `D` is the loaded trace data
+     (`D.scenes[id]`, `D.files[file stem]`, `D.anchors`); `T` puts numbers from it into prose (below). Must not touch the DOM.
+     `setup: true` marks a text that only sets the scene (the notebook story) and answers nothing, so it may come before the
+     first predict quiz.
+   - `{kind:'questions', items:(D, T) => [html]}` — "Questions this lesson answers", 1-3 items, with the loop diagram. Section 1.
+   - `{kind:'quiz', id, purpose, type, prompt, reveal, title?, from?, …}` — the learner answers first, then gets feedback, and the
+     reveal opens after the first attempt. `purpose` is `'predict'` (before the text that answers it), `'check'`, `'transfer'`
+     (a new situation, the same idea) or `'cumulative'` (with `from: '<earlier lesson id>'`). `type: 'choice'` has
+     `options: [{html, correct, feedback}]`: 3-4 options, exactly one correct, and each wrong option's feedback names the
+     misconception. `type: 'numeric'` has `answer: '<trace path>'`, an absolute `tolerance` above 0, and an optional `unit`.
+   - `{kind:'explain', id, prompt, model}` — "Explain it in one sentence": a text box, then "Compare with a model answer".
+   - `{kind:'widget', id, className?, label?, mount(host, D, ctx), tasks?:(D, T) => [{do, see}]}` — an interactive part; `host`
+     is an empty `<section>`, and the guided tasks ("Task", "What you will see") follow it. `mount` runs in the browser only;
+     return `{destroy()}` if it registers global listeners.
+   - `{kind:'answer', html:(D, T) => html, next:(D, T) => html}` — "The answer", then "Next question" and a link to the next
+     lesson, which `lesson-boot.js` takes from `neighbors()` in `core/course.js`. Last section.
+   - `{kind:'gotcha', title, html}` — "Why did my X fail?" box with the recorded real message (appendix pages only in v3).
+   - Legacy, until every lesson is migrated: `{kind:'tldr', items}` (the summary box), `{kind:'predict', id, prompt, reveal}` and
+     `{kind:'check', id, prompt, reveal}` (open the answer; `check` also stores "I got it" as `seen`).
    The first section should be a hero containing the lesson's `<h1>`.
+
+   **Blocks** for text sections (`site/js/core/blocks.js`, pure): `worked(html)` (the only place for `worked` numbers),
+   `inTorc(title, html)` (a collapsed panel), `realLine(code, caption)` (code is plain text), `analogy(html, limit)` (from the
+   brief's analogy bank, with "Where it breaks"), `chatgpt(html)`, `refresher(key)` (from `site/js/content/refreshers.js`),
+   `term(key, text?)` (a glossary link with a hover, focus and tap definition from `site/glossary.json`), `sym(key, html?)` (a
+   symbol linked to the notation guide, from `site/js/content/notation.js`) and `loopDiagram(active)`.
+
+   **The v3 rules** (`checkV3` in `site/test/v3.mjs`, run by `lessons.test.mjs` on every `template: 3` lesson and proven on
+   `site/test/fixtures/v3-fixture.js` in `v3.test.mjs`):
+   - every bound number has a role; `worked` numbers only inside `worked()`, at most 3 worked blocks; `reveal` numbers only in a
+     quiz reveal or feedback (or an explain model); at most 2 numbers per sentence outside worked blocks; at most 10 `anchor`,
+     `contrast` and `human` numbers (code blocks and widgets do not count); no hand-typed digit in a quiz prompt, option,
+     feedback or reveal;
+   - Questions at section 1 with at most 3 items; The answer last, at most 80 words; a text section at most 150 words; at most 6
+     numbered sections, 6 quizzes and 1,400 words; at most 2 of analogy, refresher, In TorC and ChatGPT;
+   - a predict quiz before every text section that is not `setup: true`; a transfer quiz; an explain prompt; from the third
+     main-path lesson on, a cumulative quiz whose `from` is earlier in course order; every widget has 1-3 tasks; no `tldr`,
+     `predict` or `check`; a `gotcha` only on appendix pages;
+   - every glossary term that the lesson uses is linked with `term()` at its first use (headings, code and the loop diagram are
+     skipped); no symbol from `NOTATION` before the lesson that introduces it, in course order (a symbol whose lesson is not in
+     course.json yet counts as not introduced); no LaTeX escape bug in the module source (`'\;'` is a bare `;`, write `'\\;'`,
+     the same for `,` `!` `:` and a space; D1);
+   - exceptions (brief §9): an appendix lesson (part `kind: "appendix"`) needs no Questions/Answer frame and no predict, transfer,
+     explain or cumulative quiz, and may use every symbol. A `conceptual` lesson needs no predict before the text and no transfer.
 4. **Shell**: `node tools/check_site.mjs --write-shells` writes `site/lessons/<id>/index.html` (a ~15-line committed file; the
    checker fails if a shell differs from the template).
 5. `node --test site/test/` and `node tools/check_site.mjs`; then look at every step on desktop and phone width under a
    `/TorC/` prefix server.
 
 ### Numbers in prose
-Never type a number the trace could change. Use `T('scene.path')`, e.g. `` `x.grad is ${T('reuse.x.grad')}` ``:
-it returns `<span class="num" data-trace="reuse.x.grad">7</span>` and **throws if the path is missing**, so prose can never
-silently drift from the data. Paths: `<sceneId>.<node>.<value|grad>[.<index>]` (a one-element tensor resolves to its number),
-or `files.<file stem>.<key>…` for the extra tables of a trace file; in arrays a segment is an index or an item's `name`.
-`T.num(path)` / `T.text(path)` give the bare number / formatted text. `site/test/lessons.test.mjs` renders every lesson in Node
-against the real JSON, rejects any `class="num"` without `data-trace`, and re-resolves every bound one. If a number is
-unavoidable in a string that is not rendered through `T` (for example a scene takeaway), add a test that asserts it.
+Never type a number the trace could change. In a `template: 3` lesson every number has a role, given in its binding (R2):
+
+| call | role | where | shown as |
+|---|---|---|---|
+| `T(path, 'setup')` | setup | a constant or starting value of the scenario, or a value that a prompt gives the learner | exact |
+| `T(path, 'worked')` | worked | only inside `worked(html)`, a calculation whose inputs are all visible | exact |
+| `T(path, 'reveal')` | reveal | inside a quiz reveal or quiz feedback | exact |
+| `T(path, 'contrast')` | contrast | half of an A-vs-B pair in a sentence that states the comparison in words | 2 significant figures |
+| `T.anchor(name)` | anchor | a course-wide number from `site/anchors.json` | integers exact, else 2 significant figures |
+| `T.human(path, kind, {of})` | human | a loss or a count in a unit a person can feel | see below |
+
+- **Formatting** (`site/js/core/numbers.js`): an integer is always exact, with a comma every three digits from 1,000 up
+  (`26,506`). "Exact" for other numbers means `fmt`, 4 significant figures. A negative number gets the minus sign U+2212.
+  `opts.sig` (1-4), as in `T(path, 'contrast', {sig: 3})` or `T(path, {role, sig})`, overrides the role and then also rounds
+  integers ("about 27,000"). `fmt` itself (`site/js/ops/texutil.js`) is unchanged: KaTeX and the graph lab use it.
+- **`T.human` kinds**: `'rmse'` is √ of an MSE at 2 significant figures ("misses by about 0.24"); `'prob'` is 100·e^(−L) as a whole
+  percent with a `%` sign, the probability given to the right class; `'pct'` is 100·v/of (or 100·v without `of`) as a whole
+  percent; `'per100'` is mistakes per 100, 100 minus the whole-number `pct`, so "97%" and "3 per hundred" always add up. `of` is
+  a trace path. No bare loss value outside worked or reveal numbers: say it with `T.human` (the reviewer checks this one).
+- **Anchors**: add a name and its trace path to `site/anchors.json` (at most about 15, each used in at least two lessons), then
+  run `node tools/anchors.mjs`, which writes `site/data/anchors.json`. `tools/trace/run.sh` runs it after the traces, and
+  `anchors.test.mjs` fails when the file is stale. `lesson-boot.js` always loads it, so a lesson binds `T.anchor('mlp_parameters')`
+  without loading `mnist-mlp.json`. The MNIST traces will get `setup.pixels` and `setup.classes`; add anchors for them then.
+- **Derived values** (a step size, a share in percent) come from new trace fields or `T.human`, never from arithmetic in the lesson.
+- **The span** is `<span class="num" data-trace="path" data-role="…" data-sig="exact|1-4">` (plus `data-human`, `data-of` or
+  `data-anchor`; an anchor's `data-trace` is `anchors.<name>`). `lessons.test.mjs` re-formats every bound number from these
+  attributes (`T.reformat`) and compares it with the page.
+- **Legacy**: in a lesson without `template: 3`, the untagged `T('scene.path')` still gives `<span class="num" data-trace="…">`
+  with `fmt` (no comma), so old lessons render exactly as before. A `template: 3` lesson must not use it (tested).
+- **Paths**: `<sceneId>.<node>.<value|grad>[.<index>]` (a one-element tensor resolves to its number), `files.<file stem>.<key>…`
+  for the extra tables of a trace file, or `anchors.<name>`; in arrays a segment is an index or an item's `name`. Every form of
+  `T` **throws if the path is missing**, so prose can never silently drift from the data. `T.num(path)` / `T.text(path)` give the
+  bare number / `fmt` text, for formulas, code and attributes. `site/test/lessons.test.mjs` renders every lesson in Node against
+  the real JSON and rejects any `class="num"` without `data-trace`. If a number is unavoidable in a string that is not rendered
+  through `T` (for example a scene takeaway), add a test that asserts it.
 
 ### Using the graph lab
 `widgets/graph-lab.js` (`mountGraphLab(host, {scenes, layouts, defaultScene})`) gives the scene tabs, step timeline, SVG graph,

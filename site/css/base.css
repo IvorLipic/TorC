@@ -65,3 +65,79 @@ button[aria-pressed=true].btn{border-color:var(--ok);color:var(--ok)}
 .lesson-nav .next{text-align:right;margin-left:auto}
 .lesson-nav .none{flex:0 0 0}
 .lesson-nav .done-toggle{flex-direction:row;align-items:center}
+
+/* ---- v3 lesson furniture (core/sections.js, core/blocks.js, core/popover.js). Sizes >= 12px; every control has a visible focus ring ---- */
+textarea:focus-visible,summary:focus-visible,select:focus-visible{outline:2px solid var(--fwd);outline-offset:2px}
+.questions{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;justify-content:space-between;background:var(--panel);border:1px solid var(--border);border-left:4px solid var(--fwd);border-radius:var(--r);padding:.8rem 1.2rem;margin:.6rem 0 1.4rem;max-width:46rem}
+.questions-body{flex:1 1 15rem;min-width:0}
+.questions h2,.answer-box h2{font-size:.85rem;letter-spacing:.04em;text-transform:uppercase;color:var(--fwd);margin:0 0 .3rem}
+.questions ul{margin:0;padding-left:1.1rem}.questions li{margin:.15rem 0}
+/* the loop diagram: drawn at its design size so its 14px labels never shrink; 280px fits a 390px phone */
+.loop{margin:0;flex:0 0 auto;max-width:100%}
+.loop svg{display:block;width:280px;max-width:100%;height:auto}
+.loop-edge{stroke:var(--muted);stroke-width:2}
+.loop-head{fill:var(--muted)}
+.loop-node rect{fill:var(--panel2);stroke:var(--border);stroke-width:1.5}
+.loop-node text{fill:var(--muted);font:600 14px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.loop-node.on rect{fill:#13303a;stroke:var(--fwd);stroke-width:2.5}
+.loop-node.on text{fill:var(--fg)}
+/* quiz and explain */
+.quiz,.explain{background:var(--panel);border:1px solid var(--border);border-left:4px solid var(--warn);border-radius:var(--r);padding:.8rem 1.2rem;margin:18px 0;max-width:46rem}
+.quiz h3,.explain h3{font-size:1rem;margin:0 0 .4rem}
+.quiz .from{color:var(--muted);font-size:.9rem;margin:0 0 .3rem}
+.quiz .prompt p,.explain .prompt p{margin:.3rem 0}
+.quiz fieldset{border:0;margin:.4rem 0 0;padding:0;min-width:0}
+.quiz legend{font-size:.9rem;color:var(--muted);padding:0;margin-bottom:.2rem}
+.option{display:flex;gap:.6rem;align-items:flex-start;padding:.4rem .7rem;border:1px solid var(--border);border-radius:9px;margin:.35rem 0;background:var(--panel2)}
+.option input{margin:.3rem 0 0;width:1.15rem;height:1.15rem;flex:0 0 auto;accent-color:var(--fwd)}
+.option label{flex:1;min-width:0;cursor:pointer}
+.option:has(input:checked){border-color:var(--fwd)}
+.option.chosen.wrong{border-color:var(--bwd)}
+.option.chosen.right{border-color:var(--ok)}
+.numeric{display:flex;flex-wrap:wrap;gap:.4rem .7rem;align-items:center}
+.numeric input{width:9rem;max-width:100%;font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:.3rem .5rem}
+.numeric input[aria-invalid=true]{border-color:var(--bwd)}
+.unit{color:var(--muted)}
+.quiz-actions{margin:.6rem 0 0}
+.feedback{margin:.6rem 0 0;padding:.5rem .8rem;border-radius:9px;background:var(--panel2)}
+.feedback:empty{margin:0;padding:0;background:none}   /* stays in the accessibility tree, so the live region announces */
+.feedback p{margin:.2rem 0}
+.verdict.right{color:var(--ok)}.verdict.wrong{color:var(--bwd)}.verdict.empty{color:var(--warn)}
+.reveal,.model{margin-top:.7rem;padding-top:.5rem;border-top:1px dashed var(--border);color:#c4ccd5}
+.reveal-h{margin:0 0 .2rem;color:var(--fg)}
+.explain-field label{display:block;font-size:.9rem;color:var(--muted);margin-top:.4rem}
+.explain textarea{display:block;width:100%;min-height:4.5rem;font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:.4rem .6rem;margin-top:.2rem;resize:vertical}
+/* the answer, the next question and the next lesson */
+.answer-box{background:var(--panel);border:1px solid var(--border);border-left:4px solid var(--ok);border-radius:var(--r);padding:.8rem 1.2rem;margin:2rem 0 1rem;max-width:46rem}
+.answer-box h2{color:var(--ok)}
+.next-question h3{font-size:.9rem;color:var(--muted);margin:.8rem 0 .1rem}
+.next-question p,.answer-body p{margin:.3rem 0}
+.next-lesson{margin:.6rem 0 0}
+/* guided tasks under a widget */
+.tasks{margin:.4rem 0 1.4rem;max-width:46rem;border-left:3px solid var(--fwd);padding:.2rem 0 .2rem 1rem}
+.tasks dt{font-size:.8rem;letter-spacing:.04em;text-transform:uppercase;color:var(--fwd);margin:0}
+.tasks .task-see dt{color:var(--ok)}
+.tasks dd{margin:.1rem 0 .5rem}
+.tasks .task-see+.task-do{margin-top:.6rem;padding-top:.6rem;border-top:1px solid var(--border)}
+/* blocks */
+.worked{background:var(--panel2);border:1px solid var(--border);border-left:4px solid var(--fwd);border-radius:9px;padding:.3rem 1rem;margin:.8rem 0;max-width:44rem;overflow-x:auto}
+.worked p{margin:.3rem 0}
+.in-torc,.refresher{background:var(--panel);border:1px solid var(--border);border-radius:9px;margin:.8rem 0;max-width:44rem}
+.in-torc summary,.refresher summary{cursor:pointer;padding:.45rem .9rem}
+.in-torc .body,.refresher .body{padding:0 .9rem .5rem;color:#c4ccd5}
+.in-torc .label{color:var(--warn)}.refresher .label{color:var(--ok)}
+.real-line{margin:.8rem 0;max-width:44rem}
+.real-line pre{background:var(--panel);border:1px solid var(--fwd);border-radius:9px;padding:.5rem .9rem;margin:0;overflow-x:auto}
+.real-line pre code{background:none;padding:0}
+.real-line figcaption{color:var(--muted);font-size:.9rem;margin-top:.3rem}
+.analogy,.chatgpt{border-left:3px solid var(--warn);padding:.1rem 0 .1rem 1rem;margin:.8rem 0;max-width:44rem;color:#c4ccd5}
+.chatgpt{border-left-color:#b392f0}
+.analogy p,.chatgpt p{margin:.3rem 0}
+.analogy .label,.chatgpt .label{color:var(--fg)}
+a.term{color:inherit;text-decoration:underline;text-decoration-color:var(--fwd);text-decoration-thickness:2px;text-underline-offset:3px}
+a.term:hover,a.term.open{color:var(--fwd)}
+a.sym{color:inherit;text-decoration:underline;text-decoration-color:var(--muted);text-underline-offset:3px}
+.term-tip{position:absolute;z-index:50;max-width:320px;background:var(--panel2);color:var(--fg);border:1px solid var(--fwd);border-radius:9px;padding:.45rem .7rem;font-size:.9rem;line-height:1.45;box-shadow:0 6px 20px rgba(0,0,0,.45)}
+.term-tip[hidden]{display:none}
+footer .sources{margin:.2rem 0 0;padding-left:1.1rem}
+@media(max-width:640px){.questions,.quiz,.explain,.answer-box{padding:.7rem .9rem}.tasks{padding-left:.8rem}}

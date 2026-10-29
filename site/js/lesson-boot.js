@@ -1,11 +1,17 @@
-// lesson-boot.js — loaded by every lessons/<id>/index.html shell. Loads course.json, the lesson module and its trace data,
-// renders the lesson's sections in order, then the "mark done" toggle and prev/next links.
+// lesson-boot.js — loaded by every lessons/<id>/index.html shell. Loads course.json, the lesson module, its trace data, the
+// course-wide anchors (data/anchors.json, so T.anchor works in every lesson) and the glossary (glossary.json, for the term
+// popovers), renders the lesson's sections in order (with the next lesson from neighbors() for the "answer" section), then wires
+// the widgets, quizzes, explain prompts, glossary popovers, the "mark done" toggle and prev/next links.
+// The anchors and the glossary are optional for a page: if one fails to load, a lesson that needs it fails with a clear message
+// (T.anchor throws), and the term links stay plain links.
 import { $, el, escapeHtml } from './core/dom.js';
 import { SITE, siteUrl, headerHtml } from './core/chrome.js';
 import { loadCourse, lessonById, neighbors, lessonHref } from './core/course.js';
-import { loadTrace, makeT } from './core/trace.js';
+import { loadTrace, loadAnchors, makeT } from './core/trace.js';
 import { renderLesson, validateLesson, defaultFooter } from './core/sections.js';
 import { store } from './core/store.js';
+import { wireQuizzes, wireExplains } from './core/quiz.js';
+import { wireTerms } from './core/popover.js';
 
 function fail(app, message) {
   const main = $('main', app) ?? app.appendChild(el('main'));
@@ -46,13 +52,18 @@ function wireScrollStops(root) {
   if (typeof ResizeObserver !== 'undefined') { const ro = new ResizeObserver(fit); boxes.forEach((e) => ro.observe(e)); }
 }
 
+// Legacy check sections: the "I got it" toggle, stored as `seen` in the v2 store.
 function wireChecks(root, id) {
   for (const b of root.querySelectorAll('button[data-check]')) {
     const key = b.dataset.check;
-    const paint = () => { const on = store.get(id).checks[key] === true; b.setAttribute('aria-pressed', String(on)); b.textContent = on ? '✓ Got it' : 'I got it'; };
-    b.addEventListener('click', () => { store.setCheck(id, key, store.get(id).checks[key] !== true); paint(); });
+    const paint = () => { const on = store.get(id).seen[key] === true; b.setAttribute('aria-pressed', String(on)); b.textContent = on ? '✓ Got it' : 'I got it'; };
+    b.addEventListener('click', () => { store.setSeen(id, key, store.get(id).seen[key] !== true); paint(); });
     paint();
   }
+}
+
+async function optionalJson(promise, what) {
+  try { return await promise; } catch (err) { console.warn(`${what} could not be loaded: ${err.message}`); return null; }
 }
 
 (async function boot() {
@@ -66,19 +77,26 @@ function wireChecks(root, id) {
     const lesson = (await import(`./lessons/${id}.js`)).default;
     const errs = validateLesson(lesson);
     if (errs.length) throw new Error(`lessons/${id}.js: ${errs.join('; ')}`);
+    const anchorsP = optionalJson(loadAnchors(SITE), 'data/anchors.json');
+    const glossaryP = optionalJson(fetch(new URL('glossary.json', SITE)).then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }), 'glossary.json');
     let D;
     try { D = await loadTrace(lesson.trace, SITE); }
     catch (err) { throw new Error(`Could not load the trace data (${lesson.trace.join(', ')}). Serve the site over HTTP, for example: python3 -m http.server -d site. ${err.message}`); }
+    D.anchors = await anchorsP;
 
     const main = $('main', app);
-    const parts = renderLesson(lesson, D);
+    const parts = renderLesson(lesson, D, { course, next: neighbors(course, id).next });
     main.innerHTML = parts.map((p) => p.html).join('\n') + navHtml(course, id);
     for (const { section } of parts) if (section.kind === 'widget') section.mount($(`[data-widget="${CSS.escape(section.id)}"]`, main), D, { lessonId: id, store, makeT: () => makeT(D) });
     wireScrollStops(main);
     wireChecks(main, id);
+    wireQuizzes(main, { lessonId: id, store });
+    wireExplains(main, { lessonId: id, store });
     wireDone(id);
     app.append(el('footer', { html: lesson.footer ? lesson.footer(D, makeT(D)) : defaultFooter(lesson, D) }));
     store.markVisited(id);
+    const glossary = await glossaryP;
+    if (glossary) wireTerms(main, glossary);
   } catch (err) {
     console.error(err);
     fail(app, `This lesson could not be loaded. ${err.message}`);

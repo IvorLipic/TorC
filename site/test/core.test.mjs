@@ -1,10 +1,13 @@
-// core/: hash state, progress store (including blocked storage), course helpers, trace loader and T(), sections.
+// core/: hash state, progress store v2 (migration from v1, blocked storage), quiz answers, prose numbers, course helpers,
+// trace loader and T() (legacy and role-tagged), sections.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parseHash, formatHash } from '../js/core/state.js';
-import { createStore, sanitize, STORAGE_KEY } from '../js/core/store.js';
+import { createStore, sanitize, migrateV1, STORAGE_KEY, LEGACY_KEY } from '../js/core/store.js';
+import { parseAnswer, judgeNumeric, judgeChoice } from '../js/core/quiz.js';
+import { groupThousands, proseNumber, sigFor, humanText } from '../js/core/numbers.js';
 import { validateCourse, curriculum, labs, neighbors, legacyTarget, flatLessons, lessonHref } from '../js/core/course.js';
-import { buildD, makeT, resolvePath, loadTrace } from '../js/core/trace.js';
+import { buildD, makeT, resolvePath, loadTrace, loadAnchors } from '../js/core/trace.js';
 import { sectionHtml, findUnboundNums, boundNums, validateLesson, renderLesson } from '../js/core/sections.js';
 import { course as readCourse, traceFiles } from './helpers.mjs';
 
@@ -21,16 +24,39 @@ test('state: path-style and key=value hashes round-trip', () => {
 // ---- store ------------------------------------------------------------------------------------------------
 const memoryStorage = () => { const m = new Map(); return { getItem: (k) => m.get(k) ?? null, setItem: (k, v) => { m.set(k, String(v)); }, m }; };
 
-test('store: progress is kept under torc:v1 as {lesson:{visited,checks,done}}', () => {
+test('store: progress is kept under torc:v2 as {lesson:{visited,done,quiz,explained,seen}}', () => {
   const ms = memoryStorage();
   const s = createStore(() => ms);
+  assert.equal(STORAGE_KEY, 'torc:v2');
   assert.equal(s.isDone('a'), false);
-  s.markVisited('a'); s.setCheck('a', 'q1', true); s.setDone('a', true);
-  assert.deepEqual(JSON.parse(ms.m.get(STORAGE_KEY)), { a: { visited: true, checks: { q1: true }, done: true } });
+  s.markVisited('a'); s.setDone('a', true);
+  assert.deepEqual(s.recordQuiz('a', 'q1', false), { tries: 1, correct: false });
+  assert.deepEqual(s.recordQuiz('a', 'q1', true), { tries: 2, correct: true }, 'tries count every attempt; correct is the latest result');
+  s.setExplained('a', 'e1');
+  s.setSeen('a', 'c1', true); s.setSeen('a', 'c2', true); s.setSeen('a', 'c2', false);
+  assert.deepEqual(JSON.parse(ms.m.get(STORAGE_KEY)), { a: { visited: true, done: true, quiz: { q1: { tries: 2, correct: true } }, explained: { e1: true }, seen: { c1: true } } });
   assert.equal(createStore(() => ms).isDone('a'), true, 'a new store instance (page reload) sees it');
+  assert.deepEqual(createStore(() => ms).quiz('a', 'q1'), { tries: 2, correct: true });
+  assert.deepEqual(s.quiz('a', 'never'), { tries: 0, correct: false });
   s.setDone('a', false);
   assert.equal(createStore(() => ms).isDone('a'), false);
   assert.equal(s.persistent, true);
+});
+
+test('store: v1 data migrates on first load; a v1 "I got it" becomes seen, never correct', () => {
+  const ms = memoryStorage();
+  ms.m.set(LEGACY_KEY, JSON.stringify({ a: { visited: true, checks: { sign: true, off: false }, done: true }, b: { visited: true, checks: {}, done: false }, bad: 3 }));
+  const s = createStore(() => ms);
+  assert.deepEqual(s.get('a'), { visited: true, done: true, quiz: {}, explained: {}, seen: { sign: true } });
+  assert.deepEqual(s.quiz('a', 'sign'), { tries: 0, correct: false }, 'no correctness is invented');
+  assert.deepEqual(JSON.parse(ms.m.get(STORAGE_KEY)), { a: { visited: true, done: true, quiz: {}, explained: {}, seen: { sign: true } }, b: { visited: true, done: false, quiz: {}, explained: {}, seen: {} } });
+  assert.ok(ms.m.has(LEGACY_KEY), 'the v1 key is left as it is');
+  ms.m.set(LEGACY_KEY, JSON.stringify({ a: { done: false } }));
+  assert.equal(createStore(() => ms).isDone('a'), true, 'once v2 exists, v1 is not read again');
+  assert.deepEqual(migrateV1({ x: { checks: { k: 'yes', __proto__: true } } }).x.seen, {});
+  const broken = memoryStorage(); broken.m.set(LEGACY_KEY, 'not json');
+  assert.doesNotThrow(() => createStore(() => broken).markVisited('z'));
+  assert.equal(createStore(() => broken).get('z').visited, true);
 });
 
 test('store: works when localStorage throws (accessor, getItem and setItem)', () => {
@@ -38,13 +64,16 @@ test('store: works when localStorage throws (accessor, getItem and setItem)', ()
     'accessor throws': () => { throw new DOMException('blocked', 'SecurityError'); },
     'getItem throws': () => ({ getItem() { throw new Error('denied'); }, setItem() {} }),
     'setItem throws (quota)': () => ({ getItem: () => null, setItem() { throw new Error('QuotaExceededError'); } }),
+    'setItem throws during the v1 migration': () => ({ getItem: (k) => (k === LEGACY_KEY ? '{"x":{"visited":true,"checks":{"c":true}}}' : null), setItem() { throw new Error('denied'); } }),
     'storage missing': () => undefined,
   };
   for (const [name, get] of Object.entries(variants)) {
     const s = createStore(get);
-    assert.doesNotThrow(() => { s.markVisited('x'); s.setDone('x', true); s.setCheck('x', 'c', true); }, name);
+    assert.doesNotThrow(() => { s.markVisited('x'); s.setDone('x', true); s.recordQuiz('x', 'q', true); s.setExplained('x', 'e'); s.setSeen('x', 'c', true); }, name);
     assert.equal(s.isDone('x'), true, `${name}: still remembered for this page view`);
-    assert.equal(s.get('x').checks.c, true, name);
+    assert.deepEqual(s.quiz('x', 'q'), { tries: 1, correct: true }, name);
+    assert.equal(s.get('x').explained.e, true, name);
+    assert.equal(s.get('x').seen.c, true, name);
     assert.equal(s.persistent, false, name);
   }
 });
@@ -56,9 +85,93 @@ test('store: corrupt or hand-edited data is ignored, not trusted', () => {
     assert.equal(s.isDone('a'), false, raw);
     assert.equal(s.isDone('__proto__'), false, raw);
     assert.equal(s.isDone('constructor'), false, raw);
-    assert.doesNotThrow(() => s.setDone('a', true));
+    assert.doesNotThrow(() => { s.setDone('a', true); s.recordQuiz('a', '__proto__', true); s.setSeen('a', '__proto__', true); }, raw);
+    assert.deepEqual(s.get('a').quiz, {}, raw);
   }
-  assert.deepEqual(sanitize({ a: { visited: 'yes', done: 1, checks: { q: 'x', r: true } } }), { a: { visited: false, done: false, checks: { r: true } } });
+  assert.deepEqual(sanitize({ a: { visited: 'yes', done: 1, checks: { r: true }, quiz: { q: { tries: 2, correct: true }, n: { tries: -1, correct: true }, f: { tries: 1.5 }, z: { tries: 0, correct: true }, s: 'x' },
+    explained: { e: true, f: 'yes' }, seen: { k: true, l: 1 } } }),
+  { a: { visited: false, done: false, quiz: { q: { tries: 2, correct: true }, z: { tries: 0, correct: false } }, explained: { e: true }, seen: { k: true } } },
+  'v1 checks are dropped, bad tries are dropped, correct needs an attempt, only true flags stay');
+});
+
+// ---- quiz answers (core/quiz.js, pure part) ---------------------------------------------------------------------
+test('quiz: typed answers are parsed and judged with the tolerance', () => {
+  for (const [s, v] of [['1.92', 1.92], [' -14.4 ', -14.4], ['−14.4', -14.4], ['1,92', 1.92], ['26,506', 26506], ['.5', 0.5], ['3', 3], ['1e-3', 0.001]]) assert.equal(parseAnswer(s), v, s);
+  for (const s of ['', '  ', 'abc', '1.2.3', '--1', '1,2,3', null]) assert.equal(parseAnswer(s), null, String(s));
+  assert.equal(judgeNumeric(35.7604, 0.01, 35.76), true);
+  assert.equal(judgeNumeric(35.7604, 0.01, 35.75), false);
+  assert.equal(judgeNumeric(1.92000008, 0.01, 1.93), true, 'the edge of the tolerance counts');
+  assert.equal(judgeNumeric(1, 0.1, null), false);
+  assert.equal(judgeChoice('2', '2'), true);
+  assert.equal(judgeChoice(2, '1'), false);
+  assert.equal(judgeChoice(0, null), false);
+});
+
+// ---- prose numbers (core/numbers.js) ---------------------------------------------------------------------------
+test('numbers: comma thousands separators, the minus sign, role-based significant figures', () => {
+  assert.equal(groupThousands('26506'), '26,506');
+  assert.equal(groupThousands('-1234567.25'), '-1,234,567.25');
+  assert.equal(groupThousands('999'), '999');
+  assert.equal(groupThousands('1.5e-7'), '1.5e-7');
+  assert.equal(proseNumber(26506), '26,506');
+  assert.equal(proseNumber(60000), '60,000');
+  assert.equal(proseNumber(1234567), '1,234,567', 'integers are exact at any size (fmt would round)');
+  assert.equal(proseNumber(-24), '−24');
+  assert.equal(proseNumber(0.0566912), '0.05669', 'exact roles use fmt: 4 significant figures');
+  assert.equal(proseNumber(1234.56), '1,235');
+  assert.equal(proseNumber(0.0566912, 2), '0.057');
+  assert.equal(proseNumber(0.00008427, 2), '0.000084');
+  assert.equal(proseNumber(26506, 2), '27,000', 'an explicit sig rounds integers too');
+  assert.equal(proseNumber(-0), '0');
+  assert.equal(proseNumber(3.0000001, 2), '3');
+  assert.throws(() => proseNumber(1, 5), /sig/);
+  assert.throws(() => proseNumber(NaN), /finite/);
+  assert.equal(sigFor('setup', 0.123), 'exact');
+  assert.equal(sigFor('contrast', 0.123), 2);
+  assert.equal(sigFor('contrast', 26506), 'exact');
+  assert.equal(sigFor('worked', 0.123, 3), 3);
+  assert.equal(humanText('rmse', 0.0576), '0.24');
+  assert.equal(humanText('prob', 0.4155), '66%');
+  assert.equal(humanText('pct', 9666, 10000), '97%');
+  assert.equal(humanText('pct', 0.9666), '97%');
+  assert.equal(humanText('per100', 9666, 10000), '3');
+  assert.equal(humanText('per100', 9650, 10000), '3', 'per100 is 100 minus the shown percent, so the two always add to 100');
+  assert.throws(() => humanText('rmse', -1), /negative/);
+  assert.throws(() => humanText('odds', 1), /unknown kind/);
+});
+
+test('T(path, role), T.anchor and T.human: tagged spans that the tests can re-format; the legacy T(path) is unchanged', () => {
+  const D = buildD({ t: { library: { ref: 'v0' }, scenes: [{ id: 's', nodes: [{ name: 'x', value: { shape: [1], values: [-24] }, grad: { shape: [1], values: [0.0566912] } }] }], big: 26506, n: 9666, of: 10000, mse: 0.0576 } }, { mlp_parameters: 26506 });
+  const T = makeT(D);
+  assert.equal(T('s.x.value'), '<span class="num" data-trace="s.x.value">-24</span>', 'legacy: fmt, no role');
+  assert.equal(T('s.x.value', 'setup'), '<span class="num" data-trace="s.x.value" data-role="setup" data-sig="exact">−24</span>');
+  assert.equal(T('s.x.grad', 'contrast'), '<span class="num" data-trace="s.x.grad" data-role="contrast" data-sig="2">0.057</span>');
+  assert.equal(T('s.x.grad', { role: 'worked', sig: 3 }), '<span class="num" data-trace="s.x.grad" data-role="worked" data-sig="3">0.0567</span>');
+  assert.equal(T('files.t.big', 'reveal'), '<span class="num" data-trace="files.t.big" data-role="reveal" data-sig="exact">26,506</span>');
+  assert.equal(T.anchor('mlp_parameters'), '<span class="num" data-trace="anchors.mlp_parameters" data-role="anchor" data-sig="exact" data-anchor="mlp_parameters">26,506</span>');
+  assert.equal(T.human('files.t.n', 'pct', { of: 'files.t.of' }), '<span class="num" data-trace="files.t.n" data-role="human" data-human="pct" data-of="files.t.of">97%</span>');
+  assert.equal(T.human('files.t.mse', 'rmse'), '<span class="num" data-trace="files.t.mse" data-role="human" data-sig="2" data-human="rmse">0.24</span>');
+  for (const html of [T('s.x.grad', 'contrast'), T.anchor('mlp_parameters'), T.human('files.t.n', 'per100', { of: 'files.t.of' }), T.human('files.t.mse', 'rmse', { sig: 3 }), T('s.x.value')]) {
+    const [b] = boundNums(html);
+    assert.equal(T.reformat(b), b.shown, html);
+  }
+  assert.throws(() => T('s.x.value', 'anchor'), /T\.anchor/);
+  assert.throws(() => T('s.x.value', 'human'), /T\.human/);
+  assert.throws(() => T('s.x.value', 'guess'), /unknown role/);
+  assert.throws(() => T('s.x.value', 'setup', { sig: 7 }), /sig/);
+  assert.throws(() => T.anchor('nope'), /no such anchor/);
+  assert.throws(() => makeT(buildD({})).anchor('mlp_parameters'), /not loaded/);
+  assert.throws(() => T.human('files.t.mse', 'rmse', { of: 'files.t.of' }), /only for pct/);
+  assert.throws(() => T.human('files.t.n', 'pct', { sig: 2 }), /whole numbers/);
+  assert.throws(() => T.human('files.t.n', 'odds'), /unknown kind/);
+  assert.throws(() => T('s.x.missing', 'setup'), /no "missing"/);
+});
+
+test('trace: loadAnchors reads data/anchors.json relative to the site root and checks its schema', async () => {
+  const fake = (json) => async (url) => ({ ok: true, json: async () => ({ ...json, url: String(url) }) });
+  assert.deepEqual(await loadAnchors(new URL('http://h/TorC/'), fake({ schema: 'torc-anchors/1', anchors: { a: { path: 'p', value: 3 } } })), { a: 3 });
+  await assert.rejects(loadAnchors(new URL('http://h/'), fake({ schema: 'other' })), /torc-anchors\/1/);
+  await assert.rejects(loadAnchors(new URL('http://h/'), async () => ({ ok: false, status: 404 })), /404/);
 });
 
 // ---- course -----------------------------------------------------------------------------------------------
