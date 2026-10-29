@@ -53,7 +53,7 @@ Variable y = layer(x);          // runs forward(x)</code></pre>`),
 model.add(std::make_unique&lt;nn::Linear&gt;(784, 32));
 model.add(std::make_unique&lt;nn::ReLU&gt;());
 model.add(std::make_unique&lt;nn::Linear&gt;(32, 10));
-optim::Adam opt(model.parameters(), 1e-3f);</code></pre>
+optim::SGD opt(model.parameters(), 0.01f);</code></pre>
     <p>This model has ${T(`${F}.models.${idx(D, 'mlp')}.total`)} parameters in ${T(`${F}.models.${idx(D, 'mlp')}.tensors`)} tensors. Select a model below to see the parameters and the output shape of each module.</p>`),
     },
     {

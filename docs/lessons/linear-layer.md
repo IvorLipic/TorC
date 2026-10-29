@@ -84,7 +84,7 @@ Engine equals scenes `linear` and `linear-dx` (values and grads, `1e-5 (1+|b|)`)
 ## Lesson status (concise rewrite, decisions 7-9)
 
 Files: `site/js/lessons/linear-layer.js`, `site/js/widgets/matmul-grid.js` (editable x, W, b; pick an output to light up its rows;
-"Copy neuron 1 into neuron 2" copies weights and bias; Reset), `init-signal.js` (six Linear(256, 256) + ReLU layers, three recorded
+"Copy the first neuron into the second" copies weights and bias; Reset), `init-signal.js` (six Linear(256, 256) + ReLU layers, three recorded
 initialisations and all three on a log scale), helpers `linear-ui.js`, `linear-math.js`, `linear-shapes.js`, `linear-signal-data.js`,
 `site/test/linear-layer.test.mjs`.
 

@@ -4,11 +4,11 @@
 // STE-flavored mode).
 import { escapeHtml } from '../core/dom.js';
 import { mountBatchViewer, mountTrainingCurves } from '../widgets/training-widgets.js';
+import { cf } from '../widgets/cpp-literal.js';
 
 const F = 'files.training';
 // the run with a given batch size, as a T() path (found by batch size, not by position)
 const run = (D, bs) => `${F}.runs.${D.files.training.runs.findIndex((r) => r.batch_size === bs)}`;
-const cf = (v) => (Number.isInteger(v) ? `${v}.0f` : `${v}f`);   // a float literal in C++
 const sec = (id, title, body) => `<section class="tr" aria-labelledby="tr-${id}"><h2 id="tr-${id}">${title}</h2>${body}</section>`;
 const sizes = (D, bs) => D.files.training.loaders.find((l) => l.batch_size === bs && !l.shuffle).epochs[0].map((b) => b.length);
 const lastEpoch = (D) => D.files.training.setup.epochs;
@@ -71,7 +71,7 @@ while (loader.has_next()) {
         opt.zero_grad();                  // 5. clear the gradients
     }
 }</code></pre>
-    <p>The forward pass computes the outputs, and the loss compares them with the targets. <code>backward()</code> computes the gradients. <code>step()</code> changes the parameters, and <code>zero_grad()</code> sets the gradients back to zero. With <code>shuffle</code> on, each <code>reset()</code> also puts the samples in a new random order.</p>`),
+    <p>The forward pass computes the outputs, and the loss compares them with the targets. <code>backward()</code> computes the gradients. <code>step()</code> changes the parameters, and <code>zero_grad()</code> sets the gradients back to zero. With <code>shuffle</code> on, each <code>reset()</code> also puts the samples in a new random order. In the code, the variable <code>epoch</code> starts at <code>0</code>. The widgets count epochs from <code>1</code>.</p>`),
     },
     {
       kind: 'check', id: 'c-reset',

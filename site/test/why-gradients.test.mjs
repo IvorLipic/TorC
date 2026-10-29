@@ -257,3 +257,12 @@ test('huge values from a diverging run are shown in exponent form, never as 8219
   for (const s of st) for (const v of [s.w, s.L, s.grad]) assert.doesNotMatch(fmtX(v), /^-?\d{9,}$/, `${v}`);
   renderStrictAll([fmtX(1e19), `${fmtX(-1e19)}`, ...st.map((q) => updateTex(m, q.w, 0.35))]);
 });
+
+test('section 4 explains e·e as e squared and says that TorC adds the two uses of e (brief C7)', () => {
+  assert.match(html, /is the square of <code>e<\/code>, so its gradient with respect to <code>e<\/code> is <code>2e<\/code>, which is <span class="num"[^>]*data-trace="why\.e\.grad"[^>]*>-12<\/span>/);
+  assert.match(html, /treats each use of <code>e<\/code> separately, which gives <span class="num"[^>]*data-trace="why\.e\.value"[^>]*>-6<\/span> for each use, and it adds the two results/);
+  assert.doesNotMatch(html, /gets two contributions/);
+  const e = scene.nodes.find((n) => n.name === 'e');
+  assert.equal(e.grad.values[0], 2 * e.value.values[0], '2e is the gradient the page shows');
+  assert.match(html, /href="\.\.\/backprop-lab\/">Backprop lab<\/a> shows why adding is right/);
+});

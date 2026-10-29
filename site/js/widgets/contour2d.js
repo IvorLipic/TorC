@@ -128,7 +128,7 @@ export function mountContour2d(host, { model, base = { w: [-1, 4.5], b: [-1.5, 3
   let built = null;                            // {key, plot, layers}
   let last = null;
   const trailTable = srTable(wrap, {
-    columns: ['update', 'w', 'b', 'loss', 'dL/dw', 'dL/db'], rows: [], caption: 'Positions on the trail (before each update; the last row is where the trail stands now)',
+    columns: ['step', 'W', 'b', 'loss', 'dL/dW', 'dL/db'], rows: [], caption: 'Positions on the trail. Each row is the position before a step. The last row is where the trail stands now.',
     fmt: (v) => (typeof v === 'number' ? fmtTick(v) : String(v)),
   });
 
@@ -146,7 +146,7 @@ export function mountContour2d(host, { model, base = { w: [-1, 4.5], b: [-1.5, 3
     const key = [width, ...view.w, ...view.b].map((v) => Number(v).toFixed(3)).join('|');
     const fit = fitView(view.w, view.b, iw, ih);
     plotHost.replaceChildren();
-    const plot = createPlot(plotHost, { width, height, x: fit.w, y: fit.b, xLabel: 'w  (weight)', yLabel: 'b  (bias)', ariaLabel: 'Loss landscape over w and b', margin });
+    const plot = createPlot(plotHost, { width, height, x: fit.w, y: fit.b, xLabel: 'W  (weight)', yLabel: 'b  (bias)', ariaLabel: 'Loss landscape over W and b', margin });
     let entry = cache.get(key);
     if (!entry) {
       const grid = gridFor(model, fit.w, fit.b);
@@ -232,22 +232,22 @@ export function mountContour2d(host, { model, base = { w: [-1, 4.5], b: [-1.5, 3
     if (lastI > 0 && trail.length <= 13) wantLabel(sx(trail[lastI].w), sy(trail[lastI].b), true);
     trail.forEach((p, i) => {
       const cx = sx(p.w), cy = sy(p.b);
-      const tip = `after ${i} update${i === 1 ? '' : 's'}: w = ${fmt(p.w)}, b = ${fmt(p.b)}, loss = ${fmt(p.loss)}`;
+      const tip = `after ${i} step${i === 1 ? '' : 's'}: W = ${fmt(p.w)}, b = ${fmt(p.b)}, loss = ${fmt(p.loss)}`;
       if (i === 0) layer.append(svg('rect', { class: 'c2d-start', x: cx - 5, y: cy - 5, width: 10, height: 10 }, svg('title', {}, tip)));
       else if (i !== lastI) layer.append(svg('circle', { class: 'c2d-pt', cx, cy, r: 4 }, svg('title', {}, tip)));
       if (i > 0 && i !== lastI && trail.length <= 13 && wantLabel(cx, cy, false)) layer.append(svg('text', { class: 'c2d-lbl', x: cx + 7, y: cy - 6 }, String(i)));
     });
     if (lastI > 0) {
       const p = trail[lastI], cx = sx(p.w), cy = sy(p.b);
-      layer.append(svg('circle', { class: 'c2d-cur', cx, cy, r: 7 }, svg('title', {}, `after ${lastI} updates: w = ${fmt(p.w)}, b = ${fmt(p.b)}, loss = ${fmt(p.loss)}`)));
+      layer.append(svg('circle', { class: 'c2d-cur', cx, cy, r: 7 }, svg('title', {}, `after ${lastI} steps: W = ${fmt(p.w)}, b = ${fmt(p.b)}, loss = ${fmt(p.loss)}`)));
       if (trail.length <= 13) layer.append(svg('text', { class: 'c2d-lbl', x: cx + 10, y: cy - 8 }, String(lastI)));
     } else {
       const p = trail[0], cx = sx(p.w), cy = sy(p.b);
-      layer.append(svg('circle', { class: 'c2d-cur', cx, cy, r: 7 }, svg('title', {}, `start: w = ${fmt(p.w)}, b = ${fmt(p.b)}, loss = ${fmt(p.loss)}`)));
+      layer.append(svg('circle', { class: 'c2d-cur', cx, cy, r: 7 }, svg('title', {}, `start: W = ${fmt(p.w)}, b = ${fmt(p.b)}, loss = ${fmt(p.loss)}`)));
     }
     const cur = trail.at(-1);
-    plot.root.setAttribute('aria-label', `Loss landscape over w and b. ${caption} The parameters are at w = ${fmt(cur.w)}, b = ${fmt(cur.b)} where the loss is ${fmt(cur.loss)}. The minimum is at w = ${fmt(optimum.w)}, b = ${fmt(optimum.b)}.`);
-    note.textContent = view.zoomedOut ? 'The view zoomed out to keep the whole trail in sight; the bowl you saw before is the small region around the star.' : '';
+    plot.root.setAttribute('aria-label', `Loss landscape over W and b. ${caption} The parameters are at W = ${fmt(cur.w)}, b = ${fmt(cur.b)} where the loss is ${fmt(cur.loss)}. The minimum is at W = ${fmt(optimum.w)}, b = ${fmt(optimum.b)}.`);
+    note.textContent = view.zoomedOut ? 'The view zoomed out to keep the whole trail in sight. The bowl you saw before is the small region around the star.' : '';
     trailTable.update(trail.map((p, i) => [i, p.w, p.b, p.loss, p.gw ?? '–', p.gb ?? '–']));
     legendItems(trail[0]);
     return { view };

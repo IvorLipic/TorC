@@ -1,5 +1,5 @@
 // widgets/descent.js — the main widget of the lesson sgd-step: the loss landscape over (w, b) (contour2d) with the trail of
-// optimizer.step() updates, learning-rate and momentum presets, Step/Reset, and the loss after each update on a log scale.
+// optimizer.step() calls, learning-rate and momentum presets, Step/Reset, and the loss after each step on a log scale.
 // Runs are recomputed by optim.js (SGD's formulas on the engine's model); site/test/sgd-step.test.mjs checks them against TorC's
 // recorded runs. Importing this module does not touch the DOM.
 import { el } from '../core/dom.js';
@@ -26,7 +26,7 @@ export function mountDescent(host, D) {
   const left = el('div'), chart = el('div', { class: 'chart' }), read = el('div', { class: 'sgd-read' });
   const root = el('div', { class: 'sgd-w' },
     el('div', { class: 'sgd-ctl' }, lrP.root, muP.root, el('div', { class: 'row' }, stepBtn, resetBtn), status),
-    el('div', { class: 'sgd-grid' }, left, el('div', {}, el('h3', { class: 'sub' }, 'Loss after each update (log scale)'), chart)),
+    el('div', { class: 'sgd-grid' }, left, el('div', {}, el('h3', { class: 'sub' }, 'Loss after each step (log scale)'), chart)),
     read);
   host.append(root);
   const contour = mountContour2d(left, { model, base: { w: [-1, 5], b: [-1.5, 3] }, optimum: D.files.optim.data.optimum });
@@ -34,8 +34,8 @@ export function mountDescent(host, D) {
   function drawChart() {
     const shown = rows.slice(0, state.k + 1);
     logChart(chart, {
-      series: [{ values: shown.map((r) => r.loss), cls: 'lc-main', dots: true }], range: rows.map((r) => r.loss), n: STEPS, xLabel: 'updates',
-      ariaLabel: `Loss after each update, log scale: ${fmt(shown[0].loss)} at the start, ${fmt(shown.at(-1).loss)} after ${state.k}.`,
+      series: [{ values: shown.map((r) => r.loss), cls: 'lc-main', dots: true }], range: rows.map((r) => r.loss), n: STEPS, xLabel: 'steps',
+      ariaLabel: `Loss after each step, log scale: ${fmt(shown[0].loss)} at the start, ${fmt(shown.at(-1).loss)} after ${state.k}.`,
     });
   }
 
@@ -48,8 +48,8 @@ export function mountDescent(host, D) {
     contour.draw({ trail: rows.slice(0, state.k + 1), next: state.k < STEPS ? rows[state.k + 1] : null, caption: `Learning rate ${state.lr}, momentum ${state.mu}.` });
     drawChart();
     const up = state.k > 0 && cur.loss > rows[0].loss;
-    read.innerHTML = `<span><b>update</b> ${state.k}/${STEPS}</span><span><b>w</b> ${fmt(cur.w)}</span><span><b>b</b> ${fmt(cur.b)}</span><span${up ? ' class="bad"' : ''}><b>loss</b> ${fmt(cur.loss)}</span>`;
-    status.textContent = state.k ? `Update ${state.k}: w ${fmt(cur.w)}, b ${fmt(cur.b)}, loss ${fmt(cur.loss)}.` : '';
+    read.innerHTML = `<span><b>step</b> ${state.k}/${STEPS}</span><span><b>W</b> ${fmt(cur.w)}</span><span><b>b</b> ${fmt(cur.b)}</span><span${up ? ' class="bad"' : ''}><b>loss</b> ${fmt(cur.loss)}</span>`;
+    status.textContent = state.k ? `Step ${state.k}: W ${fmt(cur.w)}, b ${fmt(cur.b)}, loss ${fmt(cur.loss)}.` : '';
   }
 
   const ac = new AbortController();

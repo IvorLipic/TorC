@@ -82,11 +82,14 @@ export default {
     {
       kind: 'text',
       html: (D, T) => sec('cnn', '4 · A small CNN', `
-    <pre class="cv-code" tabindex="0" role="group" aria-label="The CNN of the TorC example"><code>model.add(std::make_unique&lt;nn::Conv2d&gt;(1, 8, 3, /*stride=*/2, /*padding=*/1));   // (N, 8, 14, 14)
+    <pre class="cv-code" tabindex="0" role="group" aria-label="The CNN of the TorC example"><code>// output shape (N, 8, 14, 14)
+model.add(std::make_unique&lt;nn::Conv2d&gt;(1, 8, 3, /*stride=*/2, /*padding=*/1));
 model.add(std::make_unique&lt;nn::ReLU&gt;());
-model.add(std::make_unique&lt;nn::Conv2d&gt;(8, 16, 3, 2, 1));                         // (N, 16, 7, 7)
+// output shape (N, 16, 7, 7)
+model.add(std::make_unique&lt;nn::Conv2d&gt;(8, 16, 3, 2, 1));
 model.add(std::make_unique&lt;nn::ReLU&gt;());
-model.add(std::make_unique&lt;nn::Flatten&gt;());                                      // (N, 784)
+// output shape (N, 784)
+model.add(std::make_unique&lt;nn::Flatten&gt;());
 model.add(std::make_unique&lt;nn::Linear&gt;(16 * 7 * 7, 10));</code></pre>
     <p>This is the model of the TorC example <code>mnist_cnn</code>. A network with convolution layers is a convolutional neural network, or CNN. <code>Flatten</code> turns each sample of shape ${shp(D.files.conv.cnn[3].out_shape.slice(1))} into one row for the linear layer. The model has ${T(`${F}.cnn_parameters`)} parameters, and most of them are in the last layer.</p>`),
     },

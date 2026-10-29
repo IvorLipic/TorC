@@ -1,5 +1,5 @@
 // widgets/bowl.js — the one widget of the lesson why-gradients: the loss curve L(w) with the knob's dot and its tangent,
-// a start slider, learning-rate presets and a Step button (w <- w - lr * slope). Values are recomputed by the engine through
+// a start slider, learning-rate presets and a Step button (w <- w - lr * gradient). Values are recomputed by the engine through
 // landscape-model.js (the same code as the graph lab), and site/test/why-gradients.test.mjs checks that model against TorC's run.
 // Controls are never re-rendered (focus stays put); no autoplay; the module touches the DOM only when mountBowl runs.
 import { el } from '../core/dom.js';
@@ -71,8 +71,8 @@ export function mountBowl(host, D) {
     p.tangent(w, q.L, q.grad, { half: 1.4, layer: 'live' });
     p.dot(w, q.L, { r: 7, layer: 'live' });
     const off = w < X[0] || w > X[1] || q.L > Y[1];
-    p.root.setAttribute('aria-label', `The loss L(w), a bowl with its bottom at w = ${fmt(m.wMin)}. After ${path.length - 1} steps w = ${fmt(w)}, L = ${fmt(q.L)}, slope ${fmt(q.grad)}.`);
-    readout.innerHTML = `<span><b>w</b> ${fmt(w)}</span><span><b>L</b> ${fmt(q.L)}</span><span><b>slope</b> ${fmt(q.grad)}</span>${off ? '<span class="bowl-off">off the chart</span>' : ''}`
+    p.root.setAttribute('aria-label', `The loss L(w), a bowl with its bottom at w = ${fmt(m.wMin)}. After ${path.length - 1} steps w = ${fmt(w)}, L = ${fmt(q.L)}, gradient ${fmt(q.grad)}.`);
+    readout.innerHTML = `<span><b>w</b> ${fmt(w)}</span><span><b>L</b> ${fmt(q.L)}</span><span><b>gradient</b> ${fmt(q.grad)}</span>${off ? '<span class="bowl-off">off the chart</span>' : ''}`
       + `<span class="bowl-next">${math(updateTex(m, w, lr), false)}</span>`;
   }
   draw();
