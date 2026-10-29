@@ -12,7 +12,20 @@
 // class); at the end, all weights and biases (so the browser can run the same forward pass), 20 test images (the first 16, and
 // the first 4 that the model gets wrong) with their pixels, labels and the logits TorC computes for them, and the output of the
 // first convolution after relu for the first of them (the browser port is tested against these).
-#include "trace_util.hpp"
+//
+// Added for v3 (all additive; the trained model, its seeds and settings are unchanged, so `layers` and every older key keep their
+// values):
+//   setup.pixels, setup.classes        784 (values per image, read from the dataset) and 10 (outputs of the last Linear)
+//   settings                           the real training settings in one object (C9), and those of examples/mnist_cnn (which
+//                                      trains 10 epochs, this trace 5), so a lesson can say the MLP-vs-CNN comparison is not
+//                                      perfectly fair (different epochs and learning rates)
+//   epochs[].test_accuracy, .test_loss test accuracy as a fraction (D9; correct / 10000, derived in double), mean test loss
+//   test_per_class.accuracy[10]        correct / total per digit (derived)
+//   final                              {test_correct, test_samples, test_accuracy, test_mistakes, test_loss}
+//   confusion                          the 10 x 10 confusion matrix of the final model on all 10000 test images
+// Shift robustness of this model and of the MLP is in shift.json (trace_shift.cpp), the spread over seeds in mnist-seeds.json
+// (trace_mnist_seeds.cpp): both read the weights recorded here, so this trace does not get longer.
+#include "trace_mnist.hpp"
 
 #include "torc/data.hpp"
 #include "torc/nn.hpp"
@@ -28,39 +41,14 @@
 
 using namespace torc;
 using trace::J;
+namespace tmn = trace_mnist;
+using tmn::Eval;
+using tmn::evaluate;
 
 namespace {
 
 constexpr int BATCH = 128, EPOCHS = 5, FIRST = 16, WRONG = 4;   // see the note on the epochs above
 constexpr float LR = 0.001f;
-
-struct Eval { int correct = 0; std::vector<int> per_correct = std::vector<int>(10, 0), per_total = std::vector<int>(10, 0), wrong; };
-
-int argmax10(const float* row) {
-    int best = 0;
-    for (int j = 1; j < 10; ++j) if (row[j] > row[best]) best = j;
-    return best;
-}
-
-Eval evaluate(nn::Sequential& model, const data::MNISTDataset& ds) {
-    Variable::NoGradGuard ng;
-    data::DataLoader loader(ds, 1000, false);
-    Eval e;
-    int index = 0;
-    while (loader.has_next()) {
-        auto [xb, yb] = loader.next_batch();
-        const Variable x(xb, false);
-        Variable out = model(x);
-        for (int i = 0; i < xb.shape()[0]; ++i) {
-            const int pred = argmax10(out.data().data() + i * 10), label = static_cast<int>(yb.data()[i]);
-            e.per_total[label] += 1;
-            if (pred == label) { e.correct += 1; e.per_correct[label] += 1; }
-            else e.wrong.push_back(index);
-            ++index;
-        }
-    }
-    return e;
-}
 
 int count_params(nn::Module& m) {
     int n = 0;
@@ -110,7 +98,8 @@ int main() {
     {
         const Eval e = evaluate(model, test_set);
         J row = J::object();
-        row.set("epoch", 0).set("test_correct", e.correct).set("per_class_correct", trace::jarr(e.per_correct));
+        row.set("epoch", 0).set("test_correct", e.correct).set("per_class_correct", trace::jarr(e.per_correct))
+            .set("test_accuracy", e.accuracy()).set("test_loss", static_cast<float>(e.loss));
         epochs.push(std::move(row));
     }
     int steps = 0;
@@ -134,7 +123,8 @@ int main() {
         const Eval e = evaluate(model, test_set);
         J row = J::object();
         row.set("epoch", epoch).set("steps", steps).set("train_loss", static_cast<float>(loss_sum / batches))
-            .set("test_correct", e.correct).set("per_class_correct", trace::jarr(e.per_correct));
+            .set("test_correct", e.correct).set("per_class_correct", trace::jarr(e.per_correct))
+            .set("test_accuracy", e.accuracy()).set("test_loss", static_cast<float>(e.loss));
         epochs.push(std::move(row));
         std::cerr << "epoch " << epoch << " loss " << loss_sum / batches << " test " << e.correct << " ("
                   << std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count() << " s)\n";
@@ -179,13 +169,29 @@ int main() {
     J setup = J::object();
     setup.set("train_samples", static_cast<int>(train_set.len())).set("test_samples", static_cast<int>(test_set.len()))
         .set("batch_size", BATCH).set("epochs", EPOCHS).set("lr", 0.001).set("weight_decay", 0.01).set("optimizer", "optim::AdamW")
-        .set("loss", "nn::CrossEntropyLoss").set("image_side", 28).set("pixel_max", 255).set("parameters", count_params(model));
+        .set("loss", "nn::CrossEntropyLoss").set("image_side", 28).set("pixel_max", 255).set("parameters", count_params(model))
+        .set("pixels", train_set.get(0).first.numel()).set("classes", linears.back()->named_parameters().at("weight").data().shape()[0]);
     J test_per_class = J::object();
-    test_per_class.set("correct", trace::jarr(final_eval.per_correct)).set("total", trace::jarr(final_eval.per_total));
+    test_per_class.set("correct", trace::jarr(final_eval.per_correct)).set("total", trace::jarr(final_eval.per_total))
+        .set("accuracy", trace::jarr(tmn::per_class_accuracy(final_eval)));
+
+    J example = J::object();   // examples/mnist_cnn/mnist_cnn.cpp at the pinned ref (batch_size, epochs, lr there)
+    example.set("source", "examples/mnist_cnn/mnist_cnn.cpp").set("epochs", 10).set("lr", 0.001).set("batch_size", 128);
+    J settings = J::object();
+    settings.set("model", "Conv2d(1, 8, 3, stride 2, padding 1), ReLU, Conv2d(8, 16, 3, 2, 1), ReLU, Flatten, Linear(784, 10)")
+        .set("parameters", count_params(model)).set("optimizer", "optim::AdamW").set("lr", 0.001).set("weight_decay", 0.01)
+        .set("batch_size", BATCH).set("epochs", EPOCHS).set("steps", steps).set("steps_per_epoch", steps / EPOCHS)
+        .set("loss", "nn::CrossEntropyLoss").set("shuffle", true).set("loader_seed", 11)
+        .set("init", "nn::Conv2d / nn::Linear default (Kaiming normal)").set("init_seeds", trace::jarr(std::vector<int>{1, 2, 3}))
+        .set("train_samples", static_cast<int>(train_set.len())).set("example", std::move(example));
+    J fin = J::object();
+    fin.set("test_correct", final_eval.correct).set("test_samples", final_eval.total).set("test_accuracy", final_eval.accuracy())
+        .set("test_mistakes", final_eval.total - final_eval.correct).set("test_loss", static_cast<float>(final_eval.loss));
 
     J doc = trace::envelope("mnist-cnn", "mnist-cnn", "tools/trace/trace_mnist_cnn.cpp");
     doc.set("setup", std::move(setup)).set("epochs", std::move(epochs)).set("test_per_class", std::move(test_per_class))
-        .set("layers", std::move(layers)).set("shown", std::move(shown)).set("first_maps", std::move(first_maps));
+        .set("layers", std::move(layers)).set("shown", std::move(shown)).set("first_maps", std::move(first_maps))
+        .set("settings", std::move(settings)).set("final", std::move(fin)).set("confusion", tmn::confusion_json(final_eval));
     std::fputs(doc.dump().c_str(), stdout);
     return 0;
 }
