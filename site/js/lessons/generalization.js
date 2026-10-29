@@ -44,7 +44,7 @@ export default {
       kind: 'tldr',
       items: () => [
         'Keep some samples apart as a test set, and never train on them.',
-        'If the training loss falls and the test loss rises, the model learns the noise. This is overfitting. A larger gap means more of it.',
+        'If the training loss falls and the test loss rises, the model learns the noise. This is overfitting, and it has degrees.',
         'Weight decay keeps the weights small, and this can reduce overfitting.',
         'Choose settings with a validation set, not with the test set.',
       ],
@@ -61,7 +61,7 @@ export default {
       kind: 'text',
       html: () => sec('overfit', '2 · Overfitting', `
     <p>A flexible model can follow the noise in the training samples. Its curve then passes close to every training sample, but it swings between them. The training loss becomes very small, and the test loss becomes larger. The name of this problem is overfitting.</p>
-    <p>Overfitting has degrees. The larger the gap between the test loss and the training loss, the more the model overfits. A large number of parameters alone does not cause it, because enough training samples can keep the gap small.</p>`),
+    <p>Overfitting has degrees. A model overfits more when its training loss is much smaller than its test loss. A model that is too simple also has a gap, but both of its losses stay high. A large number of parameters alone does not cause overfitting, because enough training samples can prevent it.</p>`),
     },
     {
       kind: 'predict', id: 'p-test', title: 'Before you try it',
@@ -91,7 +91,7 @@ export default {
     {
       kind: 'check', id: 'c-diagnose',
       prompt: (D, T) => { const L = lastIdx(D); return `<p>A model has a training loss of ${T(`${RUN.none}.checkpoints.${L}.train_loss`)} and a test loss of ${T(`${RUN.none}.checkpoints.${L}.test_loss`)}. What is the problem, and what can help?</p>`; },
-      reveal: () => '<p>The gap between the two losses is large, so the model overfits strongly. Weight decay can help. More training data and fewer steps can also help. Choose the weight decay and the number of steps with the validation loss.</p>',
+      reveal: () => '<p>The training loss is almost zero, but the test loss is much larger. So the model overfits strongly. Weight decay can help. More training data and fewer steps can also help. Choose the weight decay and the number of steps with the validation loss.</p>',
     },
     {
       kind: 'text',

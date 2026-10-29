@@ -71,7 +71,7 @@ while (loader.has_next()) {
         opt.zero_grad();                  // 5. clear the gradients
     }
 }</code></pre>
-    <p>The forward pass computes the outputs, and the loss compares them with the targets. <code>backward()</code> computes the gradients. <code>step()</code> changes the parameters, and <code>zero_grad()</code> sets the gradients back to zero. With <code>shuffle</code> on, each <code>reset()</code> also puts the samples in a new random order. In the code, the variable <code>epoch</code> starts at <code>0</code>. The widgets count epochs from <code>1</code>.</p>`),
+    <p>The forward pass computes the outputs, and the loss compares them with the targets. <code>backward()</code> computes the gradients. <code>step()</code> changes the parameters, and <code>zero_grad()</code> sets the gradients back to zero. With <code>shuffle</code> on, each <code>reset()</code> also puts the samples in a new random order. In the code, the variable <code>epoch</code> starts at <code>0</code>. The batch viewer counts epochs from <code>1</code>. In the training curves, epoch <code>0</code> is the start, before any training.</p>`),
     },
     {
       kind: 'check', id: 'c-reset',

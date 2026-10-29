@@ -51,7 +51,7 @@ optim::AdamW opt(model.parameters(), 1e-3f);</code></pre>
     {
       kind: 'predict', id: 'p-compare', title: 'Before you try it',
       prompt: (D, T) => `<p>The MLP has ${T(`${MLP}.setup.parameters`)} parameters, and the CNN has ${T(`${F}.setup.parameters`)}. Which one reads more test images correctly?</p>`,
-      reveal: (D, T) => `<p>The CNN. After ${T(`${F}.setup.epochs`)} epochs, it reads ${T(`${F}.epochs.${last(D, 'mnist-cnn')}.test_correct`)} of the test images correctly. The MLP reads ${T(`${MLP}.epochs.${last(D, 'mnist-mlp')}.test_correct`)} after ${T(`${MLP}.setup.epochs`)} epochs. This comparison is not perfectly fair, because the two runs use different numbers of epochs and different learning rates. The CNN still wins, with about a third of the parameters. Each kernel of the CNN uses the same weights at every position. So the model needs few parameters to find a stroke anywhere in the image.</p>`,
+      reveal: (D, T) => `<p>The CNN reads more of them correctly. After ${T(`${F}.setup.epochs`)} epochs, it reads ${T(`${F}.epochs.${last(D, 'mnist-cnn')}.test_correct`)} of the test images correctly. The MLP reads ${T(`${MLP}.epochs.${last(D, 'mnist-mlp')}.test_correct`)} after ${T(`${MLP}.setup.epochs`)} epochs. This comparison is not perfectly fair, because the two runs use different numbers of epochs and different learning rates. The CNN still wins, with about a third of the parameters. Each kernel of the CNN uses the same weights at every position. So the model needs few parameters to find a stroke anywhere in the image.</p>`,
     },
     {
       kind: 'text',

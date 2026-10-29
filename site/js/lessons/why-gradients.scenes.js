@@ -12,6 +12,6 @@ export function whyLayout(T) {
     intro: 'The backward pass starts at <code>L</code> with a gradient of one. At each step it multiplies by one local derivative.',
     forwardHint: 'The forward pass computes p, e and L from w.',
     backwardHint: 'The backward pass goes from L back to w, one local derivative at each step.',
-    takeaway: `<code>w.grad()</code> = ${T('why.w.grad')} = ${slope(0)} · ${slope(1)} · ${slope(2)}. The error <code>e</code> appears twice, so its two contributions add up to ${T('why.e.grad')}.`,
+    takeaway: `<code>w.grad()</code> = ${T('why.w.grad')} = ${slope(0)} · ${slope(1)} · ${slope(2)}. The error <code>e</code> appears twice in <code>e·e</code>. TorC adds the contributions of the two uses and gets ${T('why.e.grad')}, which is twice e. This is the gradient of e squared.`,
   };
 }
