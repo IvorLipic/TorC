@@ -64,5 +64,58 @@ All planned lessons are published. Specs in content-plan section 2 (v1 course ma
 Lessons 09 to 13 had an independent review on 2026-10-20; its findings are fixed. Still open: a pass with a real screen reader, Firefox and Safari, and a real touch
 device for the digit pads. TorC findings for `main` are in `docs/library-audit/v0.1.0-findings.md`.
 
+## M5 — Curriculum v3 (the pedagogy rework; brief `docs/pedagogy-review.md`, contract `docs/v3-implementation.md`)
+Goal: the best resource for the high-school graduate of decision 13. All approval items of brief section 12 were granted on
+2026-10-29 (decisions 13-23). Work happens on the work branch `claude/trusting-archimedes-kjzrto` (decision 20). Lessons are
+referred to by id. Defect and error ids (D1-D20, C1-C10) are in the brief, sections 5 and 11.
+
+### Phase A — Quick fixes (safe on `web`)
+- [x] Copy the brief to the repository as `docs/pedagogy-review.md` (done on the work branch; it reaches `web` with the merge)
+- [ ] Fix D1-D6, D10-D15, D17, D19, D20 (D6 by removing its text), and the wording parts of C4, C7, C9 and C10
+- [ ] Add the LaTeX-escape grep test and the next-lesson test (the closing line matches `neighbors()`)
+- [ ] If C10 changes the `code` of `generalization`, update its `SPEC` in `tools/snippets/check.mjs` and run the snippet check
+- [ ] `node --test site/test/`, `tools/prose/check.sh`, `node tools/check_site.mjs` pass; pages checked at 1366 x 768 and 390 x 844
+- [ ] Push to `web`
+
+### Phase B — Decisions, docs, machinery and the vertical slice
+- [x] Record the approved decisions (13-23 in `docs/decisions.md`)
+- [x] Update `docs/content-plan.md` sections 1 and 2, `docs/authoring.md` policy sections, `CLAUDE.md` and `.claude/agents/`
+      (`pedagogy-reviewer`, `cold-reader`, `independent-reviewer` dimension 8)
+- [ ] `quiz` and `explain` kinds, the `questions` and `answer` sections, progress store v2 (`torc:v2`, v1 migration)
+- [ ] Role-tagged `T()`, `T.human`, `T.anchor` and the prose formatter (also fixes D8 and D9); `site/anchors.json` and `tools/anchors.mjs`
+- [ ] Blocks: `worked`, `inTorc`, `realLine`, `analogy`, `chatgpt`, `refresher`, `term`, `sym`, `loopDiagram`; glossary and notation guide
+- [ ] Part kinds (`lab`, `appendix`); home page with promise and demo first, the code behind a toggle (decision 16)
+- [ ] Writing linter: banned tics, label colons, widget and UI strings (D15)
+- [ ] New and changed trace programs for the slice (`steep` bowl, nudge data, the hand-fitting dataset)
+- [ ] Vertical slice: `what-is-learning`, `why-gradients`, `sgd-step`, each with its module, widgets, tests and `docs/lessons/<id>.md`
+- [ ] `pedagogy-reviewer` and `cold-reader` run on the slice, then at least 3 human readers from the target group
+- [ ] Adjust the rules in the brief and `docs/authoring.md` from what the readers show, then continue
+
+### Phase C — The rest of the main path, part by part (each part: its traces, its C-fixes, a human test before it merges into `web`)
+- [ ] Part `networks`: `linear-layer`, `nonlinearity`, `classification`, `losses`, `backprop`, `deep-nets`
+- [ ] Part `training`: `training-loop`, `optimizers`, `generalization`
+- [ ] Part `images`: `mnist-mlp`, `one-step`, `convolution`, `mnist-cnn`
+- [ ] Part `next`: `from-digits-to-chatgpt` (conceptual, with cited sources)
+- [ ] Appendix `using-torc`: `tensors`, `modules`, `torc-pitfalls`, `notation`, `glossary`
+- [ ] Defects D7 (with `modules`), D16 (graph labs at phone width, with `backprop`), D18 (with `optimizers`)
+- [ ] Remove the legacy kinds `tldr`, `predict`, `check` once every main-path lesson is `template: 3`
+
+### Phase D — Spacing and polish
+- [ ] End-of-part reviews and cumulative checks
+- [ ] Light theme (rewrite the shells with `--write-shells`; raise the minimum caption size in widgets)
+- [ ] Firefox and Safari
+- [ ] A real screen reader
+- [ ] The digit pad on a touch device
+
+### Acceptance criteria (per lesson; brief section 12)
+- [ ] A human reader from the target group can answer the lesson's opening question in their own words afterwards
+- [ ] No term, symbol or notation appears before its introduction in course order (test)
+- [ ] Every prose number has a role; at most 10 numbers outside `worked`, `setup` and `reveal`; at most 2 non-`worked` numbers per sentence (test)
+- [ ] Every widget has a guided task, and the text states the observation
+- [ ] The core template of `docs/authoring.md` is met (exceptions: `from-digits-to-chatgpt` and the appendix pages)
+- [ ] No unfair comparison, no test-set peeking, and claims from a single seed are labelled
+- [ ] The `pedagogy-reviewer` reports no High findings
+- [ ] All existing gates pass: trace drift, Node tests, site check, prose linter, accessibility audit
+
 ## Open decisions
 Tracked in [docs/decisions.md](docs/decisions.md) ("Open").
