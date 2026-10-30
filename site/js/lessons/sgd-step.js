@@ -1,4 +1,4 @@
-// Lesson "sgd-step" (template 3, curriculum v3 Part 2): gradient descent with two weights. A line y = w·x + b through three listed
+// Lesson "sgd-step" (template 3, curriculum v3 Part 2): gradient descent with two parameters (the weight w and the bias b). A line y = w·x + b through three listed
 // points (taxi rides). The start w = 0, b = 3 lies off the steep axis of the loss valley (optim.json `off_axis`), so the gradient
 // does not point at the lowest point: the trail bends, zig-zags across the valley or creeps along its floor. The page covers the
 // gradient found by nudging w alone and b alone (a list of two numbers, drawn as an arrow uphill on the contour map), one step for
@@ -42,12 +42,12 @@ export default {
     {
       kind: 'text',
       html: () => `${STYLE}<section class="hero"><h1>Gradient descent with many weights</h1>
-    <p class="lead">In the last lesson, one ${term('weight')} learned the price of a notebook. Now two weights learn a line through three points.</p></section>`,
+    <p class="lead">In the last lesson, one ${term('weight')} learned the price of a notebook. Now two ${term('parameter', 'parameters')} learn a line through three points.</p></section>`,
     },
     {
       kind: 'questions',
       items: () => [
-        `How do you find the ${term('gradient')} when the ${term('loss')} depends on two weights?`,
+        `How do you find the ${term('gradient')} when the ${term('loss')} depends on two parameters?`,
         'Does a step go straight to the lowest loss?',
         `What sets the largest safe ${term('learning-rate')}?`,
       ],
@@ -58,22 +58,22 @@ export default {
     <p>A taxi ride costs a fixed fee plus a price per kilometre:</p>
     <ul>${[0, 1, 2].map((i) => `<li>A ride of ${T(`${O}.data.points.${i}.x`, 'setup')} km costs ${T(`${O}.data.points.${i}.t`, 'setup')} euros.</li>`).join('')}</ul>
     <p>Each extra kilometre adds ${T(`${O}.data.true_w`, 'setup')} euros, so the fee is ${T(`${O}.data.true_b`, 'setup')} euro.</p>
-    <p>The ${term('model')} is the line <code>y = w·x + b</code>, with <code>x</code> in kilometres. The weight <code>w</code> is the price per kilometre, and the weight <code>b</code> is the fee.</p>
+    <p>The ${term('model')} is the line <code>y = w·x + b</code>, with <code>x</code> in kilometres. The weight <code>w</code> is the price per kilometre, and the ${term('bias')} <code>b</code> is the fixed fee.</p>
     <p>The model starts at <code>w</code> = ${T(`${F}.w0`, 'setup')} and <code>b</code> = ${T(`${F}.b0`, 'setup')}. The loss <code>L</code> is the mean of the three squared misses. Its square root, the typical miss, is about ${T.human(`${F}.start.loss`, 'rmse')} euros.</p>`),
     },
     {
       kind: 'quiz', id: 'method', purpose: 'predict', type: 'choice',
-      prompt: () => '<p>The loss now depends on <code>w</code> and on <code>b</code>. How do you find the effect of each weight?</p>',
+      prompt: () => '<p>The loss now depends on <code>w</code> and on <code>b</code>. How do you find the effect of each parameter?</p>',
       options: [
-        { html: 'Nudge <code>w</code> with <code>b</code> fixed, then nudge <code>b</code> with <code>w</code> fixed.', correct: true, feedback: 'Each nudge shows the effect of one weight.' },
+        { html: 'Nudge <code>w</code> with <code>b</code> fixed, then nudge <code>b</code> with <code>w</code> fixed.', correct: true, feedback: 'Each nudge shows the effect of one parameter.' },
         { html: 'Nudge <code>w</code> and <code>b</code> together, and divide by the nudge.', feedback: 'One nudge of both mixes their effects.' },
-        { html: 'Nudge each weight alone, and add the two ratios.', feedback: 'The sum hides which weight did what.' },
+        { html: 'Nudge each parameter alone, and add the two ratios.', feedback: 'The sum hides which parameter did what.' },
       ],
-      reveal: () => '<p>Each weight gets its own nudge and its own number.</p>',
+      reveal: () => '<p>Each parameter gets its own nudge and its own number.</p>',
     },
     {
       kind: 'text',
-      html: (D, T) => sec('nudges', '1 · Two weights, two nudges', `
+      html: (D, T) => sec('nudges', '1 · Two parameters, two nudges', `
     <p>Keep <code>w</code> at ${T(`${F}.w0`, 'setup')} and nudge <code>b</code> alone:</p>
     ${worked(`<p>Raise <code>b</code> by ${T(`${NB}.h`, 'worked')}. The loss falls from ${T(`${F}.nudge.L0`, 'worked')} to ${T(`${NB}.L_h`, 'worked')}, a change of ${T(`${NB}.dL`, 'worked')}.</p>
     <p>The ratio is ${T(`${NB}.dL`, 'worked')} ÷ ${T(`${NB}.h`, 'worked')} = ${T(`${NB}.slope`, 'worked')}.</p>`)}
@@ -83,7 +83,7 @@ export default {
     {
       kind: 'text',
       html: (D, T) => sec('map', '2 · The gradient on a map of the loss', `
-    <p>Two weights take two nudges. <strong>The gradient is the list of both numbers, one for each weight:</strong></p>
+    <p>Two parameters take two nudges. <strong>The gradient is the list of both numbers, one for each parameter:</strong></p>
     ${eq(`gradient = (${T(`${F}.start.gw`, 'setup')}, ${T(`${F}.start.gb`, 'setup')})`, 'The gradient at the start')}
     <p>A list of numbers in a fixed order is a ${term('vector')}.</p>
     <p>The contour map below shows the whole loss. <strong>Each colour is the loss for one pair (<code>w</code>, <code>b</code>). Dark is low.</strong> Each thin contour line joins pairs with the same loss, given by its number.</p>
@@ -106,9 +106,9 @@ export default {
     },
     {
       kind: 'text',
-      html: (D, T) => sec('step', '3 · One step for both weights', `
-    <p>In the last lesson, a step was <code>w</code> ${sym('arrow')} <code>w</code> − lr × gradient, where the arrow means "replace <code>w</code> by". Now each weight takes this step with its own number:</p>
-    ${eq(math('w \\leftarrow w - \\mathrm{lr} \\times (\\text{gradient for } w)', true) + math('b \\leftarrow b - \\mathrm{lr} \\times (\\text{gradient for } b)', true), 'One step for both weights')}
+      html: (D, T) => sec('step', '3 · One step for both parameters', `
+    <p>In the last lesson, a step was <code>w</code> ${sym('arrow')} <code>w</code> − lr × gradient, where the arrow means "replace <code>w</code> by". Now each parameter takes this step with its own number:</p>
+    ${eq(math('w \\leftarrow w - \\mathrm{lr} \\times (\\text{gradient for } w)', true) + math('b \\leftarrow b - \\mathrm{lr} \\times (\\text{gradient for } b)', true), 'One step for both parameters')}
     <p>Both numbers come from the same point. With lr = ${T(lr(SLOW), 'setup')}, the first step is:</p>
     ${worked(`<p>new <code>w</code> = ${T(st(SLOW, 0, 'w'), 'worked')} − ${T(lr(SLOW), 'worked')} × (${T(st(SLOW, 0, 'gw'), 'worked')}) = <strong>${T(st(SLOW, 1, 'w'), 'worked')}</strong></p>
     <p>new <code>b</code> = ${T(st(SLOW, 0, 'b'), 'worked')} − ${T(lr(SLOW), 'worked')} × (${T(st(SLOW, 0, 'gb'), 'worked')}) = <strong>${T(st(SLOW, 1, 'b'), 'worked')}</strong></p>`)}
@@ -124,8 +124,8 @@ export default {
     {
       kind: 'text',
       html: () => sec('real', '4 · The line in TorC that takes the step', `
-    <p>An ${term('optimizer')} is the part of a program that changes the weights with their gradients. TorC's optimizer for plain ${term('gradient-descent')} is ${term('stochastic-gradient-descent', 'SGD')}.</p>
-    ${realLine(STEP_LINE, 'TorC keeps the weights in groups. This line runs once for each group and changes every number in it. Here each group holds one number, <code>w</code> or <code>b</code>.')}
+    <p>An ${term('optimizer')} is the part of a program that changes the parameters with their gradients. TorC's optimizer for plain ${term('gradient-descent')} is ${term('stochastic-gradient-descent', 'SGD')}.</p>
+    ${realLine(STEP_LINE, 'TorC keeps the parameters in groups. This line runs once for each group and changes every number in it. Here each group holds one number, <code>w</code> or <code>b</code>.')}
     <p>The line reads <code>grad</code>, the gradient that <code>L.backward()</code> stored. So the optimizer does not compute the gradient.</p>`),
     },
     {
@@ -162,10 +162,10 @@ export default {
     },
     {
       kind: 'quiz', id: 'steep-first', purpose: 'transfer', type: 'choice',
-      prompt: () => '<p>Another loss is steep along one weight and almost flat along the other. You slowly raise the learning rate. What goes wrong first?</p>',
+      prompt: () => '<p>Another loss is steep along one parameter and almost flat along the other. You slowly raise the learning rate. What goes wrong first?</p>',
       options: [
-        { html: 'The steps of the steep weight start to jump back and forth.', correct: true, feedback: 'The steep direction gives the longest steps, so they overshoot first.' },
-        { html: 'The steps of the flat weight grow first.', feedback: 'Its gradient is small, so its steps stay short.' },
+        { html: 'The steps of the steep parameter start to jump back and forth.', correct: true, feedback: 'The steep direction gives the longest steps, so they overshoot first.' },
+        { html: 'The steps of the flat parameter grow first.', feedback: 'Its gradient is small, so its steps stay short.' },
         { html: 'Both go wrong at the same learning rate.', feedback: 'Their steepness differs, so they overshoot at different rates.' },
       ],
       reveal: () => '<p>The steepest direction limits the learning rate.</p>',
@@ -183,13 +183,13 @@ export default {
     },
     {
       kind: 'explain', id: 'two-weights',
-      prompt: () => '<p>Explain how one step of gradient descent changes two weights.</p>',
-      model: () => '<p>It moves each weight against its own gradient number, times the learning rate.</p>',
+      prompt: () => '<p>Explain how one step of gradient descent changes two parameters.</p>',
+      model: () => '<p>It moves each parameter against its own gradient number, times the learning rate.</p>',
     },
     {
       kind: 'answer',
-      html: () => '<p>Nudge one weight at a time, or call <code>L.backward()</code>. The gradient is then a list of two numbers. A step moves each weight against its own number, times the learning rate. It goes downhill, not always toward the lowest point. The steep direction sets the largest safe learning rate.</p>',
-      next: (D, T) => `<p>A network that reads handwritten digits has ${T.anchor('mlp_parameters')} weights. What is inside a model with that many weights?</p>`,
+      html: () => '<p>Nudge one parameter at a time, or call <code>L.backward()</code>. The gradient is then a list of two numbers. A step moves each parameter against its own number, times the learning rate. It goes downhill, not always toward the lowest point. The steep direction sets the largest safe learning rate.</p>',
+      next: (D, T) => `<p>A network that reads handwritten digits has ${T.anchor('mlp_parameters')} parameters. What is inside a model with that many parameters?</p>`,
     },
   ],
 };

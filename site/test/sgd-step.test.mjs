@@ -272,7 +272,7 @@ test('no hand-typed digits in the prose, and one name for each thing (decision 1
     .replace(/<svg[\s\S]*?<\/svg>/g, '').replace(/<h2[^>]*>\s*\d\s·/g, '<h2>').replace(/<[^>]+>/g, ' ').match(/[^\s]*\d[^\s]*/g) ?? [];
   assert.deepEqual(left, []);
   const text = raw.replace(/<style[\s\S]*?<\/style>/g, '').replace(/<details class="refresher"[\s\S]*?<\/details>/g, '').replace(/<pre[\s\S]*?<\/pre>/g, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
-  for (const bad of [/\bupdates?\b/i, /\biterations?\b/i, /momentum/i, /zero_grad/, /\bslope\b/i, /\bknob/i, /\bW\b/, /\bbias\b/i, /curvature/i, /\bHessian\b/i,
+  for (const bad of [/\bupdates?\b/i, /\biterations?\b/i, /momentum/i, /zero_grad/, /\bslope\b/i, /\bknob/i, /\bW\b/, /\bweights? b\b/i, /26,506 weights/, /curvature/i, /\bHessian\b/i,
     /\bminimum\b/i, /dark part|low part/i, /your point/i, /loss\.backward/, /from above/i, /once for each weight/i, /It only uses it/, /alone showed/]) assert.doesNotMatch(text, bad);
   assert.doesNotMatch(text, /0\.18/, 'no magic critical learning rate');
   assert.match(text, /Each colour is the loss for one pair \( w , b \)\. Dark is low\./, 'the contour map legend at first use');
