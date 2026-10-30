@@ -91,7 +91,7 @@ optim::SGD opt(model.parameters(), 0.01f);</code></pre>
     },
     {
       kind: 'text',
-      html: () => '<section class="md"><p>Go back to the <a href="../../">course map</a> to continue the lessons.</p></section>',
+      html: () => '<section class="md"><p>The next lesson, <a href="../notation/">The symbols of this course</a>, lists the symbols of the course. The <a href="../../">course map</a> lists all lessons.</p></section>',
     },
   ],
 };

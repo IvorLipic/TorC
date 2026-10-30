@@ -94,6 +94,8 @@ async function optionalJson(promise, what) {
     wireExplains(main, { lessonId: id, store });
     wireDone(id);
     app.append(el('footer', { html: lesson.footer ? lesson.footer(D, makeT(D)) : defaultFooter(lesson, D) }));
+    // The page is rendered after load, so the browser cannot jump to #key (a term() or sym() link) by itself.
+    if (location.hash.length > 1) document.getElementById(decodeURIComponent(location.hash.slice(1)))?.scrollIntoView();
     store.markVisited(id);
     const glossary = await glossaryP;
     if (glossary) wireTerms(main, glossary);

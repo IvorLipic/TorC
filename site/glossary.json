@@ -1,11 +1,125 @@
 {
   "schema": "torc-glossary/1",
   "terms": {
-    "loss": {
-      "term": "loss",
-      "forms": ["loss", "losses"],
-      "short": "The loss is a number that measures how wrong the predictions of the model are.",
+    "activation-function": {
+      "term": "activation function",
+      "forms": ["activation function", "activation functions"],
+      "short": "An activation function is a function that a neuron applies to its weighted sum, so that the network can bend straight lines.",
+      "lesson": "nonlinearity"
+    },
+    "adam": {
+      "term": "Adam",
+      "forms": ["Adam"],
+      "short": "Adam is an optimizer that gives each weight its own step size, scaled by the typical size of its recent gradients.",
+      "lesson": "optimizers"
+    },
+    "attention": {
+      "term": "attention",
+      "forms": ["attention"],
+      "short": "Attention lets each token take a weighted average of the other tokens, with weights that the model computes from the tokens.",
+      "lesson": "from-digits-to-chatgpt"
+    },
+    "backpropagation": {
+      "term": "backpropagation",
+      "forms": ["backpropagation", "backprop"],
+      "short": "Backpropagation finds the gradient of the loss for every weight in one pass backward through the network.",
+      "lesson": "backprop"
+    },
+    "batch": {
+      "term": "batch",
+      "forms": ["batch", "batches"],
+      "short": "A batch is a small group of samples that the model uses together in one training step.",
+      "lesson": "training-loop"
+    },
+    "bias": {
+      "term": "bias",
+      "forms": ["bias", "biases"],
+      "short": "A bias is a number that a model adds to a weighted sum, so that the output can move up or down.",
       "lesson": "what-is-learning"
+    },
+    "broadcasting": {
+      "term": "broadcasting",
+      "forms": ["broadcasting"],
+      "short": "Broadcasting repeats a smaller grid of numbers, such as a bias, until it matches a larger grid, so that the two can be added.",
+      "lesson": "linear-layer"
+    },
+    "chain-rule": {
+      "term": "chain rule",
+      "forms": ["chain rule"],
+      "short": "The chain rule says that the rates of change along a chain of functions multiply.",
+      "lesson": "backprop"
+    },
+    "channel": {
+      "term": "channel",
+      "forms": ["channel", "channels"],
+      "short": "A channel is one grid of numbers of an image, for example its red values, its green values or its blue values.",
+      "lesson": "mnist-mlp"
+    },
+    "class": {
+      "term": "class",
+      "forms": ["class", "classes"],
+      "short": "A class is one of the possible answers of a classification task, for example one of the ten digits.",
+      "lesson": "classification"
+    },
+    "classification": {
+      "term": "classification",
+      "forms": ["classification"],
+      "short": "Classification is the task of choosing one class for each input, for example the digit that an image shows.",
+      "lesson": "classification"
+    },
+    "confusion-matrix": {
+      "term": "confusion matrix",
+      "forms": ["confusion matrix"],
+      "short": "A confusion matrix counts, for each true class, how often the model chose each class.",
+      "lesson": "mnist-mlp"
+    },
+    "convolution": {
+      "term": "convolution",
+      "forms": ["convolution", "convolutions"],
+      "short": "A convolution moves a small kernel over an image and computes a weighted sum at every position.",
+      "lesson": "convolution"
+    },
+    "cross-entropy": {
+      "term": "cross-entropy",
+      "forms": ["cross-entropy", "cross entropy"],
+      "short": "Cross-entropy is a loss for classification, and it is minus the log of the probability that the model gives the right class.",
+      "lesson": "losses"
+    },
+    "data-set": {
+      "term": "data set",
+      "forms": ["data set", "data sets", "dataset", "datasets"],
+      "short": "A data set is a collection of samples, and each sample has an input and its target.",
+      "lesson": "what-is-learning"
+    },
+    "decision-boundary": {
+      "term": "decision boundary",
+      "forms": ["decision boundary", "decision boundaries"],
+      "short": "The decision boundary is the line or curve where the answer of a model changes from one class to another.",
+      "lesson": "classification"
+    },
+    "embedding": {
+      "term": "embedding",
+      "forms": ["embedding", "embeddings"],
+      "short": "An embedding is a vector that stands for a token, and training learns the numbers of this vector.",
+      "lesson": "from-digits-to-chatgpt"
+    },
+    "epoch": {
+      "term": "epoch",
+      "forms": ["epoch", "epochs"],
+      "short": "An epoch is one pass of training through every sample of the training set.",
+      "lesson": "training-loop"
+    },
+    "feature-map": {
+      "term": "feature map",
+      "forms": ["feature map", "feature maps"],
+      "short": "A feature map is the grid of results of one kernel, and it shows where the pattern of the kernel appears in the image.",
+      "lesson": "convolution"
+    },
+    "generalization": {
+      "term": "generalization",
+      "forms": ["generalization"],
+      "short": "Generalization is how well a model works on new data that training did not use.",
+      "lesson": "generalization"
     },
     "gradient": {
       "term": "gradient",
@@ -13,11 +127,245 @@
       "short": "The gradient tells how much the loss changes when you change a weight by a small amount.",
       "lesson": "why-gradients"
     },
+    "gradient-descent": {
+      "term": "gradient descent",
+      "forms": ["gradient descent"],
+      "short": "Gradient descent improves a model in many small steps, and each step moves the weights downhill on the loss.",
+      "lesson": "why-gradients"
+    },
+    "hidden-layer": {
+      "term": "hidden layer",
+      "forms": ["hidden layer", "hidden layers"],
+      "short": "A hidden layer is a layer between the input and the output of a network, so the data never shows its values.",
+      "lesson": "nonlinearity"
+    },
+    "kernel": {
+      "term": "kernel",
+      "forms": ["kernel", "kernels"],
+      "short": "A kernel is a small grid of weights that a convolution moves over an image to find one pattern.",
+      "lesson": "convolution"
+    },
+    "layer": {
+      "term": "layer",
+      "forms": ["layer", "layers"],
+      "short": "A layer is a group of neurons that all get the same inputs and compute their outputs side by side.",
+      "lesson": "linear-layer"
+    },
     "learning-rate": {
       "term": "learning rate",
       "forms": ["learning rate", "learning rates"],
-      "short": "The learning rate is a small number that you choose. It sets the size of each training step.",
+      "short": "The learning rate is a small number that you choose, and it sets the size of each training step.",
       "lesson": "why-gradients"
+    },
+    "logit": {
+      "term": "logit",
+      "forms": ["logit", "logits"],
+      "short": "A logit is the raw score that a model gives one class, before softmax changes the scores into probabilities.",
+      "lesson": "classification"
+    },
+    "loss": {
+      "term": "loss",
+      "forms": ["loss", "losses"],
+      "short": "The loss is a number that measures how wrong the predictions of the model are.",
+      "lesson": "what-is-learning"
+    },
+    "matrix": {
+      "term": "matrix",
+      "forms": ["matrix", "matrices"],
+      "short": "A matrix is a grid of numbers in rows and columns, for example all the weights of a layer.",
+      "lesson": "linear-layer"
+    },
+    "mean-squared-error": {
+      "term": "mean squared error",
+      "forms": ["mean squared error", "MSE"],
+      "short": "The mean squared error is a loss that squares the difference between each prediction and its target and then takes the mean.",
+      "lesson": "what-is-learning"
+    },
+    "mnist": {
+      "term": "MNIST",
+      "forms": ["MNIST"],
+      "short": "MNIST is a well-known data set of small images of handwritten digits, and each image comes with the digit that it shows.",
+      "lesson": "mnist-mlp"
+    },
+    "model": {
+      "term": "model",
+      "forms": ["model", "models"],
+      "short": "A model is a formula with adjustable numbers that turns an input into an output, for example a price or a digit.",
+      "lesson": "what-is-learning"
+    },
+    "momentum": {
+      "term": "momentum",
+      "forms": ["momentum"],
+      "short": "Momentum lets each step of gradient descent keep a part of the previous step, so the weights move in a steadier direction.",
+      "lesson": "optimizers"
+    },
+    "neural-network": {
+      "term": "neural network",
+      "forms": ["neural network", "neural networks"],
+      "short": "A neural network is a model made of layers of neurons, and each layer gives its outputs to the next layer.",
+      "lesson": "linear-layer"
+    },
+    "neuron": {
+      "term": "neuron",
+      "forms": ["neuron", "neurons"],
+      "short": "A neuron computes a weighted sum of its inputs and adds a bias, and it often applies an activation function to the result.",
+      "lesson": "linear-layer"
+    },
+    "optimizer": {
+      "term": "optimizer",
+      "forms": ["optimizer", "optimizers"],
+      "short": "An optimizer is the part of a program that changes the parameters after each step, from their gradients.",
+      "lesson": "training-loop"
+    },
+    "overfitting": {
+      "term": "overfitting",
+      "forms": ["overfitting", "overfit", "overfits"],
+      "short": "Overfitting means that a model fits the noise of its training set so closely that it gets worse on new data.",
+      "lesson": "generalization"
+    },
+    "padding": {
+      "term": "padding",
+      "forms": ["padding"],
+      "short": "Padding adds a border of zeros around an image, so that the kernel can also sit at the edges.",
+      "lesson": "convolution"
+    },
+    "parameter": {
+      "term": "parameter",
+      "forms": ["parameter", "parameters"],
+      "short": "A parameter is any number in a model that training changes, so the weights and the biases are parameters.",
+      "lesson": "what-is-learning"
+    },
+    "pixel": {
+      "term": "pixel",
+      "forms": ["pixel", "pixels"],
+      "short": "A pixel is one small square of an image, and its number tells how bright that square is.",
+      "lesson": "mnist-mlp"
+    },
+    "prediction": {
+      "term": "prediction",
+      "forms": ["prediction", "predictions"],
+      "short": "A prediction is the output that a model gives for one input.",
+      "lesson": "what-is-learning"
+    },
+    "pretraining": {
+      "term": "pretraining",
+      "forms": ["pretraining", "pre-training"],
+      "short": "Pretraining is the first stage of training a language model, where it learns to predict the next token of much text.",
+      "lesson": "from-digits-to-chatgpt"
+    },
+    "probability": {
+      "term": "probability",
+      "forms": ["probability", "probabilities"],
+      "short": "A probability is a number from zero to one that tells how likely an event is.",
+      "lesson": "classification"
+    },
+    "relu": {
+      "term": "ReLU",
+      "forms": ["ReLU", "ReLUs"],
+      "short": "ReLU is an activation function that keeps a positive number and changes a negative number to zero.",
+      "lesson": "nonlinearity"
+    },
+    "sample": {
+      "term": "sample",
+      "forms": ["sample", "samples"],
+      "short": "A sample is one item of a data set, for example one image of a digit together with the digit that it shows.",
+      "lesson": "what-is-learning"
+    },
+    "shape": {
+      "term": "shape",
+      "forms": ["shape", "shapes"],
+      "short": "The shape of a grid of numbers tells its size in each direction, for example two rows and three columns.",
+      "lesson": "linear-layer"
+    },
+    "sigmoid": {
+      "term": "sigmoid",
+      "forms": ["sigmoid"],
+      "short": "The sigmoid is an activation function that changes any number into a number between zero and one.",
+      "lesson": "nonlinearity"
+    },
+    "softmax": {
+      "term": "softmax",
+      "forms": ["softmax"],
+      "short": "Softmax changes a list of scores into probabilities that are all positive and add to one.",
+      "lesson": "losses"
+    },
+    "stochastic-gradient-descent": {
+      "term": "stochastic gradient descent",
+      "forms": ["stochastic gradient descent", "SGD"],
+      "short": "Stochastic gradient descent is gradient descent where each step uses the gradient of one random batch in place of the whole data set.",
+      "lesson": "training-loop"
+    },
+    "stride": {
+      "term": "stride",
+      "forms": ["stride", "strides"],
+      "short": "The stride is the number of pixels that a kernel moves between two positions.",
+      "lesson": "convolution"
+    },
+    "target": {
+      "term": "target",
+      "forms": ["target", "targets"],
+      "short": "The target is the right answer for one input, and the prediction of the model should come close to it.",
+      "lesson": "what-is-learning"
+    },
+    "tensor": {
+      "term": "tensor",
+      "forms": ["tensor", "tensors"],
+      "short": "A tensor is a grid of numbers with any number of directions, so a vector and a matrix are tensors too.",
+      "lesson": "tensors"
+    },
+    "test-set": {
+      "term": "test set",
+      "forms": ["test set", "test sets"],
+      "short": "The test set is data that you keep apart until the end, and you use it once to measure the final model.",
+      "lesson": "generalization"
+    },
+    "token": {
+      "term": "token",
+      "forms": ["token", "tokens"],
+      "short": "A token is a piece of text, often a word or a part of a word, that a language model reads as one unit.",
+      "lesson": "from-digits-to-chatgpt"
+    },
+    "training": {
+      "term": "training",
+      "forms": ["training"],
+      "short": "Training changes the parameters of a model step by step, so that its loss gets smaller.",
+      "lesson": "what-is-learning"
+    },
+    "training-set": {
+      "term": "training set",
+      "forms": ["training set", "training sets"],
+      "short": "The training set is the part of the data that training uses to change the weights.",
+      "lesson": "generalization"
+    },
+    "underfitting": {
+      "term": "underfitting",
+      "forms": ["underfitting", "underfit", "underfits"],
+      "short": "Underfitting means that a model is too simple, or trained too little, to fit even its training set well.",
+      "lesson": "generalization"
+    },
+    "validation-set": {
+      "term": "validation set",
+      "forms": ["validation set", "validation sets"],
+      "short": "The validation set is data that training does not use, and you use it to make choices such as when to stop.",
+      "lesson": "generalization"
+    },
+    "vector": {
+      "term": "vector",
+      "forms": ["vector", "vectors"],
+      "short": "A vector is a list of numbers in a given order, for example the inputs of a neuron.",
+      "lesson": "linear-layer"
+    },
+    "weight": {
+      "term": "weight",
+      "forms": ["weight", "weights"],
+      "short": "A weight is a number inside a model that training changes, and it sets how strongly an input counts.",
+      "lesson": "what-is-learning"
+    },
+    "weight-decay": {
+      "term": "weight decay",
+      "forms": ["weight decay"],
+      "short": "Weight decay pulls each weight a little toward zero at every step, unless the data holds it up.",
+      "lesson": "optimizers"
     }
   }
 }
