@@ -9,8 +9,10 @@
 //     base.css (var(--fg), var(--muted), var(--fwd), …), so it works in the dark theme and at 390 px;
 //   - few glossary words, because the first use of a glossary term in a lesson must be a term() link (site/test/v3.mjs): a lesson
 //     places a refresher after its own term() link of the words listed in REFRESHER_TERMS of the test;
-//   - a symbol of content/notation.js only where the lesson that uses the refresher already introduced it (sum, dot-product and
-//     matrix-product use Σ and subscripts, so linear-layer or later; exp-ln uses exp and ln, so losses or later).
+//   - a symbol of content/notation.js only where the lesson that uses the refresher already introduced it: sum shows Σ and
+//     subscripts (linear-layer or later), dot-product and matrix-product use subscripts in code (linear-layer or later), exp-ln
+//     names exp and ln (nonlinearity or later; ln is introduced in losses). The v3 test sees only the Σ of sum, so this is a rule
+//     for the lesson author.
 const W = 300;
 
 // an SVG figure that scales down on a phone and keeps its text readable
@@ -143,7 +145,7 @@ ${sumFig}
   'dot-product': {
     title: 'Vectors and the dot product',
     source: OPENSTAX('calculus-volume-3', 'Calculus Volume 3, section 2.3'),
-    body: `<p>A vector is a list of numbers in a fixed order. The vector <code>a = (2, 3)</code> has two entries. Its first entry is <code>2</code>, and its second entry is <code>3</code>.</p>
+    body: `<p>A vector is a list of numbers in a given order. The vector <code>a = (2, 3)</code> has two entries. Its first entry is <code>2</code>, and its second entry is <code>3</code>.</p>
 <p>The dot product takes two vectors of the same length and gives one number. Multiply the entries that stand in the same position. Then add the products.</p>
 ${dotFig}
 <p>Take <code>a = (2, 3)</code> and <code>b = (4, 1)</code>. The dot product is <code>a · b = 2 × 4 + 3 × 1 = 8 + 3 = 11</code>.</p>

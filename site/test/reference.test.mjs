@@ -4,8 +4,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { REFRESHERS } from '../js/content/refreshers.js';
-import { proseProblems, sectionWords } from './helpers.mjs';
+import { NOTATION } from '../js/content/notation.js';
+import { refresher, term, sym } from '../js/core/blocks.js';
+import { flatLessons } from '../js/core/course.js';
+import { buildD, anchorValues } from '../js/core/trace.js';
+import { renderLesson } from '../js/core/sections.js';
+import { linkTerms } from '../js/lessons/glossary.js';
+import { proseProblems, sectionWords, readJson, course } from './helpers.mjs';
 import { tokens } from './v3.mjs';
+
+const glossary = readJson('glossary.json');
 
 const KEYS = ['slope', 'sum', 'dot-product', 'matrix-product', 'exp-ln', 'probability', 'mean-variance', 'normal-distribution', 'contour-map', 'log-axis'];
 const words = (h) => h.replace(/<svg[\s\S]*?<\/svg>/g, ' ').replace(/<[^>]+>/g, ' ').split(/\s+/).filter((w) => /[\p{L}\p{N}]/u.test(w)).length;
@@ -73,4 +81,131 @@ test('refreshers: the worked arithmetic is right', () => {
   const html = Object.values(REFRESHERS).map((r) => r.html).join('');
   for (const s of ['3.1² = 9.61', '0.61 / 0.1 = 6.1', '0.0601 / 0.01 = 6.01', '3 + 1 + 4 = 8', '2 × 4 + 3 × 1 = 8 + 3 = 11', '1 × 5 + 2 × 7 = 19',
     '<code>22</code>, <code>43</code> and <code>50</code>', '20 / 4 = 5', '9, 1, 1, 9', '6 × 1/6 = 1', '1 × 10 = 10']) assert.ok(html.includes(s), s);
+});
+
+// The glossary terms that each refresher mentions in its prose. A lesson that opens a refresher links these terms with term()
+// before it (the v3 glossary rule wants the first use of a term linked). Kept short on purpose; change it with the refresher.
+const REFRESHER_TERMS = {
+  slope: [], sum: [], 'dot-product': ['vector', 'weight'], 'matrix-product': ['matrix'], 'exp-ln': [], probability: ['probability'],
+  'mean-variance': [], 'normal-distribution': [], 'contour-map': [], 'log-axis': [],
+};
+const skipTags = (e) => ['pre', 'code', 'svg', 'h1', 'h2', 'h3', 'style', 'script'].includes(e.tag);
+const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const formsRe = (g) => new RegExp(`(?<![\\p{L}\\p{N}])(?:${g.forms.map(escRe).join('|')})(?![\\p{L}\\p{N}])`, 'iu');
+
+test('refreshers: the glossary terms in their prose are the listed few', () => {
+  for (const key of KEYS) {
+    const prose = tokens(refresher(key)).filter((t) => t.type === 'text' && !t.within.some(skipTags)).map((t) => t.text).join(' ');
+    const hits = Object.entries(glossary.terms).filter(([, g]) => formsRe(g).test(prose)).map(([k]) => k);
+    assert.deepEqual(hits, REFRESHER_TERMS[key], key);
+  }
+});
+
+test('refreshers: a symbol of the notation guide appears only where a lesson after its introduction can open the refresher', () => {
+  // Σ and subscripts (linear-layer): sum. exp-ln writes exp and ln only inside <code>, so the check does not see them there; a lesson
+  // opens it from nonlinearity on (see the head of content/refreshers.js). No other refresher uses a symbol.
+  const uses = (key) => {
+    const toks = tokens(refresher(key));
+    const prose = toks.filter((t) => t.type === 'text' && !t.within.some((e) => e.tag === 'code' || e.tag === 'pre')).map((t) => t.text).join('\n');
+    const code = toks.filter((t) => t.type === 'text' && t.within.some((e) => e.tag === 'code')).map((t) => t.text).join('\n');
+    return NOTATION.filter((n) => (n.match.text ?? []).some((m) => prose.includes(m)) || (n.match.latex ?? []).some((m) => code.includes(m))).map((n) => n.key);
+  };
+  const want = { sum: ['sum', 'subscript'] };
+  for (const key of KEYS) assert.deepEqual(uses(key), want[key] ?? [], key);
+});
+
+// ---- notation -------------------------------------------------------------------------------------------------------------
+const order = flatLessons(course()).map((l) => l.id);
+const BRIEF_SYMBOLS = { arrow: 'why-gradients', 'dl-dw': 'why-gradients', sum: 'linear-layer', subscript: 'linear-layer', transpose: 'linear-layer',
+  sigma: 'nonlinearity', exp: 'nonlinearity', ln: 'losses', partial: 'backprop', mu: 'optimizers', beta: 'optimizers', lambda: 'optimizers',
+  epsilon: 'optimizers', hat: 'optimizers', floor: 'convolution', overline: 'backprop-lab' };
+
+test('notation: every symbol of brief §8, with its introducing lesson, in course order', () => {
+  const byKey = Object.fromEntries(NOTATION.map((n) => [n.key, n]));
+  for (const [key, lesson] of Object.entries(BRIEF_SYMBOLS)) assert.equal(byKey[key]?.lesson, lesson, key);
+  const at = NOTATION.map((n) => order.indexOf(n.lesson));
+  assert.ok(at.every((i) => i >= 0), 'every introducing lesson is in course.json');
+  assert.deepEqual(at, [...at].sort((a, b) => a - b), 'the guide lists the symbols in course order');
+  assert.match(byKey.ln.meaning, /log always means ln/);
+});
+
+test('notation: the match patterns find the symbol and not ordinary words or TorC code', () => {
+  const english = 'The export of the model explains each step. We use a lens, a kiln and a blog, and the result is fine.';
+  const code = ['zero_grad()', 'requires_grad', 'L.backward();', 'optim::SGD', 'std::exp(x)', 'x.log()', 'named_parameters()'];
+  for (const n of NOTATION) {
+    for (const m of n.match.text ?? []) assert.ok(!english.includes(m), `${n.key}: text pattern "${m}" hits ordinary prose`);
+    for (const m of n.match.latex ?? []) assert.ok(!code.some((c) => c.includes(m)), `${n.key}: "${m}" hits TorC code`);
+  }
+  for (const n of NOTATION.filter((x) => [...x.symbol].length === 1)) assert.ok(n.match.text.includes(n.symbol), `${n.key}: the symbol itself is a text pattern`);
+});
+
+// ---- glossary -------------------------------------------------------------------------------------------------------------
+const BRIEF_TERMS = ['model', 'prediction', 'target', 'loss', 'weight', 'bias', 'parameter', 'training', 'data-set', 'sample', 'test-set',
+  'validation-set', 'gradient', 'learning-rate', 'gradient-descent', 'mean-squared-error', 'neuron', 'layer', 'activation-function', 'relu',
+  'sigmoid', 'softmax', 'probability', 'cross-entropy', 'logit', 'class', 'classification', 'decision-boundary', 'backpropagation',
+  'chain-rule', 'batch', 'epoch', 'momentum', 'adam', 'weight-decay', 'overfitting', 'underfitting', 'generalization', 'convolution',
+  'kernel', 'feature-map', 'channel', 'stride', 'padding', 'mnist', 'pixel', 'tensor', 'shape', 'broadcasting', 'token', 'embedding',
+  'attention', 'pretraining'];
+
+test('glossary: the terms of brief §6 and §8, keys in alphabetical order, one plain sentence each', () => {
+  const keys = Object.keys(glossary.terms);
+  for (const k of BRIEF_TERMS) assert.ok(keys.includes(k), k);
+  assert.ok(keys.length >= 40, `${keys.length} terms`);
+  assert.deepEqual(keys, [...keys].sort(), 'keys in alphabetical order (eases merges)');
+  const seen = new Map();
+  for (const [k, g] of Object.entries(glossary.terms)) {
+    assert.equal(g.short.split(/(?<=[.?!])\s+/).length, 1, `${k}: one sentence`);
+    assert.ok(words(g.short) <= 25, `${k}: at most 25 words`);
+    assert.ok(order.includes(g.lesson), `${k}: lesson "${g.lesson}" is in course.json`);
+    for (const f of g.forms) {
+      assert.ok(!seen.has(f.toLowerCase()), `${k}: the form "${f}" also belongs to ${seen.get(f.toLowerCase())}`);
+      seen.set(f.toLowerCase(), k);
+    }
+  }
+  assert.equal(glossary.terms.loss.lesson, 'what-is-learning');
+  assert.equal(glossary.terms.gradient.lesson, 'why-gradients');
+});
+
+// ---- the two appendix pages -----------------------------------------------------------------------------------------------
+const pageOf = async (id) => {
+  const lesson = (await import(`../js/lessons/${id}.js`)).default;
+  const D = buildD({}, anchorValues(readJson('data/anchors.json')));
+  return { lesson, html: renderLesson(lesson, D, { course: course() }).map((p) => p.html).join('\n') };
+};
+
+test('the glossary page has one anchor per term, under the lesson that introduces it, and cites its sources', async () => {
+  const { lesson, html } = await pageOf('glossary');
+  assert.equal(lesson.template, 3);
+  assert.deepEqual(lesson.trace, []);
+  assert.ok(lesson.conceptual && lesson.sources.length > 0, 'content beyond TorC cites its sources (decision 18)');
+  for (const [k, g] of Object.entries(glossary.terms)) {
+    assert.equal((html.match(new RegExp(`<h3 id="${k}">`, 'g')) ?? []).length, 1, k);
+    assert.ok(html.includes(`<h3 id="${k}">${g.term}</h3><p>`), `${k}: the heading is the term`);
+  }
+  for (const m of html.matchAll(/data-term="([^"]+)"/g)) assert.ok(Object.hasOwn(glossary.terms, m[1]), m[1]);
+  let current = null;
+  for (const m of html.matchAll(/aria-labelledby="glossary-group-([^"]+)"|<h3 id="([^"]+)">/g)) {
+    if (m[1]) current = m[1];
+    else assert.equal(glossary.terms[m[2]].lesson, current, `${m[2]} stands under its lesson`);
+  }
+});
+
+test('the notation page has one anchor per symbol, and sym() links land on it', async () => {
+  const { lesson, html } = await pageOf('notation');
+  assert.equal(lesson.template, 3);
+  assert.deepEqual(lesson.trace, []);
+  assert.ok(lesson.conceptual && lesson.sources.length > 0);
+  for (const n of NOTATION) {
+    assert.equal((html.match(new RegExp(`<h3 id="${n.key}">`, 'g')) ?? []).length, 1, n.key);
+    assert.match(sym(n.key), new RegExp(`href="\\.\\./notation/#${n.key}"`));
+  }
+  for (const m of html.matchAll(/data-term="([^"]+)"/g)) assert.ok(Object.hasOwn(glossary.terms, m[1]), m[1]);
+});
+
+test('linkTerms: links a term at its first use only, and a shorter term inside a longer one first', () => {
+  const g = { terms: { weight: { term: 'weight', forms: ['weight', 'weights'] }, 'weight-decay': { term: 'weight decay', forms: ['weight decay'] } } };
+  const linked = new Set();
+  assert.equal(linkTerms('Weight decay pulls each weight down.', linked, g), `${term('weight', 'Weight')} decay pulls each weight down.`);
+  assert.equal(linkTerms('Then weight decay acts.', linked, g), `Then ${term('weight-decay', 'weight decay')} acts.`);
+  assert.equal(linkTerms('A weight & a <b>.', new Set(['weight', 'weight-decay']), g), 'A weight &amp; a &lt;b&gt;.', 'escapes the text');
 });

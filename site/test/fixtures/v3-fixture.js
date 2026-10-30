@@ -24,12 +24,12 @@ export default {
     },
     {
       kind: 'questions',
-      items: () => ['How does a computer know which way to change a weight?', 'How big should each change be?'],
+      items: () => [`How does a computer know which way to change a ${term('weight')}?`, 'How big should each change be?'],
     },
     {
       kind: 'text', setup: true,
       html: (D, T) => sec('setup', 'The price of a notebook', `
-    <p>Two notebooks cost ${T(`${F}.setup.t`, 'setup')} euros. The model has one weight <code>w</code>, its guess of the price of one notebook. The ${term('loss')} is the square of the miss.</p>
+    <p>Two notebooks cost ${T(`${F}.setup.t`, 'setup')} euros. The ${term('model')} has one weight <code>w</code>, its guess of the price of one notebook. The ${term('loss')} is the square of the miss.</p>
     <p>The model starts at <code>w</code> = ${T(`${F}.probes.0.w`, 'setup')}, and its loss is ${T(`${F}.probes.0.L`, 'setup')}.</p>`),
     },
     {
@@ -42,7 +42,7 @@ export default {
       kind: 'text',
       html: (D, T) => sec('gradient', '1 · What the gradient says', `
     <p>The change of the loss divided by the size of the nudge is the ${term('gradient')}. At the start, the gradient is ${T(`${F}.probes.0.grad`, 'contrast')}. At <code>w</code> = ${T(`${F}.probes.5.w`, 'setup')}, it is ${T(`${F}.probes.5.grad`, 'contrast')}.</p>
-    <p>A training step changes the weight in the direction against the gradient. The arrow ${sym('arrow')} means that <code>w</code> gets a new value.</p>
+    <p>A ${term('training')} step changes the weight in the direction against the gradient. The arrow ${sym('arrow')} means that <code>w</code> gets a new value.</p>
     <div class="fx-eq" tabindex="0" role="group" aria-label="Formula">${math('w \\leftarrow w - \\mathit{lr}\\cdot g')}</div>
     ${refresher('slope')}`),
     },
@@ -72,9 +72,9 @@ export default {
     {
       kind: 'text',
       html: (D, T) => sec('human', '3 · Results that a person can feel', `
-    <p>At the start, the prediction misses the price by ${T.human(`${F}.probes.0.L`, 'rmse')} euros.</p>
+    <p>At the start, the ${term('prediction')} misses the price by ${T.human(`${F}.probes.0.L`, 'rmse')} euros.</p>
     <p>A network for digits has ${T.anchor('mlp_parameters')} weights. After training, it reads ${T.human(`${M}.epochs.20.test_correct`, 'pct', { of: `${M}.setup.test_samples` })} of the test digits correctly.</p>
-    <p>So it makes about ${T.human(`${M}.epochs.20.test_correct`, 'per100', { of: `${M}.setup.test_samples` })} mistakes per hundred digits. On a training image, it gives about ${T.human(`${M}.epochs.20.train_loss`, 'prob')} probability to the right digit.</p>`),
+    <p>So it makes about ${T.human(`${M}.epochs.20.test_correct`, 'per100', { of: `${M}.setup.test_samples` })} mistakes per hundred digits. On a training image, it gives about ${T.human(`${M}.epochs.20.train_loss`, 'prob')} ${term('probability')} to the right digit.</p>`),
     },
     {
       kind: 'quiz', id: 'steeper', purpose: 'transfer', type: 'choice',
