@@ -34,14 +34,14 @@ const STYLE = `<style>
 
 export default {
   id: 'sgd-step',
-  title: 'Gradient descent with many weights',
+  title: 'Gradient descent with many parameters',
   trace: ['optim.json', 'why-gradients.json'],
   template: 3,
   loop: 'adjust',
   sections: [
     {
       kind: 'text',
-      html: () => `${STYLE}<section class="hero"><h1>Gradient descent with many weights</h1>
+      html: () => `${STYLE}<section class="hero"><h1>Gradient descent with many parameters</h1>
     <p class="lead">In the last lesson, one ${term('weight')} learned the price of a notebook. Now two ${term('parameter', 'parameters')} learn a line through three points.</p></section>`,
     },
     {

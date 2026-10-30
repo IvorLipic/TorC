@@ -54,7 +54,7 @@
         },
         {
           "id": "sgd-step",
-          "title": "Gradient descent with many weights",
+          "title": "Gradient descent with many parameters",
           "outcome": "You can find the gradient of a loss with two weights by nudging each weight alone. You can explain how one step changes both weights, and why a learning rate that is too large makes the loss grow.",
           "prereqs": [
             "why-gradients"
