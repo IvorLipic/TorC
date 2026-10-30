@@ -249,7 +249,12 @@ export function mountContour2d(host, { model, base = { w: [-1, 4.5], b: [-1.5, 3
         const d = `M${x1.toFixed(1)},${y1.toFixed(1)}L${x2.toFixed(1)},${y2.toFixed(1)}`;
         layer.append(svg('defs', {}, svg('marker', { id: gid, viewBox: '0 0 10 10', refX: 7, refY: 5, markerWidth: 4.5, markerHeight: 4.5, orient: 'auto' }, svg('path', { d: 'M0,0L10,5L0,10z', fill: '#ffb454' }))),
           svg('path', { class: 'c2d-halo', d }), svg('path', { class: 'c2d-grad', d, 'marker-end': `url(#${gid})` }));
-        if (len >= 28) layer.append(svg('text', { class: 'c2d-gradlbl', x: x2 + (x2 >= x1 ? 6 : -6), y: y2 + (y2 > y1 ? 14 : -6), 'text-anchor': x2 >= x1 ? 'start' : 'end' }, 'gradient × lr'));
+        if (len >= 28) {
+          // the label sits past the tip, but turns back inside the plot when the tip is near an edge (about 90 px of text)
+          const room = 92, right = x2 >= x1 ? x2 + 6 + room <= margin.l + iw : x2 - 6 - room < margin.l;
+          const y = Math.min(Math.max(y2 + (y2 > y1 ? 14 : -6), margin.t + 12), margin.t + ih - 4);
+          layer.append(svg('text', { class: 'c2d-gradlbl', x: right ? x2 + 6 : x2 - 6, y, 'text-anchor': right ? 'start' : 'end' }, 'gradient × lr'));
+        }
       }
     }
     const lastI = trail.length - 1;
@@ -276,7 +281,7 @@ export function mountContour2d(host, { model, base = { w: [-1, 4.5], b: [-1.5, 3
       layer.append(svg('circle', { class: 'c2d-cur', cx, cy, r: 7 }, svg('title', {}, `At the start, w = ${fmt(p.w)}, b = ${fmt(p.b)} and the loss is ${fmt(p.loss)}.`)));
     }
     const cur = trail.at(-1);
-    plot.root.setAttribute('aria-label', fog
+    plot.root.setAttribute('aria-label', (fog
       ? `Loss map over w and b, hidden by fog. ${caption} The current point is at w = ${fmt(cur.w)} and b = ${fmt(cur.b)}, and the loss there is ${fmt(cur.loss)}.`
       : `Loss map over w and b. ${caption} The current point is at w = ${fmt(cur.w)} and b = ${fmt(cur.b)}, and the loss there is ${fmt(cur.loss)}. The lowest point is at w = ${fmt(optimum.w)} and b = ${fmt(optimum.b)}.`)
       + (uphill ? ` An orange arrow shows the gradient times lr. It points uphill, toward w = ${fmt(uphill.w)} and b = ${fmt(uphill.b)}.` : ''));

@@ -75,62 +75,65 @@ Independent replica (plain NumPy float64): all `runs[*].steps` (w, b, loss, gw, 
 
 ## 3b. The v3 page (curriculum v3, brief §6 Part 1, §7, C6, D13): observed / expected / suspected
 
-**Observed (V, `optim.json` and `why-gradients.json`, every item asserted in `site/test/sgd-step.test.mjs`).**
-- `data.points` = (1, 3), (2, 5), (3, 7): exactly `t = 2x + 1`, so the lowest loss is 0 at `(w, b) = (2, 1)` (`data.optimum`).
-- `start` = `(0, 0)`, loss 27.67, gradient `(-22.67, -10)`, equal to the `sgd` scene and to `nudge_start.gradient`.
-- `nudge_start`: nudging `w` alone by `h = 1, 0.5, 0.1, 0.01, 0.001` gives ratios `-18, -20.33, -22.2, -22.62, -22.66`; `b` alone
-  gives `-9, -9.5, -9.9, -9.99, -9.998`. Each sequence comes strictly closer to the `backward()` value as `h` shrinks. With the
-  rounded numbers the page shows (27.67, 25.45, nudge 0.1) the predict quiz gives -22.2; the trace slope is -22.20001 (tolerance 0.15).
-- One step at lr 0.05: `w = 0 - 0.05·(-22.67) = 1.133`, `b = 0 - 0.05·(-10) = 0.5`, loss 5.489 (typical miss √L: 5.3 to 2.3 euros).
-- lr 0.05, ten steps: every step is shorter than the one before (1.24, 0.55, 0.25, ... in (w, b) units). The loss after ten steps is
-  0.001145 (`after_ten_steps.with_zero_grad`, equal to `runs[0].final`; typical miss 0.034). It is the only "after ten steps" loss on
-  the page (D13); the lr 0.2 counterpart is `runs[3].final` (also after the 10th step).
-- lr 0.15: the loss falls at every step (27.67, 12.20, 5.38, ...), while the coordinate along the steep eigenvector changes sign at
-  every step and shrinks. lr 0.2: the loss grows at every step (1442 after ten, typical miss 38); the steep coordinate changes sign
-  and grows; each step still starts downhill (a tiny move along minus the gradient lowers the loss).
-- The start (0, 0) lies almost exactly on the steep axis through the minimum (its flat coordinate is 0.11 of 2.2), so the lr 0.15 and
-  0.2 trails go back and forth along one line across the valley. The jumps show as numbered points on alternate walls.
-- Cumulative quiz (`why-gradients.json`): `steep.probes[0].grad = -96 = 4 × probes[0].grad`, same start `w = 0`, same `w_min = 3`,
-  `steep.setup.critical_lr = 0.0625 < 0.25`.
+**Why the page starts at (0, 3).** From (0, 0) the first step (22.67, 10)·lr aims almost exactly at the lowest point (2, 1),
+because (0, 0) lies on the steep axis of the valley (its flat coordinate is 0.11 of 2.2). The demo then taught "the gradient points
+at the minimum" (review H1). `trace_optim.cpp` therefore adds `off_axis` (additive, appended last): the same model from w = 0,
+b = 3, its nudges, and plain SGD at lr 0.05, 0.15 and 0.2. The old keys (`start`, `nudge_start`, `runs`, `after_ten_steps`) are
+unchanged and stay for other uses.
 
-**Expected mathematics.** `L(w, b) = (1/3) Σ (w x_i + b - t_i)²` is an exact quadratic with Hessian `[[9.333, 4], [4, 2]]`
-(eigenvalues 11.09 and 0.240, ratio 46: a long narrow valley). Plain gradient descent multiplies the error along an eigenvector by
-`1 - lr·λ`: steep direction -0.66 at lr 0.15 (jumps across, shrinking) and -1.22 at lr 0.2 (jumps across, growing); flat direction
-0.988, 0.976, 0.964 at lr 0.05, 0.1, 0.15 (slow along the floor). The gradient is perpendicular to the level sets; the widget shows it
-because `fitView` gives one unit of `w` and of `b` the same pixel length. The page states no critical learning rate (`2/λ_max =
-0.1803` stays in the data and in this note).
+**Observed (V, `optim.json` `off_axis` and `why-gradients.json`, every item asserted in `site/test/sgd-step.test.mjs`).**
+- `data.points` = (1, 3), (2, 5), (3, 7): `t = 2x + 1`, so the lowest loss is 0 at (2, 1).
+- `off_axis.start`: loss 6.667 (typical miss √L = 2.6 euros), gradient (−10.67, −4) from `nn::Linear` + `nn::MSELoss`.
+- `off_axis.nudge`: the same nudges for w and b (1 … 0.001). At h = 0.1: w gives −10.2, b gives −3.9; both sequences come strictly
+  closer to the backward() values as h shrinks. The rounded numbers shown (6.667, 6.277, 0.1) give the shown ratio −3.9.
+- lr 0.05, step 1: w = 0.5333, b = 3.2. b moves up, away from the best fee 1, so the step does not aim at the star (the angle between
+  the first step and the direction to the star is above 45 degrees). Step 2: w = 0.7778 with gradient −4.889. The trail bends within
+  five steps (more than 30 degrees), every step is shorter than the last, and every step lowers the loss. After ten steps it is on
+  the valley floor (steep coordinate under a tenth of the flat one) but still more than 1 from the star.
+- lr 0.15: every step changes the sign of the steep coordinate and shrinks it (zig-zag across the valley), and the flat coordinate
+  shrinks at every step (creeps along the floor), but after ten steps more than half of it is left.
+- lr 0.2: the first step lands w at 2.133, near the best w, and b at 3.8. The steep coordinate changes sign and grows at every step,
+  the loss grows at every step (to 304, typical miss 17), each step still starts downhill, and the flat coordinate still shrinks.
+- Cumulative quiz (`why-gradients.json`): `steep.probes[0].grad = −96 = 4 × probes[0].grad`, same start w = 0, same w_min = 3.
 
-**Suspected discrepancy.** None for this page. Not verified: how a screen reader announces the map (role="img" with a changing
-aria-label and an sr-only table of the trail).
+**Expected mathematics.** `L(w, b) = (1/3) Σ (w x_i + b − t_i)²` is an exact quadratic with Hessian `[[9.333, 4], [4, 2]]`
+(eigenvalues 11.09 and 0.240: a long narrow valley). Plain gradient descent multiplies the error along an eigenvector by
+`1 − lr·λ`: steep −0.66 at lr 0.15 and −1.22 at lr 0.2; flat 0.988, 0.964, 0.952 at lr 0.05, 0.15, 0.2. So at lr 0.2 only the steep
+direction diverges: the steep direction sets the largest safe learning rate, which is what §5 says without a number (`2/λ_max =
+0.1803` stays in the data and in this note). The gradient is perpendicular to the level sets; the widget shows it because `fitView`
+gives one unit of w and of b the same pixel length.
+
+**Suspected discrepancy.** None. Not verified: how a screen reader announces the map (role="img" with a changing aria-label that
+names the arrow, a status line for Step, Reset, the presets and the fog, and an sr-only table of the trail).
 
 ## 4. Misconceptions to address
-On the v3 page: "the optimizer computes the gradient" (refuted by the real line of `SGD::step`, which reads `grad`); "a step against
-the gradient always lowers the loss" (refuted with the widget: at lr 0.2 the loss grows at every step); "the gradient tells the
-distance" (the cumulative quiz). Momentum (C6) moves to `optimizers`, `zero_grad` to `training-loop` and the appendix
-(`torc-pitfalls`). Earlier notes, still true of the library: `step()` alone does not learn (without `backward()` nothing changes,
-silently, V); `zero_grad` is not optional (the loop without it oscillates, V); with momentum the loss need not fall monotonically
-(0.174 -> 2.447 at mu 0.5, V); `lr < 2/lambda_max` is a property of the data (through the Hessian), not a constant of SGD.
+On the v3 page: "the gradient points at the lowest point" (refuted by the map: from (0, 3) the first step moves b away from the best
+fee, and the task says "The arrows do not point at the star"); "the optimizer computes the gradient" (refuted by the real line of
+`SGD::step`, which reads `grad`); "a step against the gradient always lowers the loss" and "a larger learning rate is faster"
+(refuted with the widget: at lr 0.2 the loss grows at every step); "the gradient tells the distance" (the cumulative quiz).
+Momentum (C6) moves to `optimizers`, `zero_grad` to `training-loop` and the appendix (`torc-pitfalls`).
 
 ## 5. Test hooks
-`site/test/sgd-step.test.mjs` checks the claims above, the JS port against every recorded plain run, the arrows (`arrowsAt`: the
-step ends at the next trail point and the gradient arrow is its mirror image, pointing uphill), the quoted line, and the names (no
-update, iteration, momentum, zero_grad, slope, W, bias, curvature, Hessian or 0.18 on the page). `optim.test.mjs` keeps the port's
-checks against every run, momentum included.
+`site/test/sgd-step.test.mjs` checks the claims above, the JS port against the three recorded off-axis runs, the arrows (`arrowsAt`:
+the step ends at the next trail point and the gradient arrow is its mirror image), that the arrow tip stays inside the view at every
+preset and step (`viewFor`, review M1), the quoted line, and the names (no update, iteration, momentum, zero_grad, slope, W, bias,
+minimum, "your point", `loss.backward`, Hessian or 0.18 on the page). `optim.test.mjs` keeps the port's checks against every run.
 
 ## Lesson status (v3, `template: 3`, `loop: 'adjust'`)
 
 Files: `site/js/lessons/sgd-step.js`; `site/js/widgets/descent.js` (one widget, two instances: lr 0.05 with fog; lr 0.05, 0.15,
-0.2), `contour2d.js` (gradient arrow, fog, lower-case labels), `sgd-ui.js`, `sgd-code.js` (quoted lines), `../optim.js` (unchanged);
-`site/test/sgd-step.test.mjs`. `loop-timeline.js` is no longer on the page; it stays for the appendix lesson `torc-pitfalls`.
+0.2; start and base view from `off_axis`), `contour2d.js` (gradient arrow labelled "gradient × lr", fog, "lowest point", contour and
+step labels that never collide, the view holds the arrow tip), `sgd-ui.js`, `sgd-code.js`; `tools/trace/trace_optim.cpp`
+(`off_axis`); `site/test/sgd-step.test.mjs`. `loop-timeline.js` stays for the appendix lesson `torc-pitfalls`.
 
-**As built**: hero → Questions (3) → "Three taxi rides" (setup: the points listed, the model, the loss) → predict (numeric: the
-ratio for `w` from a nudge of 0.1) → 1 two nudges (worked: the `b` nudge; the gradient as a list, "vector") → 2 the contour map (the
-legend sentence, the arrow uphill; the `contour-map` refresher once it exists) → map widget (2 tasks, fog) → 3 one step for both
-weights (worked `w`) → "Your turn" (numeric `b`, worked reveal) → 4 the real line of `SGD::step` → predict (lr 0.2) → 5 why a step
-can be too long (the narrow valley, no limit number) → rates widget (2 tasks) → transfer (three weights) → cumulative
-(`why-gradients`, the steep bowl) → explain → The answer (next: `linear-layer`). About 1,350 words with every quiz text, 7 numbers
-outside setup/worked/reveal, 3 worked blocks, 5 numbered sections, 5 quizzes.
+**As built** (after the three reviews): hero → Questions (gradient with two weights; does a step go straight to the lowest loss; what
+sets the largest safe learning rate) → "Three taxi rides" (the points, +2 euros per km, the model from (0, 3), the typical miss) →
+predict (how to nudge two weights) → 1 two nudges (worked b nudge, the w ratio) → 2 the gradient as a list, a vector, the contour map
+with its legend and the `contour-map` refresher → map widget (2 tasks, fog) → 3 one step for both weights (worked; b moves away from
+the star) → "Your turn" (the second step for w) → 4 the real line of `SGD::step` (once per group of weights) → predict (lr 0.2:
+compute the first w) → rates widget (2 tasks) → 5 the steep direction limits the learning rate → transfer (steep and flat weight) →
+cumulative (`why-gradients`, the steep bowl) → explain → The answer. About 1,390 words with every quiz text and the refresher.
 
-**Course code card**: ten plain SGD steps on `nn::Linear(1, 1)` with `nn::MSELoss`; `tools/snippets/check.mjs` checks that they
-land on `runs[0].final` (w 2.0386, b 0.9105) and that `zero_grad()` leaves no gradient. The card keeps `zero_grad()` because a loop
-without it is wrong code; the page itself does not teach it.
+**Course code card**: ten plain SGD steps on `nn::Linear(1, 1)` with `nn::MSELoss`, the loss named `L` as on the page;
+`tools/snippets/check.mjs` checks that they land on `runs[0].final` and that `zero_grad()` leaves no gradient. The card keeps
+`zero_grad()` (and its symbol) because a loop without it is wrong code; the page does not teach it.
