@@ -2,6 +2,7 @@
 // the notation guide and the glossary, and the two appendix pages built from them (lessons/notation.js, lessons/glossary.js).
 // The well-formedness rules that every entry shares are in v3.test.mjs; this file checks the content itself.
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import { REFRESHERS } from '../js/content/refreshers.js';
 import { NOTATION } from '../js/content/notation.js';
@@ -208,4 +209,19 @@ test('linkTerms: links a term at its first use only, and a shorter term inside a
   assert.equal(linkTerms('Weight decay pulls each weight down.', linked, g), `${term('weight', 'Weight')} decay pulls each weight down.`);
   assert.equal(linkTerms('Then weight decay acts.', linked, g), `Then ${term('weight-decay', 'weight decay')} acts.`);
   assert.equal(linkTerms('A weight & a <b>.', new Set(['weight', 'weight-decay']), g), 'A weight &amp; a &lt;b&gt;.', 'escapes the text');
+  // in its own definition a term is the defining instance (<dfn>), not a link to itself, and it stays unlinked for later mentions
+  const own = new Set();
+  assert.equal(linkTerms('A weight counts. Each weight changes.', own, g, 'weight'), 'A <dfn>weight</dfn> counts. Each weight changes.');
+  assert.ok(!own.has('weight'));
+  assert.equal(linkTerms('Weight decay pulls a weight.', own, g, 'weight-decay'), `${term('weight', 'Weight')} decay pulls a weight.`);
+});
+
+test('the glossary page links no term to itself, and reads its data without a JSON-module import', async () => {
+  const { html } = await pageOf('glossary');
+  for (const m of html.matchAll(/<h3 id="([^"]+)">[^<]*<\/h3><p>([\s\S]*?)<\/p>/g)) {
+    assert.ok(!m[2].includes(`data-term="${m[1]}"`), `${m[1]}: its definition links to itself`);
+  }
+  assert.match(html, /<dfn>/, 'a definition marks its own term as the defining instance');
+  const src = readFileSync(new URL('../js/lessons/glossary.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(src, /\bwith\s*\{\s*type\s*:/, 'import attributes need very recent browsers');
 });

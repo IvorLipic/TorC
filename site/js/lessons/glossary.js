@@ -3,12 +3,25 @@
 // anchor #<key> that term(key) links to, grouped by the lesson that introduces the term, in course order.
 // The page is static: it is rendered once at import time. Every term that a definition mentions is linked with term() at its
 // first use on the page (the v3 glossary rule, site/test/v3.mjs), so a reader can follow a definition to the next one.
-// The JSON is imported as a JSON module; lesson-boot.js still loads glossary.json itself for the popovers.
-import GLOSSARY from '../../glossary.json' with { type: 'json' };
-import COURSE from '../../course.json' with { type: 'json' };
 import { term } from '../core/blocks.js';
 import { escapeHtml } from '../core/dom.js';
 import { flatLessons, isPublished } from '../core/course.js';
+
+// The data: glossary.json and course.json, fetched the way lesson-boot.js fetches them (top-level await, so the page renders only
+// when both are here; the browser serves the second request of glossary.json from its cache). Node (the tests, the prose
+// extractor) has no fetch for files, so there the module reads them from disk. No JSON-module import: older browsers lack it.
+async function loadJson(rel) {
+  const url = new URL(rel, import.meta.url);
+  if (typeof window === 'undefined') {
+    const fsName = 'node:fs';                          // a variable, so no browser tool takes it for an asset
+    const { readFileSync } = await import(fsName);
+    return JSON.parse(readFileSync(url, 'utf8'));
+  }
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`${rel}: HTTP ${res.status}`);
+  return res.json();
+}
+const [GLOSSARY, COURSE] = await Promise.all([loadJson('../../glossary.json'), loadJson('../../course.json')]);
 
 const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const formRe = (forms, flags = 'giu') => new RegExp(`(?<![\\p{L}\\p{N}])(?:${[...forms].sort((a, b) => b.length - a.length).map(escRe).join('|')})(?![\\p{L}\\p{N}])`, flags);
@@ -16,21 +29,26 @@ const formRe = (forms, flags = 'giu') => new RegExp(`(?<![\\p{L}\\p{N}])(?:${[..
 // Links the first use on a page of every glossary term in `text` (plain text, escaped here) with term(). `linked` is the set of
 // keys already linked on the page; it grows. A longer term that contains a shorter one ("weight decay" holds "weight") is linked
 // only after the shorter one, because the v3 rule wants the first use of "weight" inside a link to "weight".
-export function linkTerms(text, linked, glossary = GLOSSARY) {
+// `self` is the key whose definition `text` is: its own mention is not a link to itself but <dfn> (the defining instance, which
+// the v3 glossary rule skips), and it does not count as linked, so a later mention elsewhere still gets the link.
+export function linkTerms(text, linked, glossary = GLOSSARY, self = null) {
   const terms = Object.entries(glossary.terms);
   const all = formRe(terms.flatMap(([, g]) => g.forms));
   const keysOf = (s) => terms.filter(([, g]) => formRe(g.forms, 'iu').test(s) && g.forms.some((f) => f.toLowerCase() === s.toLowerCase())).map(([k]) => k);
-  let out = '', at = 0;
+  let out = '', at = 0, defined = false;
   for (const m of text.matchAll(all)) {
     const s = m[0], [key] = keysOf(s);
     out += escapeHtml(text.slice(at, m.index));
     at = m.index + s.length;
     // a shorter term inside this match that is not linked yet goes first
-    const inner = terms.filter(([k, g]) => k !== key && !linked.has(k)).map(([k, g]) => [k, formRe(g.forms, 'iu').exec(s)]).find(([, x]) => x);
+    const inner = terms.filter(([k, g]) => k !== key && k !== self && !linked.has(k)).map(([k, g]) => [k, formRe(g.forms, 'iu').exec(s)]).find(([, x]) => x);
     if (inner) {
       const [k, x] = inner;
       linked.add(k);
       out += escapeHtml(s.slice(0, x.index)) + term(k, escapeHtml(x[0])) + escapeHtml(s.slice(x.index + x[0].length));
+    } else if (key && key === self) {
+      out += defined ? escapeHtml(s) : `<dfn>${escapeHtml(s)}</dfn>`;
+      defined = true;
     } else if (key && !linked.has(key)) {
       linked.add(key);
       out += term(key, escapeHtml(s));
@@ -80,7 +98,7 @@ export function referenceGroups(entries, cls) {
 }
 
 const GROUPS = referenceGroups(Object.entries(GLOSSARY.terms).sort(([, a], [, b]) => a.term.localeCompare(b.term, 'en')).map(([key, g]) => ({
-  key, lesson: g.lesson, head: escapeHtml(g.term), words: words(g.short), body: (linked) => `<p>${linkTerms(g.short, linked)}</p>`,
+  key, lesson: g.lesson, head: escapeHtml(g.term), words: words(g.short), body: (linked) => `<p>${linkTerms(g.short, linked, GLOSSARY, key)}</p>`,
 })), 'glossary-group');
 
 export default {

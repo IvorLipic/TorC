@@ -238,7 +238,7 @@
     "parameter": {
       "term": "parameter",
       "forms": ["parameter", "parameters"],
-      "short": "A parameter is any number in a model that training changes, so the weights and the biases are parameters.",
+      "short": "A parameter is any number in a model that training changes, for example a weight or a bias.",
       "lesson": "what-is-learning"
     },
     "pixel": {
@@ -316,7 +316,7 @@
     "tensor": {
       "term": "tensor",
       "forms": ["tensor", "tensors"],
-      "short": "A tensor is a grid of numbers with any number of directions, so a vector and a matrix are tensors too.",
+      "short": "A tensor is a grid of numbers with any number of directions, so vectors and matrices are special cases of it.",
       "lesson": "tensors"
     },
     "test-set": {
