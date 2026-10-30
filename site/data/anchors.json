@@ -26,6 +26,22 @@
     "bowl_w_min": {
       "path": "files.why-gradients.setup.w_min",
       "value": 3
+    },
+    "pixels": {
+      "path": "files.mnist-mlp.setup.pixels",
+      "value": 784
+    },
+    "classes": {
+      "path": "files.mnist-mlp.setup.classes",
+      "value": 10
+    },
+    "mlp_test_accuracy": {
+      "path": "files.mnist-mlp.final.test_accuracy",
+      "value": 0.9666
+    },
+    "cnn_test_accuracy": {
+      "path": "files.mnist-cnn.final.test_accuracy",
+      "value": 0.9794
     }
   }
 }
