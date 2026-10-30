@@ -1,5 +1,5 @@
 // autograd_trace.cpp
-// Runs three small computations with the real torc::Variable autograd and writes
+// Runs four small computations with the real torc::Variable autograd and writes
 // everything the visualizations need (graph edges taken from the real tape,
 // forward values, accumulated gradients, finite-difference check) as JSON.
 //
@@ -70,10 +70,47 @@ int main() {
         scenes.push_back(std::move(s));
     }
 
+    // Scene 4 — the small network of the lesson `backprop`: 2 inputs -> 2 hidden units (ReLU) -> 1 output, ONE sample (no batch),
+    // loss = (o - t)^2 written as sub, mul, mean (the mean of one number is that number). Both hidden units are on (h = 1.1 and 0.3,
+    // far from the ReLU kink for the finite-difference step). The second output weight is negative, so the second hidden unit gets
+    // a gradient of the opposite sign. W1[i][j] is the weight from input i to hidden unit j (x @ W1, as in scene 3).
+    {
+        Scene s;
+        s.id = "net"; s.title = "A small network (one sample)"; s.expression = "L = mean( (relu(x@W1 + b1)@W2 + b2 - t)^2 )";
+        s.note = "One sample, so the loss is the squared miss. Each weight's gradient is the gradient of the unit it feeds times the input it carries.";
+        s.leaves = {{"x",  Tensor({1.0f, 2.0f}, {1, 2})},
+                    {"W1", Tensor({0.5f, -0.5f, 0.25f, 0.5f}, {2, 2})},
+                    {"b1", Tensor({0.1f, -0.2f}, {2})},
+                    {"W2", Tensor({1.0f, -0.5f}, {2, 1})},
+                    {"b2", Tensor({0.0f}, {1})},
+                    {"t",  Tensor({2.0f}, {1, 1})}};
+        s.constants = {"x", "t"};
+        s.build = [](Graph& g, std::map<std::string, Variable*>& L) -> Variable& {
+            Variable& xw = g.op("xW1", "matmul", matmul(*L["x"], *L["W1"]));
+            Variable& h = g.op("h", "add", add(xw, *L["b1"]));
+            Variable& a = g.op("a", "relu", relu(h));
+            Variable& aw = g.op("aW2", "matmul", matmul(a, *L["W2"]));
+            Variable& o = g.op("o", "add", add(aw, *L["b2"]));
+            Variable& d = g.op("d", "sub", sub(o, *L["t"]));
+            Variable& q = g.op("q", "mul", mul(d, d));
+            return g.op("L", "mean", mean(q));
+        };
+        scenes.push_back(std::move(s));
+    }
+
     trace::J doc = trace::envelope("autograd", "backprop-lab", "tools/trace/autograd_trace.cpp");
     trace::J arr = trace::J::array();
-    for (const Scene& sc : scenes) arr.push(trace::run_scene(sc).json);
+    int net_parameters = 0;   // the tracked leaves of scene `net`: every weight and bias (derived: a count of the scene's numbers)
+    for (const Scene& sc : scenes) {
+        if (sc.id == "net")
+            for (const auto& l : sc.leaves)
+                if (!trace::is_const(sc, l.first)) net_parameters += l.second.numel();
+        arr.push(trace::run_scene(sc).json);
+    }
     doc.set("scenes", std::move(arr));
+    trace::J counts = trace::J::object();
+    counts.set("inputs", 2).set("hidden", 2).set("outputs", 1).set("parameters", net_parameters);
+    doc.set("net_counts", std::move(counts));
     std::fputs(doc.dump().c_str(), stdout);
     return 0;
 }

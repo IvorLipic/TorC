@@ -78,6 +78,41 @@
           {"name":"b2","numerical":[0.57499969],"analytic":[0.575000048],"max_abs_err":3.57627869e-07,"ok":true}
         ]
       }
+    },
+    {
+      "id":"net",
+      "title":"A small network (one sample)",
+      "expression":"L = mean( (relu(x@W1 + b1)@W2 + b2 - t)^2 )",
+      "note":"One sample, so the loss is the squared miss. Each weight's gradient is the gradient of the unit it feeds times the input it carries.",
+      "root":"L",
+      "root_has_grad":false,
+      "nodes":[
+        {"name":"x","op":"leaf","role":"leaf","requires_grad":false,"inputs":[],"value":{"shape":[1,2],"values":[1,2]},"grad":null},
+        {"name":"W1","op":"leaf","role":"leaf","requires_grad":true,"inputs":[],"value":{"shape":[2,2],"values":[0.5,-0.5,0.25,0.5]},"grad":{"shape":[2,2],"values":[-2.0999999,1.04999995,-4.19999981,2.0999999]}},
+        {"name":"b1","op":"leaf","role":"leaf","requires_grad":true,"inputs":[],"value":{"shape":[2],"values":[0.100000001,-0.200000003]},"grad":{"shape":[2],"values":[-2.0999999,1.04999995]}},
+        {"name":"W2","op":"leaf","role":"leaf","requires_grad":true,"inputs":[],"value":{"shape":[2,1],"values":[1,-0.5]},"grad":{"shape":[2,1],"values":[-2.30999994,-0.629999995]}},
+        {"name":"b2","op":"leaf","role":"leaf","requires_grad":true,"inputs":[],"value":{"shape":[1],"values":[0]},"grad":{"shape":[1],"values":[-2.0999999]}},
+        {"name":"t","op":"leaf","role":"leaf","requires_grad":false,"inputs":[],"value":{"shape":[1,1],"values":[2]},"grad":null},
+        {"name":"xW1","op":"matmul","role":"op","requires_grad":true,"inputs":["x","W1"],"value":{"shape":[1,2],"values":[1,0.5]},"grad":{"shape":[1,2],"values":[-2.0999999,1.04999995]}},
+        {"name":"h","op":"add","role":"op","requires_grad":true,"inputs":["xW1","b1"],"value":{"shape":[1,2],"values":[1.10000002,0.300000012]},"grad":{"shape":[1,2],"values":[-2.0999999,1.04999995]}},
+        {"name":"a","op":"relu","role":"op","requires_grad":true,"inputs":["h"],"value":{"shape":[1,2],"values":[1.10000002,0.300000012]},"grad":{"shape":[1,2],"values":[-2.0999999,1.04999995]}},
+        {"name":"aW2","op":"matmul","role":"op","requires_grad":true,"inputs":["a","W2"],"value":{"shape":[1,1],"values":[0.950000048]},"grad":{"shape":[1,1],"values":[-2.0999999]}},
+        {"name":"o","op":"add","role":"op","requires_grad":true,"inputs":["aW2","b2"],"value":{"shape":[1,1],"values":[0.950000048]},"grad":{"shape":[1,1],"values":[-2.0999999]}},
+        {"name":"d","op":"sub","role":"op","requires_grad":true,"inputs":["o","t"],"value":{"shape":[1,1],"values":[-1.04999995]},"grad":{"shape":[1,1],"values":[-2.0999999]}},
+        {"name":"q","op":"mul","role":"op","requires_grad":true,"inputs":["d","d"],"value":{"shape":[1,1],"values":[1.10249984]},"grad":{"shape":[1,1],"values":[1]}},
+        {"name":"L","op":"mean","role":"op","requires_grad":true,"inputs":["q"],"value":{"shape":[1],"values":[1.10249984]},"grad":null}
+      ],
+      "finite_difference":{
+        "h":0.00999999978,
+        "atol":0.01,
+        "leaves":[
+          {"name":"W1","numerical":[-2.09999681,1.04999542,-4.19999361,2.09999681],"analytic":[-2.0999999,1.04999995,-4.19999981,2.0999999],"max_abs_err":6.19888306e-06,"ok":true},
+          {"name":"b1","numerical":[-2.09999681,1.04999542],"analytic":[-2.0999999,1.04999995],"max_abs_err":4.529953e-06,"ok":true},
+          {"name":"W2","numerical":[-2.31000781,-0.630009174],"analytic":[-2.30999994,-0.629999995],"max_abs_err":9.1791153e-06,"ok":true},
+          {"name":"b2","numerical":[-2.09999681],"analytic":[-2.0999999],"max_abs_err":3.09944153e-06,"ok":true}
+        ]
+      }
     }
-  ]
+  ],
+  "net_counts":{"inputs":2,"hidden":2,"outputs":1,"parameters":9}
 }

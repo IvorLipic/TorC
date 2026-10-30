@@ -4,7 +4,20 @@
   "generator":"tools/trace/trace_deep.cpp",
   "kind":"deep",
   "lesson":"deep-nets",
-  "setup":{"depth":8,"width":32,"batch":64,"data_seed":11,"inputs":"uniform in [-sqrt(3), sqrt(3)), std 1","targets":"uniform in [-1, 1)","weight_seeds":"layer l uses 300 + l (head: 309)","loss":"nn::MSELoss","kaiming_std":0.25},
+  "setup":{
+    "depth":8,
+    "width":32,
+    "batch":64,
+    "data_seed":11,
+    "inputs":"uniform in [-sqrt(3), sqrt(3)), std 1",
+    "targets":"uniform in [-1, 1)",
+    "weight_seeds":"layer l uses 300 + l (head: 309)",
+    "loss":"nn::MSELoss",
+    "kaiming_std":0.25,
+    "no_two_std":0.1767766952966369,
+    "sigmoid_max_slope":0.25,
+    "kaiming_digit":{"inputs":784,"std":0.0505076274}
+  },
   "vanishing":[
     {
       "activation":"sigmoid",
@@ -21,7 +34,7 @@
         {"layer":8,"name":"hidden 8","mean_abs_grad":0.03268648924478157,"signal_std":0.17037633295152402},
         {"layer":9,"name":"head","mean_abs_grad":0.6677245208993554}
       ],
-      "derived":{"first_over_last_hidden":6.089910576261277e-05}
+      "derived":{"first_over_last_hidden":6.089910576261277e-05,"last_over_first_hidden":16420.602363161805}
     },
     {
       "activation":"relu",
@@ -38,7 +51,7 @@
         {"layer":8,"name":"hidden 8","mean_abs_grad":1.1794976131114367,"signal_std":1.2224581522916949},
         {"layer":9,"name":"head","mean_abs_grad":9.273975057192729}
       ],
-      "derived":{"first_over_last_hidden":0.4943328996572521}
+      "derived":{"first_over_last_hidden":0.4943328996572521,"last_over_first_hidden":2.0229282750416866}
     }
   ],
   "init":[
@@ -94,6 +107,24 @@
         {"layer":6,"std":72.05852740778502,"rms":82.37455010285579,"frac_zero":0.57568359375,"mean_abs_grad":132386.4869940058},
         {"layer":7,"std":156.70313849384848,"rms":183.74546955213086,"frac_zero":0.513671875,"mean_abs_grad":131533.5460903691},
         {"layer":8,"std":312.9492869866739,"rms":370.3989305323,"frac_zero":0.4697265625,"mean_abs_grad":154461.2890035957}
+      ]
+    },
+    {
+      "name":"no_two",
+      "init_std":0.1767766922712326,
+      "weight_std":0.1767766922712326,
+      "layer1_weight_std_observed":0.18037462058021927,
+      "loss":0.375203758,
+      "layers":[
+        {"layer":0,"std":0.991492735098488,"rms":0.9915892649660067,"frac_zero":0},
+        {"layer":1,"std":0.5708376064797621,"rms":0.697279770511524,"frac_zero":0.48095703125,"mean_abs_grad":0.003102728511631625},
+        {"layer":2,"std":0.450776997720849,"rms":0.5292241343589486,"frac_zero":0.54638671875,"mean_abs_grad":0.003429313098804565},
+        {"layer":3,"std":0.2968455825517562,"rms":0.3727215111827861,"frac_zero":0.39892578125,"mean_abs_grad":0.004016060132885288},
+        {"layer":4,"std":0.22327761490869935,"rms":0.2736560366380477,"frac_zero":0.45751953125,"mean_abs_grad":0.004191343462437991},
+        {"layer":5,"std":0.1642552343161766,"rms":0.19852746299935925,"frac_zero":0.4521484375,"mean_abs_grad":0.003946954932675079},
+        {"layer":6,"std":0.1407393015187487,"rms":0.16088778218632996,"frac_zero":0.57568359375,"mean_abs_grad":0.0027954776578943373},
+        {"layer":7,"std":0.10820883242867356,"rms":0.1268824794483341,"frac_zero":0.513671875,"mean_abs_grad":0.0027220297209936684},
+        {"layer":8,"std":0.0764036283975273,"rms":0.09042941933606541,"frac_zero":0.4697265625,"mean_abs_grad":0.003321438247899877}
       ]
     }
   ],
@@ -356,6 +387,31 @@
         {"step":100,"loss":1.2543238e-05,"prediction":[0.00406463491,0.996462524,0.997756779,0.00401321845],"neurons_equal":false},
         {"step":500,"loss":4.21799639e-14,"prediction":[2.28878804e-07,0.999999821,0.999999821,2.28878804e-07],"neurons_equal":false},
         {"step":2000,"loss":4.21799639e-14,"prediction":[2.28878804e-07,0.999999821,0.999999821,2.28878804e-07],"neurons_equal":false}
+      ]
+    },
+    {
+      "id":"zeros",
+      "start":{"W1":[0,0,0,0],"b1":[0,0],"W2":[0,0],"b2":0},
+      "steps":[
+        {"step":0,"loss":0.5,"neuron0":{"w":[0,0],"b":0,"v":0},"neuron1":{"w":[0,0],"b":0,"v":0},"grad0":{"w":[0,0],"b":0,"v":0},"grad1":{"w":[0,0],"b":0,"v":0},"output_bias":0,"neurons_equal":true},
+        {"step":1,"loss":0.340000033,"neuron0":{"w":[0,0],"b":0,"v":0},"neuron1":{"w":[0,0],"b":0,"v":0},"grad0":{"w":[0,0],"b":0,"v":0},"grad1":{"w":[0,0],"b":0,"v":0},"output_bias":0.200000003,"neurons_equal":true},
+        {"step":2,"loss":0.282399982,"neuron0":{"w":[0,0],"b":0,"v":0},"neuron1":{"w":[0,0],"b":0,"v":0},"grad0":{"w":[0,0],"b":0,"v":0},"grad1":{"w":[0,0],"b":0,"v":0},"output_bias":0.319999993,"neurons_equal":true},
+        {"step":3,"loss":0.261664033,"neuron0":{"w":[0,0],"b":0,"v":0},"neuron1":{"w":[0,0],"b":0,"v":0},"grad0":{"w":[0,0],"b":0,"v":0},"grad1":{"w":[0,0],"b":0,"v":0},"output_bias":0.39199999,"neurons_equal":true},
+        {"step":4,"loss":0.254199058,"neuron0":{"w":[0,0],"b":0,"v":0},"neuron1":{"w":[0,0],"b":0,"v":0},"grad0":{"w":[0,0],"b":0,"v":0},"grad1":{"w":[0,0],"b":0,"v":0},"output_bias":0.435200006,"neurons_equal":true},
+        {"step":5,"loss":0.251511663,"neuron0":{"w":[0,0],"b":0,"v":0},"neuron1":{"w":[0,0],"b":0,"v":0},"grad0":{"w":[0,0],"b":0,"v":0},"grad1":{"w":[0,0],"b":0,"v":0},"output_bias":0.461120009,"neurons_equal":true},
+        {"step":6,"loss":0.25054419,"neuron0":{"w":[0,0],"b":0,"v":0},"neuron1":{"w":[0,0],"b":0,"v":0},"grad0":{"w":[0,0],"b":0,"v":0},"grad1":{"w":[0,0],"b":0,"v":0},"output_bias":0.476671994,"neurons_equal":true},
+        {"step":7,"loss":0.25019592,"neuron0":{"w":[0,0],"b":0,"v":0},"neuron1":{"w":[0,0],"b":0,"v":0},"grad0":{"w":[0,0],"b":0,"v":0},"grad1":{"w":[0,0],"b":0,"v":0},"output_bias":0.48600319,"neurons_equal":true},
+        {"step":8,"loss":0.250070512,"neuron0":{"w":[0,0],"b":0,"v":0},"neuron1":{"w":[0,0],"b":0,"v":0},"grad0":{"w":[0,0],"b":0,"v":0},"grad1":{"w":[0,0],"b":0,"v":0},"output_bias":0.491601914,"neurons_equal":true},
+        {"step":9,"loss":0.250025392,"neuron0":{"w":[0,0],"b":0,"v":0},"neuron1":{"w":[0,0],"b":0,"v":0},"grad0":{"w":[0,0],"b":0,"v":0},"grad1":{"w":[0,0],"b":0,"v":0},"output_bias":0.494961143,"neurons_equal":true},
+        {"step":10,"loss":0.250009149,"neuron0":{"w":[0,0],"b":0,"v":0},"neuron1":{"w":[0,0],"b":0,"v":0},"grad0":{"w":[0,0],"b":0,"v":0},"grad1":{"w":[0,0],"b":0,"v":0},"output_bias":0.496976674,"neurons_equal":true}
+      ],
+      "equal_every_step":true,
+      "long_run":[
+        {"step":0,"loss":0.5,"prediction":[0,0,0,0],"neurons_equal":true},
+        {"step":10,"loss":0.250009149,"prediction":[0.496976674,0.496976674,0.496976674,0.496976674],"neurons_equal":true},
+        {"step":100,"loss":0.25,"prediction":[0.49999997,0.49999997,0.49999997,0.49999997],"neurons_equal":true},
+        {"step":500,"loss":0.25,"prediction":[0.49999997,0.49999997,0.49999997,0.49999997],"neurons_equal":true},
+        {"step":2000,"loss":0.25,"prediction":[0.49999997,0.49999997,0.49999997,0.49999997],"neurons_equal":true}
       ]
     }
   ]

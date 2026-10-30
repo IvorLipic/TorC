@@ -12,7 +12,7 @@ const autograd = scenes.filter((s) => s.file === 'autograd_trace.json').map((s) 
 
 test('trace files were found and contain scenes', () => {
   assert.ok(scenes.length >= 3, `expected at least the 3 backprop-lab scenes, found ${scenes.length}`);
-  assert.deepEqual(autograd.map((s) => s.id), ['reuse', 'chain', 'mlp']);
+  assert.deepEqual(autograd.map((s) => s.id), ['reuse', 'chain', 'mlp', 'net']);   // net: the small network of the lesson backprop
 });
 
 for (const { file, scene } of scenes) {
