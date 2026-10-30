@@ -163,7 +163,7 @@ test('the lesson is a v3 lesson that lights the adjust step, and the chain rule 
   assert.doesNotMatch(plainText(html), /chain rule|local derivative|w_\{k\+1\}/i);
   assert.deepEqual(lesson.sections.filter((s) => s.kind === 'widget').map((s) => s.id), ['nudge-lens', 'two-bowls', 'bowl']);
   const quizzes = lesson.sections.filter((s) => s.kind === 'quiz');
-  assert.deepEqual(quizzes.map((q) => `${q.id}:${q.purpose}`), ['nudge:predict', 'your-step:check', 'best-lr:check', 'steep-step:transfer', 'worst-guess:cumulative']);
+  assert.deepEqual(quizzes.map((q) => `${q.id}:${q.purpose}`), ['nudge:predict', 'your-step:check', 'best-lr:check', 'steep-step:transfer', 'loss-of-lines:cumulative']);
   assert.equal(quizzes.find((q) => q.purpose === 'cumulative').from, 'what-is-learning');
 });
 
@@ -174,8 +174,18 @@ test('the story: two notebooks cost 6 euros, the loss is the squared miss, the s
   assert.equal(p0.L, p0.e ** 2, 'the loss is the square of the miss');
   assert.equal(data.setup.t / data.setup.x, data.setup.w_min, 'dividing gives the price');
   const s = sectionOf('price');
-  assert.ok(s.includes(`<code>(${data.setup.x}w - ${data.setup.t})^2</code>`) || s.includes('katex'), 'the loss formula');
+  assert.match(s, /<a class="term"[^>]*>loss<\/a> <code>L<\/code> measures/, 'the loss is named L where it is defined (review M1)');
+  const raw = rawHtml();
+  assert.ok(raw.includes(`<code>L = (${data.setup.x}w - ${data.setup.t})^2</code>`), 'the loss formula, with the constants of the trace');
   assert.equal(shown[`${F}.probes.0.L`], '36');
+  assert.equal(shown[`${F}.setup.w_min`], '3', 'the bottom is named before any step (review H1)');
+  assert.ok(data.probes.find((q) => q.w === data.setup.w_min).L === 0, 'at the true price the loss is zero');
+  // the static picture of the whole curve: the recorded grid, the start and the bottom
+  assert.match(s, /<figure class="wg-fig"><svg class="plot"[^>]*role="img"/);
+  const path = s.match(/<path class="plot-curve" d="([^"]+)"/)[1];
+  assert.equal(path.split(/[ML]/).filter(Boolean).length, data.grid.length, 'one point per recorded grid point');
+  assert.match(s, />start<\/text>/);
+  assert.match(s, />bottom<\/text>/);
   assert.equal(shown['anchors.mlp_parameters'], '26,506');
 });
 
@@ -187,7 +197,6 @@ test('the predict quiz: nudging w to 0.01 gives the miss 5.98 and the loss 35.76
   assert.equal(lesson.sections.find((q) => q.id === 'nudge').answer, `${F}.nudge.stages.2.after`);
   assert.deepEqual([shown[`${F}.nudge.delta`], shown[`${F}.nudge.stages.0.after`], shown[`${F}.nudge.miss_after`], shown[`${F}.nudge.stages.2.after`]], ['0.01', '0.02', '5.98', '35.76']);
   assert.equal(shown[`${F}.nudge.actual_dL`], '−0.24');
-  assert.equal(shown[`${F}.nudge.ratio`], '−24');
 });
 
 test('section 1: a nudge ten times smaller changes the loss about ten times less, the ratio stays near −24, and the signs', () => {
@@ -202,9 +211,11 @@ test('section 1: a nudge ten times smaller changes the loss about ten times less
   // "slope" appears once, to define the gradient (decision 14); dL/dw is read aloud
   const prose = plainText(html.replace(/<pre[\s\S]*?<\/pre>/g, ' '));
   assert.equal((prose.match(/\bslope/gi) ?? []).length, 1, 'the one allowed use of "slope"');
-  assert.match(prose, /the gradient is the slope of the loss curve at the current point/);
-  assert.match(sectionOf('gradient'), /data-sym="dl-dw"/);
-  assert.match(prose, /how much the loss changes per unit change of/);
+  assert.match(prose, /This number is the gradient \. It is the slope of the loss curve at the current point/);
+  // the gradient is the number the ratio approaches (review M2): every recorded ratio is closer to it than the one before
+  for (let i = 1; i < s.length; i++) assert.ok(Math.abs(s[i].slope - s[i].backward_slope) < Math.abs(s[i - 1].slope - s[i - 1].backward_slope));
+  assert.match(prose, /comes closer and closer to one number/);
+  assert.doesNotMatch(prose, /dL\/dw/, 'no dL/dw in this lesson');
 });
 
 test('section 2 and the learner step: 0 − 0.05 × (−24) = 1.2, then 1.2 − 0.05 × (−14.4) = 1.92, steps shrink, 60% kept', () => {
@@ -215,14 +226,19 @@ test('section 2 and the learner step: 0 − 0.05 × (−24) = 1.2, then 1.2 − 
   assert.ok(s0.w < s0.w_next && s0.w_next < data.setup.w_min, 'w goes up, toward the true price');
   assert.deepEqual([shown[traj(SLOW, 'states.0.w_next')], shown[traj(SLOW, 'states.1.w')], shown[traj(SLOW, 'states.1.grad')], shown[traj(SLOW, 'states.1.w_next')]], ['1.2', '1.2', '−14.4', '1.92']);
   assert.ok(tol(s0.step, s0.w_next - s0.w, 1e-6) && tol(s1.step, s1.w_next - s1.w, 1e-6) && s1.step < s0.step, 'the step shrank');
-  assert.deepEqual([shown[traj(SLOW, 'states.0.step')], shown[traj(SLOW, 'states.1.step')]], ['1.2', '0.72']);
   for (const st of t0.states) assert.ok(Math.abs(st.kept - 0.6) < 1e-5, `each step keeps 60 % (k=${st.k})`);
   assert.equal(shown[traj(SLOW, 'kept_percent')], '60');
+  // the worked distance line that defines "keeps" (review H1): 3, then 1.8, then 1.08, each 60 % of the one before
+  assert.deepEqual([s0.distance, s1.distance, s1.distance_next].map((v) => Number(v.toPrecision(4))), [3, 1.8, 1.08]);
+  assert.ok(tol(s1.distance / s0.distance, 0.6, 1e-6) && tol(s1.distance_next / s1.distance, 0.6, 1e-6));
+  assert.deepEqual([shown[traj(SLOW, 'states.0.distance')], shown[traj(SLOW, 'states.1.distance')], shown[traj(SLOW, 'states.1.distance_next')]], ['3', '1.8', '1.08']);
   assert.ok(s1.grad > s0.grad && s1.grad < 0, 'the curve is flatter at 1.2 than at 0');
   // the arrow is read "replace w by", lr is upright, the gradient has no letter g, and the real line is L.backward()
   const raw = rawHtml();
-  assert.ok(raw.includes('w \\leftarrow w - \\mathrm{lr}\\times\\text{gradient}'));
-  assert.match(plainText(html), /Read the arrow as “replace w by”/);
+  assert.match(plainText(html), /Programs write “new w =” as w ← \. Read the arrow as “replace w by”/);
+  assert.equal((html.match(/data-sym="arrow"/g) ?? []).length, 3, 'the arrow is introduced once and used in two worked lines (review L2)');
+  assert.match(html, /This line finds the gradient without nudges, and a later lesson shows how/);
+  assert.doesNotMatch(plainText(html), /w\.grad\(\)/, 'no C++ call in the prose (review L1)');
   assert.doesNotMatch(raw, /\\mathit\{lr\}|\\cdot g\b/);
   assert.match(html, /<figure class="real-line"><pre[^>]*><code>L\.backward\(\);<\/code><\/pre>/);
 });
@@ -273,19 +289,24 @@ test('the transfer quiz: on the steep bowl, 0 − 0.05 × (−96) = 4.8 lands pa
   assert.equal(lesson.sections.find((q) => q.id === 'steep-step').answer, `${F}.steep.trajectories.0.states.0.w_next`);
 });
 
-test('the cumulative quiz: among w = 1.2, 3 and 6 the guess 6 has the largest loss, the same as the start', () => {
-  const [p12, p3, p6] = [3, 4, 5].map((i) => data.probes[i]);
-  assert.ok(p6.L > p12.L && p12.L > p3.L && p3.L === 0);
-  assert.deepEqual([p6.p, p6.e, p6.L], [12, 6, data.probes[0].L]);
-  assert.equal(p3.w, data.setup.w_min, 'w = 3 is the true price');
-  assert.equal(lesson.sections.find((q) => q.id === 'worst-guess').options.findIndex((o) => o.correct), 2);
+test('the cumulative quiz (what-is-learning): the mean of the squared misses, line A one, line B two, the same total miss', () => {
+  const A = Array(10).fill(1), B = [...Array(5).fill(0), ...Array(5).fill(2)];
+  const mse = (m) => m.reduce((a, v) => a + v * v, 0) / m.length, total = (m) => m.reduce((a, v) => a + v, 0);
+  assert.deepEqual([mse(A), mse(B), total(A), total(B)], [1, 2, 10, 10]);
+  assert.equal((2 * 2) / (1 * 1), 4, 'one miss of two points counts as much as four misses of one point');
+  const q = lesson.sections.find((x) => x.id === 'loss-of-lines');
+  assert.equal(q.options.findIndex((o) => o.correct), 0);
+  assert.equal(q.from, 'what-is-learning');
 });
 
-test('the In TorC panel quotes the SGD::step line of the pinned TorC', () => {
-  const line = 'param->data() = param->data().sub(grad.mul(lr_));';
-  assert.ok(html.includes(line.replace(/>/g, '&gt;')), 'the panel shows the line');
-  const src = new URL('../../build/trace/_deps/torc-src/src/optim.cpp', import.meta.url);
-  if (existsSync(src)) assert.ok(readFileSync(src, 'utf8').includes(line), 'the line is in TorC src/optim.cpp');
+test('the SGD::step() line is not on this page (it is the real line of sgd-step), and there is no In TorC panel', () => {
+  assert.doesNotMatch(html, /param-&gt;data\(\)|class="in-torc"/);
+});
+
+test('the best-lr prompt names the start and the number of steps from the trace (review M7, L8)', () => {
+  assert.equal(shown[traj(FAST, 'states.8.k')], '8');
+  assert.equal(tr[FAST].states.length - 1, 8);
+  assert.equal(shown[traj(FAST, 'states.0.w')], '0');
 });
 
 test('every number is bound, and no hand-typed digit survives in the prose, quizzes or tasks', () => {
@@ -309,8 +330,8 @@ test('every LaTeX string of the bowl widget and of the lesson parses in KaTeX (t
   }
   assert.ok(count > 600);
   assert.doesNotMatch(html, /katex-error/);
-  const formulas = [...rawHtml().matchAll(/<code>([^<]*\\[^<]*|\([^<]*\)\^2|\dw)<\/code>/g)].map((x) => x[1].replace(/&amp;/g, '&'));
-  assert.ok(formulas.length >= 3, formulas.join(' | '));
+  const formulas = [...rawHtml().matchAll(/<code>([^<]*\^2|\dw)<\/code>/g)].map((x) => x[1].replace(/&amp;/g, '&'));
+  assert.ok(formulas.length >= 2, formulas.join(' | '));
   renderStrictAll(formulas);
   assert.equal(updateTex(m, 0, 0.05), '\\text{new } w = 0 - 0.05 \\times (-24) = 1.2');
 });

@@ -44,17 +44,22 @@ export function mountNudgeLens(host, D) {
     el('span', { class: 'lens-lbl', id: `${id}-h` }, 'size of the nudge'), ...btns);
   const plotBox = el('div', { class: 'lens-plot' });
   const readout = el('div', { class: 'lens-read' });
-  const hint = el('p', { class: 'hint' }, 'The view zooms in when you choose a smaller nudge.');
+  const hint = el('p', { class: 'hint' }, 'The dashed straight line changes by the gradient for each unit of w. The view zooms in when you choose a smaller nudge.');
   host.replaceChildren(controls, plotBox, readout, hint, status);
 
-  let p = null;
+  let p = null, lastW = 0;
+  // the plot is rebuilt for every view (its axes change with the nudge), so a width change (rotating a phone) redraws it too
+  const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => {
+    if (host.isConnected && Math.abs(plotBox.clientWidth - lastW) > 1) draw();
+  });
+  ro?.observe(plotBox);
   function draw() {
     const r = rows[k], v = lensView(r, m.lossAt);
     btns.forEach((b, i) => b.setAttribute('aria-pressed', String(i === k)));
     p?.destroy();
     plotBox.replaceChildren();
     p = createPlot(plotBox, { width: 640, height: 300, x: v.x, y: v.y, xLabel: 'w', yLabel: 'loss', margin: { l: 64 },
-      ariaLabel: `The loss curve near w = ${fmt3(r.w0)} and the straight line with the gradient ${fmt3(r.grad)}. For a nudge of ${r.h}, the line predicts a change of ${fmt3(r.predicted)}, and the measured change is ${fmt3(r.actual)}.` });
+      ariaLabel: `The loss curve near w = ${fmt3(r.w0)} and the straight line with the gradient ${fmt3(r.grad)}. For a nudge of ${r.h}, the line predicts a change of ${fmt3(r.predicted)}, and the actual change is ${fmt3(r.actual)}.` });
     const dec = (t) => String(Number(t.toPrecision(4)));   // 0.0005, not 5e-4: the reader knows decimals
     p.axes({ xTicks: ticks(v.x, 5), yTicks: ticks(v.y, 5), fmt: dec });
     const n = 120, pts = Array.from({ length: n + 1 }, (_, i) => { const w = v.x[0] + ((v.x[1] - v.x[0]) * i) / n; return [w, m.lossAt(w)]; });
@@ -72,16 +77,17 @@ export function mountNudgeLens(host, D) {
     p.text(lx, v.line(lx), 'straight line', { class: 'plot-text lens-label lens-label-line', anchor: 'end', dx: -4, dy: 20 });
     p.text(r.w0, v.y[0], 'start', { class: 'plot-text lens-label', dx: 4, dy: -6 });
     readout.innerHTML = `<span><b>nudge</b> ${r.h}</span>`
-      + `<span><b>change of the loss, gradient × nudge</b> ${fmt3(r.predicted)}</span>`
-      + `<span><b>change of the loss, measured</b> ${fmt3(r.actual)}</span>`
-      + `<span><b>measured change ÷ nudge</b> ${fmt3(r.ratio)}</span>`;
+      + `<span><b>predicted change, gradient × nudge</b> ${fmt3(r.predicted)}</span>`
+      + `<span><b>actual change of the loss</b> ${fmt3(r.actual)}</span>`
+      + `<span><b>actual change ÷ nudge</b> ${fmt3(r.ratio)}</span>`;
+    lastW = plotBox.clientWidth;
   }
   function announce() {
     const r = rows[k];
-    status.textContent = `Nudge ${r.h}. The straight line predicts ${fmt3(r.predicted)}. The measured change is ${fmt3(r.actual)}. The change divided by the nudge is ${fmt3(r.ratio)}.`;
+    status.textContent = `Nudge ${r.h}. The predicted change is ${fmt3(r.predicted)}. The actual change is ${fmt3(r.actual)}. The actual change divided by the nudge is ${fmt3(r.ratio)}.`;
   }
   draw();
-  return { choose: (i) => btns[i].click(), destroy: () => p?.destroy() };
+  return { choose: (i) => btns[i].click(), destroy: () => { ro?.disconnect(); p?.destroy(); } };
 }
 
 const CSS = `

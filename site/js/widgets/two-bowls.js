@@ -37,7 +37,8 @@ export function mountTwoBowls(host, D) {
   const controls = el('div', { class: 'bowls-ctl', role: 'group', 'aria-labelledby': `${id}-w` }, el('span', { class: 'bowls-lbl', id: `${id}-w` }, 'your weight w'), ...btns);
   const plotBox = el('div', { class: 'bowls-plot' });
   const readout = el('div', { class: 'bowls-read' });
-  host.replaceChildren(controls, plotBox, readout, status);
+  const hint = el('p', { class: 'hint' }, 'Each dashed line shows how steep its bowl is at the dot.');
+  host.replaceChildren(controls, plotBox, readout, hint, status);
   const p = createPlot(plotBox, { width: 640, height: 300, x: X, y: Y, xLabel: 'w', yLabel: 'loss', ariaLabel: 'Two loss curves with the same bottom.', onResize: () => draw() });
 
   function draw() {

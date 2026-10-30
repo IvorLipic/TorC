@@ -1,7 +1,8 @@
 // widgets/bowl.js — the bowl with fog mode of the lesson why-gradients (brief §9 "Fog mode", Appendix B, D20): the loss curve
 // L(w) of the two-notebook model, learning-rate presets and a Step button (new w = w − lr × gradient, from w = 0). With the fog
 // on, the curve and the path are hidden: the learner sees only the current point, a short piece of its tangent (the ground under
-// the feet) and the readout (w, loss, gradient). "Lift the fog" shows the curve and the whole path. Values are recomputed by the
+// the feet) and the readout (w, loss, gradient). "Lift the fog" shows the curve and the whole path. The step line shows the step
+// just taken, never the next one, so a task can ask for a guess before Step. Values are recomputed by the
 // engine through landscape-model.js (the same code as the graph lab), and site/test/why-gradients.test.mjs checks that model
 // against TorC's run. Controls are never re-rendered (focus stays put); no autoplay; the module touches the DOM only in mountBowl.
 import { el } from '../core/dom.js';
@@ -27,7 +28,7 @@ export function mountBowl(host, D) {
   const status = el('div', { class: 'sr', 'aria-live': 'polite' });
   const restart = () => { path = [m.w0]; status.textContent = ''; draw(); };
   const lrBtns = PRESET_LRS.map((v) => el('button', { type: 'button', class: 'btn small', 'aria-pressed': 'false', onclick: () => { lr = v; restart(); } }, String(v)));
-  const fogBtn = el('button', { type: 'button', class: 'btn', 'aria-pressed': 'false', onclick: () => {
+  const fogBtn = el('button', { type: 'button', class: 'btn', onclick: () => {
     fog = !fog;
     status.textContent = fog ? 'The fog hides the loss curve.' : 'The fog is gone. You see the loss curve and your path.';
     draw();
@@ -42,7 +43,8 @@ export function mountBowl(host, D) {
   const plotBox = el('div', { class: 'bowl-plot' });
   const readout = el('div', { class: 'bowl-read' });
   const next = el('div', { class: 'bowl-next' });
-  host.replaceChildren(controls, plotBox, readout, next);
+  const hint = el('p', { class: 'hint' }, 'The dashed line shows how steep the loss curve is at your point.');
+  host.replaceChildren(controls, plotBox, readout, next, hint);
   const curve = m.curve(X[0], X[1], 160).map((q) => [q.w, q.L]);
   const p = createPlot(plotBox, { width: 640, height: 300, x: X, y: Y, xLabel: 'w', yLabel: 'loss', ariaLabel: 'The loss of the two-notebook model against w.', onResize: () => draw() });
 
@@ -58,7 +60,6 @@ export function mountBowl(host, D) {
   function draw() {
     const w = cur(), q = m.at(w);
     lrBtns.forEach((b, i) => b.setAttribute('aria-pressed', String(PRESET_LRS[i] === lr)));
-    fogBtn.setAttribute('aria-pressed', String(fog));
     fogBtn.textContent = fog ? 'Lift the fog' : 'Turn the fog on';
     stepBtn.setAttribute('aria-disabled', String(path.length > MAX_STEPS));
     p.clear('curve'); p.clear('live'); p.clear('labels');
@@ -87,7 +88,8 @@ export function mountBowl(host, D) {
     readout.innerHTML = `<span><b>steps</b> ${path.length - 1}</span><span><b>w</b> ${fmt3(w)}</span>`
       + `<span><b>loss</b> ${fmt3(q.L)} <small>lower is better</small></span><span><b>gradient</b> ${fmt3(q.grad)}</span>`
       + (off ? '<span class="bowl-off">off the plot</span>' : '');
-    next.innerHTML = `<span class="bowl-lbl">next step</span> ${math(updateTex(m, w, lr), false)}`;
+    // the step just taken (never the next one, so a task can ask for a guess first; review M3)
+    next.innerHTML = path.length > 1 ? `<span class="bowl-lbl">last step</span> ${math(updateTex(m, path[path.length - 2], lr), false)}` : '';
   }
   draw();
   return { step, draw, setLr: (v) => { lr = v; restart(); }, toggleFog: () => fogBtn.click() };
@@ -100,7 +102,7 @@ const CSS = `
 .bowl-read{display:flex;flex-wrap:wrap;gap:.3rem 1.2rem;align-items:baseline;font-family:ui-monospace,monospace;font-size:.92rem;margin:.3rem 0 0}
 .bowl-read b{color:var(--muted);font-weight:600;margin-right:.3rem}
 .bowl-read small{color:var(--muted);font-family:system-ui,sans-serif}
-.bowl-next{overflow-x:auto;max-width:100%;margin:.3rem 0 0}
+.bowl-next{overflow-x:auto;max-width:100%;margin:.3rem 0 0;white-space:nowrap;min-height:1.6em}
 .bowl-off{color:var(--warn)}
 .bowl-path{stroke:var(--fg);stroke-width:1.4;fill:none;opacity:.7}
 .bowl-pt{fill:var(--panel2);stroke:var(--fg);stroke-width:1.8}
