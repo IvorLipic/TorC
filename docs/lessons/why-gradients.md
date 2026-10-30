@@ -108,14 +108,17 @@ Files: `site/js/lessons/why-gradients.js` (template 3, loop `adjust`), widgets `
 `two-bowls.js` (new), `bowl.js` (fog mode), `landscape-tex.js` (3-figure readouts, the new step line), `landscape-model.js`
 (unchanged). `why-gradients.scenes.js` is kept unchanged for the future `backprop` lesson; `lessons.test.mjs` still lints its texts.
 
-**As built**: hero -> Questions (2) -> "The price of a notebook" (setup) -> predict quiz (nudge to 0.01, new loss 35.76) -> 1 The
-gradient (ratio by nudging, the one use of "slope", dL/dw read aloud) -> nudge lens (task: nudge 1 down to 0.001) -> 2 One step
-(worked 0 - 0.05 x (-24) = 1.2, the arrow read as "replace w by", `L.backward()` as the real line) -> "Your turn" quiz (1.92,
-reveal worked, steps 1.2 then 0.72, 60 % kept) -> 3 A tempting idea that is wrong (four notebooks, -96 vs -24) -> two bowls (task
-w = 1, 6) -> 4 Steps in the fog (fog analogy with its limit) -> fog bowl (3 tasks: 0.05 in the fog, predict 0.25, 0.3) ->
-check quiz best-lr -> 5 How to choose the learning rate (shares 100 %, 140 %; In TorC panel with the `SGD::step()` line) ->
-transfer quiz (steep bowl, lr 0.05 -> 4.8) -> cumulative quiz from `what-is-learning` (which guess has the largest loss) ->
-explain -> The answer (next question: many weights).
+**As built (after the 2026-10-30 review round)**: hero -> Questions (2) -> "The price of a notebook" (setup: the loss named
+`L`, the start, the true price 3, a static picture of the whole bowl from the recorded grid, `widgets/bowl-figure.js`) -> predict
+quiz (a nudge is defined; new loss 35.76; the reveal names the likely wrong method) -> 1 The gradient (the ratio approaches -24 as
+the nudge shrinks; that number is the gradient; the one use of "slope"; dL/dw read aloud) -> nudge lens -> 2 One step (we choose
+lr = 0.05; worked 0 - 0.05 x (-24) = 1.2; the arrow; `L.backward()` as the real line) -> "Your turn" (1.92, with the worked
+distance line 3, 1.8, 1.08 that defines "keeps 60 %") -> 3 A tempting idea that is wrong (twice the miss times twice the effect of
+a nudge, -96 vs -24) -> two bowls -> 4 Steps in the fog (fog analogy; its limit: a hiker shortens the stride on steep ground, a
+training step gets longer) -> fog bowl (the step line shows the last step, never the next one) -> check quiz best-lr (start w = 0,
+8 presses bound to the trace) -> 5 How to choose the learning rate (shares 100 %, 140 %; "overshoot" defined) -> transfer quiz
+(steep bowl, lr 0.05 -> 4.8) -> cumulative quiz from `what-is-learning` (two lines through the test scores: the loss is the mean
+of the squared misses) -> explain -> The answer. No In TorC panel: the `SGD::step()` line is the real line of `sgd-step`.
 
 **Adaptations of Appendix B (reported to the lead).**
 - Appendix B says that with four notebooks "each nudge of w now changes the prediction four times as much". That is wrong:
@@ -125,17 +128,18 @@ explain -> The answer (next question: many weights).
   nudge", because the ratio is negative.
 - The learner step's reveal uses a `worked()` block for 1.2 - 0.05 x (-14.4) = 1.92, because a reveal sentence may hold at most
   two numbers. The step sizes and the 60 % come from the new trace fields (`step`, `kept_percent`), not from arithmetic.
-  "The distance goes from 3 to 1.8 to 1.08" is left out (three numbers in one sentence, and the 60 % says it).
-- The fog analogy sits in section 4 with the fog widget, not in the refutation section, and its limit keeps the bank's "a hiker
-  remembers the path". The refutation uses its own widget (two bowls) so that the evidence is on the page.
+  The distance line 3, 1.8, 1.08 is in the same worked block (review H1).
+- The fog analogy sits in section 4 with the fog widget, not in the refutation section, and its limit is the one this lesson
+  needs (review M5): a hiker takes shorter steps on steep ground, a training step gets longer there. The refutation uses its own widget (two bowls) so that the evidence is on the page.
 - The fog bowl offers lr 0.05, 0.1, 0.25, 0.3 (0.1 added for the "smaller is not always better" check; 0.125 dropped with the
   one-step special case). The start slider is gone (every task starts at w = 0).
 - The old check "why does lr 0.125 not work for a real network?" is replaced by a transfer quiz (the same lr on the steep bowl),
   so the word "curvature" is not needed.
 - The nudge lens offers the five recorded nudge sizes as buttons (no dragging). Its measured values are the recorded secants.
-- The cumulative quiz comes from `what-is-learning`, which is still `planned` in `course.json`, so its "comes from the lesson"
-  link has no page until that lesson exists.
-- dL/dw is written once, with a new notation entry `dl-dw` (lesson `why-gradients`) in `site/js/content/notation.js`.
+- The cumulative quiz is set in the context of `what-is-learning` (hours of practice and test scores) and tests that the loss is
+  the mean of the squared misses. Its arithmetic is in the test file.
+- dL/dw is written once (notation entry `dl-dw`), `lr` links to its notation entry, and the arrow is introduced and then used in
+  two worked lines. The arrow entry now reads "replace by".
 - `course.json` `code` now shows `L.backward()`, `optim::SGD` and `step()` (no `Variable w(...)` setup line); its SPEC in
   `tools/snippets/check.mjs` checks the gradient -24 and the new weight 1.2 against the pinned TorC.
 

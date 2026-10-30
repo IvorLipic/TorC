@@ -38,7 +38,7 @@ export default {
     {
       kind: 'text',
       html: () => `${STYLE}<section class="hero"><h1>The gradient</h1>
-    <p class="lead">A model with one weight learns the price of a notebook.</p></section>`,
+    <p class="lead">A ${term('model')} with one ${term('weight')} learns the price of a notebook.</p></section>`,
     },
     {
       kind: 'questions',
@@ -52,7 +52,7 @@ export default {
       html: (D, T) => {
         const files = D.files['why-gradients'], x = T.num(`${F}.setup.x`), t = T.num(`${F}.setup.t`);
         return sec('price', 'The price of a notebook', `
-    <p>Two notebooks cost ${T(`${F}.setup.t`, 'setup')} euros. The model has one weight, <code>w</code>, which is its guess of the price of one notebook. For two notebooks it predicts ${math(`${x}w`, false)} euros.</p>
+    <p>Two notebooks cost ${T(`${F}.setup.t`, 'setup')} euros. The model has one weight, <code>w</code>, which is its guess of the price of one notebook. Its ${term('prediction')} for two notebooks is ${math(`${x}w`, false)} euros.</p>
     <p>The ${term('loss')} <code>L</code> measures how wrong the prediction is. Here it is the square of the miss, ${math(`L = (${x}w - ${t})^2`, false)}.</p>
     <p>The model starts with the guess <code>w</code> = ${T(`${F}.probes.0.w`, 'setup')} and misses by ${T(`${F}.nudge.miss_before`, 'setup')} euros. So the loss is ${T(`${F}.nudge.miss_before`, 'setup')} squared, which is ${T(`${F}.probes.0.L`, 'setup')}.</p>
     <p>The true price is ${T(`${F}.setup.w_min`, 'setup')} euros. There the miss and the loss are zero.</p>
@@ -72,20 +72,21 @@ export default {
       html: (D, T) => sec('gradient', '1 · The gradient', `
     <p>Divide the change of the loss by the nudge. A nudge ten times smaller changes the loss about ten times less, so this ratio stays almost the same.</p>
     <p>As the nudge gets smaller, the ratio comes closer and closer to one number, ${T(`${F}.probes.0.grad`, 'setup')}. This number is the ${term('gradient')}. It is the slope of the loss curve at the current point.</p>
-    <p>A negative gradient tells you that a larger <code>w</code> gives a smaller loss. A positive gradient tells you the opposite.</p>`),
+    <p>We write it ${sym('dl-dw', math('\\frac{dL}{dw}', false))} and read it as “how much the loss changes per unit change of <code>w</code>”.</p>
+    <p>A negative gradient means that a larger <code>w</code> gives a smaller loss, and a positive one means the opposite.</p>`),
     },
     {
       kind: 'widget', id: 'nudge-lens', className: 'widget', label: 'Interactive: the nudge lens',
       mount: (host, D) => mountNudgeLens(host, D),
       tasks: (D, T) => [{
-        do: `Choose the nudge ${T(`${F}.secants.0.h`, 'setup')}. Then choose smaller nudges, one after the other, down to ${T(`${F}.secants.4.h`, 'setup')}.`,
+        do: `Choose the nudge ${T(`${F}.secants.0.h`, 'setup')}, then smaller nudges down to ${T(`${F}.secants.4.h`, 'setup')}.`,
         see: 'The loss curve and the straight line come closer, until they look like one line. The actual change divided by the nudge comes closer to the gradient.',
       }],
     },
     {
       kind: 'text',
       html: (D, T) => sec('step', '2 · One step', `
-    <p>Training changes <code>w</code> by the gradient times a small number, in the opposite direction. That small number is the ${term('learning-rate')}, written ${lr}. Here we choose ${lr} = ${T(traj(SLOW, 'lr'), 'setup')}.</p>
+    <p>${term('training', 'Training')} changes <code>w</code> by the gradient times a small number, in the opposite direction. That small number is the ${term('learning-rate')}, written ${sym('lr', lr)}. Here we choose ${lr} = ${T(traj(SLOW, 'lr'), 'setup')}.</p>
     ${worked(`<p>new <code>w</code> = <code>w</code> − ${lr} × gradient = ${T(`${F}.probes.0.w`, 'worked')} − ${T(traj(SLOW, 'lr'), 'worked')} × (${T(`${F}.probes.0.grad`, 'worked')}) = <strong>${T(traj(SLOW, 'states.0.w_next'), 'worked')}</strong></p>`)}
     <p>Subtracting a negative number adds, so <code>w</code> goes up toward the true price.</p>
     <p>Programs write “new <code>w</code> =” as <code>w</code> ${arrow()}. Read the arrow as “replace <code>w</code> by”.</p>
@@ -119,7 +120,7 @@ export default {
     {
       kind: 'text',
       html: () => sec('fog', '4 · Steps in the fog', `
-    <p>Nobody can draw the loss curve of a network with thousands of weights. So training finds the gradient where it is, takes one step, and finds it again.</p>
+    <p>Nobody can draw the loss curve of a large network. Training finds the gradient where it is, takes one step, and repeats.</p>
     ${analogy('You stand on a hillside in thick fog. You feel which way the ground goes down under your feet, and how steep it is. You cannot see the valley.',
     'A hiker takes shorter steps where the ground is steep. A training step gets longer there, because it is the learning rate times the gradient.')}
 `),
@@ -128,10 +129,10 @@ export default {
       kind: 'widget', id: 'bowl', className: 'widget', label: 'Interactive: step down the bowl in the fog',
       mount: (host, D) => mountBowl(host, D),
       tasks: (D, T) => [
-        { do: `Turn the fog on. Press Step with the learning rate ${T(traj(SLOW, 'lr'), 'setup')} until the gradient is near zero. Then lift the fog.`,
+        { do: `Turn the fog on. Press Step with ${T(traj(SLOW, 'lr'), 'setup')} until the gradient is near zero, then lift the fog.`,
           see: 'In the fog you see only your point and the dashed line of its gradient. The steps get shorter, and <code>w</code> comes close to the bottom.' },
         { do: `Choose ${T(traj(BOUNCE, 'lr'), 'setup')}. Guess the new <code>w</code> out loud, then press Step.`,
-          see: '<code>w</code> jumps to the other side of the bottom, exactly as far from it as the start. The next step jumps back to the start.' },
+          see: '<code>w</code> jumps to the other side of the bottom, exactly as far from it as the start was. The next step jumps back to the start.' },
         { do: `Choose ${T(traj(DIVERGE, 'lr'), 'setup')} and press Step a few times.`,
           see: 'Each jump lands farther from the bottom, and the loss grows.' },
       ],

@@ -215,7 +215,9 @@ test('section 1: a nudge ten times smaller changes the loss about ten times less
   // the gradient is the number the ratio approaches (review M2): every recorded ratio is closer to it than the one before
   for (let i = 1; i < s.length; i++) assert.ok(Math.abs(s[i].slope - s[i].backward_slope) < Math.abs(s[i - 1].slope - s[i - 1].backward_slope));
   assert.match(prose, /comes closer and closer to one number/);
-  assert.doesNotMatch(prose, /dL\/dw/, 'no dL/dw in this lesson');
+  assert.match(sectionOf('gradient'), /data-sym="dl-dw"/, 'dL/dw is introduced here (notation.js names this lesson)');
+  assert.match(prose, /how much the loss changes per unit change of w/);
+  assert.match(sectionOf('step'), /data-sym="lr"/, 'lr links to the notation guide at its first use');
 });
 
 test('section 2 and the learner step: 0 − 0.05 × (−24) = 1.2, then 1.2 − 0.05 × (−14.4) = 1.92, steps shrink, 60% kept', () => {

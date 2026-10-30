@@ -68,7 +68,7 @@ export function mountBowl(host, D) {
     p.root.classList.toggle('bowl-fog', fog);
     if (!fog) {
       p.curve(curve, { class: 'plot-curve', layer: 'curve' });
-      p.text(5.3, m.lossAt(5.3), 'loss curve', { class: 'plot-text bowl-label', dx: 10, dy: 4, layer: 'labels' });
+      p.text(4.4, m.lossAt(4.4), 'loss curve', { class: 'plot-text bowl-label', dx: 8, dy: 6, layer: 'labels' });
       p.line(m.wMin, Y[0], m.wMin, Y[1] * 0.92, { class: 'bowl-bottom', layer: 'curve' });
       p.text(m.wMin, Y[1] * 0.92, 'bottom', { class: 'plot-text bowl-label', anchor: 'middle', dy: -4, layer: 'labels' });
       if (path.length > 1) {
