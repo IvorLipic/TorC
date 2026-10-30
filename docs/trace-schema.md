@@ -140,6 +140,13 @@ v3 additions (brief §6 `sgd-step`, the c-zero check of §7, D13), appended afte
   `total`/`tensors` come from the real `Sequential::parameters()`, the per-layer breakdown from each module's `named_parameters()` (sorted by name).
 - `checks`: `{all_internal_checks_passed}`.
 
+Added for the v3 lesson "The neuron and the layer" (appended key, nothing else changed):
+- `taxi` = `{inputs[3], outputs[2], x, W, b, weight_shape, bias_shape, y, y_bias0_plus1, exact}`: a real `nn::Linear(3, 2)` with the
+  weights set by hand. Inputs per ride: km, minutes of waiting, bags; neuron 0 is the price in euros, neuron 1 the time in minutes.
+  `x` (2, 3) = two rides, `W` (2, 3), `b` (2), each `{shape, values}`; `weight_shape`/`bias_shape` as the module holds them ((out, in),
+  (out)); `y` (2, 2) is the module's forward pass, `y_bias0_plus1` the same pass after `b[0] += 1`. `exact` = every entry equals the
+  double-precision hand sum (the numbers are small integers and halves); the program fails otherwise.
+
 ## `tensors.json` (kind `tensors`, lesson `tensors`)
 
 No scenes. `example` = `{shape, numel, values, index[{i, j, flat, value}]}` for `a = [[1, 2, 3], [4, 5, 6]]` (read through
@@ -170,6 +177,9 @@ Added for the v3 hinge builder (appended keys, nothing else changed):
   `sum(contribution, axis 1)` (TorC) plus `b2`, and `max_abs_diff_vs_prediction` compares it with `models[1].checkpoints[3].prediction`
   (0 in the committed run; the program fails above `1e-5`). `derived.kink_x = -b1_k / W1_k` (double) and `active_for` is
   `"x > kink_x"` when `W1_k > 0`, else `"x < kink_x"`.
+- `collapse` = `{f{w, b}, g{w, b}, x[4], f_x[4], g_f_x[4], combined{w, b}, combined_x[4], equal}`: two real `nn::Linear(1, 1)` in
+  a row, `f(x) = 2x + 1` and `g(x) = 3x + 4`, on `x = 0, 1, 2, 3`; `combined` = `{w: 6, b: 7}` is derived (`wg·wf`, `wg·bf + bg`) and
+  put into a third `nn::Linear(1, 1)`, whose outputs `combined_x` equal `g_f_x` exactly (`equal`; the program fails otherwise).
 
 ## `modules.json` (kind `modules`, lesson `modules`)
 

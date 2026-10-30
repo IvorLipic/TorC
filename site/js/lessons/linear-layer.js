@@ -48,7 +48,7 @@ export default {
     {
       kind: 'text',
       html: () => `${STYLE}<section class="hero"><h1>The neuron and the layer</h1>
-    <p class="lead">Every ${term('neural-network')} is built from one small formula. A taxi price shows it.</p></section>`,
+    <p class="lead">Every ${term('neural-network')} uses one small formula many times. A taxi price shows the formula.</p></section>`,
     },
     {
       kind: 'questions',
@@ -60,7 +60,8 @@ export default {
     {
       kind: 'text', setup: true,
       html: (D, T) => sec('taxi', 'Taxi prices', `
-    <p>In the last lesson, a taxi ride cost a fixed fee plus a price per kilometre. That ${term('model')} had one input, the distance. Our taxi company also charges for waiting and for bags.</p>
+    <p>In the last lesson, a taxi ride cost a fixed fee plus a price per kilometre. The ${term('gradient')} showed the ${term('model')} how to improve both. This method is ${term('gradient-descent')}.</p>
+    <p>That model had one input, the distance. Our taxi company also charges for waiting and for bags.</p>
     <p>Each kilometre costs ${T(w(0, 0), 'setup')} euros. Each minute of waiting costs ${T(w(0, 1), 'setup')} euro. Each bag costs ${T(w(0, 2), 'setup')} euro. Every ride also pays a fee of ${T(b(0), 'setup')} euro.</p>
     <p>We choose these prices by hand. ${term('training', 'Training')} could find them from data.</p>`),
     },
@@ -75,12 +76,12 @@ export default {
       kind: 'text',
       html: (D, T) => sec('neuron', '1 · One neuron', `
     <p>You multiplied each input by its own number, added the products, and then added the fee. A ${term('neuron')} computes exactly this.</p>
-    <p>The numbers that multiply the inputs are its ${term('weight', 'weights')}. The number added at the end is its ${term('bias')}, here the fee. To multiply the matching numbers of two lists and add the products is called a dot product.</p>
+    <p>The numbers that multiply the inputs are its ${term('weight', 'weights')}. The number added at the end is its ${term('bias')}, here the fee. Multiplying matching numbers and adding the products is a dot product.</p>
     <p>With letters, the inputs are ${sym('subscript', '<i>x</i>₀')}, <i>x</i>₁ and <i>x</i>₂, and the weights are <i>w</i>₀, <i>w</i>₁ and <i>w</i>₂. The small number is a position, and positions count from <code>0</code>.</p>
     <p>The sign ${sym('sum', 'Σ')} means “add up all the terms”. So the neuron computes:</p>
     ${eq('y = w_0 x_0 + w_1 x_1 + w_2 x_2 + b = \\sum_{j=0}^{2} w_j\\, x_j + b', 'The formula of one neuron')}
     ${neuronFigure(D.files.linear.taxi, { neurons: [0], caption: 'One neuron. Each arrow multiplies an input by its weight. The circle adds the products and the bias.' })}
-    <p>The name comes from the nerve cells of the brain. But this neuron is not a small brain. It only multiplies and adds.</p>`),
+    <p>The name comes from nerve cells, but this neuron is not a small brain. It only multiplies and adds.</p>`),
     },
     {
       kind: 'text',
@@ -98,7 +99,7 @@ export default {
     ${eq(`x = ${mat(T, [[x(0, 0), x(0, 1), x(0, 2)], [x(1, 0), x(1, 1), x(1, 2)]])} \\qquad W = ${mat(T, [[w(0, 0), w(0, 1), w(0, 2)], [w(1, 0), w(1, 1), w(1, 2)]])} \\qquad b = (${T.num(b(0))},\\ ${T.num(b(1))})`, 'The two rides, the weights and the biases')}
     <p>Rows count from <code>0</code> too, so row <code>1</code> of <i>W</i> is the time neuron. The output <i>y</i>ᵢₖ of neuron <i>k</i> for ride <i>i</i> combines row <i>i</i> of <i>x</i> with row <i>k</i> of <i>W</i>:</p>
     ${eq('y_{ik} = \\sum_{j} x_{ij}\\, W_{kj} + b_k', 'The formula of a layer')}
-    <p>This is a matrix product, and it computes every neuron for every ride at once. TorC copies <i>b</i> into each row of the result. This copying is called ${term('broadcasting')}.</p>
+    <p>This is a matrix product, and it computes every neuron for every ride at once. TorC copies <i>b</i> into each row of the result and calls this copying ${term('broadcasting')}.</p>
     ${refresher('matrix-product')}`),
     },
     {
@@ -161,7 +162,7 @@ export default {
     },
     {
       kind: 'quiz', id: 'gradient-size', purpose: 'cumulative', from: 'sgd-step', type: 'choice',
-      prompt: () => `<p>In the last lesson, the taxi model had two parameters, and its ${term('gradient')} was a list of two numbers. How many numbers does the gradient of the first digit layer hold?</p>`,
+      prompt: () => `<p>In the last lesson, the taxi model had two parameters, and its gradient was a list of two numbers. How many numbers does the gradient of the first digit layer hold?</p>`,
       options: [
         { html: 'One number for each parameter', correct: true,
           feedback: 'Yes. Each weight and each bias gets its own number.' },

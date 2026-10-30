@@ -31,24 +31,48 @@ const f1 = (v) => v.toFixed(1);
 const txt = (x, y, s, { anchor = 'middle', cls = 'nf-text', fill = 'var(--fg)', size = 13, weight = 400 } = {}) =>
   `<text class="${cls}" x="${f1(x)}" y="${f1(y)}" text-anchor="${anchor}" dominant-baseline="central" style="fill:${fill};font-size:${size}px;font-weight:${weight}">${escapeHtml(s)}</text>`;
 
+const TRY_T = [0.7, 0.55, 0.82, 0.4, 0.62, 0.48, 0.76, 0.3];
+const boxOf = (x, y, text) => { const w = text.length * 7.6 + 6, h = 18; return { x: x - w / 2, y: y - h / 2, w, h }; };
+const hit = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+// labels: [{seg: [x1, y1, x2, y2], text, …}] -> the same with {x, y, box}; the first t of `tries` whose box overlaps no placed box
+export function placeLabels(labels, tries = TRY_T) {
+  const placed = [];
+  for (const l of labels) {
+    let best = null;
+    for (const t of tries) {
+      const [x, y] = along(...l.seg, t), box = boxOf(x, y, l.text);
+      if (!placed.some((p) => hit(p.box, box))) { best = { ...l, x, y, box }; break; }
+    }
+    if (!best) { const [x, y] = along(...l.seg, tries[0]); best = { ...l, x, y, box: boxOf(x, y, l.text) }; }
+    placed.push(best);
+  }
+  return placed;
+}
+
 export function neuronFigure(taxi, { neurons = [0], ride = 0, caption = '' } = {}) {
   const L = layout(neurons.length);
   const nIn = taxi.x.shape[1];
   const xv = (j) => taxi.x.values[ride * nIn + j];
   const wv = (k, j) => taxi.W.values[k * nIn + j];
   const parts = [];
-  // arrows from every input to every neuron, with the weight near the neuron end
+  // arrows from every input to every neuron; then each weight on its arrow, on a small backing box, placed greedily at the first
+  // position along the arrow where its box overlaps no box placed before (placeLabels, exported for the test)
+  const lines = [], labels = [];
   neurons.forEach((k, a) => {
     const ny = L.neurons[a];
     for (let j = 0; j < nIn; j++) {
       const x1 = BOX.x + BOX.w, y1 = L.inputs[j];
       const ang = Math.atan2(ny - y1, NX - x1);
       const x2 = NX - L.r * Math.cos(ang), y2 = ny - L.r * Math.sin(ang);
-      parts.push(`<line x1="${f1(x1)}" y1="${f1(y1)}" x2="${f1(x2)}" y2="${f1(y2)}" style="stroke:${COLORS[k]};stroke-width:2;opacity:.85"/>`);
-      const [lx, ly] = along(x1, y1, x2, y2, neurons.length === 1 ? 0.5 : 0.66);
-      parts.push(txt(lx, ly, `× ${fmt(wv(k, j))}`, { cls: 'nf-w', fill: COLORS[k], weight: 700 }));
+      lines.push(`<line x1="${f1(x1)}" y1="${f1(y1)}" x2="${f1(x2)}" y2="${f1(y2)}" style="stroke:${COLORS[k]};stroke-width:2;opacity:.85"/>`);
+      labels.push({ k, seg: [x1, y1, x2, y2], text: `× ${fmt(wv(k, j))}` });
     }
   });
+  parts.push(...lines);
+  for (const l of placeLabels(labels, neurons.length === 1 ? [0.5] : TRY_T)) {
+    parts.push(`<rect x="${f1(l.box.x)}" y="${f1(l.box.y)}" width="${f1(l.box.w)}" height="${f1(l.box.h)}" rx="4" style="fill:var(--bg)"/>`);
+    parts.push(txt(l.x, l.y, l.text, { cls: 'nf-w', fill: COLORS[l.k], weight: 700 }));
+  }
   // input boxes
   for (let j = 0; j < nIn; j++) {
     const y = L.inputs[j];
