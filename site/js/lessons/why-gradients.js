@@ -57,7 +57,7 @@ export default {
     <p>The model starts with the guess <code>w</code> = ${T(`${F}.probes.0.w`, 'setup')} and misses by ${T(`${F}.nudge.miss_before`, 'setup')} euros. So the loss is ${T(`${F}.nudge.miss_before`, 'setup')} squared, which is ${T(`${F}.probes.0.L`, 'setup')}.</p>
     <p>The true price is ${T(`${F}.setup.w_min`, 'setup')} euros. There the miss and the loss are zero.</p>
     ${bowlFigure({ grid: files.grid, start: files.probes[0], wMin: files.setup.w_min, caption: 'The loss for every guess <code>w</code>. This curve is a bowl, and its lowest point is the bottom.' })}
-    <p>Here you can divide to find the price. A network for handwritten digits has ${T.anchor('mlp_parameters')} weights and no such shortcut.</p>`);
+    <p>Here you can divide to find the price. A network for handwritten digits has ${T.anchor('mlp_parameters')} ${term('parameter', 'parameters')} and no such shortcut.</p>`);
       },
     },
     {

@@ -220,8 +220,8 @@
     "optimizer": {
       "term": "optimizer",
       "forms": ["optimizer", "optimizers"],
-      "short": "An optimizer is the part of a program that changes the parameters after each step, from their gradients.",
-      "lesson": "training-loop"
+      "short": "The optimizer is the part of a training program that uses the gradients to change the parameters.",
+      "lesson": "sgd-step"
     },
     "overfitting": {
       "term": "overfitting",
@@ -358,8 +358,8 @@
     "vector": {
       "term": "vector",
       "forms": ["vector", "vectors"],
-      "short": "A vector is a list of numbers in a given order, for example the inputs of a neuron.",
-      "lesson": "linear-layer"
+      "short": "A vector is a list of numbers in a fixed order, for example one number for each parameter.",
+      "lesson": "sgd-step"
     },
     "weight": {
       "term": "weight",
