@@ -34,7 +34,7 @@
     "bias": {
       "term": "bias",
       "forms": ["bias", "biases"],
-      "short": "A bias is a number that a model adds to a weighted sum, so that the output can move up or down.",
+      "short": "A bias is a parameter that a model adds to its result, so that the result can move up or down.",
       "lesson": "what-is-learning"
     },
     "broadcasting": {
@@ -196,7 +196,7 @@
     "model": {
       "term": "model",
       "forms": ["model", "models"],
-      "short": "A model is a formula with adjustable numbers that turns an input into an output, for example a price or a digit.",
+      "short": "A model is a rule with adjustable numbers that turns an input into an answer, for example a score or a digit.",
       "lesson": "what-is-learning"
     },
     "momentum": {
@@ -238,7 +238,7 @@
     "parameter": {
       "term": "parameter",
       "forms": ["parameter", "parameters"],
-      "short": "A parameter is any number in a model that training changes, for example a weight or a bias.",
+      "short": "A parameter is an adjustable number in a model that training changes, for example a weight or a bias.",
       "lesson": "what-is-learning"
     },
     "pixel": {
@@ -364,7 +364,7 @@
     "weight": {
       "term": "weight",
       "forms": ["weight", "weights"],
-      "short": "A weight is a number inside a model that training changes, and it sets how strongly an input counts.",
+      "short": "A weight is a parameter that a model multiplies with an input, so it sets how strongly that input counts.",
       "lesson": "what-is-learning"
     },
     "weight-decay": {

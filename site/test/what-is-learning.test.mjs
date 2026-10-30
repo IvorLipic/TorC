@@ -28,12 +28,12 @@ const plain = () => {
 const html = plain();
 const shown = (path) => boundNums(html).filter((b) => b.path === path).map((b) => b.shown);
 
-test('the data: fifteen made-up students, ten training points and five hidden points, scores out of ten', () => {
+test('the data: forty made-up students, ten training points and thirty hidden points, scores out of ten', () => {
   assert.equal(G.data.n_train, 10);
-  assert.equal(G.data.n_hidden, 5);
-  assert.equal(G.data.points.length, 15);
+  assert.equal(G.data.n_hidden, 30);
+  assert.equal(G.data.points.length, 40);
   assert.equal(tx.length, 10);
-  assert.equal(hx.length, 5);
+  assert.equal(hx.length, 30);
   for (const y of [...ty, ...hy]) assert.ok(y >= 0 && y <= 10, `score ${y} is out of ten`);
   for (const x of [...tx, ...hx]) assert.ok(x >= 0.5 && x <= 4, `hours ${x} fit the plot`);
   assert.ok(G.data.story.includes('hours of practice'), 'the story of the page is the story of the data');
@@ -93,7 +93,16 @@ test('predict: no line passes through all ten points, and no line beats the comp
   // close to the rule that made the data, but not equal to it
   assert.ok(Math.abs(fin.w - G.data.true_line.w) < 0.2 && Math.abs(fin.b - G.data.true_line.b) < 0.2);
   assert.ok(Math.abs(fin.w - G.data.true_line.w) > 0.01 || Math.abs(fin.b - G.data.true_line.b) > 0.01);
-  assert.deepEqual(shown('files.whole-game.runs.0.final.train_loss'), ['0.4', '0.4'], 'typical miss on the training points');
+  assert.deepEqual(shown('files.whole-game.runs.0.final.train_loss'), ['0.4'], 'typical miss on the training points');
+  // the predict reveal gives away no number of the computer's line (M1): it points at the game
+  const reveal = html.match(/id="quiz-perfect-line-reveal"[\s\S]*?<\/div>/)[0];
+  assert.doesNotMatch(reveal, /class="num"/);
+});
+
+test('the hidden points open only after the computer\'s last step (H1)', async () => {
+  const { hiddenAllowed } = await import('../js/widgets/fit-game.js');
+  assert.equal(hiddenAllowed(false), false);
+  assert.equal(hiddenAllowed(true), true);
 });
 
 test('the worked example and "your turn" use the line w = 1, b = 3, and the answer cannot be the miss itself', () => {
@@ -104,7 +113,6 @@ test('the worked example and "your turn" use the line w = 1, b = 3, and the answ
   assert.deepEqual(shown(`files.whole-game.probes.3.train_square.${mod.ONE}`), ['1.21']);
   assert.deepEqual(shown(`files.whole-game.probes.3.train_residual.${mod.ONE}`), ['−1.1']);
   assert.deepEqual(shown(`files.whole-game.probes.3.train_square.${mod.TWO}`), ['0.25']);
-  assert.deepEqual(shown('files.whole-game.probes.3.train_loss'), ['0.624', '0.79']);
   const q = lesson.sections.find((s) => s.id === 'your-square');
   const ans = T.num(q.answer), miss = Math.abs(p.train_residual[mod.TWO]);
   assert.ok(Math.abs(ans - 0.25) < 1e-5);
@@ -120,12 +128,23 @@ test('the game tasks: the computer starts flat at zero, moves a lot at first and
   assert.ok(run.steps[1].train_loss < run.steps[0].train_loss / 10, 'the loss falls fast at first');
 });
 
-test('new data: the computer\'s line misses the hidden points by more than the training points', () => {
+test('new data (H2): thirty hidden points, the computer\'s line misses them by more, and almost no line does better on them', () => {
+  // task 3 and §4: the hidden points open only at the last step, where the hidden miss is larger than the training miss
   assert.ok(fin.hidden_loss > fin.train_loss);
-  assert.ok(typicalMiss(fin.hidden_loss) > typicalMiss(fin.train_loss) * 1.5);
-  assert.deepEqual(shown('files.whole-game.runs.0.final.hidden_loss'), ['0.83']);
-  // the sentence names the hidden miss first, then the training miss
-  assert.match(html, /hidden points by more than the training points, by about <span[^>]*runs\.0\.final\.hidden_loss[^>]*>0\.83<\/span> against <span[^>]*runs\.0\.final\.train_loss[^>]*>0\.4<\/span>/);
+  assert.ok(near(run.steps.at(-1).hidden_loss, fin.hidden_loss));
+  assert.deepEqual(shown('files.whole-game.runs.0.final.hidden_loss'), ['0.65']);
+  // even the best possible line for the hidden points misses by about the same
+  const best = G.derived.best_hidden_line;
+  assert.ok(best.hidden_loss <= fin.hidden_loss && near(mse(best.w, best.b, hx, hy), best.hidden_loss, 1e-5));
+  assert.ok(typicalMiss(fin.hidden_loss) - typicalMiss(best.hidden_loss) < 0.05, 'the computer is close to the best possible line on new data');
+  assert.deepEqual(shown('files.whole-game.derived.best_hidden_line.hidden_loss'), ['0.64']);
+  // few lines on a grid beat the computer on the thirty hidden points, so a hand line rarely does
+  let beat = 0, all = 0;
+  for (let w = 0; w <= 3; w += 0.05) for (let b = 0; b <= 4; b += 0.05) { all++; if (mse(w, b, hx, hy) < fin.hidden_loss) beat++; }
+  assert.ok(beat / all < 0.01, `${beat} of ${all} grid lines beat the computer on the hidden points`);
+  // "on a few points, a hand line can tie or win by luck": on the first five hidden points, the line w = 1, b = 3 ties with it
+  const h5x = hx.slice(0, 5), h5y = hy.slice(0, 5);
+  assert.ok(mse(1, 3, h5x, h5y) < mse(fin.w, fin.b, h5x, h5y) * 1.001);
 });
 
 test('the digit pad: the first test images are read correctly, the last four buttons are misread', () => {
@@ -133,13 +152,13 @@ test('the digit pad: the first test images are read correctly, the last four but
   assert.ok(last4.every((x) => argmax(x.logits) !== x.label), 'the last four are mistakes');
   assert.ok(rest.every((x) => argmax(x.logits) === x.label), 'the others are read correctly');
   assert.equal(anchors.train_images, 60000);
-  assert.deepEqual(shown('anchors.train_images'), ['60,000']);
+  assert.deepEqual(shown('anchors.train_images'), ['60,000', '60,000']);
   assert.deepEqual(shown('anchors.mlp_parameters'), ['26,506']);
 });
 
-test('the reveal states the computer\'s line and the rule that made the data', () => {
-  assert.deepEqual(shown('files.whole-game.runs.0.final.w'), ['1.595']);
-  assert.deepEqual(shown('files.whole-game.runs.0.final.b'), ['1.897']);
+test('§2 states the computer\'s line (2 significant figures) and the rule that made the data', () => {
+  assert.deepEqual(shown('files.whole-game.runs.0.final.w'), ['1.6']);
+  assert.deepEqual(shown('files.whole-game.runs.0.final.b'), ['1.9']);
   assert.deepEqual(shown('files.whole-game.data.true_line.w'), ['1.5']);
   assert.deepEqual(shown('files.whole-game.data.true_line.b'), ['2']);
 });

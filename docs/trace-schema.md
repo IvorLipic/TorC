@@ -436,22 +436,25 @@ learning rate is 1e-3 against the MLP's 5e-4); `final` = `{test_correct, test_sa
 
 ## `whole-game.json` (kind `whole-game`, lesson `what-is-learning`)
 
-Honestly synthetic data: hours of practice in a week (`x`, 0.5 to 4) and the score in a test out of 10 (`y`) for 15 students, made in
+Honestly synthetic data: hours of practice in a week (`x`, 0.5 to 4) and the score in a test out of 10 (`y`) for 40 students, made in
 the producer (not by TorC) from the true line `y = 1.5x + 2` plus noise with standard deviation 0.6, drawn with `std::mt19937` (seed
 2026, fully specified by the C++ standard) and a Box-Muller transform in double; `x` and `y` are rounded to one decimal. The first 10
-points train the model, the last 5 are hidden (never trained on).
-- `data` = `{story, x_name, y_name, true_line{w, b}, noise_std, seed, generator, n_train, n_hidden, train{x[10], y[10]}, hidden{x[5],
-  y[5]}, points[15]{i, x, y, set: train|hidden}}`.
+points train the model, the last 30 are hidden (never trained on; 30 so that the miss on them is a stable measure. The RNG draws in
+order, so the first 15 points equal those of the earlier 5-hidden-point version).
+- `data` = `{story, x_name, y_name, true_line{w, b}, noise_std, seed, generator, n_train, n_hidden, train{x[10], y[10]}, hidden{x[30],
+  y[30]}, points[40]{i, x, y, set: train|hidden}}`.
 - `runs[]` = `{id, start{w, b}, lr: 0.1, optimizer, batch, settled, settle_rule, steps[], final{steps, w, b, train_loss, hidden_loss}}`:
   `nn::Linear(1, 1)` with `w` and `b` set by hand, `nn::MSELoss` on `(10, 1)` vs `(10, 1)`, `optim::SGD` on all 10 training points per
   step. `runs[0]` (`from-zero`) starts at `w = b = 0`, `runs[1]` (`from-w3`) at `w = 3, b = 0`. `steps[k]` = `{step, w, b, train_loss,
   hidden_loss}` is the state after `k` steps (`train_loss` is the loss `backward()` was called on, `hidden_loss` the loss on the hidden
   points with no gradient). A run stops after the first step that changes neither `w` nor `b` by more than `1e-5` (`settled`), or at
   1000 steps; the last entry is the settled state. Observed: `from-zero` settles after 200 steps at `w = 1.595`, `b = 1.897`.
-- `probes[]` = `{id, w, b, train_loss, hidden_loss, train_pred[10], train_residual[10], hidden_pred[5], hidden_residual[5]}`: TorC's
+- `probes[]` = `{id, w, b, train_loss, hidden_loss, train_pred[10], train_residual[10], hidden_pred[30], hidden_residual[30], train_square[10], hidden_square[30]}`: TorC's
   `MSELoss` of fixed lines (`zero`, `flat-5`, `true`, `w1-b3`, `w2-b1`, `w3-b0`, `w-0.5-b6`), with the predictions of `nn::Linear` and
-  the residuals `prediction - target` (float32): conformance data for the JS that scores a hand-placed line.
+  the residuals `prediction - target` and their squares (float32; the squares are derived): conformance data for the JS that scores a
+  hand-placed line, and the numbers of the worked example.
 - `true_line` = `{w, b, train_loss, hidden_loss}`: `MSELoss` of the true line (the noise that no line removes).
-- `derived` = `{least_squares{w, b, train_loss}, hessian_lambda_max, critical_lr}`: the best line on the training points and the
+- `derived` = `{least_squares{w, b, train_loss}, hessian_lambda_max, critical_lr, best_hidden_line{w, b, hidden_loss}}`: the best line
+  on the training points, the best line for the hidden points themselves (no line misses them by less), and the
   stable-lr limit `2 / lambda_max`, in double (Expected mathematics; the producer checks `lr < critical_lr`).
 Producer: `tools/trace/trace_whole_game.cpp`.

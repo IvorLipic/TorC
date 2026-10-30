@@ -128,30 +128,33 @@ function paintGray(canvas, pixels) {   // 784 values 0..255 onto a 28 x 28 canva
 }
 
 // ======================================================================================================================
-export function mountDigitPad(host, D, { file = 'mnist-mlp', forward: fwd = forward } = {}) {
+// opts.simple: plain words for the first page of the course (what-is-learning), with no terms that the page has not defined yet
+export function mountDigitPad(host, D, { file = 'mnist-mlp', forward: fwd = forward, simple = false } = {}) {
   injectStyles();
   const M = D.files[file], layers = M.layers, N = 280;
+  const pct = (v) => `${Math.round(100 * v)}%`;
   const pad = el('canvas', { class: 'dw-pad', width: N, height: N, role: 'img', 'aria-label': 'Drawing area. Draw a digit with a mouse, a pen or a finger.' });
   const seen = el('canvas', { class: 'dw-seen', width: 28, height: 28, role: 'img', 'aria-label': 'The 28 by 28 image the model reads' });
   const bars = el('div', { class: 'dw-bars', 'aria-hidden': 'true' });
   const read = el('p', { class: 'dw-read' });                  // follows the drawing: not a live region
   const say = el('p', { class: 'sr', 'aria-live': 'polite' }); // announced on a click and at the end of a stroke
   const clear = el('button', { type: 'button', class: 'btn small' }, 'Clear');
-  const samples = M.shown.map((s) => el('button', { type: 'button', class: 'btn small', 'aria-pressed': 'false', 'aria-label': `Test image ${s.index}, label ${s.label}` }, `#${s.index}`));
+  const samples = M.shown.map((s) => el('button', { type: 'button', class: 'btn small', 'aria-pressed': 'false', 'aria-label': simple ? `A handwritten ${s.label}` : `Test image ${s.index}, label ${s.label}` }, `#${s.index}`));
   host.replaceChildren(el('div', { class: 'dw' },
-    el('div', { class: 'dw-btns', role: 'group', 'aria-label': 'Test images' }, clear, ...samples),
+    el('div', { class: 'dw-btns', role: 'group', 'aria-label': simple ? 'Handwritten digits' : 'Test images' }, clear, ...samples),
     el('div', { class: 'dw-row' }, pad,
-      el('div', { class: 'dw-side' }, el('span', { class: 'dw-lbl' }, 'What the model reads'), seen, el('span', { class: 'dw-lbl' }, 'Probability of each digit'), bars, read, say))));
-  const ctx = pad.getContext('2d');
+      el('div', { class: 'dw-side' }, el('span', { class: 'dw-lbl' }, 'What the model reads'), seen, el('span', { class: 'dw-lbl' }, simple ? 'How sure the model is of each digit' : 'Probability of each digit'), bars, read, say))));
+  const ctx = pad.getContext('2d', { willReadFrequently: true });   // every stroke reads the pixels back
   const reset = () => { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, N, N); };
   reset();
 
   function show(pixels, recorded, announce = true) {
     paintGray(seen, pixels ?? new Array(784).fill(0));
-    if (!pixels) { bars.replaceChildren(); read.textContent = 'Draw a digit, or pick a test image.'; if (announce) say.textContent = read.textContent; return; }
+    if (!pixels) { bars.replaceChildren(); read.textContent = simple ? 'Draw a digit, or press one of the buttons.' : 'Draw a digit, or pick a test image.'; if (announce) say.textContent = read.textContent; return; }
     const p = softmax(fwd(layers, pixels)), top = argmax(p);
-    bars.replaceChildren(...p.flatMap((v, d) => [el('span', {}, String(d)), el('div', { class: `dw-bar${d === top ? ' top' : ''}`, style: `width:${(100 * v).toFixed(1)}%` }), el('span', {}, v.toFixed(3))]));
-    read.textContent = recorded
+    bars.replaceChildren(...p.flatMap((v, d) => [el('span', {}, String(d)), el('div', { class: `dw-bar${d === top ? ' top' : ''}`, style: `width:${(100 * v).toFixed(1)}%` }), el('span', {}, simple ? pct(v) : v.toFixed(3))]));
+    if (simple) read.textContent = (recorded ? `This handwritten digit is a ${recorded.label}. ` : '') + `The model reads ${top}, and it is ${pct(p[top])} sure.`;
+    else read.textContent = recorded
       ? `Test image ${recorded.index}, label ${recorded.label}. The model reads ${top}, with probability ${p[top].toFixed(3)}. TorC also reads ${argmax(recorded.logits)}.`
       : `The model reads ${top}, with probability ${p[top].toFixed(3)}.`;
     if (announce) say.textContent = read.textContent;
