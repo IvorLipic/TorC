@@ -4,5 +4,9 @@
   "train_images": "files.mnist-mlp.setup.train_samples",
   "test_images": "files.mnist-mlp.setup.test_samples",
   "image_side": "files.mnist-mlp.setup.image_side",
-  "bowl_w_min": "files.why-gradients.setup.w_min"
+  "bowl_w_min": "files.why-gradients.setup.w_min",
+  "pixels": "files.mnist-mlp.setup.pixels",
+  "classes": "files.mnist-mlp.setup.classes",
+  "mlp_test_accuracy": "files.mnist-mlp.final.test_accuracy",
+  "cnn_test_accuracy": "files.mnist-cnn.final.test_accuracy"
 }
