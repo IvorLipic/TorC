@@ -23,8 +23,8 @@ const shape = (...d) => `Tensor(std::vector<int>{${d.join(', ')}})`;
 // run: false = compile only (needs files or a long training run)
 export const SPEC = {
   'why-gradients': {
-    prelude: 'Variable x(Tensor({2.0f}, {1}), false);\nVariable t(Tensor({6.0f}, {1}), false);',
-    check: 'CHECK(w.grad().data()[0] == -24.0f);',
+    prelude: 'Variable w(Tensor({0.0f}, {1}), true);\nVariable x(Tensor({2.0f}, {1}), false);\nVariable t(Tensor({6.0f}, {1}), false);\nVariable p = mul(w, x);\nVariable e = sub(p, t);\nVariable L = mul(e, e);',
+    check: 'CHECK(w.grad().data()[0] == -24.0f);\nCHECK(w.data().data()[0] == 0.0f - 0.05f * -24.0f);\nCHECK(std::abs(w.data().data()[0] - 1.2f) < 1e-6f);',
   },
   'sgd-step': {
     prelude: `Variable W(Tensor({0.0f}, {1, 1}), true);\nVariable b(Tensor({0.0f}, {1}), true);\nVariable xin(Tensor({1.0f, 2.0f, 3.0f}, {3, 1}), false);\nVariable tgt(Tensor({3.0f, 5.0f, 7.0f}, {3, 1}), false);\nVariable Wt = transpose(W);\nVariable xW = matmul(xin, Wt);\nVariable yhat = add(xW, b);\nnn::MSELoss mse;\nVariable loss = mse(yhat, tgt);`,

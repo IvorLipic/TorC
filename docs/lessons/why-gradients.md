@@ -53,6 +53,17 @@ The tangent promise at step 0 for lr 0.05 is `tangent_L_next = 7.2` (`36 - 24*1.
 
 Independent replica (plain NumPy float64, script run during this work, not committed): grid, trajectories (`w -= lr * 8 (w-3)`), and `expected_slope` all match the JSON within `1e-5 (1+|x|)`.
 
+**Steep bowl, four notebooks cost 12 euros (V; `steep` key, added for brief C3).** `L(w) = (4w - 12)^2 = 16(w-3)^2`, same
+minimum `w = 3`. Probes: w = 0: `e = -12`, `L = 144`, `grad = -96`; `steep.compare` (both bowls at w = 0, 1, 1.2, 6): the
+distance to 3 is the same, the gradient ratio is exactly 4 at every weight (`grad_ratio`). Real `SGD` with lr 0.05 from 0 lands
+at `4.8` (`steep.trajectories.0.states.0.w_next`, factor -0.6: past the bottom). `steep.checks`: grid == 16(w-3)^2 and
+32(w-3), SGD == manual update (bitwise).
+
+**v3 derived fields (V, double arithmetic on the recorded float32 values).** Each trajectory state has `step`, `distance`,
+`distance_next`, `kept`, `crossed`; each trajectory has `kept`, `kept_percent` of step 1. lr 0.05: steps 1.2, 0.72, 0.432;
+kept 0.6 at every state (within 1.2e-6, float32 drift). lr 0.1: kept 0.2. lr 0.25: kept 1, crossed every step. lr 0.3: kept
+1.4. `nudge.miss_before` 6, `miss_after` 5.98, `fall` 0.2396, `ratio` -23.96.
+
 ## 3. Observed / Expected / Suspected
 
 **Observed (V).** (1) `backward()` returns, for each leaf, the derivative of the scalar loss with respect to it at the current values; for scene `why` that is `-24` at `w=0`. (2) `SGD::step()` is exactly `w <- w - lr*grad` in float32 for a single parameter (bitwise). (3) The root `L` has no stored gradient. (4) A constant (`requires_grad=false`) leaf gets no gradient.
@@ -66,36 +77,70 @@ Independent replica (plain NumPy float64, script run during this work, not commi
 
 **Suspected discrepancy.** None found for this lesson. Known and harmless: the library never stores the root's gradient (audit D4, `docs/library-audit/implementation-contract.md`); the scene draws it as the seed `1`.
 
-## 4. Misconceptions to address (from plan 3.1, with what the data shows)
+## 4. Misconceptions the page refutes, with the evidence it uses
 
-1. "The gradient tells you how far to go." It is a rate (loss per unit weight). At w = 0 it is `-24`; the distance to the minimum is 3. `lr` converts rate to distance and the right `lr` depends on curvature (`1/8` here).
-2. "Smaller lr is always better / bigger is always faster." Both false: 0.125 reaches the minimum in one step, 0.25 never converges, 0.05 needs many steps (L = 0.0102 after 8).
-3. "The tangent line is a prediction." It is a local promise: for a step of 1.2 the line promised 7.2 and the loss was 12.96; at lr 0.1 it promised a negative loss.
-4. "The chain rule is a formula to memorise." It is local ratios multiplying; the trace gives the three ratios (2, 1, -12) and their product (-24).
-5. "The gradient points at the minimum." In 1-D it is just a sign: from w=6 the gradient is +24 and the minimum is to the left; from w=0 it is -24 and the minimum is to the right (V: `probes`). The step goes against it.
-6. The `h = 0.001` secant in float32 is `-23.9944`, not `-23.996`: finite differences have a floating-point floor (teaser for `gradient-checking`).
+1. "The gradient tells the distance to the answer" (brief C3, the page's one refutation with widget evidence). In the
+   two-notebook bowl the gradient is `8(w - 3)`, proportional to the distance, so that bowl alone would support the
+   misconception. The four-notebook bowl has the same minimum and start (same distance 3) and the gradient -96 instead of -24.
+   The two-bowls widget shows both at w = 0, 1, 1.2, 6 (recorded `steep.compare`): same distance, four times the gradient.
+2. "A smaller learning rate is always better." The check quiz `best-lr` and section 5: after eight steps lr 0.1 is closer to
+   3 than lr 0.05 (each step keeps 20 % vs 60 %), and 0.25 / 0.3 never settle (100 %, 140 %). The transfer quiz shows that the
+   same lr 0.05 overshoots on the steep bowl (0 -> 4.8).
+3. "The gradient points to the minimum." In 1-D the sign does say on which side the minimum lies (probes at 0 and 6). The page
+   says what the gradient tells (direction and steepness here) and what it does not (where the bottom is, how far). The 2-D
+   case, where the gradient does not point at the minimum, belongs to `sgd-step`.
+Not on the page any more: the tangent promise (`tangent_L_next`), the float32 secant floor at h = 0.001 (the widget shows 3
+significant figures, -24.0 either way), and the chain rule (moved to the future `backprop` lesson).
 
-## 5. Test hooks suggested by the data
+## 5. Test hooks
 
-(a) JS `buildGraph/runBackward` on scene `why` equals `grid[*].{L,grad}` (rel 1e-5). (b) `w -= lr*g` in double reproduces `trajectories[*].states[k].w` within `1e-5 (1+|w|)`; diverging runs (lr 0.3) grow to `4e3`, relative agreement still `1e-6`. (c) `grad == 8(w-3)` on all grid points. (d) `secants[*].expected_slope` equals `4h-24`; `|slope + 24|` decreases monotonically with `h` even in the float32 record (4, 2, 0.4000, 0.03989, 0.00556), but the `h = 0.001` float32 value misses the exact secant (-23.996) by 0.0016, so assert the exact formula only on the JS (double) value, and compare the float32 record with a tolerance of about `1e-2` there. (e) `stable_predicted` vs sign of `L_8 - L_0`. (f) Quoted numbers (36, -24, 12.96, 7.2, -12, -0.2396) bound to paths: `scenes[0].nodes[L].value`, `scenes[0].nodes[w].grad`, `trajectories[0].states[1].L`, `trajectories[0].states[0].tangent_L_next`, `scenes[0].nodes[e].grad`, `nudge.stages[2].change`.
+All in `site/test/why-gradients.test.mjs`: the JS model (`landscape-model.js`) against grid, probes, nudge and every trajectory;
+the nudge-lens rows against `secants` (and the JS curve between them, double vs float32 within 1e-2 on the secant); the two-bowls
+rows against `steep.compare` and the probes; every claim of the prose from the data (story constants, the nudge quiz, "ten times
+smaller nudge, ten times smaller change", the signs, the two worked steps, the shrinking step, 60 % kept, -96 = 4 x -24, the
+doubled miss and slope, the fog tasks, the best learning rate after eight steps, the shares, the transfer step 4.8, the
+cumulative quiz); one use of "slope"; `\mathrm{lr}` and no `g`; the SGD line against the pinned `src/optim.cpp` when the trace
+checkout exists; no hand-typed digit; KaTeX for every formula and widget string; readout formats.
 
-## 6. Lesson status (concise rewrite, decisions 7-9)
+## 6. Lesson status (v3 rewrite, 2026-10-29; brief Appendix B, C3, C7, D20, decisions 13-23)
 
-Files: `site/js/lessons/why-gradients.js`, `why-gradients.scenes.js` (graph-lab layout and text for scene `why`),
-`site/js/widgets/bowl.js` (the one widget: curve, tangent, start slider, lr presets 0.05/0.125/0.25/0.3, Step/Reset, readout),
-`landscape-model.js` (pure model: curve, steps, nudge, factor, through `engine.buildGraph/runBackward`), `landscape-tex.js`
-(the update line), `site/test/why-gradients.test.mjs`.
+Files: `site/js/lessons/why-gradients.js` (template 3, loop `adjust`), widgets `site/js/widgets/nudge-lens.js` (new),
+`two-bowls.js` (new), `bowl.js` (fog mode), `landscape-tex.js` (3-figure readouts, the new step line), `landscape-model.js`
+(unchanged). `why-gradients.scenes.js` is kept unchanged for the future `backprop` lesson; `lessons.test.mjs` still lints its texts.
 
-**As built**: hero → TL;DR (4 bullets) → setup (TorC code, `L(w) = 4(w-3)^2`) → 1 slope (`-24` is a rate, not a distance) →
-2 step (`w ← w − lr·g`, 0 → 1.2, 36 → 12.96) → predict (lr 0.25 bounces) → bowl widget → 3 step size (factor `f = 1 − 8 lr`:
-converge / bounce / diverge / one step) → 4 chain rule (`2 · 1 · (−12) = −24`, `e` used twice adds) → graph lab → 2 checks
-(sign at w = 6; why lr = 1/8 does not generalise) → Next. Measured: 388 words, 24 numbers in the text, 2 widgets, 3 questions.
+**As built (after the 2026-10-30 review round)**: hero -> Questions (2) -> "The price of a notebook" (setup: the loss named
+`L`, the start, the true price 3, a static picture of the whole bowl from the recorded grid, `widgets/bowl-figure.js`) -> predict
+quiz (a nudge is defined; new loss 35.76; the reveal names the likely wrong method) -> 1 The gradient (the ratio approaches -24 as
+the nudge shrinks; that number is the gradient; the one use of "slope"; dL/dw read aloud) -> nudge lens -> 2 One step (we choose
+lr = 0.05; worked 0 - 0.05 x (-24) = 1.2; the arrow; `L.backward()` as the real line) -> "Your turn" (1.92, with the worked
+distance line 3, 1.8, 1.08 that defines "keeps 60 %") -> 3 A tempting idea that is wrong (twice the miss times twice the effect of
+a nudge, -96 vs -24) -> two bowls -> 4 Steps in the fog (fog analogy; its limit: a hiker shortens the stride on steep ground, a
+training step gets longer) -> fog bowl (the step line shows the last step, never the next one) -> check quiz best-lr (start w = 0,
+8 presses bound to the trace) -> 5 How to choose the learning rate (shares 100 %, 140 %; "overshoot" defined) -> transfer quiz
+(steep bowl, lr 0.05 -> 4.8) -> cumulative quiz from `what-is-learning` (two lines through the test scores: the loss is the mean
+of the squared misses) -> explain -> The answer. No In TorC panel: the `SGD::step()` line is the real line of `sgd-step`.
 
-**Removed in the rewrite**: knob, secant/`h`, stepper and step-size widgets (merged into the bowl), the gears widget, the
-learning-rate table, four mix-up cards, the recap, the dotted-underline/derived marking, provenance badges and the long footer.
-Misconceptions 1, 2 and 5 are covered by sections 1 and 3 and the sign check; 3 (tangent promise) and 6 (float32 secant) are
-no longer on the page.
+**Adaptations of Appendix B (reported to the lead).**
+- Appendix B says that with four notebooks "each nudge of w now changes the prediction four times as much". That is wrong:
+  the prediction is 4w instead of 2w, so it changes twice as much, and the miss is twice as large (12 vs 6). Together they give
+  four times the gradient. The page says "twice" twice.
+- The nudge reveal binds `nudge.actual_dL` and `nudge.ratio` at 2 significant figures (-0.24, -24) instead of "24 times the
+  nudge", because the ratio is negative.
+- The learner step's reveal uses a `worked()` block for 1.2 - 0.05 x (-14.4) = 1.92, because a reveal sentence may hold at most
+  two numbers. The step sizes and the 60 % come from the new trace fields (`step`, `kept_percent`), not from arithmetic.
+  The distance line 3, 1.8, 1.08 is in the same worked block (review H1).
+- The fog analogy sits in section 4 with the fog widget, not in the refutation section, and its limit is the one this lesson
+  needs (review M5): a hiker takes shorter steps on steep ground, a training step gets longer there. The refutation uses its own widget (two bowls) so that the evidence is on the page.
+- The fog bowl offers lr 0.05, 0.1, 0.25, 0.3 (0.1 added for the "smaller is not always better" check; 0.125 dropped with the
+  one-step special case). The start slider is gone (every task starts at w = 0).
+- The old check "why does lr 0.125 not work for a real network?" is replaced by a transfer quiz (the same lr on the steep bowl),
+  so the word "curvature" is not needed.
+- The nudge lens offers the five recorded nudge sizes as buttons (no dragging). Its measured values are the recorded secants.
+- The cumulative quiz is set in the context of `what-is-learning` (hours of practice and test scores) and tests that the loss is
+  the mean of the squared misses. Its arithmetic is in the test file.
+- dL/dw is written once (notation entry `dl-dw`), `lr` links to its notation entry, and the arrow is introduced and then used in
+  two worked lines. The arrow entry now reads "replace by".
+- `course.json` `code` now shows `L.backward()`, `optim::SGD` and `step()` (no `Variable w(...)` setup line); its SPEC in
+  `tools/snippets/check.mjs` checks the gradient -24 and the new weight 1.2 against the pinned TorC.
 
-**Definition of done**: tests green (`node --test site/test/`, `tools/check_site.mjs`); browser check at 1366×768 and 390×844
-under `/TorC/` (bowl presets, Step, slider by keyboard, no console errors, no horizontal overflow). Independent review done (2026-10-15,
-no blocker/high; findings fixed); `tools/trace/run.sh --check` passes. Not done: a real screen reader.
+**Not done here**: pedagogy reviewer, cold reader, independent review, human think-alouds (brief §10), a real screen reader.
