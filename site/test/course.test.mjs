@@ -23,8 +23,8 @@ const V3 = [
   ['labs', 'lab', ['backprop-lab']],
 ];
 const PUBLISHED = ['what-is-learning', 'why-gradients', 'sgd-step', 'tensors', 'linear-layer', 'nonlinearity', 'modules', 'losses', 'training-loop',
-  'optimizers', 'generalization', 'mnist-mlp', 'convolution', 'mnist-cnn', 'backprop-lab'];
-const NEW = ['classification', 'backprop', 'deep-nets', 'one-step', 'from-digits-to-chatgpt', 'torc-pitfalls', 'notation', 'glossary'];
+  'optimizers', 'generalization', 'mnist-mlp', 'convolution', 'mnist-cnn', 'backprop-lab', 'notation', 'glossary'];
+const NEW = ['classification', 'backprop', 'deep-nets', 'one-step', 'from-digits-to-chatgpt', 'torc-pitfalls'];
 
 test('course.json: parts, kinds and lesson ids follow curriculum v3 exactly', () => {
   assert.deepEqual(validateCourse(real), []);
@@ -63,7 +63,7 @@ test('course.json: prev/next on the real course stay within the main path, the a
   const expected = [
     ...chain(['what-is-learning', 'why-gradients', 'sgd-step', 'linear-layer', 'nonlinearity', 'losses', 'training-loop', 'optimizers', 'generalization',
       'mnist-mlp', 'convolution', 'mnist-cnn']),
-    ...chain(['tensors', 'modules']),
+    ...chain(['tensors', 'modules', 'notation', 'glossary']),
     ...chain(['backprop-lab']),
   ];
   for (const [id, prev, next] of expected) {

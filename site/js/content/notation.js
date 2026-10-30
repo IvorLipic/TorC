@@ -1,18 +1,38 @@
-// content/notation.js — the notation guide (brief §8, R9): every symbol the lessons use, with the lesson that introduces it.
-// The appendix page `notation` lists it, sym(key, html) in core/blocks.js links a symbol to its entry, and the v3 tests check that
-// no lesson uses a symbol before its introducing lesson, in course order. `match.latex` are substrings searched in the LaTeX of the
-// formulas; `match.text` are substrings searched in the prose (outside code). Keep each match specific, so that it finds the
-// symbol and nothing else. Only sample entries live here for now; the content agent adds the rest.
+// content/notation.js — the notation guide (brief §8, R9): every symbol the lessons use, with the lesson that introduces it, in
+// course order (docs/v3-implementation.md "Curriculum v3"). The appendix page `notation` (lessons/notation.js) lists it with an
+// anchor #<key> per symbol, sym(key, html) in core/blocks.js links a symbol to its entry, and the v3 tests check that no lesson
+// uses a symbol before its introducing lesson, in course order.
 //   { key, symbol, name, read, meaning, lesson, match: { latex: [...], text: [...] } }
+// `match.latex` are substrings searched in the LaTeX of the formulas and in inline code; `match.text` are substrings searched in
+// the prose (outside code). Keep each match specific, so that it finds the symbol and nothing else: for example `exp(` and not
+// `exp`, which is part of "export". `meaning` is plain prose for the notation page (one or two sentences, the writing rules).
 export const NOTATION = [
   {
     key: 'arrow',
     symbol: '←',
     name: 'left arrow',
     read: 'becomes',
-    meaning: 'The name on the left gets the new value on the right. The step w ← w − lr·g changes w.',
+    meaning: 'The name on the left gets the new value on the right. So w ← w − lr · dL/dw replaces w by a new value.',
     lesson: 'why-gradients',
-    match: { latex: ['\\leftarrow'], text: ['←'] },
+    match: { latex: ['\\leftarrow', '\\gets'], text: ['←'] },
+  },
+  {
+    key: 'lr',
+    symbol: 'lr',
+    name: 'learning rate',
+    read: 'the learning rate',
+    meaning: 'The two letters lr form one name. They do not mean l times r. lr is the small number that sets the size of each step.',
+    lesson: 'why-gradients',
+    match: { latex: ['\\mathit{lr}', '\\mathrm{lr}', '\\text{lr}'], text: [] },
+  },
+  {
+    key: 'dl-dw',
+    symbol: 'dL/dw',
+    name: 'derivative of the loss',
+    read: 'how much the loss changes per unit change of w',
+    meaning: 'dL/dw is the gradient of the loss L for the weight w. It tells how much L changes when w changes by a small amount.',
+    lesson: 'why-gradients',
+    match: { latex: ['\\frac{dL}{d', '\\frac{d L}{d', '\\dfrac{dL}{d', '\\tfrac{dL}{d'], text: ['dL/d'] },
   },
   {
     key: 'sum',
@@ -24,6 +44,60 @@ export const NOTATION = [
     match: { latex: ['\\sum', '\\Sigma'], text: ['Σ', '∑'] },
   },
   {
+    key: 'subscript',
+    symbol: 'xᵢ',
+    name: 'subscript',
+    read: 'x sub i',
+    meaning: 'The small letter or number below x tells which entry of x you mean. Positions count from 0, so x₀ is the first entry.',
+    lesson: 'linear-layer',
+    match: { latex: ['_{', '_i', '_j', '_k', '_0', '_1', '_2'], text: ['ᵢ', 'ⱼ', 'ₖ', '₀', '₁', '₂', '₃'] },
+  },
+  {
+    key: 'transpose',
+    symbol: 'ᵀ',
+    name: 'transpose',
+    read: 'transposed',
+    meaning: 'Wᵀ is the matrix W with its rows written as columns. Row 0 of W becomes column 0 of Wᵀ.',
+    lesson: 'linear-layer',
+    match: { latex: ['^{\\top}', '^\\top', '^{T}', '^{\\mathsf{T}}'], text: ['ᵀ'] },
+  },
+  {
+    key: 'sigma',
+    symbol: 'σ',
+    name: 'small sigma',
+    read: 'sigma',
+    meaning: 'σ(x) is the sigmoid function. It changes any number into a number between 0 and 1.',
+    lesson: 'nonlinearity',
+    match: { latex: ['\\sigma'], text: ['σ'] },
+  },
+  {
+    key: 'exp',
+    symbol: 'e, exp',
+    name: 'e and the function exp',
+    read: 'e to the x, or exp of x',
+    meaning: 'e is a number, about 2.718. exp(x) means e to the power x, and its value is always above 0.',
+    lesson: 'nonlinearity',
+    match: { latex: ['\\exp', 'e^{', 'e^x', 'e^-'], text: ['exp(', 'eˣ'] },
+  },
+  {
+    key: 'ln',
+    symbol: 'ln',
+    name: 'natural logarithm',
+    read: 'l n, or log',
+    meaning: 'ln(y) is the power that e needs to give y. On this site, log always means ln. School log has the base 10.',
+    lesson: 'losses',
+    match: { latex: ['\\ln', '\\log'], text: ['ln(', 'log('] },
+  },
+  {
+    key: 'partial',
+    symbol: '∂',
+    name: 'partial d',
+    read: 'partial',
+    meaning: '∂ means the same as d. The course writes ∂ when the loss depends on many weights and only one of them changes.',
+    lesson: 'backprop',
+    match: { latex: ['\\partial'], text: ['∂'] },
+  },
+  {
     key: 'mu',
     symbol: 'μ',
     name: 'mu',
@@ -31,6 +105,60 @@ export const NOTATION = [
     meaning: 'μ is the momentum factor. It sets how much of the previous step the optimizer keeps.',
     lesson: 'optimizers',
     match: { latex: ['\\mu'], text: ['μ'] },
+  },
+  {
+    key: 'beta',
+    symbol: 'β',
+    name: 'beta',
+    read: 'beta',
+    meaning: 'In Adam, β₁ and β₂ set how slowly the two running averages of the gradients forget old steps.',
+    lesson: 'optimizers',
+    match: { latex: ['\\beta'], text: ['β'] },
+  },
+  {
+    key: 'lambda',
+    symbol: 'λ',
+    name: 'lambda',
+    read: 'lambda',
+    meaning: 'λ is the weight decay factor. It sets how strongly each step pulls every weight toward 0.',
+    lesson: 'optimizers',
+    match: { latex: ['\\lambda'], text: ['λ'] },
+  },
+  {
+    key: 'epsilon',
+    symbol: 'ε',
+    name: 'epsilon',
+    read: 'epsilon',
+    meaning: 'ε is a very small number that Adam adds below a fraction line, so that it never divides by 0.',
+    lesson: 'optimizers',
+    match: { latex: ['\\epsilon', '\\varepsilon'], text: ['ε', 'ϵ'] },
+  },
+  {
+    key: 'hat',
+    symbol: 'm̂',
+    name: 'hat',
+    read: 'm hat',
+    meaning: 'A hat marks an adjusted estimate of a value. In Adam, m̂ is the average of the recent gradients, adjusted for the first steps.',
+    lesson: 'optimizers',
+    match: { latex: ['\\hat', '\\widehat'], text: ['\u0302', 'ŷ'] },
+  },
+  {
+    key: 'floor',
+    symbol: '⌊ ⌋',
+    name: 'floor',
+    read: 'the floor of',
+    meaning: '⌊x⌋ is x rounded down to a whole number. For example, ⌊2.5⌋ is 2.',
+    lesson: 'convolution',
+    match: { latex: ['\\lfloor', '\\rfloor'], text: ['⌊', '⌋'] },
+  },
+  {
+    key: 'overline',
+    symbol: 'ā',
+    name: 'overline',
+    read: 'a bar',
+    meaning: 'The bar appears only in the maths windows of the graph lab. There, ā is the gradient of the final output for the value a.',
+    lesson: 'backprop-lab',
+    match: { latex: ['\\overline', '\\bar'], text: ['ā', 'ȳ', 'w̄', 'x̄'] },
   },
 ];
 

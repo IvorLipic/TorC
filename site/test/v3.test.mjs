@@ -16,9 +16,6 @@ import fixture from './fixtures/v3-fixture.js';
 
 const FIXTURE_SRC = readFileSync(new URL('./fixtures/v3-fixture.js', import.meta.url), 'utf8');
 const glossary = readJson('glossary.json');
-// The fixture is checked against the terms it was written for, so that the lessons can add terms to site/glossary.json
-// without editing the fixture (the glossary rule still fires on these three, see the "glossary" variant below).
-const fixtureGlossary = { ...glossary, terms: Object.fromEntries(['loss', 'gradient', 'learning-rate'].map((k) => [k, glossary.terms[k]])) };
 const anchors = anchorValues(readJson('data/anchors.json'));
 const dataFor = (lesson) => buildD(Object.fromEntries(lesson.trace.map((f) => [stemOf(f), readJson('data/' + f)])), anchors);
 const D = dataFor(fixture);
@@ -35,7 +32,7 @@ function testCourse({ appendix = false } = {}) {
   }
   return c;
 }
-const check = (lesson, over = {}) => checkV3(lesson, { D: dataFor(lesson), course: testCourse(), glossary: fixtureGlossary, notation: NOTATION, source: FIXTURE_SRC, ...over });
+const check = (lesson, over = {}) => checkV3(lesson, { D: dataFor(lesson), course: testCourse(), glossary, notation: NOTATION, source: FIXTURE_SRC, ...over });
 const codes = (problems) => [...new Set(problems.map((p) => p.split(':')[0]))].sort();
 // a copy of the fixture with sections replaced (by index) or spliced in
 const variant = (fn) => { const l = { ...fixture, sections: fixture.sections.map((s) => ({ ...s })) }; fn(l, l.sections); return l; };
@@ -96,7 +93,7 @@ test('quiz markup: fieldset and legend, real radio inputs or a labelled number i
   }
   const ex = parts.find((p) => p.section.kind === 'explain').html;
   assert.match(ex, /<label for="explain-why-against-text">Your sentence<\/label><textarea id="explain-why-against-text"/);
-  assert.match(ex, /data-explain-compare>Compare with a model answer<\/button>/);
+  assert.match(ex, /data-explain-compare>Compare with a good answer<\/button>/);
   assert.match(ex, /<div class="model"[^>]* hidden>/);
   const w = parts.find((p) => p.section.kind === 'widget').html;
   assert.match(w, /data-widget="demo"><\/section><dl class="tasks"[^>]*><div class="task-do"><dt>Task<\/dt><dd>/, 'the host, then the guided tasks');
@@ -137,7 +134,7 @@ const BROKEN = {
   tasks: (l, s) => { const i = s.findIndex((x) => x.kind === 'widget'); s[i] = { ...s[i], tasks: undefined }; },
   palette: (l, s) => { s.splice(5, 0, text(() => inTorc('How', '<p>x</p>') + chatgpt('Same.'))); },
   glossary: (l, s) => { s[1] = { kind: 'questions', items: ['Why does the loss fall?'] }; },
-  'glossary key': (l, s) => { s.splice(5, 0, text(() => `<p>A ${term('weight-decay', 'leak')} here.</p>`)); },
+  'glossary key': (l, s) => { s.splice(5, 0, text(() => `<p>A ${term('no-such-term', 'leak')} here.</p>`)); },
   notation: (l, s) => { s.splice(5, 0, text(() => '<p>The sign Σ adds.</p>')); },
   'notation sym': (l, s) => { s.splice(5, 0, text(() => `<p>The momentum ${sym('mu')} is high.</p>`)); },
   quiz: (l, s) => { const i = s.findIndex((x) => x.id === 'direction'); s[i] = { ...s[i], options: s[i].options.slice(0, 2) }; },
@@ -164,8 +161,8 @@ test('v3 rule "escape": a single backslash before ; , ! : or a space in the modu
 });
 
 test('appendix pages and conceptual lessons have their exceptions (brief §9)', () => {
-  const bare = variant((l, s) => { l.sections = [s[0], text(() => '<section><p>The sign Σ adds, and the momentum μ keeps speed.</p></section>')]; });
-  assert.deepEqual(checkV3(bare, { D, course: testCourse({ appendix: true }), glossary: fixtureGlossary, notation: NOTATION, source: '' }), [], 'appendix: no frame, no quizzes, any symbol');
+  const bare = variant((l, s) => { l.sections = [s[0], text(() => '<section><p>The sign Σ adds, and the factor μ keeps speed.</p></section>')]; });
+  assert.deepEqual(checkV3(bare, { D, course: testCourse({ appendix: true }), glossary, notation: NOTATION, source: '' }), [], 'appendix: no frame, no quizzes, any symbol');
   const noPredict = variant((l, s) => { l.conceptual = true; l.sources = [{ title: 'A source', url: 'https://example.org/' }]; s.splice(s.findIndex((x) => x.purpose === 'transfer'), 1); s.splice(3, 1); });
   assert.deepEqual(check(noPredict), [], 'conceptual: no predict before text, no transfer');
   assert.deepEqual(codes(check(variant((l, s) => { l.conceptual = true; l.sources = [{ title: 'S', url: 'https://example.org/' }]; s.splice(s.findIndex((x) => x.kind === 'explain'), 1); }))), ['explain'], 'conceptual still needs an explain prompt');

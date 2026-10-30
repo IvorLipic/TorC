@@ -129,12 +129,12 @@ export default {
     </ol>
     <p>Every lesson shows this training loop with its own part lit.</p>
     ${loopDiagram('all')}
-    <p>The name of this method is ${term('gradient', 'gradient descent')}. The next two lessons show how the computer finds the direction.</p>`),
+    <p>The name of this method is ${term('gradient-descent')}. The next two lessons show how the computer finds the direction.</p>`),
     },
     {
       kind: 'text',
       html: (D, T) => sec('weights', '3 · The numbers that training changes', `
-    <p>Training changes only <code>w</code> and <code>b</code>. The numbers that training changes are the ${term('weight', 'weights')} of the model. Later lessons give <code>b</code> its own name.</p>
+    <p>Training changes only <code>w</code> and <code>b</code>. The numbers that training changes are the ${term('weight', 'weights')} of the model. Later lessons call <code>b</code> the ${term('bias')}.</p>
     ${analogy('A model is a machine with knobs, and each setting gives other predictions. Training turns the knobs until the predictions miss less. The knobs are the weights.',
     'A person turns one knob at a time. The computer finds a direction for every weight and changes all of them in one step.')}
     <p>The digit model has ${T.anchor('mlp_parameters')} weights instead of two.</p>`),
