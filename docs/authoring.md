@@ -211,7 +211,7 @@ Unmigrated lessons still follow the budget of decision 7, until each is rewritte
      (a new situation, the same idea) or `'cumulative'` (with `from: '<earlier lesson id>'`). `type: 'choice'` has
      `options: [{html, correct, feedback}]`: 3-4 options, exactly one correct, and each wrong option's feedback names the
      misconception. `type: 'numeric'` has `answer: '<trace path>'`, an absolute `tolerance` above 0, and an optional `unit`.
-   - `{kind:'explain', id, prompt, model}` — "Explain it in one sentence": a text box, then "Compare with a model answer".
+   - `{kind:'explain', id, prompt, model}` — "Explain it in one sentence": a text box, then "Compare with a sample answer".
    - `{kind:'widget', id, className?, label?, mount(host, D, ctx), tasks?:(D, T) => [{do, see}]}` — an interactive part; `host`
      is an empty `<section>`, and the guided tasks ("Task", "What you will see") follow it. `mount` runs in the browser only;
      return `{destroy()}` if it registers global listeners.

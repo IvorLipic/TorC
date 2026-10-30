@@ -93,7 +93,7 @@ test('quiz markup: fieldset and legend, real radio inputs or a labelled number i
   }
   const ex = parts.find((p) => p.section.kind === 'explain').html;
   assert.match(ex, /<label for="explain-why-against-text">Your sentence<\/label><textarea id="explain-why-against-text"/);
-  assert.match(ex, /data-explain-compare>Compare with a model answer<\/button>/);
+  assert.match(ex, /data-explain-compare>Compare with a sample answer<\/button>/);
   assert.match(ex, /<div class="model"[^>]* hidden>/);
   const w = parts.find((p) => p.section.kind === 'widget').html;
   assert.match(w, /data-widget="demo"><\/section><dl class="tasks"[^>]*><div class="task-do"><dt>Task<\/dt><dd>/, 'the host, then the guided tasks');
