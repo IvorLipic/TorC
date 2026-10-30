@@ -6,7 +6,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { flatLessons, isPublished, neighbors } from '../js/core/course.js';
-import { buildD, stemOf } from '../js/core/trace.js';
+import { buildD, stemOf, anchorValues } from '../js/core/trace.js';
 import { renderLesson } from '../js/core/sections.js';
 import { course, readJson, SITE } from './helpers.mjs';
 
@@ -16,7 +16,9 @@ const entries = flatLessons(C).filter((l) => isPublished(l) || existsSync(new UR
 for (const entry of entries) {
   test(`lesson ${entry.id}: the closing next-lesson link matches neighbors()`, async () => {
     const lesson = (await import(new URL(`../js/lessons/${entry.id}.js`, import.meta.url))).default;
-    const D = buildD(Object.fromEntries(lesson.trace.map((f) => [stemOf(f), readJson('data/' + f)])));
+    // a template 3 lesson names its next lesson in "The answer", from neighbors() (lessons.test.mjs checks it, D2)
+    if (lesson.template === 3) return;
+    const D =buildD(Object.fromEntries(lesson.trace.map((f) => [stemOf(f), readJson('data/' + f)])), anchorValues(readJson('data/anchors.json')));
     const naming = renderLesson(lesson, D).filter((p) => p.section.kind === 'text' && /next lesson/i.test(p.html));
     const next = neighbors(C, entry.id).next;
     if (!next) {

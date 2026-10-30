@@ -13,11 +13,53 @@
       "short": "The gradient tells how much the loss changes when you change a weight by a small amount.",
       "lesson": "why-gradients"
     },
+    "hidden-points": {
+      "term": "hidden points",
+      "forms": ["hidden points", "hidden point"],
+      "short": "Hidden points are examples that a model never trains on. They show how well the model works on new data.",
+      "lesson": "what-is-learning"
+    },
     "learning-rate": {
       "term": "learning rate",
       "forms": ["learning rate", "learning rates"],
       "short": "The learning rate is a small number that you choose. It sets the size of each training step.",
       "lesson": "why-gradients"
+    },
+    "mean-squared-error": {
+      "term": "mean squared error",
+      "forms": ["mean squared error"],
+      "short": "The mean squared error is a loss. It squares each miss of the predictions and takes the mean of the squares.",
+      "lesson": "what-is-learning"
+    },
+    "model": {
+      "term": "model",
+      "forms": ["model", "models"],
+      "short": "A model is a rule with numbers in it. It turns an input into a prediction.",
+      "lesson": "what-is-learning"
+    },
+    "prediction": {
+      "term": "prediction",
+      "forms": ["prediction", "predictions"],
+      "short": "A prediction is the answer that a model gives for one input.",
+      "lesson": "what-is-learning"
+    },
+    "target": {
+      "term": "target",
+      "forms": ["target", "targets"],
+      "short": "The target is the right answer for one example. The loss compares the prediction with it.",
+      "lesson": "what-is-learning"
+    },
+    "training": {
+      "term": "training",
+      "forms": ["training"],
+      "short": "Training is the loop that changes the weights of a model, step by step, to make its loss smaller.",
+      "lesson": "what-is-learning"
+    },
+    "weight": {
+      "term": "weight",
+      "forms": ["weight", "weights"],
+      "short": "A weight is a number in a model that training changes.",
+      "lesson": "what-is-learning"
     }
   }
 }

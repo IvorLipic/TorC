@@ -12,7 +12,8 @@
 //    (the loss backward() was called on) and the loss on the hidden points (no gradient). A run stops when one step changes
 //    neither w nor b by more than 1e-5 (it has settled), or after 1000 steps.
 // 3. `probes[]`: MSELoss of a few fixed lines on the training and on the hidden points, with every prediction and residual,
-//    so the JS that scores a hand-placed line can be tested against TorC.
+//    so the JS that scores a hand-placed line can be tested against TorC. `train_square` / `hidden_square` (each residual
+//    squared in float32, derived) give the lesson's worked example its numbers.
 // 4. `true_line`: MSELoss of the true line itself (the noise no line can remove).
 // Everything is library output, except `data` (made here, see above) and `derived` (least squares in double).
 #include "trace_util.hpp"
@@ -165,10 +166,14 @@ int main() {
         std::vector<float> rtr, rhd;  // residual = prediction - target, in float32 (what MSELoss squares)
         for (int i = 0; i < N_TRAIN; ++i) rtr.push_back(ptr[i] - d.y[i]);
         for (int i = 0; i < N_ALL - N_TRAIN; ++i) rhd.push_back(phd[i] - d.y[N_TRAIN + i]);
+        std::vector<float> str, shd;  // the square of each residual, in float32 (the terms whose mean MSELoss takes; derived)
+        for (const float r : rtr) str.push_back(r * r);
+        for (const float r : rhd) shd.push_back(r * r);
         J o = J::object();
         o.set("id", ln.id).set("w", ln.w).set("b", ln.b).set("train_loss", ltr).set("hidden_loss", lhd)
             .set("train_pred", trace::jarr(ptr)).set("train_residual", trace::jarr(rtr))
-            .set("hidden_pred", trace::jarr(phd)).set("hidden_residual", trace::jarr(rhd));
+            .set("hidden_pred", trace::jarr(phd)).set("hidden_residual", trace::jarr(rhd))
+            .set("train_square", trace::jarr(str)).set("hidden_square", trace::jarr(shd));
         probes.push(std::move(o));
     }
 

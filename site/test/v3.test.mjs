@@ -16,6 +16,9 @@ import fixture from './fixtures/v3-fixture.js';
 
 const FIXTURE_SRC = readFileSync(new URL('./fixtures/v3-fixture.js', import.meta.url), 'utf8');
 const glossary = readJson('glossary.json');
+// The fixture is checked against the terms it was written for, so that the lessons can add terms to site/glossary.json
+// without editing the fixture (the glossary rule still fires on these three, see the "glossary" variant below).
+const fixtureGlossary = { ...glossary, terms: Object.fromEntries(['loss', 'gradient', 'learning-rate'].map((k) => [k, glossary.terms[k]])) };
 const anchors = anchorValues(readJson('data/anchors.json'));
 const dataFor = (lesson) => buildD(Object.fromEntries(lesson.trace.map((f) => [stemOf(f), readJson('data/' + f)])), anchors);
 const D = dataFor(fixture);
@@ -32,7 +35,7 @@ function testCourse({ appendix = false } = {}) {
   }
   return c;
 }
-const check = (lesson, over = {}) => checkV3(lesson, { D: dataFor(lesson), course: testCourse(), glossary, notation: NOTATION, source: FIXTURE_SRC, ...over });
+const check = (lesson, over = {}) => checkV3(lesson, { D: dataFor(lesson), course: testCourse(), glossary: fixtureGlossary, notation: NOTATION, source: FIXTURE_SRC, ...over });
 const codes = (problems) => [...new Set(problems.map((p) => p.split(':')[0]))].sort();
 // a copy of the fixture with sections replaced (by index) or spliced in
 const variant = (fn) => { const l = { ...fixture, sections: fixture.sections.map((s) => ({ ...s })) }; fn(l, l.sections); return l; };
@@ -162,7 +165,7 @@ test('v3 rule "escape": a single backslash before ; , ! : or a space in the modu
 
 test('appendix pages and conceptual lessons have their exceptions (brief §9)', () => {
   const bare = variant((l, s) => { l.sections = [s[0], text(() => '<section><p>The sign Σ adds, and the momentum μ keeps speed.</p></section>')]; });
-  assert.deepEqual(checkV3(bare, { D, course: testCourse({ appendix: true }), glossary, notation: NOTATION, source: '' }), [], 'appendix: no frame, no quizzes, any symbol');
+  assert.deepEqual(checkV3(bare, { D, course: testCourse({ appendix: true }), glossary: fixtureGlossary, notation: NOTATION, source: '' }), [], 'appendix: no frame, no quizzes, any symbol');
   const noPredict = variant((l, s) => { l.conceptual = true; l.sources = [{ title: 'A source', url: 'https://example.org/' }]; s.splice(s.findIndex((x) => x.purpose === 'transfer'), 1); s.splice(3, 1); });
   assert.deepEqual(check(noPredict), [], 'conceptual: no predict before text, no transfer');
   assert.deepEqual(codes(check(variant((l, s) => { l.conceptual = true; l.sources = [{ title: 'S', url: 'https://example.org/' }]; s.splice(s.findIndex((x) => x.kind === 'explain'), 1); }))), ['explain'], 'conceptual still needs an explain prompt');
