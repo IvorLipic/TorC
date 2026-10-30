@@ -125,7 +125,7 @@ export function mountFitGame(host, D) {
   function drawLine(l, cls, label, layer, above = true) {   // the label sits above the line, or below it when another line is higher
     const y0 = l.w * X[0] + l.b, y1 = l.w * X[1] + l.b;
     plot.curve([[X[0], y0], [X[1], y1]], { class: cls, layer });
-    const lx = X[1] - 0.08, ly = Math.min(Y[1] - 0.8, Math.max(Y[0] + 0.8, l.w * lx + l.b));   // the label stays on the plot
+    const lx = HANDLE_X[1] - 0.2, ly = Math.min(Y[1] - 0.8, Math.max(Y[0] + 0.8, l.w * lx + l.b));   // the label stays on the plot
     plot.text(lx, ly, label, { class: `fg-lbl${cls === 'fg-pc' ? ' pc' : ''}`, layer: 'labels', dy: above ? -10 : 20, anchor: 'end' });
   }
   function drawSquares(l, cls) {
@@ -140,7 +140,7 @@ export function mountFitGame(host, D) {
     const mine = yourLine();
     if (phase === 'hand') drawSquares(mine, 'fg-sq');
     else drawSquares(pcLine(), 'fg-sq pc');
-    const at = (l) => l.w * (X[1] - 0.08) + l.b, pcAbove = phase !== 'hand' && at(pcLine()) >= at(mine);
+    const at = (l) => l.w * (HANDLE_X[1] - 0.2) + l.b, pcAbove = phase !== 'hand' && at(pcLine()) >= at(mine);
     drawLine(mine, phase === 'hand' ? 'fg-you' : 'fg-you back', 'your line', 'lines', !pcAbove);
     if (phase !== 'hand') drawLine(pcLine(), 'fg-pc', 'computer', 'lines', pcAbove);
     for (let i = 0; i < tx.length; i++) plot.dot(tx[i], ty[i], { class: 'fg-pt', r: 5, layer: 'pts' });
