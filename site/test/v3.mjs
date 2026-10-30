@@ -175,10 +175,11 @@ export function checkV3(lesson, { D, course, glossary, notation, source }) {
     }
   }
 
-  // glossary: every term the lesson uses is linked with term() at its first use (headings, code, formulas and SVG skipped)
+  // glossary: every term the lesson uses is linked with term() at its first use (headings, code, formulas, SVG and <dfn> skipped)
   const terms = glossary?.terms ?? {};
   for (const t of toks.filter((x) => x.type === 'open' && x.el.cls.includes('term'))) if (!Object.hasOwn(terms, t.el.attrs['data-term'])) add('glossary', `term("${t.el.attrs['data-term']}") is not in site/glossary.json`);
-  const skip = (e) => ['pre', 'code', 'svg', 'h1', 'h2', 'h3', 'style', 'script'].includes(e.tag);
+  // <dfn> marks the defining instance of a term (the glossary page), which needs no link to its own definition
+  const skip = (e) => ['pre', 'code', 'svg', 'h1', 'h2', 'h3', 'style', 'script', 'dfn'].includes(e.tag);
   const prose = toks.filter((t) => t.type === 'text' && !inside(t, skip));
   for (const [key, g] of Object.entries(terms)) {
     const re = new RegExp(`(?<![\\p{L}\\p{N}])(?:${g.forms.map(escRe).join('|')})(?![\\p{L}\\p{N}])`, 'iu');
