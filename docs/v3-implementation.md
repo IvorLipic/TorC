@@ -58,7 +58,7 @@ export default {
 | `text` | `html: (D, T) => html` | as given |
 | `questions` | `items: (D, T) => [html]` (1–3) | "Questions this lesson answers" box, with the loop diagram when `loop` is set. Section 1, right after the hero |
 | `quiz` | `id, purpose, prompt, type, options \| answer, tolerance?, unit?, reveal, from?` | a committed question: answer first, then feedback and the reveal |
-| `explain` | `id, prompt, model` | "Explain it in one sentence": a text box, then "Compare with a sample answer" |
+| `explain` | `id, prompt, model` | "Explain it in one sentence": a text box, then "Compare with a good answer" |
 | `widget` | `id, mount, label?, className?, tasks?: (D, T) => [{ do, see }]` | the host, then the guided tasks ("Task", "What you will see") |
 | `answer` | `html: (D, T) => html, next: (D, T) => html` | "The answer", then "Next question: …" and a link to the next lesson filled from `neighbors()`. Last section |
 | `gotcha` | as today | appendix pages only |

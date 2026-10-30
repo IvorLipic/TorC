@@ -6,7 +6,7 @@
 //          feedback of the option that was chosen (a <template data-fb="i"> rendered in Node). The reveal opens after the first
 //          attempt and stays open. The learner can change the answer and check again at any time. Every attempt is recorded in the
 //          store as {tries, correct}; a page reload shows the reveal again for a quiz that was tried before.
-// explain  The learner writes a sentence, then "Compare with a sample answer" shows the model and stores explained[id]. The sentence
+// explain  The learner writes a sentence, then "Compare with a good answer" shows the model and stores explained[id]. The sentence
 //          itself is never stored.
 // Everything works with the keyboard only and with storage blocked (the store keeps the record in memory, core/store.js).
 // parseAnswer / judgeNumeric / judgeChoice are pure and unit-tested in Node.
@@ -75,7 +75,7 @@ export function wireExplains(root, { lessonId, store }) {
     sec.querySelector('[data-explain-compare]').addEventListener('click', () => {
       if (!box.value.trim()) { announce(fb, msg('empty', 'Write your sentence first.')); box.focus(); return; }
       model.hidden = false;
-      announce(fb, '<p>Compare your sentence with the sample answer below.</p>');
+      announce(fb, '<p>Compare your sentence with the answer below.</p>');
       try { store.setExplained(lessonId, id); } catch { /* in memory only */ }
     });
   }
