@@ -23,8 +23,8 @@ const shape = (...d) => `Tensor(std::vector<int>{${d.join(', ')}})`;
 // run: false = compile only (needs files or a long training run)
 export const SPEC = {
   'why-gradients': {
-    prelude: 'Variable x(Tensor({2.0f}, {1}), false);\nVariable t(Tensor({6.0f}, {1}), false);',
-    check: 'CHECK(w.grad().data()[0] == -24.0f);',
+    prelude: 'Variable w(Tensor({0.0f}, {1}), true);\nVariable x(Tensor({2.0f}, {1}), false);\nVariable t(Tensor({6.0f}, {1}), false);\nVariable p = mul(w, x);\nVariable e = sub(p, t);\nVariable L = mul(e, e);',
+    check: 'CHECK(w.grad().data()[0] == -24.0f);\nCHECK(w.data().data()[0] == 0.0f - 0.05f * -24.0f);\nCHECK(std::abs(w.data().data()[0] - 1.2f) < 1e-6f);',
   },
   // ten plain SGD steps from w = b = 0 must land where TorC's recorded run does (data/optim.json runs[0].final, after_ten_steps)
   'sgd-step': {

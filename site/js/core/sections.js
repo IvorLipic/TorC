@@ -1,6 +1,6 @@
 // core/sections.js — turns a lesson module's `sections` into HTML. Pure (no DOM), so Node renders every lesson
 // against the real trace data in the tests, and the browser uses the very same strings. Behaviour (quiz feedback, the explain
-// model answer, the glossary popover, the widgets) is wired afterwards by lesson-boot.js (core/quiz.js, core/popover.js).
+// good answer, the glossary popover, the widgets) is wired afterwards by lesson-boot.js (core/quiz.js, core/popover.js).
 //
 // section kinds of a v3 lesson (`template: 3`, docs/v3-implementation.md "Machinery API", R7, R10)
 //   text      { kind:'text', html: (D, T) => '<section>…</section>', setup? }   markup is used as given; setup: true marks the
@@ -10,7 +10,7 @@
 //   quiz      { kind:'quiz', id, purpose, type, prompt, reveal, title?, from?,
 //               options: [{ html, correct, feedback }]   (type 'choice')
 //               answer: '<trace path>', tolerance, unit?  (type 'numeric') }   answer first, then feedback and the reveal
-//   explain   { kind:'explain', id, prompt, model }                           a text box, then "Compare with a model answer"
+//   explain   { kind:'explain', id, prompt, model }                           a text box, then "Compare with a good answer"
 //   widget    { kind:'widget', id, className?, label?, mount(host, D, ctx), tasks?: (D, T) => [{ do, see }] }
 //   answer    { kind:'answer', html: (D, T) => html, next: (D, T) => html }   "The answer", the next question, the next lesson. Last
 //   gotcha    { kind:'gotcha', title, html: (D, T) => … }                     a "Why did my X fail?" box (appendix pages only in v3)
@@ -66,9 +66,9 @@ function explainHtml(x, D, T) {
   return `<section class="explain" id="${base}" data-explain="${id}" aria-labelledby="${base}-h"><h3 id="${base}-h">Explain it in one sentence</h3>`
     + `<div class="prompt" id="${base}-prompt">${call(x.prompt, D, T)}</div>`
     + `<div class="explain-field"><label for="${base}-text">Your sentence</label><textarea id="${base}-text" rows="3" aria-describedby="${base}-prompt"></textarea></div>`
-    + '<div class="quiz-actions"><button type="button" class="btn" data-explain-compare>Compare with a model answer</button></div>'
+    + '<div class="quiz-actions"><button type="button" class="btn" data-explain-compare>Compare with a good answer</button></div>'
     + '<div class="feedback" role="status" aria-live="polite"></div>'
-    + `<div class="model" id="${base}-model" hidden><p class="reveal-h"><strong>A model answer</strong></p>${call(x.model, D, T)}</div></section>`;
+    + `<div class="model" id="${base}-model" hidden><p class="reveal-h"><strong>One good answer</strong></p>${call(x.model, D, T)}</div></section>`;
 }
 
 function answerHtml(a, D, T, ctx) {

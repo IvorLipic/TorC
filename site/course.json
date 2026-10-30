@@ -32,26 +32,25 @@
         {
           "id": "why-gradients",
           "title": "The gradient",
-          "outcome": "You can find how much the loss changes when one weight changes a little. This number is the gradient, and it tells you which way to move the weight.",
+          "outcome": "You can find the gradient of a loss by nudging a weight. You know which way a training step moves the weight, and why its learning rate must not be too large.",
           "prereqs": [
             "what-is-learning"
           ],
           "symbols": [
             "Variable::backward",
-            "optim::SGD",
-            "mul",
-            "sub"
+            "optim::SGD"
           ],
           "trace": [
             "why-gradients.json"
           ],
-          "est_minutes": 6,
+          "est_minutes": 14,
           "status": "published",
           "widgets": [
-            "the bowl",
-            "graph lab"
+            "the nudge lens",
+            "two bowls",
+            "the bowl in the fog"
           ],
-          "code": "Variable w(Tensor({0.0f}, {1}), true);\nVariable p = mul(w, x);\nVariable e = sub(p, t);\nVariable L = mul(e, e);\nL.backward();      // w.grad() = dL/dw"
+          "code": "L.backward();                 // w.grad() = dL/dw = -24\noptim::SGD opt({&w}, 0.05f);\nopt.step();                   // w = 0 - 0.05 * (-24) = 1.2"
         },
         {
           "id": "sgd-step",
@@ -507,7 +506,7 @@
           "symbols": [],
           "trace": [],
           "est_minutes": 5,
-          "status": "planned"
+          "status": "published"
         },
         {
           "id": "glossary",
@@ -516,8 +515,8 @@
           "prereqs": [],
           "symbols": [],
           "trace": [],
-          "est_minutes": 5,
-          "status": "planned"
+          "est_minutes": 8,
+          "status": "published"
         }
       ]
     },
