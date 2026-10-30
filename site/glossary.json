@@ -352,8 +352,8 @@
     "vector": {
       "term": "vector",
       "forms": ["vector", "vectors"],
-      "short": "A vector is a list of numbers in a given order, for example the inputs of a neuron.",
-      "lesson": "linear-layer"
+      "short": "A vector is a list of numbers in a given order, for example a gradient with one number for each weight.",
+      "lesson": "sgd-step"
     },
     "weight": {
       "term": "weight",

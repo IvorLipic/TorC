@@ -1,22 +1,23 @@
-// widgets/matmul-grid.js — "One neuron = one row". The numbers of the lesson example (scene `linear`: x 2×3, W 2×3, b 2) as
-// editable grids. Hover, focus or click an output y[i,k]: row i of x, row k of W and b_k light up and the paper work shows
-// y[i,k] = dot(x[i,:], W[k,:]) + b[k] with the real numbers.
+// widgets/matmul-grid.js — "One neuron = one row of W". The numbers of a small layer (by default the taxi example of linear.json,
+// `taxi`: x 2×3, W 2×3, b 2; or the scene `linear` when D has no taxi record) as editable grids. Hover, focus or click an output
+// y_ik: row i of x, row k of W and b_k light up and the paper work shows y_ik = Σ_j x_ij W_kj + b_k with the numbers.
 //
 //   mountMatmulGrid(host, D, ctx) -> { destroy(), state }
+//   ctx.example = {x, W, b} (arrays of rows) overrides the data; ctx.rowName / ctx.neuronNames / ctx.inputNames name the rows,
+//   the neurons and the inputs in the captions and the screen-reader labels.
 //
-// Every number is recomputed in the browser (plain arithmetic, linear-math.js); site/test/linear-layer.test.mjs checks the preset
-// against what TorC printed for the same inputs (scene `linear`, node y).
+// Every number is plain arithmetic in linear-math.js; site/test/linear-layer.test.mjs checks the preset against the y of the
+// real nn::Linear for the same inputs (taxi.y). Positions count from 0 in the tags and the paper work, as in TorC.
 import { el } from '../core/dom.js';
 import { math } from '../core/katex.js';
 import { fmt } from '../ops/texutil.js';
 import { useBaseStyle, injectStyle, matrixEl, clearMarks, markRow, markCell } from './linear-ui.js';
-import { exampleFromScene, linearForward, neuronTex, clone2, round7 } from './linear-math.js';
+import { exampleFromScene, exampleFromTensors, linearForward, neuronTex, clone2 } from './linear-math.js';
 
 const CSS = `
 .lin-mg .mg-cap{margin:.3rem 0 0;font-size:.85rem;color:var(--muted)}
 .lin-mg .mg-mats{display:flex;flex-wrap:wrap;gap:14px 10px;align-items:flex-start;margin:.4rem 0}
 .lin-mg .lin-op{margin-top:2.6rem}
-.lin-mg .mg-twin{font-size:.9rem;margin:.3rem 0;color:var(--warn);min-height:1.4em}
 .lin-mg button.lin-y{background:var(--panel2)}
 @media(max-width:640px){.lin-mg .lin-op{margin-top:0;width:100%;text-align:center;font-size:1.2rem}}
 `;
@@ -25,7 +26,8 @@ export function mountMatmulGrid(host, D, ctx = {}) {
   useBaseStyle();
   injectStyle('lin-matmul-grid-style', CSS);
   host.classList.add('lin-mg');
-  const base = exampleFromScene(D.scenes.linear);
+  const base = ctx.example ?? (D.files?.linear?.taxi ? exampleFromTensors(D.files.linear.taxi) : exampleFromScene(D.scenes.linear));
+  const rowName = ctx.rowName ?? 'sample', neuronName = (k) => ctx.neuronNames?.[k] ?? `neuron ${k}`, inputName = (j) => ctx.inputNames?.[j] ?? `input ${j}`;
   const B = base.x.length, nIn = base.x[0].length, nOut = base.W.length;
   const st = { x: clone2(base.x), W: clone2(base.W), b: base.b.slice(), pin: { i: 0, k: 1 }, hover: null };
   const bad = new Set();
@@ -43,13 +45,13 @@ export function mountMatmulGrid(host, D, ctx = {}) {
     return inp;
   };
 
-  const mx = matrixEl({ caption: '<code>x</code> · batch, one row per sample', rows: B, cols: nIn, rowTag: (i) => `i=${i}`, colTag: (j) => `j=${j}`,
-    cell: (i, j) => inputCell(() => st.x[i][j], (v) => { st.x[i][j] = v; }, `x, sample ${i}, feature ${j}`) });
-  const mw = matrixEl({ caption: '<code>W</code> · weights, one row per <b>neuron</b>', rows: nOut, cols: nIn, rowTag: (k) => `k=${k}`, colTag: (j) => `j=${j}`,
-    cell: (k, j) => inputCell(() => st.W[k][j], (v) => { st.W[k][j] = v; }, `W, neuron ${k}, weight ${j}`) });
+  const mx = matrixEl({ caption: `<code>x</code> · one row per ${rowName}`, rows: B, cols: nIn, rowTag: (i) => `i=${i}`, colTag: (j) => `j=${j}`,
+    cell: (i, j) => inputCell(() => st.x[i][j], (v) => { st.x[i][j] = v; }, `x, row ${i} (${rowName} ${i}), column ${j} (${inputName(j)})`) });
+  const mw = matrixEl({ caption: '<code>W</code> · one row per <b>neuron</b>', rows: nOut, cols: nIn, rowTag: (k) => `k=${k}`, colTag: (j) => `j=${j}`,
+    cell: (k, j) => inputCell(() => st.W[k][j], (v) => { st.W[k][j] = v; }, `W, row ${k} (${neuronName(k)}), weight of ${inputName(j)}`) });
   const mb = matrixEl({ caption: '<code>b</code> · one bias per neuron', rows: 1, cols: nOut, colTag: (k) => `k=${k}`,
-    cell: (_, k) => inputCell(() => st.b[k], (v) => { st.b[k] = v; }, `b, neuron ${k}`) });
-  const my = matrixEl({ caption: '<code>y</code> · outputs (hover, focus or click one)', rows: B, cols: nOut, rowTag: (i) => `i=${i}`, colTag: (k) => `k=${k}`,
+    cell: (_, k) => inputCell(() => st.b[k], (v) => { st.b[k] = v; }, `b, position ${k} (${neuronName(k)})`) });
+  const my = matrixEl({ caption: '<code>y</code> · outputs. Choose one.', rows: B, cols: nOut, rowTag: (i) => `i=${i}`, colTag: (k) => `k=${k}`,
     cell: (i, k) => {
       const b = el('button', { type: 'button', class: 'lin-cell lin-y', 'data-key': `mg-y-${i}-${k}` });
       b.addEventListener('mouseenter', () => { st.hover = { i, k }; update(); });
@@ -60,7 +62,7 @@ export function mountMatmulGrid(host, D, ctx = {}) {
     } });
 
   const paper = el('div', { class: 'lin-paper' });
-  const twin = el('div', { class: 'mg-twin', 'aria-live': 'polite' });
+  const status = el('p', { class: 'lin-sr', 'aria-live': 'polite' });
 
   const refresh = () => {                                    // after buttons set many values at once
     for (let i = 0; i < B; i++) for (let j = 0; j < nIn; j++) mx.cells[i][j].value = String(st.x[i][j]);
@@ -70,13 +72,12 @@ export function mountMatmulGrid(host, D, ctx = {}) {
     update();
   };
   const buttons = el('div', { class: 'lin-btns' },
-    el('button', { type: 'button', class: 'btn small', onclick: () => { st.W[1] = st.W[0].slice(); st.b[1] = st.b[0]; refresh(); } }, 'Copy the first neuron into the second'),
-    el('button', { type: 'button', class: 'btn small', onclick: () => { st.x = clone2(base.x); st.W = clone2(base.W); st.b = base.b.slice(); refresh(); } }, 'Reset'));
+    el('button', { type: 'button', class: 'btn small', onclick: () => { st.x = clone2(base.x); st.W = clone2(base.W); st.b = base.b.slice(); refresh(); status.textContent = 'The grid shows the start values again.'; } }, 'Reset'));
 
   host.replaceChildren(
     el('div', { class: 'mg-mats' }, mx.root, el('span', { class: 'lin-op', 'aria-hidden': 'true' }, '·'), mw.root, el('span', { class: 'lin-op', 'aria-hidden': 'true' }, '+'), mb.root, el('span', { class: 'lin-op', 'aria-hidden': 'true' }, '='), my.root),
-    el('p', { class: 'mg-cap' }, 'Each output y[i,k] is row i of x times row k of W, plus b[k]. Together this is x·Wᵀ + b.'),
-    badNote, paper, twin, buttons);
+    el('p', { class: 'mg-cap' }, 'Each output yᵢₖ uses row i of x and row k of W, plus bₖ. Positions count from 0.'),
+    badNote, paper, buttons, status);
 
   function update() {
     const y = linearForward(st.x, st.W, st.b);
@@ -84,15 +85,12 @@ export function mountMatmulGrid(host, D, ctx = {}) {
     for (let i = 0; i < B; i++) for (let k = 0; k < nOut; k++) {
       const c = my.cells[i][k];
       c.textContent = fmt(y[i][k]);
-      c.setAttribute('aria-label', `y, sample ${i}, neuron ${k}: ${fmt(y[i][k])}`);
+      c.setAttribute('aria-label', `y, row ${i} (${rowName} ${i}), ${neuronName(k)}: ${fmt(y[i][k])}`);
     }
     for (const m of [mx, mw, mb, my]) clearMarks(m);
     markRow(mx, act.i); markRow(mw, act.k); markCell(mb, 0, act.k); mb.colTags[act.k]?.classList.add('hl');
     markCell(my, act.i, act.k); my.rowTags[act.i]?.classList.add('hl'); my.colTags[act.k]?.classList.add('hl');
     paper.innerHTML = math(neuronTex(st.x, st.W, st.b, act.i, act.k), true);
-    // twin neurons: identical weights and biases give identical output columns
-    const same = y.every((r) => Math.abs(r[0] - r[1]) < 1e-12);
-    twin.textContent = same ? 'The two columns of y are identical, because the two neurons have the same weights and bias.' : '';
   }
 
   update();

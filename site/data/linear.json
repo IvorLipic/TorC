@@ -414,5 +414,17 @@
       "sum_of_layers":9098
     }
   ],
+  "taxi":{
+    "inputs":["distance in km","minutes of waiting","bags"],
+    "outputs":["price in euros","time in minutes"],
+    "x":{"shape":[2,3],"values":[4,6,2,10,0,1]},
+    "W":{"shape":[2,3],"values":[2,0.5,1,3,1,0]},
+    "b":{"shape":[2],"values":[1,2]},
+    "weight_shape":[2,3],
+    "bias_shape":[2],
+    "y":{"shape":[2,2],"values":[14,20,22,32]},
+    "y_bias0_plus1":{"shape":[2,2],"values":[15,20,23,32]},
+    "exact":true
+  },
   "checks":{"all_internal_checks_passed":true}
 }
