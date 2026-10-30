@@ -118,6 +118,10 @@ v3 additions (brief §6 `sgd-step`, the c-zero check of §7, D13), appended afte
   `without_zero_grad` is the `no_zero_grad.training_loop` after its 10th step (loss 0.8042). Note that `runs[i].steps[9]` is the state
   after **nine** updates (0.001184): do not call it "after ten steps".
 - `no_zero_grad.training_loop.final` = `{w, b, loss}` after the 10th step (the same as `after_ten_steps.without_zero_grad`).
+- `off_axis` = `{w0: 0, b0: 3, start{w, b, loss, gw, gb}, nudge{L0, w[], b[]}, runs[]}` (appended last; the lesson's start, which
+  is off the steep axis of the valley, so the gradient does not point at the lowest point). `nudge.w`/`nudge.b` nudge one parameter
+  alone by h = 1, 0.5, 0.1, 0.01, 0.001: `{h, L_h, dL, slope, backward_slope}`. `runs[]` are plain SGD at lr 0.05, 0.15, 0.2
+  (ids `off-axis-sgd-lr…`), in the format of `runs[]` above: loss 6.667 and gradient (−10.67, −4) at the start; lr 0.2 diverges.
 
 ## `linear.json` (kind `linear`, lesson `linear-layer`)
 
