@@ -63,6 +63,7 @@
           "symbols": [
             "optim::SGD",
             "optim::SGD::step",
+            "optim::SGD::zero_grad",
             "Variable::backward",
             "nn::MSELoss"
           ],
@@ -76,7 +77,7 @@
             "the loss map with fog",
             "three learning rates on the map"
           ],
-          "code": "optim::SGD opt(line.parameters(), /*lr=*/0.05f);\nfor (int step = 1; step <= 10; ++step) {\n    Variable y = line(x);      // the predicted prices, y = w·x + b\n    Variable loss = mse(y, t); // the mean of the squared misses\n    loss.backward();           // finds the gradient, one number for w and one for b\n    opt.step();                // w -= lr * (gradient for w), the same for b\n    opt.zero_grad();           // clears the gradients before the next step\n}"
+          "code": "optim::SGD opt(line.parameters(), /*lr=*/0.05f);\nfor (int step = 1; step <= 10; ++step) {\n    Variable y = line(x);    // the predicted prices, y = w·x + b\n    Variable L = mse(y, t);  // the mean of the squared misses\n    L.backward();            // finds the gradient, one number for w and one for b\n    opt.step();              // w -= lr * (gradient for w), the same for b\n    opt.zero_grad();         // clears the gradients before the next step\n}"
         }
       ]
     },

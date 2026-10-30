@@ -15,6 +15,11 @@
 //     `gradient` = [gw, gb] from backward(), the list of the two slopes; `secant_gradient` = the two slopes at h = 0.001.
 //   - `after_ten_steps`: one quantity for "the loss after ten steps" (D13): lr 0.05, the state after the 10th update, with
 //     zero_grad() (equal to runs[0].final) and without it (the no_zero_grad training loop), plus `no_zero_grad.training_loop.final`.
+//   - `off_axis` (appended last): the same model from a start that is NOT on the steep axis of the valley, w = 0, b = 3 (the
+//     gradient there does not point at the lowest point, so the trail curves, zig-zags across the valley or creeps along its
+//     floor). {w0, b0, start {w, b, loss, gw, gb}, nudge {w[], b[]}, runs[]}: `nudge.w`/`nudge.b` nudge one parameter alone by
+//     h = 1, 0.5, 0.1, 0.01, 0.001: {h, L_h, dL, slope, backward_slope}; `runs[]` = plain SGD (no momentum) at lr 0.05, 0.15 and
+//     0.2, ten steps each, in the same format as `runs[]` above (`steps[i]` is the state before update i+1, `final` after the 10th).
 #include "trace_util.hpp"
 
 #include "torc/nn.hpp"
@@ -119,8 +124,8 @@ double spectral_radius(double lr, double mu, const Hessian& h) {
     return rho;
 }
 
-J run_sgd(const std::string& id, double lr, double mu, int n_steps, const Hessian& h) {
-    Setup S;
+J run_sgd(const std::string& id, double lr, double mu, int n_steps, const Hessian& h, float w0 = 0.0f, float b0 = 0.0f) {
+    Setup S(w0, b0);
     optim::SGD opt(S.lin.parameters(), static_cast<float>(lr), static_cast<float>(mu));
     J steps = J::array();
     float first_loss = 0.0f;
@@ -352,6 +357,35 @@ int main() {
             .set("note", "Parameters and loss after the 10th step() call. with_zero_grad equals runs[0].final; without_zero_grad is the no_zero_grad training loop after its 10th step.");
     }
 
+    // ---- v3: a start off the steep axis (w = 0, b = 3) --------------------------------------------------------------
+    J off_axis = J::object();
+    {
+        const float w0 = 0.0f, b0 = 3.0f;
+        Setup S(w0, b0);
+        const State st = S.fwd_bwd();
+        J st_json = J::object();
+        st_json.set("w", st.w).set("b", st.b).set("loss", st.loss).set("gw", st.gw).set("gb", st.gb);
+        const float L0 = Setup(w0, b0).loss_only();
+        start_ok = start_ok && L0 == st.loss;
+        auto nudges = [&](bool on_w) {
+            J arr = J::array();
+            for (double hd : {1.0, 0.5, 0.1, 0.01, 0.001}) {
+                const float h = static_cast<float>(hd);
+                const float Lh = on_w ? Setup(w0 + h, b0).loss_only() : Setup(w0, b0 + h).loss_only();
+                const float dL = Lh - L0;
+                J o = J::object();
+                o.set("h", hd).set("L_h", Lh).set("dL", dL).set("slope", dL / h).set("backward_slope", on_w ? st.gw : st.gb);
+                arr.push(std::move(o));
+            }
+            return arr;
+        };
+        J nudge = J::object();
+        nudge.set("L0", L0).set("w", nudges(true)).set("b", nudges(false));
+        J oruns = J::array();
+        for (double lr : {0.05, 0.15, 0.2}) oruns.push(run_sgd("off-axis-sgd-lr" + J::fmt_double(lr), lr, 0.0, 10, H, w0, b0));
+        off_axis.set("w0", w0).set("b0", b0).set("start", std::move(st_json)).set("nudge", std::move(nudge)).set("runs", std::move(oruns));
+    }
+
     // ---- assemble ---------------------------------------------------------------------------------------------------
     J data = J::object();
     data.set("x", trace::jarr(XS)).set("t", trace::jarr(TS)).set("true_w", 2).set("true_b", 1).set("n", 3)
@@ -387,7 +421,7 @@ int main() {
     doc.set("scenes", std::move(scenes)).set("data", std::move(data)).set("hessian", std::move(hess)).set("runs", std::move(runs))
         .set("no_zero_grad", std::move(no_zero)).set("skipped_step", std::move(skipped)).set("ctor_errors", std::move(ctor_errors))
         .set("surface", std::move(surface)).set("checks", std::move(checks)).set("start", std::move(start))
-        .set("nudge_start", std::move(nudge_start)).set("after_ten_steps", std::move(after_ten));
+        .set("nudge_start", std::move(nudge_start)).set("after_ten_steps", std::move(after_ten)).set("off_axis", std::move(off_axis));
     std::fputs(doc.dump().c_str(), stdout);
 
     if (!ok) {
