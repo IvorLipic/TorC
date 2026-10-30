@@ -505,7 +505,7 @@
           "symbols": [],
           "trace": [],
           "est_minutes": 5,
-          "status": "planned"
+          "status": "published"
         },
         {
           "id": "glossary",
@@ -514,8 +514,8 @@
           "prereqs": [],
           "symbols": [],
           "trace": [],
-          "est_minutes": 5,
-          "status": "planned"
+          "est_minutes": 8,
+          "status": "published"
         }
       ]
     },

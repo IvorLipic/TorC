@@ -123,13 +123,18 @@ export function checkV3(lesson, { D, course, glossary, notation, source }) {
       if (n > LIMITS.answerWords) add('answer', `The answer has ${n} words, at most ${LIMITS.answerWords}`);
     }
   }
-  S.forEach((s, i) => { if (s.kind === 'text') { const n = sectionWords(parts[i].html); if (n > LIMITS.textWords) add('words', `text section ${i} has ${n} words, at most ${LIMITS.textWords}`); } });
+  // a refresher is collapsed, optional reading of 100-200 words (brief §8), so it does not count toward the section budget
+  const noRefresher = (h) => h.replace(/<details class="refresher"[\s\S]*?<\/details>/g, ' ');
+  S.forEach((s, i) => { if (s.kind === 'text') { const n = sectionWords(noRefresher(parts[i].html)); if (n > LIMITS.textWords) add('words', `text section ${i} has ${n} words, at most ${LIMITS.textWords}`); } });
   const numbered = (html.match(/<h2[^>]*>\s*\d+\s·/g) ?? []).length;
   if (numbered > LIMITS.numbered) add('budget', `${numbered} numbered sections, at most ${LIMITS.numbered}`);
   const quizzes = S.filter((s) => s.kind === 'quiz');
   if (quizzes.length > LIMITS.quizzes) add('budget', `${quizzes.length} quizzes, at most ${LIMITS.quizzes}`);
   const total = words(text(html));
-  if (total > LIMITS.words) add('words', `${total} words of prose, at most ${LIMITS.words}`);
+  // the two reference pages of the appendix (notation, glossary) are generated lists whose length follows the course, not a
+  // reading budget; their text sections keep the 150-word limit
+  const reference = appendix && ['notation', 'glossary'].includes(lesson.id);
+  if (total > LIMITS.words && !reference) add('words', `${total} words of prose, at most ${LIMITS.words}`);
   const palette = toks.filter((t) => t.type === 'open' && PALETTE.some((c) => t.el.cls.includes(c)) && ['aside', 'details'].includes(t.el.tag)).length;
   if (palette > LIMITS.palette) add('palette', `${palette} of analogy, refresher, In TorC and ChatGPT, at most ${LIMITS.palette}`);
 
