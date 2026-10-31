@@ -21,7 +21,7 @@ rewritten (see "Legacy lessons" below).
 - **One name for one thing**, on a page and across the course: loss (not score), gradient (not slope), `B` for the batch size.
   **Parameters** are all the numbers training changes; a **weight** multiplies an input and a **bias** is added (so a parameter count
   such as the MLP's 26,506 counts both: say "parameters", never "weights", for it). The loss is `L` and the call is `L.backward()`. Softmax gives **probabilities** (never "shares" as a name;
-  "shares of 100 %" is only the analogy). A hidden **unit** is called a unit, not also a neuron, on pages about networks of units. Two exceptions. "Slope" may be used once, to define the gradient ("the gradient is the slope of the loss curve at the
+  "shares of 100 %" is only the analogy). A **neuron** (defined in `linear-layer`) is always called a neuron, also in a hidden layer; never "unit". Two exceptions. "Slope" may be used once, to define the gradient ("the gradient is the slope of the loss curve at the
   current point"); after that, say "gradient". "Knob" may be used only in the `what-is-learning` analogy, with the mapping stated
   ("the knobs are the parameters"). Use "graph" only for the computation graph and "plot" or "curve" for a plot.
 - **Active voice and plain verbs.** "TorC adds them", not "they are added". No phrasal verbs.
