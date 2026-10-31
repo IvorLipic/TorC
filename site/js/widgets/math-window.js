@@ -25,6 +25,11 @@ export function windowData(graph, bw, name, tab) {
   return forwardWindow(graph, name);
 }
 
+// D16: a phone has no arrow keys, so its hint names only the button. Pure, so the test can check both texts.
+export const startHint = (touch) => (touch ? 'Tap <kbd>Next</kbd> to start.' : 'Press <kbd>Next</kbd> or <kbd>→</kbd> to start.');
+// a device whose only pointer is coarse (a phone or a tablet) and that cannot hover
+const touchOnly = () => typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches && !matchMedia('(any-pointer: fine)').matches;
+
 // view = {graph, bw, tl, step, layout, sel, tab, pop}; actions = {onTab(id), onBackToStep(), onFocusInputs(name)}
 export function renderWindow(box, { graph, bw, tl, step, layout: L, sel, tab, pop }, { onTab, onBackToStep, onFocusInputs }) {
   if (!sel) {
@@ -32,7 +37,7 @@ export function renderWindow(box, { graph, bw, tl, step, layout: L, sel, tab, po
     box.replaceChildren(
       el('h3', { html: L.goal }),   // layout text is an HTML fragment everywhere (the lab's goal line renders it the same way)
       el('p', { html: L.intro }),
-      el('p', { class: 'hint', html: `Press <kbd>Next</kbd> or <kbd>→</kbd> to start. ${L.forwardHint} ${L.backwardHint} At each step this panel shows the rule and the same rule with the numbers. You can also click any node.` }));
+      el('p', { class: 'hint', html: `${startHint(touchOnly())} ${L.forwardHint} ${L.backwardHint} At each step this panel shows the rule and the same rule with the numbers. You can also ${touchOnly() ? 'tap' : 'click'} any node.` }));
     return;
   }
   const n = graph.byName[sel];

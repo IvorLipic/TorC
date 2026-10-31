@@ -185,7 +185,7 @@
         {
           "id": "backprop",
           "title": "How the computer finds every gradient at once",
-          "outcome": "You can explain why it is too slow to find each gradient by changing one weight at a time. You can follow the chain rule backward through a small network.",
+          "outcome": "You can explain why it is too slow to find each gradient by nudging one parameter at a time. You can follow the chain rule backward through a small network, and say why TorC adds gradients.",
           "prereqs": [
             "losses"
           ],
@@ -194,12 +194,16 @@
             "TapeEntry",
             "accumulate_grad"
           ],
-          "trace": [],
-          "est_minutes": 18,
-          "status": "planned",
+          "trace": [
+            "autograd_trace.json",
+            "why-gradients.json"
+          ],
+          "est_minutes": 16,
+          "status": "published",
           "widgets": [
-            "nudge counter",
-            "graph lab"
+            "the nudge counter",
+            "the graph lab, one value with three uses",
+            "the small network, backward"
           ]
         },
         {

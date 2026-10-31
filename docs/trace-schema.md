@@ -40,7 +40,10 @@ numbers mean, derivations, library symbols): `docs/lessons/<lesson>.md`.
 ## `autograd_trace.json` (kind `autograd`, lesson `backprop-lab`)
 
 `scenes[]` with ids `reuse` (`y = x*x + x`), `chain` (`f = sum(relu(a*b + c))`), `mlp` (tiny 2-2-1 network, batch of 2, MSE written as
-`sub`, `mul`, `mean`). Unchanged by the refactor except for the envelope (`library` changed from the string `"torc"` to the object above).
+`sub`, `mul`, `mean`) and `net` (added for the lesson `backprop`: the same 2-2-1 network with one sample, x = (1, 2), t = 2, both
+neurons on, the second output weight negative; `W1[i][j]` goes from input i to neuron j). `net_counts` = `{inputs 2, hidden 2,
+outputs 1, parameters 9}`: `parameters` counts the tracked numbers of scene `net` (derived by the producer). Unchanged by the
+refactor except for the envelope (`library` changed from the string `"torc"` to the object above).
 
 ## `why-gradients.json` (kind `why`, lesson `why-gradients`)
 
@@ -293,22 +296,27 @@ No scenes (the site's engine has no softmax or cross-entropy op).
 Producer: `tools/trace/trace_deep.cpp`. No scenes. Per-layer statistics (mean absolute value, population std, rms, share of
 exact zeros) are computed by the producer in double from the library's tensors.
 
-- `setup` = `{depth 8, width 32, batch 64, data_seed, inputs, targets, weight_seeds, loss "nn::MSELoss", kaiming_std}`: a fixed batch
+- `setup` = `{depth 8, width 32, batch 64, data_seed, inputs, targets, weight_seeds, loss "nn::MSELoss", kaiming_std, no_two_std,
+  sigmoid_max_slope, kaiming_digit{inputs 784, std}}` (the last three added for the lesson): `no_two_std` = √(1/32) (derived);
+  `sigmoid_max_slope` = the gradient of `sigmoid` at 0 from a real `backward()` (`0.25`); `kaiming_digit.std` =
+  `torc::kaiming_normal_std(784)` (`0.0505`), the start spread of the digit network's first layer. A fixed batch
   `x` (64, 32) uniform in `[-√3, √3)` (std 1) and targets (64, 1) uniform in `[-1, 1)` (producer input); `kaiming_std` is
   `torc::kaiming_normal_std(32)` = `0.25`. The stack is 8 × (`Linear(32, 32)` → activation) and a head `Linear(32, 1)` in an
   `nn::Sequential`; layer `l` uses seed `300 + l`, the head `309`.
 - `vanishing[]` = `{activation: sigmoid|relu, loss, input_std, layers[9], derived{first_over_last_hidden}}`, both with the same
   start weights (TorC's default Kaiming init). `layers[l]` = `{layer 1..9, name ("hidden 1".."hidden 8", "head"), mean_abs_grad,
   signal_std?}`: the mean of `|weight.grad|` after one forward pass and one `backward()` of the loss, and (hidden layers) the std of
-  the signal after the activation. `first_over_last_hidden` = layer 1's `mean_abs_grad` over layer 8's (derived). Committed run:
-  sigmoid `6.1e-5`, relu `0.49`.
-- `init[]` = `{name: kaiming|too_small|too_large, init_std (0 = TorC's default), weight_std, layer1_weight_std_observed, loss,
-  layers[9]}` for the ReLU stack with `nn::Linear(32, 32, init_std, seed)` and `init_std` 0, 0.05, 0.5. `layers[l]` = `{layer 0..8,
+  the signal after the activation. `first_over_last_hidden` = layer 1's `mean_abs_grad` over layer 8's, `last_over_first_hidden` its
+  inverse (both derived). Committed run: sigmoid `6.1e-5` (inverse `16,421`), relu `0.49` (inverse `2.0`).
+- `init[]` = `{name: kaiming|too_small|too_large|no_two, init_std (0 = TorC's default), weight_std, layer1_weight_std_observed, loss,
+  layers[9]}` for the ReLU stack with `nn::Linear(32, 32, init_std, seed)` and `init_std` 0, 0.05, 0.5 and √(1/32) (`no_two`, Kaiming
+  without its 2, added for the lesson; std after layer 8 `0.076`). `layers[l]` = `{layer 0..8,
   std, rms, frac_zero, mean_abs_grad?}`: layer 0 is the input, layer `l` the signal after the `l`-th ReLU; `mean_abs_grad` is layer
   `l`'s weight gradient after one `backward()`. Committed run, std after layer 8: `1.2`, `3.1e-6`, `313`.
 - `twins_setup` = `{model "Linear(2, 2) -> ReLU -> Linear(2, 1)", x (4, 2) XOR inputs, t (4, 1), optimizer "optim::SGD", lr 0.2,
   momentum 0, loss, recorded_steps 10, long_steps [0, 10, 100, 500, 2000], note}`. Start weights set by hand (no generator).
-- `twins[]` = `{id: twins|different, start{W1, b1, W2, b2}, steps[11], equal_every_step, long_run[5]}`. `steps[k]` = `{step, loss,
+- `twins[]` = `{id: twins|different|zeros, start{W1, b1, W2, b2}, steps[11], equal_every_step, long_run[5]}` (`zeros`, added for the
+  lesson: every weight and bias starts at 0; only the output bias learns, and the loss stays at `0.25`). `steps[k]` = `{step, loss,
   neuron0, neuron1, grad0, grad1, output_bias, neurons_equal}`: the state before update `k + 1`; `neuronN` = `{w[2] (row N of W1),
   b (bias N), v (output weight N)}`, `gradN` the same fields of the gradients `step()` reads (after `backward()`);
   `neurons_equal` is a bit-for-bit comparison of the two neurons' parameters and gradients. `equal_every_step` covers all 2000

@@ -4,6 +4,12 @@
 //
 //   mountGraphLab(host, { scenes: {id: scene}, layouts: {id: layout}, defaultScene })  ->  { destroy() }
 //
+// Phones (brief D16). A layout may carry `narrow: {view, minWidth, pos, above?}`, a second drawing of the same graph that fits a
+// phone: the lab uses it whenever the graph box is narrower than the layout's `minWidth`, so the whole graph (and the output) is on
+// screen from the start. A graph without `narrow` scrolls sideways, and a line under it says so. On a narrow screen the step chips
+// get their own full-width row that scrolls, with a fade at the edge that has more chips. The math window's start hint names the
+// keyboard only on a device with a fine pointer.
+//
 // Arrow keys step the lab only when focus is inside it, or nowhere (see labOwnsArrows). `goal`, `intro`, `takeaway` and the hints are
 // HTML fragments, in the lab and in the math window alike (docs/authoring.md).
 //
@@ -17,6 +23,31 @@ import { renderStepper, revealChip } from './stepper.js';
 import { renderWindow } from './math-window.js';
 import { createInputsPopover } from './inputs-popover.js';
 
+// D16: the phone styles live with the widget, so every page that mounts a lab gets them (widgets.css keeps the desktop lab).
+const D16_CSS = `
+[data-graph-lab] .graph-cue{display:none;margin:0;font-size:.85rem;color:var(--muted)}
+[data-graph-lab].lab-scrolls .graph-cue{display:block}
+@media(max-width:640px){
+  [data-graph-lab] .controls{flex-wrap:wrap;row-gap:6px}
+  [data-graph-lab] .controls .chips{flex:1 1 100%;order:9;margin:0;padding:2px 0 4px}
+  [data-graph-lab] .controls .chips.more-right{-webkit-mask-image:linear-gradient(to right,#000 85%,transparent);mask-image:linear-gradient(to right,#000 85%,transparent)}
+  [data-graph-lab] .controls .chips.more-left{-webkit-mask-image:linear-gradient(to left,#000 85%,transparent);mask-image:linear-gradient(to left,#000 85%,transparent)}
+  [data-graph-lab] .controls .chips.more-left.more-right{-webkit-mask-image:linear-gradient(to right,transparent,#000 12%,#000 88%,transparent);mask-image:linear-gradient(to right,transparent,#000 12%,#000 88%,transparent)}
+}`;
+function injectD16Style() {
+  if (typeof document === 'undefined' || document.getElementById('graph-lab-d16')) return;
+  const st = document.createElement('style');
+  st.id = 'graph-lab-d16';
+  st.textContent = D16_CSS;
+  document.head.append(st);
+}
+
+// The layout the graph is drawn with: the `narrow` variant when the graph box is narrower than the wide layout needs. Pure.
+export function layoutFor(layout, boxWidth) {
+  if (!layout?.narrow || !(boxWidth > 0) || boxWidth >= layout.minWidth) return layout;
+  return { ...layout, ...layout.narrow };
+}
+
 const MARKUP = `
     <div class="lab-top">
       <div id="scene-tabs" class="tabs" role="tablist" aria-label="Examples"></div>
@@ -26,6 +57,7 @@ const MARKUP = `
     <div id="goal" class="goal"></div>
     <div id="controls" class="controls"></div>
     <div class="graph-wrap"><div id="graph" class="graph"></div></div>
+    <p class="graph-cue">The graph is wider than the screen. Swipe it sideways to see every node.</p>
     <div id="window" class="win" aria-live="polite"></div>`;
 
 // Which keyboard events may step the lab? Pure (no DOM) so it can be tested: `d` describes the event target.
@@ -46,6 +78,7 @@ function describeTarget(t, host) {
 export function mountGraphLab(host, { scenes, layouts, defaultScene }) {
   const ac = new AbortController();
   const { signal } = ac;
+  injectD16Style();
   host.innerHTML = MARKUP;
   host.setAttribute('data-graph-lab', '');
   const state = { sceneId: defaultScene, overrides: {}, step: 0, sel: null, tab: null, pop: false };
@@ -77,7 +110,7 @@ export function mountGraphLab(host, { scenes, layouts, defaultScene }) {
     const bw = runBackward(graph);
     const tl = timeline(graph, bw);
     state.step = Math.max(0, Math.min(state.step, tl.length - 1));
-    return { scene, graph, bw, tl, layout: layouts[state.sceneId] };
+    return { scene, graph, bw, tl, layout: layoutFor(layouts[state.sceneId], q('.graph-wrap')?.clientWidth) };
   }
 
   // ---- scene tabs ----------------------------------------------------------------------
@@ -141,6 +174,17 @@ export function mountGraphLab(host, { scenes, layouts, defaultScene }) {
     });
     revealNode(q('.graph-wrap'), D.tl[state.step].node);
     revealChip(q('#controls'));
+    markScroll();
+  }
+  // D16: say so when the graph scrolls sideways, and fade the chip row at the side that has more chips.
+  function markScroll() {
+    const wrap = q('.graph-wrap');
+    host.classList.toggle('lab-scrolls', !!wrap && wrap.scrollWidth > wrap.clientWidth + 2);
+    const chips = q('#controls .chips');
+    if (!chips) return;
+    chips.classList.toggle('more-left', chips.scrollLeft > 2);
+    chips.classList.toggle('more-right', chips.scrollLeft + chips.clientWidth < chips.scrollWidth - 2);
+    if (!chips.dataset.watch) { chips.dataset.watch = '1'; chips.addEventListener('scroll', markScroll, { passive: true }); }
   }
   function refresh(full = false, keepInputs = false) {
     D = derive();
@@ -169,6 +213,17 @@ export function mountGraphLab(host, { scenes, layouts, defaultScene }) {
   refresh(false);
   syncSelection();
   render();
+  // redraw when the graph box crosses the width at which the layout changes (rotating a phone, resizing a window)
+  if (typeof ResizeObserver !== 'undefined') {
+    let lastNarrow = D.layout !== layouts[state.sceneId];
+    const ro = new ResizeObserver(() => {
+      if (!D) return;
+      const narrow = layoutFor(layouts[state.sceneId], q('.graph-wrap')?.clientWidth) !== layouts[state.sceneId];
+      if (narrow !== lastNarrow) { lastNarrow = narrow; D = derive(); render(); } else markScroll();
+    });
+    ro.observe(host);
+    signal.addEventListener('abort', () => ro.disconnect());
+  }
 
   return { destroy: () => { ac.abort(); host.removeAttribute('data-graph-lab'); }, state };
 }
