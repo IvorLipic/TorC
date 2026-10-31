@@ -1,10 +1,11 @@
 // trace_whole_game.cpp  ->  site/data/whole-game.json   (lesson `what-is-learning`, brief §6 Part 0, R4)
 //
 // The whole game on one small, honestly synthetic data set: hours of practice in a week (x) and the score in a test, out of 10
-// (y), for 15 students. The data come from a known line y = 1.5x + 2 plus noise, drawn here (not by TorC) with std::mt19937
+// (y), for 40 students. The data come from a known line y = 1.5x + 2 plus noise, drawn here (not by TorC) with std::mt19937
 // (seed 2026) and a Box-Muller transform in double; hours and scores are rounded to one decimal, as a teacher would write them
 // down. std::mt19937 is fully specified by the C++ standard, so the data do not depend on the standard library. The first 10
-// students are the training points, the last 5 are the hidden points the model never trains on.
+// students are the training points, the last 30 are the hidden points the model never trains on (30, so that the miss on
+// them is a stable measure; the first 15 points are the same as with the earlier 5 hidden points, the RNG draws in order).
 //
 // 1. `data`: the points, the true line and how they were made.
 // 2. `runs[]`: nn::Linear(1, 1) with w and b set by hand (runs[0] from w = b = 0, runs[1] from w = 3, b = 0), nn::MSELoss on
@@ -12,7 +13,8 @@
 //    (the loss backward() was called on) and the loss on the hidden points (no gradient). A run stops when one step changes
 //    neither w nor b by more than 1e-5 (it has settled), or after 1000 steps.
 // 3. `probes[]`: MSELoss of a few fixed lines on the training and on the hidden points, with every prediction and residual,
-//    so the JS that scores a hand-placed line can be tested against TorC.
+//    so the JS that scores a hand-placed line can be tested against TorC. `train_square` / `hidden_square` (each residual
+//    squared in float32, derived) give the lesson's worked example its numbers.
 // 4. `true_line`: MSELoss of the true line itself (the noise no line can remove).
 // Everything is library output, except `data` (made here, see above) and `derived` (least squares in double).
 #include "trace_util.hpp"
@@ -31,7 +33,7 @@ using trace::J;
 
 namespace {
 
-constexpr int N_ALL = 15, N_TRAIN = 10;
+constexpr int N_ALL = 40, N_TRAIN = 10;
 constexpr double TRUE_W = 1.5, TRUE_B = 2.0, NOISE_STD = 0.6;
 constexpr unsigned SEED = 2026;
 constexpr double LR = 0.1;
@@ -41,7 +43,7 @@ constexpr float SETTLE = 1e-5f;
 double round1(double v) { return std::round(v * 10.0) / 10.0; }
 
 struct Data {
-    std::vector<float> x, y;  // all 15 points; [0, 10) training, [10, 15) hidden
+    std::vector<float> x, y;  // all 40 points; [0, 10) training, [10, 40) hidden
 };
 
 Data make_data() {
@@ -165,10 +167,14 @@ int main() {
         std::vector<float> rtr, rhd;  // residual = prediction - target, in float32 (what MSELoss squares)
         for (int i = 0; i < N_TRAIN; ++i) rtr.push_back(ptr[i] - d.y[i]);
         for (int i = 0; i < N_ALL - N_TRAIN; ++i) rhd.push_back(phd[i] - d.y[N_TRAIN + i]);
+        std::vector<float> str, shd;  // the square of each residual, in float32 (the terms whose mean MSELoss takes; derived)
+        for (const float r : rtr) str.push_back(r * r);
+        for (const float r : rhd) shd.push_back(r * r);
         J o = J::object();
         o.set("id", ln.id).set("w", ln.w).set("b", ln.b).set("train_loss", ltr).set("hidden_loss", lhd)
             .set("train_pred", trace::jarr(ptr)).set("train_residual", trace::jarr(rtr))
-            .set("hidden_pred", trace::jarr(phd)).set("hidden_residual", trace::jarr(rhd));
+            .set("hidden_pred", trace::jarr(phd)).set("hidden_residual", trace::jarr(rhd))
+            .set("train_square", trace::jarr(str)).set("hidden_square", trace::jarr(shd));
         probes.push(std::move(o));
     }
 
@@ -197,6 +203,17 @@ int main() {
         ls.set("w", w).set("b", b).set("train_loss", sse / n);
         derived.set("least_squares", std::move(ls)).set("hessian_lambda_max", lmax).set("critical_lr", 2.0 / lmax);
         ok = ok && LR < 2.0 / lmax;
+        // the best line for the hidden points themselves (least squares on them, double): no line, by hand or by computer, can
+        // miss the hidden points by less than this
+        double hx = 0, hy = 0, hxx = 0, hxy = 0;
+        const int nh = N_ALL - N_TRAIN;
+        for (int i = N_TRAIN; i < N_ALL; ++i) { const double x = d.x[i], y = d.y[i]; hx += x; hy += y; hxx += x * x; hxy += x * y; }
+        const double wh = (nh * hxy - hx * hy) / (nh * hxx - hx * hx), bh = (hy - wh * hx) / nh;
+        double sseh = 0;
+        for (int i = N_TRAIN; i < N_ALL; ++i) { const double r = wh * d.x[i] + bh - d.y[i]; sseh += r * r; }
+        J bl = J::object();
+        bl.set("w", wh).set("b", bh).set("hidden_loss", sseh / nh);
+        derived.set("best_hidden_line", std::move(bl));
     }
 
     J doc = trace::envelope("whole-game", "what-is-learning", "tools/trace/trace_whole_game.cpp");
