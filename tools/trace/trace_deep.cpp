@@ -235,7 +235,10 @@ J twins_run(const char* name, const std::vector<float>& w1, const std::vector<fl
             if (s == step) {
                 J e = J::object();
                 std::vector<float> pred = trace::values_of(y.data());
-                e.set("step", step).set("loss", L.data().data()[0]).set("prediction", trace::jarr(pred)).set("neurons_equal", params_eq);
+                e.set("step", step).set("loss", L.data().data()[0]).set("prediction", trace::jarr(pred)).set("neurons_equal", params_eq)
+                    .set("neuron0", neuron_json(P(m->l1, "weight").data(), P(m->l1, "bias").data(), P(m->l2, "weight").data(), 0))
+                    .set("neuron1", neuron_json(P(m->l1, "weight").data(), P(m->l1, "bias").data(), P(m->l2, "weight").data(), 1))
+                    .set("output_bias", P(m->l2, "bias").data().data()[0]);   // added for the twins widget
                 long_run.push(std::move(e));
             }
         if (step == LONG_STEPS.back()) break;

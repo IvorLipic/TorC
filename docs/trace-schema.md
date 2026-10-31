@@ -321,7 +321,7 @@ exact zeros) are computed by the producer in double from the library's tensors.
   b (bias N), v (output weight N)}`, `gradN` the same fields of the gradients `step()` reads (after `backward()`);
   `neurons_equal` is a bit-for-bit comparison of the two neurons' parameters and gradients. `equal_every_step` covers all 2000
   steps (`true` for `twins`, `false` for `different`; the program fails otherwise). `long_run[k]` = `{step, loss, prediction[4],
-  neurons_equal}`. Committed run: the twins stay at loss `0.1667` (predictions 1/3, 1/3, 1, 1/3), the different start reaches `4e-14`.
+  neurons_equal, neuron0, neuron1, output_bias}` (the last three added for the twins widget). Committed run: the twins stay at loss `0.1667` (predictions 1/3, 1/3, 1, 1/3), the different start reaches `4e-14`.
 - Values of `vanishing` and `init` depend on libstdc++'s `std::normal_distribution`; on one toolchain they are bit-for-bit repeatable.
 
 ## `mnist-mlp.json` (kind `mnist-mlp`, lesson `mnist-mlp`)

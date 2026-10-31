@@ -209,7 +209,7 @@
         {
           "id": "deep-nets",
           "title": "Why deep networks are hard to start",
-          "outcome": "You can explain why the gradients can become very small in a deep network. You can also say why the start values of the weights are important.",
+          "outcome": "You can explain why two neurons that start equal stay equal, and why the gradients can fade in a deep network. You can say why TorC starts the weights with the spread √(2/in).",
           "prereqs": [
             "backprop"
           ],
@@ -219,11 +219,15 @@
             "kaiming_normal_std",
             "nn::Linear"
           ],
-          "trace": [],
-          "est_minutes": 10,
-          "status": "planned",
+          "trace": [
+            "deep.json"
+          ],
+          "est_minutes": 11,
+          "status": "published",
           "widgets": [
-            "signal through six layers"
+            "two neurons from three starts",
+            "the gradient of each layer",
+            "the signal through eight layers"
           ]
         }
       ]
