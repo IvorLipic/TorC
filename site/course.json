@@ -162,27 +162,26 @@
         },
         {
           "id": "losses",
-          "title": "Losses",
-          "outcome": "You can turn the scores of a network into probabilities with softmax. You can explain why cross-entropy is a better loss than squared error for classes.",
+          "title": "Softmax and cross-entropy",
+          "outcome": "You can turn the scores of a model into shares with softmax. You can explain cross-entropy as the surprise at the right class, and why it beats the squared miss for classes.",
           "prereqs": [
             "classification"
           ],
           "symbols": [
-            "nn::MSELoss",
-            "nn::CrossEntropyLoss",
             "softmax",
-            "log"
+            "nn::CrossEntropyLoss",
+            "ln"
           ],
           "trace": [
             "losses.json"
           ],
-          "est_minutes": 7,
+          "est_minutes": 15,
           "status": "published",
           "widgets": [
-            "loss explorer",
+            "shares and surprise",
             "gradient comparison"
           ],
-          "code": "nn::MSELoss mse;                      // regression\nnn::CrossEntropyLoss ce;              // classification\nVariable loss = ce(logits, labels);   // logits (B, 10), labels (B)"
+          "code": "Variable p = softmax(logits, 1);      // each row: shares that add to 1\nnn::CrossEntropyLoss ce;             // the surprise at the right class\nVariable L = ce(logits, labels);     // logits (B, 10), labels (B)"
         },
         {
           "id": "backprop",

@@ -48,7 +48,7 @@ export const SPEC = {
   modules: { prelude: '', check: 'CHECK(params.size() == 4);\nint n = 0; for (auto* q : params) n += q->data().numel();\nCHECK(n == 784 * 32 + 32 + 32 * 10 + 10);' },
   losses: {
     prelude: `Variable logits(${shape(4, 10)}, true);\nVariable labels(Tensor({0.0f, 3.0f, 9.0f, 1.0f}, {4}), false);`,
-    check: 'CHECK(std::abs(loss.data().data()[0] - std::log(10.0f)) < 1e-5f);   // equal logits: -log(1/10)\n(void)mse;',
+    check: 'CHECK(std::abs(L.data().data()[0] - std::log(10.0f)) < 1e-5f);   // equal scores: -ln(1/10)\nfor (int j = 0; j < 10; ++j) CHECK(std::abs(p.data().data()[j] - 0.1f) < 1e-6f);   // ten equal shares',
   },
   'training-loop': {
     prelude: `data::TensorDataset dataset(${shape(100, 1)}, ${shape(100, 1)});\nint batches = 0;`,

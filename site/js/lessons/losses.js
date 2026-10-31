@@ -1,102 +1,176 @@
-// Lesson "losses": mean squared error, cross-entropy, the gradient of cross-entropy, and the targets TorC accepts.
-// Every number and message comes from data/losses.json (tools/trace/trace_losses.cpp) through T() or the recorded text.
-// Writing: docs/authoring.md "Writing rules" (ASD-STE100, STE-flavored mode).
-import { escapeHtml } from '../core/dom.js';
+// Lesson "losses" (Part 3 `networks`, curriculum v3, template 3), title "Softmax and cross-entropy" (brief §6 and §7): softmax
+// turns scores into shares that add to one, with exponentials so that every share is positive; cross-entropy is the surprise at
+// the right class, −ln of its share (the exp-ln refresher; "log" means ln on this site); why it beats the squared miss for classes
+// (the gradient comparison); ten digits as ten classes, with the uniform-scores check ln 10; a ChatGPT aside (no vocabulary size,
+// source in the footer). MSE is taught in what-is-learning, and the MSE shape pitfall lives in the appendix lesson torc-pitfalls
+// (decision 22), so neither is on this page. Every number comes from data/losses.json through a role-tagged T()
+// (docs/authoring.md "Number roles"). Notes: docs/lessons/losses.md.
 import { math } from '../core/katex.js';
+import { worked, refresher, chatgpt, term, sym } from '../core/blocks.js';
+import { defaultFooter } from '../core/sections.js';
 import { mountLossExplorer, mountGradientCompare } from '../widgets/loss-widgets.js';
 
 const F = 'files.losses';
-const MILD = `${F}.ce.1`, CONF = `${F}.ce.2`, UNI = `${F}.ce.0`;
-const eq = (latex) => `<div class="ls2-eq" tabindex="0" role="group" aria-label="Formula">${math(latex, true)}</div>`;
-const sec = (id, title, body) => `<section class="ls2" aria-labelledby="ls2-${id}"><h2 id="ls2-${id}">${title}</h2>${body}</section>`;
-const err = (D, id) => { const e = D.files.losses.errors.find((x) => x.id === id); return `<code>${escapeHtml(e.exception)}: ${escapeHtml(e.what)}</code>`; };
-const list = (T, path) => [0, 1, 2].map((i) => T(`${path}.${i}`)).join(', ');
-const errTargets = (D, id) => D.files.losses.errors.find((x) => x.id === id).targets.join(', ');
+// rows by index (the test pins this order): exp_rows and ce are uniform, mild [2, 1, 0.1], confident [4, 1, −2]
+const MILD = 1, CONF = 2;
+const ex = (r, rest) => `${F}.exp_rows.${r}.${rest}`;
+const sec = (id, title, body) => `<section class="ls" aria-labelledby="ls-${id}"><h2 id="ls-${id}">${title}</h2>${body}</section>`;
+const eq = (latex, label) => `<div class="ls-eq" tabindex="0" role="group" aria-label="${label}">${math(latex, true)}</div>`;
+const ln = () => sym('ln', 'ln');
+const SOURCE = { title: 'Jurafsky and Martin, Speech and Language Processing (3rd edition draft), the chapters on language models', url: 'https://web.stanford.edu/~jurafsky/slp3/' };
 
 const STYLE = `<style>
-.ls2 p{max-width:44rem}
-.ls2 h2{margin-top:2rem}
-.ls2-eq{overflow-x:auto;margin:.2rem 0}
-.ls2-eq .katex-display{margin:.4em 0}
-.ls2-code{background:var(--panel);border:1px solid var(--border);border-radius:var(--r);padding:.6rem 1rem;overflow-x:auto;max-width:44rem;line-height:1.5}
-.ls2-code code{background:none;padding:0}
+.ls p{max-width:44rem}
+.ls h2{margin-top:2rem}
+.ls-eq{overflow-x:auto;margin:.3rem 0}
+.ls-eq .katex-display{margin:.4em 0}
 </style>`;
 
-export default {
+const lesson = {
   id: 'losses',
-  title: 'Losses',
+  title: 'Softmax and cross-entropy',
   trace: ['losses.json'],
+  template: 3,
+  loop: 'loss',
   sections: [
     {
       kind: 'text',
-      html: () => `${STYLE}<section class="hero"><h1>Losses</h1>
-    <p class="lead">A loss turns the output of a model into one number that says how wrong the model is. Training makes this number smaller. This lesson shows the two losses in TorC.</p></section>`,
+      html: () => `${STYLE}<section class="hero"><h1>Softmax and cross-entropy</h1>
+    <p class="lead">A ${term('model')} gives one score to each ${term('class')}. You turn the scores into ${term('probability', 'probabilities')} and measure how wrong they are.</p></section>`,
     },
     {
-      kind: 'tldr',
+      kind: 'questions',
       items: () => [
-        'Mean squared error averages the squared differences. Use it when the model predicts numbers.',
-        'Cross-entropy is for classes. It is small when the model gives the correct class a high probability.',
-        'The gradient of cross-entropy is the softmax output minus the one-hot target, divided by the batch size. So a very wrong model still gets a strong gradient.',
+        'How do the scores of three fruits become probabilities?',
+        'How wrong is a small probability for the right fruit?',
+        'Why not use the squared miss, as for prices?',
+      ],
+    },
+    {
+      kind: 'text', setup: true,
+      html: (D, T) => sec('fruit', 'Three fruits, three scores', `
+    <p>A model says which fruit a photo shows, an apple, a banana or a cherry. Each fruit is a class with its own score.</p>
+    <p>For one photo the apple gets the score ${T(ex(MILD, 'logits.0'), 'setup')} and the banana ${T(ex(MILD, 'logits.1'), 'setup')}. The cherry gets ${T(ex(MILD, 'logits.2'), 'setup')}.</p>
+    <p>Books call such scores ${term('logit', 'logits')}. A score can be any number, also a negative one.</p>
+    <p>In the lesson on the ${term('decision-boundary')} of two classes, the ${term('sigmoid')} of a difference of scores gave a probability. Three classes need a rule that turns scores into shares of 100%, with a larger share for a larger score.</p>`),
+    },
+    {
+      kind: 'quiz', id: 'negative', purpose: 'predict', type: 'choice',
+      prompt: (D, T) => `<p>A second photo gets the scores apple ${T(ex(CONF, 'logits.0'), 'setup')} and banana ${T(ex(CONF, 'logits.1'), 'setup')}. The cherry gets ${T(ex(CONF, 'logits.2'), 'setup')}. What share does the rule give the cherry?</p>`,
+      options: [
+        { html: 'A negative share, because its score is negative.', feedback: 'A share cannot be negative. The rule first makes every score positive.' },
+        { html: 'Exactly zero, because a negative score means no chance.', feedback: 'A negative score means a small chance, not none.' },
+        { html: 'A small share above zero.', correct: true, feedback: 'Yes. Every class keeps a share above zero.' },
+      ],
+      reveal: (D, T) => `<p>The cherry gets ${T(ex(CONF, 'shares.2'), 'reveal')}, which is small but above zero. The apple gets ${T(ex(CONF, 'shares.0'), 'reveal')}.</p>`,
+    },
+    {
+      kind: 'text',
+      html: (D, T) => sec('softmax', '1 · Softmax turns scores into shares', `
+    <p>First the rule takes e to the power of each score. The result is always positive, also for a negative score, and a larger score gives a larger result.</p>
+    <p>Then the rule divides each result by the sum of all of them, so the shares add to one. This rule is ${term('softmax')}.</p>
+    ${eq('\\text{share of the apple} = \\frac{e^{s_{\\text{apple}}}}{e^{s_{\\text{apple}}} + e^{s_{\\text{banana}}} + e^{s_{\\text{cherry}}}}', 'Softmax for three classes')}
+    ${worked(`<p>e to the power of the three scores gives ${T(ex(MILD, 'exp.0'), 'worked')}, ${T(ex(MILD, 'exp.1'), 'worked')} and ${T(ex(MILD, 'exp.2'), 'worked')}. Their sum is ${T(ex(MILD, 'exp_sum'), 'worked')}.</p>
+    <p>The share of the apple is ${T(ex(MILD, 'exp.0'), 'worked')} / ${T(ex(MILD, 'exp_sum'), 'worked')} = <strong>${T(ex(MILD, 'shares.0'), 'worked')}</strong>.</p>`)}
+    <p>A share says how sure the model is. It does not say that the model is right.</p>`),
+    },
+    {
+      kind: 'quiz', id: 'cherry-share', purpose: 'check', type: 'numeric', title: 'Your turn',
+      answer: ex(MILD, 'shares.2'), tolerance: 0.005,
+      prompt: '<p>Use the numbers above. What is the share of the cherry?</p>',
+      reveal: (D, T) => `${worked(`<p>${T(ex(MILD, 'exp.2'), 'worked')} / ${T(ex(MILD, 'exp_sum'), 'worked')} = <strong>${T(ex(MILD, 'shares.2'), 'worked')}</strong></p>`)}
+    <p>The banana gets ${T(ex(MILD, 'shares.1'), 'reveal')}, and the three shares add to one.</p>`,
+    },
+    {
+      kind: 'text',
+      html: (D, T) => sec('surprise', '2 · Cross-entropy measures the surprise', `
+    <p>The photo shows an apple, so the apple is the right class. The model gave it ${T.human(`${F}.ce.${MILD}.cases.0.loss`, 'prob')}. How wrong is that?</p>
+    <p>For classes, the ${term('loss')} <code>L</code> is the surprise at the right answer:</p>
+    ${eq('L = -\\ln(\\text{share of the right class})', 'Cross-entropy for one photo')}
+    <p>${ln()} is the natural logarithm, with base e. On this site, log always means ln. School log has base ten, so use the ln key of a calculator.</p>
+    <p>A share of one gives no surprise. As the share comes near zero, the surprise grows without limit. This loss is ${term('cross-entropy', 'cross-entropy')}, and for many photos it is the mean surprise.</p>
+    ${worked(`<p>−ln(${T(ex(MILD, 'shares.0'), 'worked')}) = <strong>${T(`${F}.ce.${MILD}.cases.0.loss`, 'worked')}</strong></p>`)}
+    ${refresher('exp-ln')}`),
+    },
+    {
+      kind: 'widget', id: 'explorer', className: 'widget', label: 'Interactive: scores, shares and the surprise for one photo',
+      mount: (host, D) => mountLossExplorer(host, D),
+      tasks: () => [
+        { do: 'Keep the scores that are chosen. Make each fruit the right class in turn.',
+          see: 'The shares stay the same. The surprise grows as the right class gets a smaller share.' },
+        { do: 'Choose the scores that start with four, and make the cherry the right class.',
+          see: 'The model is very sure of the apple, so the surprise is large.' },
+        { do: 'Choose the two “same apple share” rows.',
+          see: 'The other two fruits split the rest in different ways, but the surprise is the same.' },
       ],
     },
     {
       kind: 'text',
-      html: (D, T) => sec('mse', '1 · Mean squared error', `
-    ${eq('L = \\frac{1}{N}\\sum_{i=1}^{N} (y_i - t_i)^2 \\qquad \\frac{\\partial L}{\\partial y_i} = \\frac{2\\,(y_i - t_i)}{N}')}
-    <p>Here <code>y</code> is the prediction, <code>t</code> is the target and <code>N</code> is the number of values. With the predictions ${list(T, `${F}.mse.prediction`)} and the targets ${list(T, `${F}.mse.target`)}, the loss is ${T(`${F}.mse.loss`)}. The third prediction is exactly right, so its gradient is ${T(`${F}.mse.grad.2`)}.</p>
-    <pre class="ls2-code" tabindex="0" role="group" aria-label="Mean squared error in TorC"><code>nn::MSELoss mse;
-Variable L = mse(y, t);    // y and t must have the same shape</code></pre>`),
+      html: () => sec('ignores', '3 · What the surprise looks at', `
+    <p>Many people think that the loss cares how the wrong classes share the rest. The two “same apple share” rows show that it does not. Only the share of the right class counts.</p>
+    <p>So ${term('training')} raises the share of the right class.</p>`),
     },
     {
-      kind: 'text',
-      html: (D, T) => sec('ce', '2 · Cross-entropy', `
-    <p>A classifier gives one number for each class, the logit of that class. Softmax turns the logits into probabilities. The label of a sample is the number of its correct class. Cross-entropy is the negative logarithm of the probability of the correct class, averaged over the batch.</p>
-    ${eq('p = \\mathrm{softmax}(z) \\qquad L = -\\log p_{t}')}
-    <p>For the logits ${list(T, `${MILD}.logits`)}, the first class has probability ${T(`${MILD}.cases.0.softmax.0`)}. If the first class is correct, the loss is ${T(`${MILD}.cases.0.loss`)}. If the third class is correct, the loss is ${T(`${MILD}.cases.2.loss`)}.</p>
-    <pre class="ls2-code" tabindex="0" role="group" aria-label="Cross-entropy in TorC"><code>nn::CrossEntropyLoss ce;
-Variable L = ce(logits, labels);   // logits (B, C), labels (B)</code></pre>`),
+      kind: 'quiz', id: 'very-wrong', purpose: 'predict', type: 'choice',
+      prompt: () => `<p>A model with two classes gives the right class almost no share. Which loss gives the larger ${term('gradient')} for the score of the right class? The second loss compares the shares with the ${term('target')} shares, one for the right class and zero for the other.</p>`,
+      options: [
+        { html: 'The squared miss, because the miss is as large as it can be.', feedback: 'The miss is large, but the share hardly moves there. So the gradient of the squared miss is close to zero.' },
+        { html: 'The surprise, because it grows without limit as the share comes near zero.', correct: true, feedback: 'Yes. So its gradient stays large.' },
+        { html: 'Both give the same gradient, because they measure the same mistake.', feedback: 'They react in different ways to a very wrong model.' },
+      ],
+      reveal: (D, T) => `<p>At the score ${T(`${F}.curves.z.0`, 'reveal')}, the surprise has the gradient ${T(`${F}.curves.ce_grad.0`, 'reveal')}. The squared miss has only ${T(`${F}.curves.sq_grad.0`, 'reveal')}.</p>`,
     },
     {
-      kind: 'widget', id: 'explorer', className: 'widget', label: 'Interactive: logits, probabilities, loss and gradient for one sample',
-      mount: (host, D) => mountLossExplorer(host, D),
-    },
-    {
-      kind: 'text',
-      html: () => sec('grad', '3 · The gradient of cross-entropy', `
-    ${eq('\\frac{\\partial L}{\\partial z_j} = \\frac{p_j - [\\,j = t\\,]}{B}')}
-    <p>Here <code>B</code> is the batch size, and ${math('[\\,j = t\\,]', false)} is one for the correct class and zero for the others. These ones and zeros are the one-hot target. The gradient is negative for the correct class and positive for the others. Gradient descent subtracts the gradient. So the step raises the logit of the correct class, and it lowers each other logit in proportion to its probability.</p>`),
-    },
-    {
-      kind: 'predict', id: 'p-wrong', title: 'Before you try it',
-      prompt: () => '<p>A model has two classes. Its logits are <code>z</code> and <code>0</code>, and the first class is correct. For a very negative <code>z</code>, the correct class gets a probability near zero. Is the gradient for <code>z</code> then large or small? Compare cross-entropy with the squared error between the softmax output and the one-hot target.</p>',
-      reveal: (D, T) => `<p>With cross-entropy the gradient is large. At <code>z</code> = ${T(`${F}.curves.z.0`)} it is ${T(`${F}.curves.ce_grad.0`)}. With the squared error it is only ${T(`${F}.curves.sq_grad.0`)}. So with the squared error, a very wrong model learns very slowly.</p>`,
-    },
-    {
-      kind: 'widget', id: 'compare', className: 'widget', label: 'Interactive: the gradient of cross-entropy and of squared error, for one logit',
+      kind: 'widget', id: 'compare', className: 'widget', label: 'Interactive: the gradient of two losses for the score of the right class',
       mount: (host, D) => mountGradientCompare(host, D),
+      tasks: (D, T) => [{
+        do: `Move the score of the right class from ${T(`${F}.curves.z.0`, 'setup')} to ${T(`${F}.curves.z.48`, 'setup')}.`,
+        see: 'Where the model is very wrong, the cross-entropy gradient is large. The squared miss gradient is near zero there.',
+      }],
     },
     {
       kind: 'text',
-      html: (D) => sec('targets', '4 · Labels in TorC', `
-    <p>The labels are class numbers, stored as float values in a tensor of shape <code>(B)</code> or <code>(B, 1)</code>. TorC checks each label. A label of <code>${errTargets(D, 'not-integer')}</code> gives this error.</p>
-    <p>${err(D, 'not-integer')}</p>
-    <p>A label of <code>${errTargets(D, 'out-of-range')}</code> for a model with three classes gives this error.</p>
-    <p>${err(D, 'out-of-range')}</p>`),
-    },
-    {
-      kind: 'check', id: 'c-uniform',
-      prompt: (D) => `<p>A model gives the logits <code>${D.files.losses.ce[0].logits.join(', ')}</code> for three classes. What is the cross-entropy, whichever class is correct?</p>`,
-      reveal: (D, T) => `<p>It is ${T(`${UNI}.cases.0.loss`)}. Each class has probability ${T(`${UNI}.cases.0.softmax.0`)}, and the loss is the negative logarithm of that probability.</p>`,
-    },
-    {
-      kind: 'check', id: 'c-batch',
-      prompt: (D, T) => `<p>A batch has two samples. The loss of the first sample is ${T(`${MILD}.cases.0.loss`)}, and the loss of the second is ${T(`${CONF}.cases.2.loss`)}. What loss does TorC report for the batch?</p>`,
-      reveal: (D, T) => `<p>It reports ${T(`${F}.batch.loss`)}, which is the mean of the two losses.</p>`,
+      html: () => sec('why', '4 · Why the surprise beats the squared miss', `
+    <p>With the squared miss, a very wrong model gets almost no gradient, so it learns slowest where it is most wrong.</p>
+    <p>The surprise has no flat part there. For the score of the right class, its gradient is the share minus one. When the share is near zero, the gradient is near minus one, so each step pushes hard.</p>
+    <p>For numbers such as prices, the squared miss stays the right loss. For classes, you use cross-entropy.</p>`),
     },
     {
       kind: 'text',
-      html: () => '<section class="ls2"><p>The next lesson, <a href="../training-loop/">The training loop</a>, repeats the forward pass, the loss and the change of the parameters many times.</p></section>',
+      html: (D, T) => sec('digits', '5 · Ten digits are ten classes', `
+    <p>A network that reads handwritten digits gives ${T.anchor('classes')} scores, one for each digit. Softmax turns them into shares, and the loss is the surprise at the right digit.</p>
+    ${chatgpt('ChatGPT picks its next word piece in the same way. It scores many thousands of word pieces, and softmax turns the scores into shares. Its training loss is the surprise at the piece that really came next. This is a concept, not a TorC run.')}`),
+    },
+    {
+      kind: 'quiz', id: 'ten-equal', purpose: 'transfer', type: 'numeric',
+      answer: `${F}.ten.loss`, tolerance: 0.01,
+      prompt: '<p>A digit network has not learned anything yet. It gives all ten digits the same score. What is its surprise, whatever the right digit is? Use ln.</p>',
+      reveal: (D, T) => `<p>Each digit gets a share of ${T(`${F}.ten.softmax.0`, 'reveal')}. The surprise is −ln(${T(`${F}.ten.softmax.0`, 'reveal')}) = ${T(`${F}.ten.loss`, 'reveal')}.</p>
+    <p>Did you get a number near one? That is school log. Use ln.</p>`,
+    },
+    {
+      kind: 'quiz', id: 'boundary', purpose: 'cumulative', from: 'classification', type: 'choice',
+      prompt: () => `<p>In the lesson on two classes, a point lies on the ${term('decision-boundary')}. What probability of orange does the model give it?</p>`,
+      options: [
+        { html: 'One half, because the two scores are equal there.', correct: true, feedback: 'Yes. The sigmoid of zero is one half.' },
+        { html: 'Zero, because the point belongs to no colour.', feedback: 'Neither colour wins there.' },
+        { html: 'It depends on how far the point is from the disc.', feedback: 'The two scores are equal along the whole boundary.' },
+      ],
+      reveal: '<p>Softmax of two equal scores also gives each class one half.</p>',
+    },
+    {
+      kind: 'explain', id: 'what-ce',
+      prompt: '<p>Explain what cross-entropy measures.</p>',
+      model: '<p>Cross-entropy is the surprise at the right answer, minus the ln of the share that the model gives the right class.</p>',
+    },
+    {
+      kind: 'answer',
+      html: () => `<p>Softmax takes e to the power of each score and divides by the sum. So every class gets a positive share, and the shares add to one.</p>
+    <p>Cross-entropy is the surprise at the right class, minus the ln of its share. Its gradient stays large when the model is very wrong, so it beats the squared miss.</p>`,
+      next: () => `<p>A network has thousands of ${term('parameter', 'parameters')}. How does TorC find the gradient for each of them at once?</p>`,
     },
   ],
 };
+// the default footer, plus the source of the ChatGPT aside (decision 18)
+lesson.footer = (D) => `${defaultFooter(lesson, D)}<p>The note on ChatGPT uses this source. <a href="${SOURCE.url}">${SOURCE.title}</a></p>`;
+export default lesson;
