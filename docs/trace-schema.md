@@ -202,6 +202,13 @@ target_shape [3], exception, what}`: `nn::MSELoss` on shapes that differ (`Shape
 threw nothing and recorded `mse_broadcast` = `{…, loss, grad[3]}` instead). Not shown on the lesson page. Producer:
 `tools/trace/trace_losses.cpp`.
 
+v3 additions (lesson "Softmax and cross-entropy"), appended after the keys above; all library output: `curves.p[49]` = the share
+of the right class (column 0 of `torc::softmax(z, 1)`) at each `z`. `exp_rows[]` = `{id, logits[3], exp[3], exp_sum, shares[3]}` for
+the three `ce` rows: `torc::exp` of the logits, `torc::sum` of those, and `torc::softmax` along axis 1. `spread[]` = `{id: even|uneven,
+logits[3], target 0, loss, softmax[3], grad[3]}` for `[2, 0, 0]` and `[2, ln 1.9, ln 0.1]` (float `std::log`): the same share and
+loss for the right class, the rest spread differently. `ten` = the same record for ten equal logits `0` with target 3, plus
+`classes` 10 (loss `ln 10`).
+
 ## `training.json` (kind `training`, lesson `training-loop`)
 
 `setup` = `{samples, true_weight, true_bias, noise_std, data_seed, loader_seed, lr, epochs}`. `data` = `{x[100], y[100]}` from
@@ -299,6 +306,13 @@ No scenes (the site's engine has no softmax or cross-entropy op).
   `|softmax[1] - sigmoid|` (0 for all six; the program fails above `1e-6`).
 - Values depend on libstdc++'s `std::normal_distribution` (TorC's Kaiming start weights, seeds `100 + H` and `200 + H`) and on the
   C library's `exp`/`log`. On one toolchain the output is bit-for-bit repeatable.
+- v3 additions, all **derived** (double): each checkpoint ends with `typical_right_prob` = e^(−train_loss), the probability whose
+  surprise is the mean surprise. `best_line` = `{correct, accuracy, angle_deg, threshold, note}`: the most training points any
+  straight boundary gets right (exhaustive search over normal directions in steps of 0.25° and every threshold; committed run 140
+  of 200). `vote` = `{hidden 4, step 1000, bias_orange, vote_weights[4], points[2]{x, y, outputs[4], votes[4], total,
+  score_difference, prob_orange}, note}` for the points (0, 0) and (1.4, 0): `outputs` are the library's ReLU outputs, `votes` =
+  output × (orange output weight − blue output weight), and `total` = `bias_orange` + the votes, which equals the library's score
+  difference (the program fails above `1e-4`).
 
 ## `deep.json` (kind `deep`, lesson `deep-nets`)
 

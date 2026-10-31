@@ -140,8 +140,8 @@
         },
         {
           "id": "classification",
-          "title": "Two classes and the line between them",
-          "outcome": "You can explain how a network sorts points into two classes. You can see how more hidden units bend the line between the classes.",
+          "title": "Two classes and the decision boundary",
+          "outcome": "You can explain how a model sorts points into two classes. You can see why hidden neurons let the decision boundary bend.",
           "prereqs": [
             "nonlinearity"
           ],
@@ -149,39 +149,40 @@
             "nn::Sequential",
             "nn::Linear",
             "nn::ReLU",
-            "nn::CrossEntropyLoss",
             "sigmoid"
           ],
-          "trace": [],
+          "trace": [
+            "classification.json"
+          ],
           "est_minutes": 15,
-          "status": "planned",
+          "status": "published",
           "widgets": [
-            "decision boundary"
-          ]
+            "decision boundary playground"
+          ],
+          "code": "nn::Sequential model;\n// x and y in, 8 hidden neurons out\nmodel.add(std::make_unique<nn::Linear>(2, 8));\n// each neuron is off on one side of its line\nmodel.add(std::make_unique<nn::ReLU>());\n// 8 neuron outputs in, 2 scores out\nmodel.add(std::make_unique<nn::Linear>(8, 2));"
         },
         {
           "id": "losses",
-          "title": "Losses",
-          "outcome": "You can turn the scores of a network into probabilities with softmax. You can explain why cross-entropy is a better loss than squared error for classes.",
+          "title": "Softmax and cross-entropy",
+          "outcome": "You can turn the scores of a model into probabilities with softmax. You can explain cross-entropy as the surprise at the right class, and why it beats the squared miss for classes.",
           "prereqs": [
             "classification"
           ],
           "symbols": [
-            "nn::MSELoss",
-            "nn::CrossEntropyLoss",
             "softmax",
-            "log"
+            "nn::CrossEntropyLoss",
+            "ln"
           ],
           "trace": [
             "losses.json"
           ],
-          "est_minutes": 7,
+          "est_minutes": 15,
           "status": "published",
           "widgets": [
-            "loss explorer",
+            "probabilities and surprise",
             "gradient comparison"
           ],
-          "code": "nn::MSELoss mse;                      // regression\nnn::CrossEntropyLoss ce;              // classification\nVariable loss = ce(logits, labels);   // logits (B, 10), labels (B)"
+          "code": "Variable p = softmax(logits, 1);      // each row: probabilities that add to 1\nnn::CrossEntropyLoss ce;             // the surprise at the right class\nVariable L = ce(logits, labels);     // logits (B, 10), labels (B)"
         },
         {
           "id": "backprop",
