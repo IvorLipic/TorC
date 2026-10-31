@@ -8,16 +8,20 @@
       "lessons": [
         {
           "id": "what-is-learning",
-          "title": "What it means for a machine to learn",
-          "outcome": "You can say what it means for a machine to learn. You fit a line by hand, then let the computer fit it, and test both lines on new points.",
+          "title": "What does it mean for a machine to learn?",
+          "outcome": "You can say what it means for a machine to learn. You fit a line by hand, let the computer fit it, and test both lines on new points.",
           "prereqs": [],
           "symbols": [
+            "nn::Linear",
             "nn::MSELoss",
             "optim::SGD"
           ],
-          "trace": [],
-          "est_minutes": 12,
-          "status": "planned",
+          "trace": [
+            "whole-game.json",
+            "mnist-mlp.json"
+          ],
+          "est_minutes": 14,
+          "status": "published",
           "widgets": [
             "digit pad",
             "fit a line by hand"

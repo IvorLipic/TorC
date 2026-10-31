@@ -183,7 +183,9 @@ export function checkV3(lesson, { D, course, glossary, notation, source }) {
   const prose = toks.filter((t) => t.type === 'text' && !inside(t, skip));
   for (const [key, g] of Object.entries(terms)) {
     const re = new RegExp(`(?<![\\p{L}\\p{N}])(?:${g.forms.map(escRe).join('|')})(?![\\p{L}\\p{N}])`, 'iu');
-    const first = prose.find((t) => re.test(t.text.replace(/&[a-z]+;/g, ' ')));
+    // a word inside the link of a longer term that contains it ("gradient" in "gradient descent") is a use of that longer term
+    const inLonger = (t) => inside(t, (e) => e.tag === 'a' && e.cls.includes('term') && e.attrs['data-term'] !== key && re.test(terms[e.attrs['data-term']]?.term ?? ''));
+    const first = prose.find((t) => re.test(t.text.replace(/&[a-z]+;/g, ' ')) && !inLonger(t));
     if (first && !inside(first, (e) => e.tag === 'a' && e.cls.includes('term') && e.attrs['data-term'] === key))
       add('glossary', `the first use of "${g.term}" is not linked with term('${key}'): …${first.text.trim().slice(0, 60)}…`);
   }
