@@ -38,7 +38,7 @@ export const SPEC = {
   },
   nonlinearity: {
     prelude: `Variable z(Tensor({-1.0f, 0.0f, 2.0f, 1.0f, 1.0f, 1.0f}, {2, 3}), true);`,
-    check: 'CHECK(h.data().data()[0] == 0.0f && h.data().data()[2] == 2.0f);\nCHECK(std::abs(s.data().data()[1] - 0.5f) < 1e-6f);\nCHECK(std::abs(p.data().data()[3] + p.data().data()[4] + p.data().data()[5] - 1.0f) < 1e-6f);',
+    check: 'CHECK(h.data().data()[0] == 0.0f && h.data().data()[2] == 2.0f);\nCHECK(std::abs(s.data().data()[1] - 0.5f) < 1e-6f);',
   },
   modules: { prelude: '', check: 'CHECK(params.size() == 4);\nint n = 0; for (auto* q : params) n += q->data().numel();\nCHECK(n == 784 * 32 + 32 + 32 * 10 + 10);' },
   losses: {

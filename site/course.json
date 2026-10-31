@@ -111,31 +111,28 @@
         },
         {
           "id": "nonlinearity",
-          "title": "Nonlinearity",
-          "outcome": "You can explain why two layers without an activation function act like one layer. You can see how ReLU units bend a straight line into a curve.",
+          "title": "Activation functions",
+          "outcome": "You can explain why two layers without an activation function act like one layer. You can show how ReLU neurons, as hinges, bend a straight line into a curve, and why a small sigmoid gradient slows learning.",
           "prereqs": [
             "linear-layer"
           ],
           "symbols": [
             "relu",
             "sigmoid",
-            "softmax",
             "nn::ReLU",
-            "nn::Sigmoid",
-            "nn::Softmax",
-            "Tensor::softmax",
-            "optim::Adam"
+            "nn::Sigmoid"
           ],
           "trace": [
             "nonlinearity.json"
           ],
-          "est_minutes": 7,
+          "est_minutes": 15,
           "status": "published",
           "widgets": [
-            "activation plotter",
-            "fit a curve"
+            "fit a curve",
+            "hinge builder",
+            "activation plotter"
           ],
-          "code": "Variable h = relu(z);                 // max(0, z)\nVariable s = sigmoid(z);              // 1 / (1 + e^-z)\nVariable p = softmax(z, /*axis=*/1);  // each row sums to 1"
+          "code": "Variable h = relu(z);      // max(0, z)\nVariable s = sigmoid(z);   // 1 / (1 + e^-z)"
         },
         {
           "id": "classification",

@@ -15,7 +15,8 @@
 //    the check that the eight contributions plus b2 add up to the model's prediction. Each unit's kink x = -b1_k / W1_k and
 //    the side on which it is active are derived (double arithmetic on the recorded weights).
 // 5. Two real nn::Linear(1, 1) in a row, f(x) = 2x + 1 and g(x) = 3x + 4, and the one Linear(1, 1) with 6x + 7 that gives the
-//    same outputs ("collapse", for the plain-number version of "two linear layers are one").
+//    same outputs ("collapse", for the plain-number version of "two linear layers are one"), on x = -2 .. 3; and g(relu(f(x))), which
+//    differs from 6x + 7 where f(x) < 0 (relu_f_x, g_relu_f_x).
 // Derived values (plain arithmetic, not library output) are under the key "derived". The input grids are built from integers
 // (k / 10, not -4 + 0.1 k) so that no float rounding or contraction can move a grid point off its exact value.
 #include "trace_util.hpp"
@@ -234,8 +235,8 @@ int main() {
         set(g, 3.0f, 4.0f);
         const double w = 3.0 * 2.0, b = 3.0 * 1.0 + 4.0;
         set(h, static_cast<float>(w), static_cast<float>(b));
-        const std::vector<float> cx = {0, 1, 2, 3};
-        const Variable xv(trace::make_tensor({4, 1}, cx), false);
+        const std::vector<float> cx = {-2, -1, 0, 1, 2, 3};
+        const Variable xv(trace::make_tensor({6, 1}, cx), false);
         const Variable fx = f(xv);
         const std::vector<float> gfx = trace::values_of(g(fx).data()), hx = trace::values_of(h(xv).data());
         bool same = true;
@@ -245,7 +246,9 @@ int main() {
         d.set("w", w).set("b", b);
         collapse.set("f", J::object().set("w", 2.0).set("b", 1.0)).set("g", J::object().set("w", 3.0).set("b", 4.0))
             .set("x", trace::jarr(cx)).set("f_x", trace::jarr(trace::values_of(fx.data()))).set("g_f_x", trace::jarr(gfx))
-            .set("combined", std::move(d)).set("combined_x", trace::jarr(hx)).set("equal", same);
+            .set("combined", std::move(d)).set("combined_x", trace::jarr(hx)).set("equal", same)
+            .set("relu_f_x", trace::jarr(trace::values_of(relu(fx).data())))
+            .set("g_relu_f_x", trace::jarr(trace::values_of(g(relu(fx)).data())));
     }
 
     J doc = trace::envelope("nonlinearity", "nonlinearity", "tools/trace/trace_nonlinear.cpp");
