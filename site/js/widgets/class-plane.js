@@ -1,13 +1,14 @@
 // widgets/class-plane.js — the 2D classification playground of the lesson classification (brief §6, §9; decision 21).
 // Orange points fill a disc, blue points form a ring around it (data/classification.json, tools/trace/trace_classification.cpp).
-// The learner chooses a model (0, 2, 4 or 8 hidden units) and a checkpoint of its training (before training, 25, 100 and 1,000
+// The learner chooses a model (0, 2, 4 or 8 hidden neurons) and a checkpoint of its training (before training, 25, 100 and 1,000
 // steps). The plane shows what TorC recorded for that model and checkpoint:
 //   - the shading is the probability of orange on the recorded 41 × 41 grid (`prob1`, softmax of the two scores);
 //   - the white line is the decision boundary, the 50 % level of that grid (marching squares, drawn here from the recorded grid);
-//   - each hidden unit's line w1·x + w2·y + b = 0 (`units[]`), with a short arrow to the side where the unit is on (where ReLU
-//     passes its value on); for 0 hidden units, the recorded decision line (`derived.decision_line`) instead;
-//   - the readouts are the mistakes per 100 training points and the probability of the right colour on a typical training point
-//     (100·e^(−loss)), with the same rounding as T.human in core/numbers.js.
+//     with 0 hidden neurons it lies on the recorded decision line (`derived.decision_line`, which the tests compare with it);
+//   - each hidden neuron's line w1·x + w2·y + b = 0 (`units[]` in the trace), with a short arrow to the side where the neuron is
+//     on (where ReLU passes its value on);
+//   - the readout is the mistakes per 100 training points, with the same rounding as T.human in core/numbers.js.
+// The words follow the lesson: "neuron" for a hidden unit, "probability" for softmax output (docs/authoring.md).
 // Only training points and training numbers are shown: the comparison of models uses the training points (brief C2). Nothing is
 // trained here (precomputed presets, decision 21). site/test/classification.test.mjs checks the pure helpers against the data.
 // The DOM is touched only in mountClassPlane; pointsFigure() returns an SVG string for the lesson text.
@@ -84,8 +85,9 @@ export function clipLine(w1, w2, b, lo, hi) {
   return best;
 }
 
-// The lines to draw for a checkpoint: one per hidden unit ({unit 1..H, seg, normal toward the side where the unit is on}), or,
-// with no hidden layer, the one recorded decision line (score of orange = score of blue), with `normal` toward orange.
+// The lines of a checkpoint: one per hidden neuron ({unit 1..H, seg, normal toward the side where the neuron is on}), or, with
+// no hidden layer, the one recorded decision line (score of orange = score of blue), with `normal` toward orange. The widget
+// draws the neuron lines; the decision line is the boundary itself, so the widget does not draw it again (the tests use it).
 export function unitLines(files, cp) {
   const { lo, hi } = files.grid;
   const list = cp.units ? cp.units.map((u) => ({ unit: u.unit + 1, w1: u.w1, w2: u.w2, b: u.b, active: u.active_train_points }))
@@ -96,12 +98,9 @@ export function unitLines(files, cp) {
   });
 }
 
-// The readouts, rounded the way T.human rounds them (core/numbers.js), so the widget and the prose never disagree.
+// The readout, rounded the way T.human rounds it (core/numbers.js), so the widget and the prose never disagree.
 export function readout(files, cp) {
-  return {
-    mistakes: humanValue('per100', cp.train_correct, files.setup.train_samples),
-    rightColour: Math.round(humanValue('prob', cp.train_loss)),
-  };
+  return { mistakes: humanValue('per100', cp.train_correct, files.setup.train_samples) };
 }
 
 export const stepLabel = (step) => (step === 0 ? 'before training' : `${groupThousands(String(step))} steps`);
@@ -141,12 +140,12 @@ export function mountClassPlane(host, D, { hidden: h0 = 0, step: s0 = null } = {
   const box = el('input', { type: 'checkbox', id: `${id}-lines`, checked: true });
   box.addEventListener('change', () => { showLines = box.checked; draw(); announce(); });
   const controls = el('div', { class: 'cp-ctl' },
-    el('div', { class: 'cp-row', role: 'group', 'aria-labelledby': `${id}-h` }, el('span', { class: 'cp-lbl', id: `${id}-h` }, 'hidden units'), ...hBtns),
+    el('div', { class: 'cp-row', role: 'group', 'aria-labelledby': `${id}-h` }, el('span', { class: 'cp-lbl', id: `${id}-h` }, 'hidden neurons'), ...hBtns),
     el('div', { class: 'cp-row', role: 'group', 'aria-labelledby': `${id}-s` }, el('span', { class: 'cp-lbl', id: `${id}-s` }, 'training'), ...sBtns),
-    el('div', { class: 'cp-row' }, box, el('label', { for: `${id}-lines`, class: 'cp-check' }, 'show the line of each hidden unit')));
+    el('div', { class: 'cp-row' }, box, el('label', { for: `${id}-lines`, class: 'cp-check' }, 'show the line of each hidden neuron')));
   const plotBox = el('div', { class: 'cp-plot' });
   const read = el('div', { class: 'cp-read' });
-  const hint = el('p', { class: 'hint cp-hint' }, 'Orange shading means a high probability of orange, and blue shading a low one. The white line is the boundary, where the probability of orange is 50%. Circles are orange points, and squares are blue points.');
+  const hint = el('p', { class: 'hint cp-hint' }, 'Orange shading means that the model says orange, and blue shading means blue. A deeper colour means that the model is more sure. The white line is the boundary, where the model is undecided. Circles are orange points, and squares are blue points.');
   host.replaceChildren(el('div', { class: 'cp' }, controls, plotBox, read, hint, status));
   const { lo, hi } = files.grid;
   const p = createPlot(plotBox, { width: 440, height: 440, x: [lo, hi], y: [lo, hi], xLabel: 'x', yLabel: 'y', margin: { l: 40, r: 12, t: 10, b: 36 }, ariaLabel: '', onResize: () => paint() });
@@ -165,8 +164,8 @@ export function mountClassPlane(host, D, { hidden: h0 = 0, step: s0 = null } = {
       if (!u.seg) continue;
       const [[x1, y1], [x2, y2]] = u.seg;
       ul.append(svg('line', { class: 'cp-unit', x1: p.sx(x1), y1: p.sy(y1), x2: p.sx(x2), y2: p.sy(y2) }));
-      // the arrow and the number sit a quarter of the way along the visible part of the line
-      const mx = x1 + (x2 - x1) * 0.25, my = y1 + (y2 - y1) * 0.25;
+      // the arrow and the number sit near the start of the visible part of the line, away from the boundary in the middle
+      const mx = x1 + (x2 - x1) * 0.1, my = y1 + (y2 - y1) * 0.1;
       const ax = p.sx(mx), ay = p.sy(my), dx = u.normal[0], dy = -u.normal[1];
       ul.append(svg('line', { class: 'cp-unit-arrow', x1: ax, y1: ay, x2: ax + dx * 16, y2: ay + dy * 16, 'marker-end': `url(#${id}-arrow)` }));
       ul.append(svg('text', { class: 'cp-unit-num', x: ax - dx * 11, y: ay - dy * 11 + 4, 'text-anchor': 'middle' }, String(u.unit)));
@@ -185,8 +184,8 @@ export function mountClassPlane(host, D, { hidden: h0 = 0, step: s0 = null } = {
   }
   function describe(cp) {
     const r = readout(files, cp);
-    const units = hidden === 0 ? 'no hidden units' : `${hidden} hidden units`;
-    return `${units}, ${stepLabel(step)}. ${r.mistakes} mistakes per 100 training points. A typical training point gets ${r.rightColour}% on its right colour.`;
+    const n = hidden === 0 ? 'no hidden neurons' : `${hidden} hidden neurons`;
+    return `${n}, ${stepLabel(step)}. ${r.mistakes} mistakes per 100 training points.`;
   }
   function draw() {
     hBtns.forEach((b, i) => b.setAttribute('aria-pressed', String(HIDDEN[i] === hidden)));
@@ -194,8 +193,7 @@ export function mountClassPlane(host, D, { hidden: h0 = 0, step: s0 = null } = {
     box.disabled = hidden === 0;
     const cp = paint();
     const r = readout(files, cp);
-    read.innerHTML = `<span><b>mistakes on the training points</b> ${r.mistakes} per 100</span>`
-      + `<span><b>probability of the right colour, typical training point</b> ${r.rightColour}%</span>`;
+    read.innerHTML = `<span><b>mistakes on the training points</b> ${r.mistakes} per 100</span>`;
     p.root.setAttribute('aria-label', `The plane with the training points and the boundary of the model. ${describe(cp)}`);
   }
   function announce() { status.textContent = describe(checkpointFor(files, hidden, step)); }

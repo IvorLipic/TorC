@@ -53,7 +53,21 @@ test('the points: orange (class 1) fill the disc, blue (class 0) the ring around
   assert.ok(Math.max(...gaps) < Math.PI / 4);
 });
 
-test('predict and task 1: one layer stays near a coin flip, straight and unsure everywhere', () => {
+test('predict: the best straight line gets 70 of 100 training points right (checked by a search here), this run ends lower', () => {
+  const pts = pointsOf(data);
+  let best = 0;
+  for (let a = 0; a < 720; a++) {
+    const t = (a * Math.PI) / 360, pr = pts.map((p) => [Math.cos(t) * p.x + Math.sin(t) * p.y, p.label]).sort((u, v) => u[0] - v[0]);
+    const blue = pr.filter((q) => q[1] === 0).length;
+    let ob = 0, bb = 0;
+    for (let k = 0; k <= pr.length; k++) { best = Math.max(best, ob + blue - bb); if (k < pr.length) { if (pr[k][1] === 1) ob++; else bb++; } }
+  }
+  assert.equal(data.best_line.correct, best);
+  assert.equal(Math.round(humanValue('pct', data.best_line.correct, data.setup.train_samples)), 70);
+  assert.ok(last(0).train_correct < data.best_line.correct);
+});
+
+test('predict and task 1: one layer ends near a coin flip, straight and unsure everywhere', () => {
   const cp = last(0);
   assert.ok(cp.train_accuracy > 0.45 && cp.train_accuracy < 0.6, `train accuracy ${cp.train_accuracy}`);
   assert.equal(Math.round(humanValue('pct', cp.train_correct, data.setup.train_samples)), 53);
@@ -92,17 +106,35 @@ test('section 1: a unit is off on one side of its line, and the recorded counts 
   }
 });
 
-test('task 2 and section 2: the four units of the trained model enclose the disc and all vote for blue, the biases for orange', () => {
+test('task 2 and section 2: the four neuron lines cross inside the disc, every neuron votes for blue, the bias for orange', () => {
   const c = last(4), [l1, l2] = c.layers;
-  assert.ok(c.units.every((u) => u.b < 0), 'at the centre every unit is off');
-  for (let k = 0; k < 4; k++) assert.ok(l2.weight.values[4 + k] - l2.weight.values[k] < 0, `unit ${k + 1} votes for blue`);
-  assert.ok(l2.bias.values[1] - l2.bias.values[0] > 0, 'the biases favour orange');
-  // the side where all four are off is closed: the unit normals leave no gap of 180 degrees
-  const ang = c.units.map((u) => Math.atan2(u.w2, u.w1)).sort((a, b) => a - b);
-  const gaps = ang.map((a, i) => (i ? a - ang[i - 1] : a + 2 * Math.PI - ang.at(-1)));
-  assert.ok(Math.max(...gaps) < Math.PI);
+  assert.ok(c.units.every((u) => u.b < 0), 'at the centre every neuron is off');
+  for (let k = 0; k < 4; k++) assert.ok(l2.weight.values[4 + k] - l2.weight.values[k] < 0, `neuron ${k + 1} votes for blue`);
+  assert.ok(l2.bias.values[1] - l2.bias.values[0] > 0, 'the bias favours orange');
+  // "the four lines cross inside the disc": each line is closer to the centre than the disc's radius
+  for (const u of c.units) assert.ok(Math.abs(u.b) / Math.hypot(u.w1, u.w2) < data.setup.r_inner, `line at ${Math.abs(u.b) / Math.hypot(u.w1, u.w2)}`);
+  // "the boundary lies further out": along the x axis the 50 % level is outside the disc's radius on both sides
+  const row = 20, z = gridOf(data, c).z[row], ax = data.grid.axis;
+  const right = ax.findIndex((x, i) => x > 0 && z[i] < 0.5), left = ax.findLastIndex((x, i) => x < 0 && z[i] < 0.5);
+  assert.ok(ax[right] > data.setup.r_inner && ax[left] < -data.setup.r_inner, `${ax[left]} .. ${ax[right]}`);
   assert.equal(l1.weight.shape.join(), '4,2');
   assert.equal(c.train_accuracy, 1);
+  // the worked vote: the recorded votes are output x (orange weight - blue weight), and they add up to the score difference
+  const V = data.vote, [centre, ring] = V.points;
+  assert.deepEqual([V.hidden, V.step], [4, 1000]);
+  V.vote_weights.forEach((w, k) => assert.ok(Math.abs(w - (l2.weight.values[4 + k] - l2.weight.values[k])) < 1e-6));
+  assert.ok(Math.abs(V.bias_orange - (l2.bias.values[1] - l2.bias.values[0])) < 1e-6);
+  for (const q of V.points) {
+    q.votes.forEach((v, k) => assert.ok(Math.abs(v - q.outputs[k] * V.vote_weights[k]) < 1e-6 * (1 + Math.abs(v))));
+    assert.ok(Math.abs(q.total - (V.bias_orange + q.votes.reduce((a, b) => a + b, 0))) < 1e-9);
+    assert.ok(Math.abs(q.total - q.score_difference) < 1e-4);
+    const [s0, s1] = scores(c, q.x, q.y);
+    assert.ok(Math.abs(s1 - s0 - q.score_difference) < 1e-3);
+  }
+  assert.ok(centre.outputs.every((o) => o === 0) && centre.total > 0, 'in the middle all neurons are off and the bias wins');
+  assert.deepEqual(ring.outputs.map((o) => o > 0), [true, false, false, true], 'only neurons 1 and 4 are on at the ring point');
+  assert.ok(ring.total < 0, 'the ring point is blue');
+  assert.ok(Math.hypot(ring.x, ring.y) > data.setup.r_ring[0], 'the point lies in the ring');
 });
 
 test('task 3: two units leave the orange region open, eight units close it', () => {
@@ -125,9 +157,11 @@ test('the sigmoid section and the your-turn quiz: softmax of two scores is the s
   assert.deepEqual([q.scores, q.difference], [[-1, 2], 3]);
 });
 
-test('section 4: the surprise falls with training, and the 2-unit model does not improve from step 100 to 1000', () => {
-  const before = humanValue('prob', checkpointFor(data, 8, 0).train_loss), after = humanValue('prob', last(8).train_loss);
-  assert.ok(Math.round(before) <= 55 && Math.round(after) === 100, `${before} -> ${after}`);
+test('section 4: the typical probability rises with training, and the 2-neuron model does not improve from step 100 to 1000', () => {
+  for (const m of data.models) for (const c of m.checkpoints) assert.ok(Math.abs(c.typical_right_prob - Math.exp(-c.train_loss)) < 1e-9);
+  const before = checkpointFor(data, 8, 0).typical_right_prob, after = last(8).typical_right_prob;
+  assert.ok(before < 0.55 && after > 0.999 && after < 1, `${before} -> ${after}`);
+  assert.equal(T(`files.classification.models.3.checkpoints.3.typical_right_prob`, { role: 'contrast', sig: 4 }).match(/>([^<]*)</)[1], '0.9998', 'never shown as 1 or 100 %');
   const per = (s) => humanValue('per100', checkpointFor(data, 2, s).train_correct, data.setup.train_samples);
   assert.equal(per(100), per(1000));
   assert.ok(per(100) > 15, 'two units still make many mistakes');
@@ -154,7 +188,6 @@ test('the playground helpers: readouts round like T.human, lines are clipped to 
   for (const m of data.models) for (const c of m.checkpoints) {
     const r = readout(data, c);
     assert.equal(r.mistakes, humanValue('per100', c.train_correct, data.setup.train_samples));
-    assert.equal(r.rightColour, Math.round(humanValue('prob', c.train_loss)));
     const lines = unitLines(data, c);
     assert.equal(lines.length, Math.max(1, m.hidden));
     for (const u of lines) if (u.seg) for (const [x, y] of u.seg) {
@@ -182,6 +215,14 @@ test('no hand-typed digits in the prose (code, formulas and bound numbers aside)
     .replace(/<pre[\s\S]*?<\/pre>/g, '').replace(/<code[^>]*>[\s\S]*?<\/code>/g, '').replace(/<h2[^>]*>\s*\d\s·/g, '<h2>')
     .replace(/<[^>]+>/g, ' ').match(/[^\s]*\d[^\s]*/g) ?? [];
   assert.deepEqual(left, []);
+});
+
+test('one name per thing: hidden neurons, never "units"; no 100 % shown for a probability below one', () => {
+  const html = renderLesson(lesson, D, { course: course() }).map((p) => p.html).join('\n');
+  const text = html.replace(/<style[\s\S]*?<\/style>/g, '').replace(/<pre[\s\S]*?<\/pre>/g, '').replace(/<[^>]+>/g, ' ');
+  assert.doesNotMatch(text, /\bunits?\b/);
+  assert.doesNotMatch(text, /\btypical training point\b/);
+  for (const b of boundNums(html)) if (/typical_right_prob/.test(b.path)) assert.notEqual(b.shown, '1');
 });
 
 test('the widget module imports in Node without touching the DOM', async () => {

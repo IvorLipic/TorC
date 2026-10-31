@@ -36,8 +36,15 @@ None at the pin.
 ## Page choices
 - "Score" throughout; "logit" is named once ("Books call such scores logits"). The glossary entry `logit` names this lesson.
 - Palette: the `exp-ln` refresher and the ChatGPT aside (both required). So the bank's analogies (softmax as shares, cross-entropy as
-  surprise) are plain prose without the `analogy()` block, with their limits stated as sentences ("A share says how sure the model
-  is. It does not say that the model is right."; "Only the share of the right class counts").
-- The ChatGPT aside gives no vocabulary size and says it is a concept, not a TorC run; its source (Jurafsky and Martin, *Speech and
-  Language Processing*, 3rd edition draft) is in the page footer (decision 18).
+  surprise) are plain prose without the `analogy()` block, with their limits stated as sentences ("They say how sure the model is.
+  They do not say that it is right."; "Only the probability of the right class counts").
+- The ChatGPT aside gives no vocabulary size, says that the surprise is the loss of pretraining and that later training uses other
+  methods, and says it is a concept, not a TorC run. Its sources are in the page footer (decision 18): Radford et al. 2018, section
+  3.1 (softmax over the vocabulary, the log-likelihood loss of pretraining) and Ouyang et al. 2022 (later stages). The lead asked
+  for a chapter of Jurafsky and Martin's SLP3; web.stanford.edu was not reachable from this session, so a chapter number could not
+  be checked, and the two papers are cited instead (not verified online here either; cited from their known content).
+- Naming (lead): the output of softmax is a "probability"; "shares of 100 %" appears once, as the analogy with its limit.
+  "Squared miss" is the mean squared error of the first lesson applied to the probabilities and the target probabilities.
+- The your-turn step uses the second photo (4, 1, −2), so the learner computes e^−2 and the sum (the worked example uses the first).
+- No ∂ on the page (∂ is introduced in `backprop`, which now comes later); the gradient is said in words.
 - The fruit names map to classes 0, 1, 2 (apple, banana, cherry).

@@ -294,6 +294,13 @@ No scenes (the site's engine has no softmax or cross-entropy op).
   `|softmax[1] - sigmoid|` (0 for all six; the program fails above `1e-6`).
 - Values depend on libstdc++'s `std::normal_distribution` (TorC's Kaiming start weights, seeds `100 + H` and `200 + H`) and on the
   C library's `exp`/`log`. On one toolchain the output is bit-for-bit repeatable.
+- v3 additions, all **derived** (double): each checkpoint ends with `typical_right_prob` = e^(−train_loss), the probability whose
+  surprise is the mean surprise. `best_line` = `{correct, accuracy, angle_deg, threshold, note}`: the most training points any
+  straight boundary gets right (exhaustive search over normal directions in steps of 0.25° and every threshold; committed run 140
+  of 200). `vote` = `{hidden 4, step 1000, bias_orange, vote_weights[4], points[2]{x, y, outputs[4], votes[4], total,
+  score_difference, prob_orange}, note}` for the points (0, 0) and (1.4, 0): `outputs` are the library's ReLU outputs, `votes` =
+  output × (orange output weight − blue output weight), and `total` = `bias_orange` + the votes, which equals the library's score
+  difference (the program fails above `1e-4`).
 
 ## `deep.json` (kind `deep`, lesson `deep-nets`)
 

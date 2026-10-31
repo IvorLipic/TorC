@@ -106,15 +106,16 @@ test('the data that the appendix lesson torc-pitfalls needs is kept, and none of
   assert.deepEqual(Object.keys(e), ['not-integer', 'out-of-range', 'rank-1-logits', 'length', 'column-targets']);
   assert.equal(e['out-of-range'].what, 'CrossEntropyLoss target 3 at index 0 is out of range [0, 3)');
   const html = render();
-  assert.doesNotMatch(html, /MSELoss|ShapeError|mse_mismatch|mean squared/i, 'MSE and its pitfall live in what-is-learning and torc-pitfalls');
+  assert.doesNotMatch(html, /MSELoss|ShapeError|mse_mismatch/, 'the MSE shape pitfall and the label errors live in torc-pitfalls');
 });
 
 test('the explorer offers the page rows, and its readouts round like the page says', () => {
   const rows = explorerRows(data);
   assert.deepEqual(rows.map((r) => r.key), ['uniform', 'mild', 'confident', 'even', 'uneven']);
-  assert.equal(rows[1].label, '2, 1, 0.1');
-  assert.equal(rows[2].label, '4, 1, −2');
-  assert.match(rows[3].label, /same apple share/);
+  assert.equal(rows[1].label, 'first photo (2, 1, 0.1)');
+  assert.equal(rows[2].label, 'second photo (4, 1, −2)');
+  assert.match(rows[3].label, /same apple probability/);
+  assert.match(rows[4].label, /same apple probability/);
   assert.deepEqual(rows[3].cases.map((c) => c.target), [0], 'the spread rows have the apple as the right class');
   assert.deepEqual(FRUITS, ['apple', 'banana', 'cherry']);
   assert.equal(pct(data.exp_rows[1].shares[0]), '66%');
@@ -129,7 +130,10 @@ test('C2-type honesty: the ChatGPT aside names no vocabulary size, says it is no
   const aside = html.match(/<aside class="chatgpt"[\s\S]*?<\/aside>/)[0];
   assert.doesNotMatch(aside.replace(/<[^>]+>/g, ''), /\d/);
   assert.match(aside, /not a TorC run/);
-  assert.match(lesson.footer(D, T), /<a href="https:\/\/web\.stanford\.edu\/~jurafsky\/slp3\/">/);
+  assert.match(lesson.footer(D, T), /language_understanding_paper\.pdf">Radford et al\. \(2018\)[^<]*section 3\.1/);
+  assert.match(lesson.footer(D, T), /arxiv\.org\/abs\/2203\.02155/);
+  assert.match(aside, /pretraining/);
+  assert.doesNotMatch(aside, /thousand/);
   assert.match(lesson.footer(D, T), /Numbers: TorC/);
   assert.match(html, /log always means ln/);
 });
@@ -138,7 +142,8 @@ test('no hand-typed digits in the prose (code, formulas and bound numbers aside)
   const left = render().replace(/<style[\s\S]*?<\/style>/g, '').replace(/<details class="refresher"[\s\S]*?<\/details>/g, '')
     .replace(/<span class="num"[^>]*>[^<]*<\/span>/g, '').replace(/<pre[\s\S]*?<\/pre>/g, '').replace(/<code[^>]*>[\s\S]*?<\/code>/g, '')
     .replace(/<h2[^>]*>\s*\d\s·/g, '<h2>').replace(/<[^>]+>/g, ' ').match(/[^\s]*\d[^\s]*/g) ?? [];
-  assert.deepEqual(left, ['100%,'], 'only the definition "shares of 100%" is typed');
+  assert.deepEqual(left, ['100%.'], 'only the analogy "shares of 100%" is typed');
+  assert.doesNotMatch(render().replace(/<details class="refresher"[\s\S]*?<\/details>/g, '').replace(/<[^>]+>/g, ' '), /\bshares?\b(?! of 100%)/, 'the name is probability; "shares of 100%" is only the analogy');
 });
 
 test('the widget module imports in Node without touching the DOM', async () => {
