@@ -20,7 +20,9 @@ const readJson = (rel) => JSON.parse(readFileSync(path.join(SITE, rel), 'utf8'))
 
 export const plain = (html) => html
   .replace(/<style[\s\S]*?<\/style>/g, '').replace(/<pre[\s\S]*?<\/pre>/g, '\n')
-  // a picture's labels are not sentences: keep the description of an <svg role="img"> as its own line, drop its label text
+  // a picture's labels are not sentences: keep the description of an <svg role="img"> as its own line, drop its label text.
+  // So the text INSIDE an SVG is not linted; its aria-label is. site/test/svg-labels.test.mjs checks that every SVG of a lesson
+  // has an aria-label (or is aria-hidden), so nothing is dropped silently.
   .replace(/<svg\b[^>]*?aria-label="([^"]*)"[^>]*>[\s\S]*?<\/svg>/g, '\nPicture. $1\n').replace(/<svg[\s\S]*?<\/svg>/g, '\n')
   .replace(/<code[^>]*>[\s\S]*?<\/code>/g, 'code').replace(/<span class="katex[\s\S]*?<\/span><\/span><\/span>/g, 'formula')
   .replace(/<\/(p|li|h1|h2|h3|summary|section|aside|div)>/g, '\n').replace(/<[^>]+>/g, ' ')

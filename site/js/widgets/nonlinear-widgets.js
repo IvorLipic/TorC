@@ -3,7 +3,8 @@
 //
 //   mountActivationPlot(host, D)   relu or sigmoid and its gradient on [-4, 4]; a slider picks one of the 81 recorded inputs
 //   mountCurveFit(host, D)         two models fitted to t = x^2, with and without relu, at the recorded training steps; the readout
-//                                  gives the typical miss (√ of the recorded loss), not the bare loss
+//                                  gives the typical miss (√ of the recorded loss), not the bare loss; it opens on the model with
+//                                  no activation at step 0, so it shows no end result before its task
 // Curves are labelled on the plot; readouts show 2-3 significant figures.
 //
 // The module touches the DOM only in mount*.
@@ -99,7 +100,7 @@ export function mountActivationPlot(host, D) {
 export function mountCurveFit(host, D) {
   injectStyles();
   const N = D.files.nonlinearity, steps = N.models[0].checkpoints.map((c) => c.step);
-  let model = 'linear', at = steps.length - 1;
+  let model = 'linear', at = 0;                                // opens on the start of the model with no activation
   const mp = presets('Model', [['linear', 'no activation'], ['relu', 'with ReLU']], (v) => { model = v; draw(); });
   const sp = presets('Training steps', steps.map((s, i) => [i, String(s)]), (i) => { at = i; draw(); });
   const box = el('div'), read = el('div', { class: 'nl-read nl-sent', 'aria-live': 'polite' });
@@ -125,8 +126,8 @@ export function mountCurveFit(host, D) {
     paint(p);
     const label = model === 'relu' ? 'with ReLU' : 'with no activation function';
     const miss = sig3(Math.sqrt(c.loss));
-    p.root.setAttribute('aria-label', `The model ${label} after ${c.step} training steps, with the ${N.setup.points} data points of t = x squared. It misses the points by about ${miss} on average.`);
-    read.innerHTML = `<span>After <b>${c.step}</b> steps, the model ${label} misses the points by about <b>${miss}</b> on average.</span>`;
+    p.root.setAttribute('aria-label', `The model ${label} after ${c.step} training steps, with the ${N.setup.points} data points of t = x squared. Its typical miss is about ${miss}.`);
+    read.innerHTML = `<span>After <b>${c.step}</b> steps, the typical miss of the model ${label} is about <b>${miss}</b>.</span>`;
     table.update(N.data.grid.map((x, i) => [x, c.prediction[i]]));
   }
   draw();

@@ -177,9 +177,11 @@ Added for the v3 hinge builder (appended keys, nothing else changed):
   `sum(contribution, axis 1)` (TorC) plus `b2`, and `max_abs_diff_vs_prediction` compares it with `models[1].checkpoints[3].prediction`
   (0 in the committed run; the program fails above `1e-5`). `derived.kink_x = -b1_k / W1_k` (double) and `active_for` is
   `"x > kink_x"` when `W1_k > 0`, else `"x < kink_x"`.
-- `collapse` = `{f{w, b}, g{w, b}, x[4], f_x[4], g_f_x[4], combined{w, b}, combined_x[4], equal}`: two real `nn::Linear(1, 1)` in
-  a row, `f(x) = 2x + 1` and `g(x) = 3x + 4`, on `x = 0, 1, 2, 3`; `combined` = `{w: 6, b: 7}` is derived (`wg·wf`, `wg·bf + bg`) and
-  put into a third `nn::Linear(1, 1)`, whose outputs `combined_x` equal `g_f_x` exactly (`equal`; the program fails otherwise).
+- `collapse` = `{f{w, b}, g{w, b}, x[6], f_x[6], g_f_x[6], derived{w, b}, combined_x[6], equal, relu_f_x[6], g_relu_f_x[6]}`: two real
+  `nn::Linear(1, 1)` in a row, `f(x) = 2x + 1` and `g(x) = 3x + 4`, on `x = -2, -1, 0, 1, 2, 3`. `derived` = `{w: 6, b: 7}` is plain
+  arithmetic (`wg·wf`, `wg·bf + bg`), under `derived` like every derived value of this file; it is put into a third `nn::Linear(1, 1)`,
+  whose outputs `combined_x` (library output) equal `g_f_x` exactly (`equal`; the program fails otherwise). `relu_f_x` = `relu(f(x))`
+  and `g_relu_f_x` = `g(relu(f(x)))` from the real ops: at `x = -2` it is 4, where `6x + 7` gives -5.
 
 ## `modules.json` (kind `modules`, lesson `modules`)
 

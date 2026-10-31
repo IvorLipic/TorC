@@ -102,20 +102,25 @@ and neurons, no twin button), `layer-count.js` (new: the three Linear layers of 
 whole-network sum), `linear-math.js` (`exampleFromTensors`), `site/test/linear-layer.test.mjs`. `init-signal.js` and
 `linear-signal-data.js` stay in the repo for `deep-nets` (the signal table test stays in this lesson's test file).
 
-**As built**: hero → Questions (three inputs; where 26,506 comes from) → setup "Taxi prices" (last lesson's model, the four prices) →
-predict (cost of the first ride, numeric; reveal worked 14) → 1 one neuron (weights, bias, dot product named, subscripts from 0, Σ,
-picture, "not a small brain") → 2 a layer (time neuron, picture of two neurons, worked 20) → 3 one matrix product (x, W, b as matrices,
-y_ik, broadcasting in words, matrix-product refresher) → Your turn y₁₀ (22) → matmul grid (3 tasks: y₀₁, b₀ + 1, bag weight 0) →
-transfer (shape of W for the first digit layer, with 784 = 28 × 28; the "(in, out)" option names the misconception) → 4 W is
-(neurons, inputs), transposed, the count rule → check (third layer: 330) → layer counter (2 tasks) → cumulative from `sgd-step` (one
-gradient number per parameter, 25,120) → explain → answer.
-Budgets: 1,397 words (cap 1,400, includes the 150-word refresher), 4 numbered sections, 5 quizzes, 3 worked blocks, palette 1.
+**As built** (after the review of 2026-10-31): hero → Questions (three inputs; where 26,506 comes from) → setup "Taxi prices" →
+predict (cost of the first ride; reveal worked 14) → 1 one neuron (weights; "weighted sum, also called a dot product" defined;
+bias; the picture before the formula; positions from 0 "as in TorC and most programs"; y and j named; the limits of Σ) → 2 a layer
+(time neuron, picture of two neurons, "a neuron is not a small brain") → 3 one matrix product (the second ride introduced; x, W, b;
+y_ik with Σ from 0 to 2; Wᵀ explained BEFORE the product claim; y = x × Wᵀ + b; "TorC adds b to each row", broadcasting;
+matrix-product refresher) → Your turn y₁₀ ("ride 1, the second ride") → matmul grid (header y = x × Wᵀ + b, no operator glyphs, ×
+in the calculation; outputs show "?" until the reader chooses one with a click or Enter or presses Show all outputs, so the grid
+never answers the quiz above it; 3 tasks) → transfer (shape of W of the first digit layer) → 4 why W is (neurons, inputs): each
+row keeps one neuron's weights together; the count rule → Your step: the second layer (32 × 32 + 32 = 1,056), whose reveal works out
+25,120 + 1,056 + 330 = 26,506 → layer counter (2 tasks) → cumulative from `sgd-step` → explain → answer.
+Budgets: 1,394 words (cap 1,400), 4 numbered sections, 5 quizzes, 3 worked blocks (all in quiz reveals), palette 1.
 
 **Deviations from the brief and the task.**
 - The dot-product refresher is not opened: the lesson is at the 1,400-word cap with the matrix-product refresher, and the neuron
   section does the dot product with the reader's own numbers and names it in one sentence. Add it back only if something else goes.
 - "A neuron is a little brain" is answered in one plain sentence, not with the analogy block (the palette would be 3 with two
   refreshers, and the word cap).
+- The worked block of the time neuron left section 2 (the grid's first task shows that calculation), so that the third worked
+  block can answer the opening question (26,506) in the reveal of the second-layer quiz.
 - The misconception refuted with page evidence is "W is (in, out)": the transfer quiz, then the recorded shape (32, 784) in the layer
   counter and in the grid (one row per neuron).
 - The backward rules, the x̄ predict, the `ShapeError` message, initialization (twin button, six-layer plot) left the page.

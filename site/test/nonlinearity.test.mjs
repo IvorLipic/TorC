@@ -59,12 +59,12 @@ test('the input grids are exact: built from integers, so 0 is exactly 0 on every
 test('collapse: real Linear(1, 1) modules f = 2x + 1 and g = 3x + 4 give g(f(x)) = 6x + 7; with ReLU between, x = -2 gives 4, not -5', () => {
   const c = data.collapse;
   assert.deepEqual([c.f.w, c.f.b, c.g.w, c.g.b], [2, 1, 3, 4]);
-  assert.deepEqual([c.combined.w, c.combined.b], [c.g.w * c.f.w, c.g.w * c.f.b + c.g.b]);
-  assert.deepEqual([c.combined.w, c.combined.b], [6, 7]);
+  assert.deepEqual([c.derived.w, c.derived.b], [c.g.w * c.f.w, c.g.w * c.f.b + c.g.b]);
+  assert.deepEqual([c.derived.w, c.derived.b], [6, 7]);
   assert.equal(c.equal, true);
   c.x.forEach((x, i) => {
     assert.equal(c.f_x[i], c.f.w * x + c.f.b);
-    assert.equal(c.g_f_x[i], c.combined.w * x + c.combined.b, `the one line at x = ${x}`);
+    assert.equal(c.g_f_x[i], c.derived.w * x + c.derived.b, `the one line at x = ${x}`);
     assert.equal(c.combined_x[i], c.g_f_x[i]);
     assert.equal(c.relu_f_x[i], Math.max(0, c.f_x[i]));
     assert.equal(c.g_relu_f_x[i], c.g.w * c.relu_f_x[i] + c.g.b);
@@ -124,6 +124,10 @@ test('hinge tasks: neuron 4 alone is zero left of its kink and a straight line r
     if (x < u4.derived.kink_x) assert.ok(near(one[i], H.b2, 1e-6), 'flat at the bias on the left');
     else assert.ok(near(one[i] - H.b2, u4.w2 * (u4.w1 * x + u4.b1), 1e-5), 'a straight line on the right');
   });
+  assert.ok(H.units[0].w1 > 0 && H.units[0].w2 > 0, 'task 2: neuron 0 lifts the right side');
+  assert.ok(u1.w1 < 0 && u1.w2 > 0, 'task 2: neuron 1 lifts the left side');
+  assert.ok(H.units.filter((u) => u.w2 < 0.2).length >= 2, 'some neurons have a small weight in the second layer');
+  assert.ok(H.b2 < 0 && H.b2 > -0.3, 'task 1: the sum sits a little lower than the single hinge');
   assert.equal(u1.unit, 1);
   assert.ok(u1.derived.active_for === 'x < kink_x' && u1.derived.kink_x < 0);
   const off = new Set(ALL); off.delete(1);
@@ -156,6 +160,16 @@ test('the lesson is a v3 lesson that lights the model, softmax and overflow are 
   assert.match(html, /data-sym="sigma"/);
   assert.match(html, /data-sym="exp"/);
   assert.match(html, /aria-label="Analogy"/);
+  const t = rawHtml().replace(/<style[\s\S]*?<\/style>/g, '').replace(/<svg[\s\S]*?<\/svg>/g, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+  assert.match(t, /Nothing sits between the layers, so each layer only multiplies and adds, as in the last lesson\./, 'the predict is fair');
+  assert.match(t, /typical miss, the square root of the mean squared miss/);
+  assert.doesNotMatch(t, /on average|kink|\bunit\b/, 'one name: typical miss, bend, neuron');
+  assert.match(t, /This small sigma is not the Σ of sums\./);
+  assert.match(t, /letter W\. It goes down, up, down and up again, so it has three bends\./, 'the transfer asks the reverse question');
+  assert.match(t, /zero for every negative one/);
+  // the cumulative quiz comes before any sentence that says the weight barely learns
+  const quiz = rawHtml().indexOf('Weight A sits before a flat part');
+  assert.ok(quiz > 0 && rawHtml().slice(0, quiz).indexOf('barely learn') < 0);
   assert.match(html, /Where it breaks/);
 });
 

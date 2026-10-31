@@ -48,7 +48,7 @@ export function neuronTex(x, W, b, i, k) {
   const n = xr.length, I = i, K = k;
   return aligned([
     `y_{${I}${K}} &= \\sum_{j=0}^{${n - 1}} x_{${I}j}\\,W_{${K}j} + b_{${K}}`,
-    `&= ${joinPlus(xr.map((v, j) => `${par(v)}\\cdot ${par(wr[j])}`))} + ${par(b[k])}`,
+    `&= ${joinPlus(xr.map((v, j) => `${par(v)}\\times ${par(wr[j])}`))} + ${par(b[k])}`,
     `&= ${joinPlus(xr.map((v, j) => par(v * wr[j])))} + ${par(b[k])} = ${tn(y)}`,
   ]);
 }

@@ -222,7 +222,8 @@ int main() {
 
     // ---- 5. two linear functions in a row are one (v3: f(x) = 2x + 1, g(x) = 3x + 4, so g(f(x)) = 6x + 7) -----------------
     // f and g are real nn::Linear(1, 1) modules with the weights set by hand. The combined weight and bias are derived in double
-    // (w = wg * wf, b = wg * bf + bg), put into a third nn::Linear(1, 1), and its outputs are checked against g(f(x)).
+    // (w = wg * wf, b = wg * bf + bg, under the key "derived" like every derived value of this file), put into a third
+    // nn::Linear(1, 1), and its outputs (combined_x, library output) are checked against g(f(x)).
     J collapse = J::object();
     {
         Variable::NoGradGuard ng;
@@ -246,7 +247,7 @@ int main() {
         d.set("w", w).set("b", b);
         collapse.set("f", J::object().set("w", 2.0).set("b", 1.0)).set("g", J::object().set("w", 3.0).set("b", 4.0))
             .set("x", trace::jarr(cx)).set("f_x", trace::jarr(trace::values_of(fx.data()))).set("g_f_x", trace::jarr(gfx))
-            .set("combined", std::move(d)).set("combined_x", trace::jarr(hx)).set("equal", same)
+            .set("derived", std::move(d)).set("combined_x", trace::jarr(hx)).set("equal", same)
             .set("relu_f_x", trace::jarr(trace::values_of(relu(fx).data())))
             .set("g_relu_f_x", trace::jarr(trace::values_of(g(relu(fx)).data())));
     }

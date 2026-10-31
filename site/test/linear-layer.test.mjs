@@ -121,9 +121,10 @@ test('digit network: the three Linear layers, (out, in) shapes, count = out·in 
   assert.equal(A('image_side') ** 2, A('pixels'), '784 = 28 × 28');
   assert.equal(L[2].neurons, A('classes'), 'one neuron for each digit');
   // the quizzes
-  const last = lesson.sections.find((s) => s.id === 'last-layer');
-  assert.equal(T.num(last.answer), L[2].count);
-  assert.equal(L[2].count, 330);
+  const second = lesson.sections.find((s) => s.id === 'second-layer');
+  assert.equal(T.num(second.answer), L[1].count);
+  assert.equal(L[1].count, 32 * 32 + 32, 'the reveal: 32 × 32 + 32 = 1,056');
+  assert.deepEqual(L.map((l) => l.count), [25120, 1056, 330], 'the reveal: 25,120 + 1,056 + 330 = 26,506');
   const shape = lesson.sections.find((s) => s.id === 'w-shape');
   const opts = shape.options.map((o) => o.html(D, T).replace(/<[^>]+>/g, ''));
   assert.deepEqual(opts, ['(32, 784)', '(784, 32)', '(784)', '(32)']);
@@ -164,12 +165,23 @@ test('the network pictures: inputs and weights from the trace, the bias in the c
 
 test('section claims: positions count from 0, Σ and subscripts and ᵀ are linked, W is (neurons, inputs), b is broadcast', () => {
   const t = plain(rawHtml());
-  assert.match(t, /positions count from 0/);
+  assert.match(t, /counted from 0 as in TorC and most programs/);
+  assert.match(t, /one term for each position j from 0 \(under the sign\) to 2 \(above it\)/);
+  assert.match(t, /Each input times its weight, all added up, is a weighted sum\s*, also called a dot product\./);
+  // the transpose comes before "matrix product" claims in section 3, and the layer formula is x × Wᵀ + b
+  const s3 = t.slice(t.indexOf('3 · One matrix product'), t.indexOf('Refresher.'));
+  assert.ok(s3.indexOf('turns W on its side') < s3.indexOf('This one matrix product'), 'Wᵀ is explained before the product claim');
+  assert.match(html, /y = x \\times W\^\{\\top\} \+ b|annotation encoding="application\/x-tex">y = x \\times W\^\{\\top\} \+ b/);
+  assert.match(s3, /A second ride is 10 km long, with no waiting and 1 bag\./);
+  assert.match(s3, /so ride 1 is the second ride/);
   assert.match(html, /data-sym="sum"/);
   assert.match(html, /data-sym="subscript"/);
   assert.match(html, /data-sym="transpose"/);
-  assert.match(t, /TorC stores one row per neuron, so the shape of W is \(neurons, inputs\)\./);
-  assert.match(t, /TorC copies b into each row of the result and calls this copying broadcasting\s*\./);
+  assert.match(t, /TorC stores one row per neuron, so each row keeps the weights of one neuron together\. The shape of W is \(neurons, inputs\)\./);
+  assert.match(t, /TorC adds b to each row of the result\. This reuse of b in every row is broadcasting\s*\./);
+  // the neuron picture comes before the neuron formula (picture, numbers, symbol)
+  const s1 = rawHtml().slice(rawHtml().indexOf('1 · One neuron'));
+  assert.ok(s1.indexOf('<svg') < s1.indexOf('\\sum_{j=0}^{2} w_j'));
   assert.match(html, /data-refresher="matrix-product"/);
   assert.match(t, /not a small brain/);
 });

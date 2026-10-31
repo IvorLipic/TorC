@@ -48,7 +48,7 @@ export default {
     {
       kind: 'text',
       html: () => `${STYLE}<section class="hero"><h1>The neuron and the layer</h1>
-    <p class="lead">Every ${term('neural-network')} uses one small formula many times. A taxi price shows the formula.</p></section>`,
+    <p class="lead">Every ${term('neural-network')} uses one small formula many times.</p></section>`,
     },
     {
       kind: 'questions',
@@ -69,43 +69,43 @@ export default {
       kind: 'quiz', id: 'price', purpose: 'predict', type: 'numeric',
       answer: y(0, 0), tolerance: 0.01, unit: 'euros',
       prompt: (D, T) => `<p>A ride is ${T(x(0, 0), 'setup')} km long. It has ${T(x(0, 1), 'setup')} minutes of waiting and ${T(x(0, 2), 'setup')} bags. What does it cost?</p>`,
-      reveal: (D, T) => `${worked(`<p>price = ${sumOf(T, [[w(0, 0), x(0, 0)], [w(0, 1), x(0, 1)], [w(0, 2), x(0, 2)]], b(0), y(0, 0), 'euros')}</p>`)}
-    <p>The fee comes once, at the end.</p>`,
+      reveal: (D, T) => `${worked(`<p>price = ${sumOf(T, [[w(0, 0), x(0, 0)], [w(0, 1), x(0, 1)], [w(0, 2), x(0, 2)]], b(0), y(0, 0), 'euros')}</p>`)}`,
     },
     {
       kind: 'text',
       html: (D, T) => sec('neuron', '1 · One neuron', `
     <p>You multiplied each input by its own number, added the products, and then added the fee. A ${term('neuron')} computes exactly this.</p>
-    <p>The numbers that multiply the inputs are its ${term('weight', 'weights')}. The number added at the end is its ${term('bias')}, here the fee. Multiplying matching numbers and adding the products is a dot product.</p>
-    <p>With letters, the inputs are ${sym('subscript', '<i>x</i>₀')}, <i>x</i>₁ and <i>x</i>₂, and the weights are <i>w</i>₀, <i>w</i>₁ and <i>w</i>₂. The small number is a position, and positions count from <code>0</code>.</p>
-    <p>The sign ${sym('sum', 'Σ')} means “add up all the terms”. So the neuron computes:</p>
+    <p>The numbers that multiply the inputs are its ${term('weight', 'weights')}. Each input times its weight, all added up, is a <strong>weighted sum</strong>, also called a dot product. The number added at the end is the ${term('bias')}, here the fee.</p>
+    ${neuronFigure(D.files.linear.taxi, { neurons: [0], caption: 'Each arrow multiplies an input by its weight. The circle adds everything.' })}
+    <p>With letters, the inputs are ${sym('subscript', '<i>x</i>₀')}, <i>x</i>₁ and <i>x</i>₂, and the weights are <i>w</i>₀, <i>w</i>₁ and <i>w</i>₂. The small number is the position, counted from <code>0</code> as in TorC and most programs.</p>
+    <p>The output of the neuron is <i>y</i>. The sign ${sym('sum', 'Σ')} means “add up the terms”, one term for each position <i>j</i> from <code>0</code> (under the sign) to <code>2</code> (above it):</p>
     ${eq('y = w_0 x_0 + w_1 x_1 + w_2 x_2 + b = \\sum_{j=0}^{2} w_j\\, x_j + b', 'The formula of one neuron')}
-    ${neuronFigure(D.files.linear.taxi, { neurons: [0], caption: 'One neuron. Each arrow multiplies an input by its weight. The circle adds the products and the bias.' })}
-    <p>The name comes from nerve cells, but this neuron is not a small brain. It only multiplies and adds.</p>`),
+`),
     },
     {
       kind: 'text',
       html: (D, T) => sec('layer', '2 · A layer is many neurons', `
     <p>The taxi app also guesses how long a ride takes. A second neuron reads the same three inputs with its own weights and bias.</p>
     <p>Each kilometre adds ${T(w(1, 0), 'setup')} minutes, and each minute of waiting adds ${T(w(1, 1), 'setup')} minute. A bag adds no time, so its weight is ${T(w(1, 2), 'setup')}. The bias is ${T(b(1), 'setup')} minutes for getting in and out.</p>
-    <p>Neurons that read the same inputs side by side form a ${term('layer')}.</p>
-    ${neuronFigure(D.files.linear.taxi, { neurons: [0, 1], caption: 'A layer of two neurons. Each has its own weights and bias.' })}
-    ${worked(`<p>time = ${sumOf(T, [[w(1, 0), x(0, 0)], [w(1, 1), x(0, 1)], [w(1, 2), x(0, 2)]], b(1), y(0, 1), 'minutes')}</p>`)}`),
+    <p>Neurons that read the same inputs side by side form a ${term('layer')}. A neuron is not a small brain. It only multiplies and adds.</p>
+    ${neuronFigure(D.files.linear.taxi, { neurons: [0, 1], caption: 'A layer of two neurons. Each has its own weights and bias.' })}`),
     },
     {
       kind: 'text',
       html: (D, T) => sec('matrix', '3 · One matrix product for the whole layer', `
-    <p>A ${term('matrix')} is a grid of numbers in rows and columns. The matrix <i>x</i> has one row per ride, and <i>W</i> has one row per neuron:</p>
+    <p>A second ride is ${T(x(1, 0), 'setup')} km long, with no waiting and ${T(x(1, 2), 'setup')} bag. A ${term('matrix')} is a grid of numbers in rows and columns. Now <i>x</i> is a matrix with one row per ride, and <i>W</i> has one row per neuron:</p>
     ${eq(`x = ${mat(T, [[x(0, 0), x(0, 1), x(0, 2)], [x(1, 0), x(1, 1), x(1, 2)]])} \\qquad W = ${mat(T, [[w(0, 0), w(0, 1), w(0, 2)], [w(1, 0), w(1, 1), w(1, 2)]])} \\qquad b = (${T.num(b(0))},\\ ${T.num(b(1))})`, 'The two rides, the weights and the biases')}
-    <p>Rows count from <code>0</code> too, so row <code>1</code> of <i>W</i> is the time neuron. The output <i>y</i>ᵢₖ of neuron <i>k</i> for ride <i>i</i> combines row <i>i</i> of <i>x</i> with row <i>k</i> of <i>W</i>:</p>
-    ${eq('y_{ik} = \\sum_{j} x_{ij}\\, W_{kj} + b_k', 'The formula of a layer')}
-    <p>This is a matrix product, and it computes every neuron for every ride at once. TorC copies <i>b</i> into each row of the result and calls this copying ${term('broadcasting')}.</p>
+    <p>Rows count from <code>0</code> too, so ride <code>1</code> is the second ride. The output <i>y</i>ᵢₖ of neuron <i>k</i> for ride <i>i</i> combines row <i>i</i> of <i>x</i> with row <i>k</i> of <i>W</i>:</p>
+    ${eq('y_{ik} = \\sum_{j=0}^{2} x_{ij}\\, W_{kj} + b_k', 'The formula of a layer')}
+    <p>A matrix product pairs a row of the left matrix with a column of the right one. So TorC turns <i>W</i> on its side. Its rows become the columns of ${sym('transpose', '<i>W</i>ᵀ')}, the transpose:</p>
+    ${eq('y = x \\times W^{\\top} + b', 'The layer as one formula')}
+    <p>This one matrix product computes every neuron for every ride. TorC adds <i>b</i> to each row of the result. This reuse of <i>b</i> in every row is ${term('broadcasting')}.</p>
     ${refresher('matrix-product')}`),
     },
     {
       kind: 'quiz', id: 'your-entry', purpose: 'check', type: 'numeric', title: 'Your turn',
       answer: y(1, 0), tolerance: 0.01, unit: 'euros',
-      prompt: '<p>Compute <i>y</i>₁₀, the price of the second ride, from the matrices above.</p>',
+      prompt: '<p>Compute <i>y</i>₁₀, the price of ride <code>1</code>, from the matrices above.</p>',
       reveal: (D, T) => `${worked(`<p><i>y</i>₁₀ = ${sumOf(T, [[x(1, 0), w(0, 0)], [x(1, 1), w(0, 1)], [x(1, 2), w(0, 2)]], b(0), y(1, 0), 'euros')}</p>`)}
     <p>It uses row <code>1</code> of <i>x</i>, row <code>0</code> of <i>W</i> and <i>b</i>₀.</p>`,
     },
@@ -115,10 +115,10 @@ export default {
       tasks: (D, T) => [
         { do: 'Choose the output <i>y</i>₀₁ in the grid.',
           see: 'Row <code>0</code> of <i>x</i> and row <code>1</code> of <i>W</i> light up. Under the grid is the time of the first ride.' },
-        { do: 'Raise <i>b</i>₀ by one.',
+        { do: 'Press Show all outputs. Then type a number one larger into <i>b</i>₀.',
           see: 'Both prices go up by one euro, and the times stay the same.' },
         { do: 'In row <code>0</code> of <i>W</i>, set the weight of the bags to zero.',
-          see: `The first price falls by ${T(x(0, 2), 'setup')} euros and the second by ${T(x(1, 2), 'setup')} euro, one euro for each bag.` },
+          see: `The first price falls by ${T(x(0, 2), 'setup')} euros and the second by ${T(x(1, 2), 'setup')} euro.` },
       ],
     },
     {
@@ -128,7 +128,7 @@ export default {
         { html: (D, T) => `(${T(`${WEIGHT(0)}.shape.0`, 'setup')}, ${T(`${WEIGHT(0)}.shape.1`, 'setup')})`, correct: true,
           feedback: 'Yes. <i>W</i> has one row per neuron, and each row holds one weight per input.' },
         { html: (D, T) => `(${T(`${WEIGHT(0)}.shape.1`, 'setup')}, ${T(`${WEIGHT(0)}.shape.0`, 'setup')})`,
-          feedback: 'This gives one row per input. But each row of <i>W</i> belongs to one neuron, as in the taxi grid.' },
+          feedback: 'Each row of <i>W</i> belongs to one neuron, not to one input.' },
         { html: (D, T) => `(${T(`${WEIGHT(0)}.shape.1`, 'setup')})`,
           feedback: 'This is enough for one neuron. But each neuron has its own weights.' },
         { html: (D, T) => `(${T(`${BIAS(0)}.shape.0`, 'setup')})`,
@@ -139,16 +139,15 @@ export default {
     {
       kind: 'text',
       html: () => sec('shape', '4 · The shape of W and the size of a layer', `
-    <p>Many people expect <i>W</i> to have one row per input. TorC stores one row per neuron, so the shape of <i>W</i> is (neurons, inputs).</p>
-    <p>A matrix product pairs each row of the left matrix with each column of the right matrix. So TorC first turns the rows of <i>W</i> into columns. This is the transpose ${sym('transpose', '<i>W</i>ᵀ')}, and the layer computes:</p>
-    ${eq('y = x\\, W^{\\top} + b', 'The layer as one formula')}
+    <p>Many people expect <i>W</i> to have one row per input. TorC stores one row per neuron, so each row keeps the weights of one neuron together. The shape of <i>W</i> is (neurons, inputs).</p>
     <p>Each neuron has one weight per input and one bias. So a layer has (neurons × inputs) weights and one bias per neuron.</p>`),
     },
     {
-      kind: 'quiz', id: 'last-layer', purpose: 'check', type: 'numeric',
-      answer: `${LAYER(4)}.count`, tolerance: 0.5,
-      prompt: (D, T) => `<p>The third layer of the digit network reads the ${T(`${WEIGHT(4)}.shape.1`, 'setup')} outputs of the second layer. It has ${T(`${WEIGHT(4)}.shape.0`, 'setup')} neurons, one for each digit. How many parameters does it have?</p>`,
-      reveal: (D, T) => `<p><i>W</i> holds ${T(`${WEIGHT(4)}.numel`, 'reveal')} weights. With the ${T(`${BIAS(4)}.numel`, 'reveal')} biases, the layer has ${T(`${LAYER(4)}.count`, 'reveal')} parameters.</p>`,
+      kind: 'quiz', id: 'second-layer', purpose: 'check', type: 'numeric',
+      answer: `${LAYER(2)}.count`, tolerance: 0.5,
+      prompt: (D, T) => `<p>The second layer of the digit network reads the ${T(`${WEIGHT(2)}.shape.1`, 'setup')} outputs of the first layer. It has ${T(`${WEIGHT(2)}.shape.0`, 'setup')} neurons. How many parameters does it have?</p>`,
+      reveal: (D, T) => `${worked(`<p>The second layer has ${T(`${WEIGHT(2)}.shape.0`, 'worked')} × ${T(`${WEIGHT(2)}.shape.1`, 'worked')} + ${T(`${BIAS(2)}.numel`, 'worked')} = <strong>${T(`${LAYER(2)}.count`, 'worked')}</strong> parameters.</p>
+    <p>The whole network has ${T(`${LAYER(0)}.count`, 'worked')} + ${T(`${LAYER(2)}.count`, 'worked')} + ${T(`${LAYER(4)}.count`, 'worked')} = <strong>${T(`${NET}.total`, 'worked')}</strong> parameters.</p>`)}`,
     },
     {
       kind: 'widget', id: 'layer-count', className: 'widget', label: 'Interactive: the parameters of the digit network, layer by layer',
@@ -157,7 +156,7 @@ export default {
         { do: 'Choose the first layer.',
           see: `<i>W</i> is a long strip with ${T(`${WEIGHT(0)}.shape.0`, 'setup')} rows and ${T(`${WEIGHT(0)}.shape.1`, 'setup')} columns. It holds most parameters of the network.` },
         { do: 'Choose the whole network.',
-          see: `The three layers add up to ${T.anchor('mlp_parameters')} parameters.` },
+          see: 'The three layers add up to the same total.' },
       ],
     },
     {
@@ -176,12 +175,12 @@ export default {
     {
       kind: 'explain', id: 'what-a-layer-does',
       prompt: '<p>Explain what a layer of neurons computes.</p>',
-      model: '<p>In a layer, every neuron computes its own weighted sum of the same inputs plus its bias, and one matrix product does all of them.</p>',
+      model: '<p>Every neuron in the layer computes its own weighted sum of the same inputs plus its bias, all in one matrix product.</p>',
     },
     {
       kind: 'answer',
-      html: (D, T) => `<p>A neuron multiplies each input by its own weight, adds the products and adds its bias. A layer is many neurons that read the same inputs, and one matrix product computes them all.</p>
-    <p>Each neuron has one weight per input and one bias. In the digit network this gives ${T.anchor('mlp_parameters')} parameters.</p>`,
+      html: (D, T) => `<p>A neuron computes a weighted sum of its inputs and adds its bias. A layer is many neurons that read the same inputs, and one matrix product computes them all.</p>
+    <p>Each neuron has one weight per input and one bias, which gives ${T.anchor('mlp_parameters')} parameters in the digit network.</p>`,
       next: () => '<p>Each output of a layer is a weighted sum, so it changes along a straight line. Can a second layer on top fit a curve?</p>',
     },
   ],

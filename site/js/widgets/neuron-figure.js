@@ -31,9 +31,10 @@ const f1 = (v) => v.toFixed(1);
 const txt = (x, y, s, { anchor = 'middle', cls = 'nf-text', fill = 'var(--fg)', size = 13, weight = 400 } = {}) =>
   `<text class="${cls}" x="${f1(x)}" y="${f1(y)}" text-anchor="${anchor}" dominant-baseline="central" style="fill:${fill};font-size:${size}px;font-weight:${weight}">${escapeHtml(s)}</text>`;
 
-const TRY_T = [0.7, 0.55, 0.82, 0.4, 0.62, 0.48, 0.76, 0.3];
+const TRY_T = [0.7, 0.55, 0.82, 0.4, 0.62, 0.48, 0.76, 0.3, 0.88, 0.25];
 const boxOf = (x, y, text) => { const w = text.length * 7.6 + 6, h = 18; return { x: x - w / 2, y: y - h / 2, w, h }; };
-const hit = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+const GAP = 10;   // keep labels apart, so two equal labels ("× 1") never read as one
+const hit = (a, b) => a.x < b.x + b.w + GAP && b.x < a.x + a.w + GAP && a.y < b.y + b.h + GAP && b.y < a.y + a.h + GAP;
 // labels: [{seg: [x1, y1, x2, y2], text, …}] -> the same with {x, y, box}; the first t of `tries` whose box overlaps no placed box
 export function placeLabels(labels, tries = TRY_T) {
   const placed = [];

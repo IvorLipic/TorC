@@ -17,9 +17,8 @@ import { exampleFromScene, exampleFromTensors, linearForward, neuronTex, clone2 
 const CSS = `
 .lin-mg .mg-cap{margin:.3rem 0 0;font-size:.85rem;color:var(--muted)}
 .lin-mg .mg-mats{display:flex;flex-wrap:wrap;gap:14px 10px;align-items:flex-start;margin:.4rem 0}
-.lin-mg .lin-op{margin-top:2.6rem}
+.lin-mg .mg-eq{margin:0 0 .4rem;font-size:.95rem}
 .lin-mg button.lin-y{background:var(--panel2)}
-@media(max-width:640px){.lin-mg .lin-op{margin-top:0;width:100%;text-align:center;font-size:1.2rem}}
 `;
 
 export function mountMatmulGrid(host, D, ctx = {}) {
@@ -29,7 +28,9 @@ export function mountMatmulGrid(host, D, ctx = {}) {
   const base = ctx.example ?? (D.files?.linear?.taxi ? exampleFromTensors(D.files.linear.taxi) : exampleFromScene(D.scenes.linear));
   const rowName = ctx.rowName ?? 'sample', neuronName = (k) => ctx.neuronNames?.[k] ?? `neuron ${k}`, inputName = (j) => ctx.inputNames?.[j] ?? `input ${j}`;
   const B = base.x.length, nIn = base.x[0].length, nOut = base.W.length;
-  const st = { x: clone2(base.x), W: clone2(base.W), b: base.b.slice(), pin: { i: 0, k: 1 }, hover: null };
+  // an output shows its number only after the reader chose it (or pressed Show all outputs), so the grid never answers a
+  // quiz that the page asks just before it
+  const st = { x: clone2(base.x), W: clone2(base.W), b: base.b.slice(), pin: { i: 0, k: 1 }, shown: new Set(['0,1']) };
   const bad = new Set();
   const badNote = el('div', { class: 'lin-err', id: 'mg-err', 'aria-live': 'polite' });
   const MSG = 'Enter a number between −1,000,000 and 1,000,000. The grid keeps the last valid value.';
@@ -51,13 +52,11 @@ export function mountMatmulGrid(host, D, ctx = {}) {
     cell: (k, j) => inputCell(() => st.W[k][j], (v) => { st.W[k][j] = v; }, `W, row ${k} (${neuronName(k)}), weight of ${inputName(j)}`) });
   const mb = matrixEl({ caption: '<code>b</code> · one bias per neuron', rows: 1, cols: nOut, colTag: (k) => `k=${k}`,
     cell: (_, k) => inputCell(() => st.b[k], (v) => { st.b[k] = v; }, `b, position ${k} (${neuronName(k)})`) });
-  const my = matrixEl({ caption: '<code>y</code> · outputs. Choose one.', rows: B, cols: nOut, rowTag: (i) => `i=${i}`, colTag: (k) => `k=${k}`,
+  const my = matrixEl({ caption: '<code>y</code> · outputs. Choose one to compute it.', rows: B, cols: nOut, rowTag: (i) => `i=${i}`, colTag: (k) => `k=${k}`,
     cell: (i, k) => {
       const b = el('button', { type: 'button', class: 'lin-cell lin-y', 'data-key': `mg-y-${i}-${k}` });
-      b.addEventListener('mouseenter', () => { st.hover = { i, k }; update(); });
-      b.addEventListener('mouseleave', () => { st.hover = null; update(); });
-      b.addEventListener('focus', () => { st.pin = { i, k }; update(); });
-      b.addEventListener('click', () => { st.pin = { i, k }; update(); });
+      const choose = () => { st.pin = { i, k }; st.shown.add(`${i},${k}`); update(); };
+      b.addEventListener('click', choose);                       // Enter and Space click a button; focus alone reveals nothing
       return b;
     } });
 
@@ -72,20 +71,22 @@ export function mountMatmulGrid(host, D, ctx = {}) {
     update();
   };
   const buttons = el('div', { class: 'lin-btns' },
-    el('button', { type: 'button', class: 'btn small', onclick: () => { st.x = clone2(base.x); st.W = clone2(base.W); st.b = base.b.slice(); refresh(); status.textContent = 'The grid shows the start values again.'; } }, 'Reset'));
+    el('button', { type: 'button', class: 'btn small', onclick: () => { for (let i = 0; i < B; i++) for (let k = 0; k < nOut; k++) st.shown.add(`${i},${k}`); update(); status.textContent = 'The grid shows every output.'; } }, 'Show all outputs'),
+    el('button', { type: 'button', class: 'btn small', onclick: () => { st.x = clone2(base.x); st.W = clone2(base.W); st.b = base.b.slice(); st.shown = new Set(['0,1']); st.pin = { i: 0, k: 1 }; refresh(); status.textContent = 'The grid shows the start values again.'; } }, 'Reset'));
 
   host.replaceChildren(
-    el('div', { class: 'mg-mats' }, mx.root, el('span', { class: 'lin-op', 'aria-hidden': 'true' }, '·'), mw.root, el('span', { class: 'lin-op', 'aria-hidden': 'true' }, '+'), mb.root, el('span', { class: 'lin-op', 'aria-hidden': 'true' }, '='), my.root),
+    el('p', { class: 'mg-eq', html: '<b>y = x × Wᵀ + b</b>. The grid shows <i>W</i> itself, with one row per neuron. You can type new numbers into x, W and b.' }),
+    el('div', { class: 'mg-mats' }, mx.root, mw.root, mb.root, my.root),
     el('p', { class: 'mg-cap' }, 'Each output yᵢₖ uses row i of x and row k of W, plus bₖ. Positions count from 0.'),
     badNote, paper, buttons, status);
 
   function update() {
     const y = linearForward(st.x, st.W, st.b);
-    const act = st.hover ?? st.pin;
+    const act = st.pin;
     for (let i = 0; i < B; i++) for (let k = 0; k < nOut; k++) {
-      const c = my.cells[i][k];
-      c.textContent = fmt(y[i][k]);
-      c.setAttribute('aria-label', `y, row ${i} (${rowName} ${i}), ${neuronName(k)}: ${fmt(y[i][k])}`);
+      const c = my.cells[i][k], on = st.shown.has(`${i},${k}`);
+      c.textContent = on ? fmt(y[i][k]) : '?';
+      c.setAttribute('aria-label', `y, row ${i} (${rowName} ${i}), ${neuronName(k)}: ${on ? fmt(y[i][k]) : 'not computed yet'}`);
     }
     for (const m of [mx, mw, mb, my]) clearMarks(m);
     markRow(mx, act.i); markRow(mw, act.k); markCell(mb, 0, act.k); mb.colTags[act.k]?.classList.add('hl');
