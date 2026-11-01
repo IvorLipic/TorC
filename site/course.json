@@ -200,7 +200,8 @@
           ],
           "trace": [
             "autograd_trace.json",
-            "why-gradients.json"
+            "why-gradients.json",
+            "backprop-timing.json"
           ],
           "est_minutes": 16,
           "status": "published",

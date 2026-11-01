@@ -53,6 +53,11 @@ test('zeros: no weight ever changes, only the output bias learns, and the networ
   const last = z.long_run[4];
   assert.ok(last.prediction.every((p) => Math.abs(p - 0.5) < 1e-6));
   assert.ok(Math.abs(last.output_bias - 0.5) < 1e-6);
+  const t = deep.twins_setup.t.values;
+  assert.ok(Math.abs(last.output_bias - t.reduce((a, b) => a + b, 0) / t.length) < 1e-6, 'the output bias moves to the mean of the four targets');
+  const s0 = z.steps[0];
+  assert.deepEqual([...s0.grad0.w, ...s0.grad1.w].map(Math.abs), [0, 0, 0, 0], 'first-layer weights: zero gradient (the output weights are zero)');
+  assert.deepEqual([s0.grad0.v, s0.grad1.v].map(Math.abs), [0, 0], 'output weights: zero gradient (ReLU of zero is zero, so their inputs are zero)');
   assert.equal(T(`files.deep.twins.2.long_run.4.prediction.0`, 'contrast').replace(/<[^>]+>/g, ''), '0.5');
 });
 
@@ -61,7 +66,11 @@ test('twins widget: the view of each start and step reads the recorded numbers',
     const v = twinView(deep, s.id, k);
     assert.equal(v.a.length, 4); assert.equal(v.b.length, 4);
     assert.equal(v.equal, v.a.every((x, i) => x === v.b[i]));
-    assert.ok(v.a.every((x) => Math.abs(x) < 1.3) && v.b.every((x) => Math.abs(x) < 1.3), 'every bar fits the drawing (±1.2 at 64 px per unit... with margin)');
+    // the drawing: zero line at 118 px, 54 px per unit, value labels 11 px beyond the bar, axis labels from 200 px (H - 22)
+    for (const x of [...v.a, ...v.b]) {
+      const end = x >= 0 ? 118 - 54 * x - 4 - 10 : 118 - 54 * x + 11;
+      assert.ok(end > 18 && end < 200 - 10, `start ${s.id}, step ${v.step}: a bar of ${x} and its label stay clear of the key and the axis labels`);
+    }
   }
   assert.equal(fmt2(-0.5171386), '−0.52');
   assert.equal(fmt2(0), '0');
@@ -108,10 +117,19 @@ test('the 2 in √(2/in): ReLU zeroes about half the values, the no-two std is �
   assert.ok(deep.init[1].init_std < deep.setup.kaiming_std, 'the transfer quiz start is smaller than TorC\'s start');
 });
 
+test('transfer quiz: with the too small start, every layer gets almost no gradient, the first one included', () => {
+  const ts = deep.init[1], k = deep.init[0];
+  assert.equal(ts.init_std, 0.05000000074505806);
+  assert.ok(ts.init_std < deep.setup.kaiming_std);
+  ts.layers.slice(1).forEach((l, i) => assert.ok(k.layers[i + 1].mean_abs_grad / l.mean_abs_grad >= ts.derived.kaiming_over_this_min * (1 - 1e-9)));
+  assert.ok(ts.derived.kaiming_over_this_min > 1e6, 'every layer at least a million times smaller');
+  for (let l = 1; l < 9; l++) assert.ok(ts.layers[l].std < ts.layers[l - 1].std, 'the signal shrinks on the way forward');
+});
+
 test('the page states the claims it should and no hand-typed result', () => {
   const html = renderLesson(lesson, D).map((p) => p.html).join('\n');
   assert.match(html, /same output weight, so the backward pass gives them the same/);
-  assert.match(html, /The 2 makes up for that lost half/);
+  assert.match(html, /makes up for that lost half/);
   assert.match(html, /one random start/, 'single-seed claim labelled (C5)');
   assert.match(html, /href="\.\.\/backprop\/"/, 'the part review links back');
 });

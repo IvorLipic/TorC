@@ -60,7 +60,7 @@ export function mountTwins(host, D) {
     const v = twinView(files, TWIN_STARTS[start].id, k);
     startBtns.forEach((b, i) => b.setAttribute('aria-pressed', String(i === start)));
     stepBtns.forEach((b, i) => b.setAttribute('aria-pressed', String(i === k)));
-    const W = 360, H = 190, base = 108, scale = 64;   // y of the zero line; 64 px per unit (values stay within ±1.2)
+    const W = 360, H = 222, base = 118, scale = 54;   // y of the zero line; 54 px per unit (values stay within ±1.2, so a bar and its label never reach the axis labels at H - 22)
     const names = ['weight from input 1', 'weight from input 2', 'bias', 'output weight'];
     const s = svg('svg', { viewBox: `0 0 ${W} ${H}`, class: 'dn-svg', role: 'img', 'aria-label': describe(v) });
     s.append(svg('line', { x1: 8, x2: W - 8, y1: base, y2: base, class: 'dn-zero' }));
@@ -120,7 +120,7 @@ export function mountVanishing(host, D) {
   injectStyles();
   const rows = vanishingRows(D.files.deep);
   const box = el('div', { class: 'dn-plot' });
-  host.replaceChildren(el('p', { class: 'dn-keyrow', 'aria-hidden': 'true' }, el('span', { class: 'dn-sw sig' }), 'sigmoid, the left bar of each layer', el('span', { class: 'dn-sw relu' }), 'ReLU, the right bar'), box, el('p', { class: 'hint' }, 'Each step up on this axis is ten times larger. Short bars mean small gradients, so those layers barely change in a training step.'));
+  host.replaceChildren(el('p', { class: 'dn-keyrow', 'aria-hidden': 'true' }, el('span', { class: 'dn-key-item' }, el('span', { class: 'dn-sw sig' }), 'sigmoid, the left bar of each layer'), el('span', { class: 'dn-key-item' }, el('span', { class: 'dn-sw relu' }), 'ReLU, the right bar')), box, el('p', { class: 'hint' }, 'Each step up on this axis is ten times larger. Short bars mean small gradients, so those layers barely change in a training step.'));
   srTable(host, { columns: ['layer', 'sigmoid', 'ReLU'], rows, caption: 'Mean size of each hidden layer\'s weight gradient after one backward pass' });
   const lo = -6.3, hi = 0.8;
   const p = createPlot(box, { width: 620, height: 300, x: [0.4, 8.6], y: [lo, hi], xLabel: 'hidden layer (1 is next to the input)', yLabel: 'mean size of the gradient', ariaLabel: 'Bars on a log axis. They show the mean size of the weight gradient in each hidden layer, for sigmoid and for ReLU.', margin: { l: 56 }, onResize: () => draw() });
@@ -137,7 +137,6 @@ export function mountVanishing(host, D) {
         g.append(svg('rect', { x, y, width: bw, height: Math.max(0, p.sy(lo) - y), class: `dn-vbar ${cls}` }));
       });
     }
-    // direct labels at the first layer, where the two bars differ most
   }
   draw();
   return { destroy: () => p.destroy() };
@@ -162,7 +161,7 @@ export function mountSignal(host, D) {
   const series = signalSeries(D.files.deep);
   const shown = new Set(series.map((s) => s.id));
   const id = `dsg${++seq}`;
-  const btns = series.map((s) => el('button', { type: 'button', class: `btn small dn-s-${s.id}`, 'aria-pressed': 'true', onclick: () => {
+  const btns = series.map((s) => el('button', { type: 'button', class: `btn small dn-toggle dn-s-${s.id}`, 'aria-pressed': 'true', onclick: () => {
     if (shown.has(s.id) && shown.size > 1) shown.delete(s.id); else shown.add(s.id);
     draw();
     status.textContent = `Shown: ${series.filter((x) => shown.has(x.id)).map((x) => x.label).join(', ')}.`;
@@ -211,7 +210,10 @@ const CSS = `
 .dn-keyrow{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;font-size:.88rem;color:var(--muted);margin:.2rem 0}
 .dn-sw{display:inline-block;width:12px;height:12px;border-radius:2px}
 .dn-sw.sig{background:var(--warn)}
-.dn-sw.relu{background:var(--fwd);margin-left:8px}
+.dn-sw.relu{background:var(--fwd)}
+.dn-key-item{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;margin-right:12px}
+.dn-toggle[aria-pressed=false]{opacity:.55;border-style:dashed;text-decoration:line-through}
+.dn-toggle[aria-pressed=false]:focus-visible{opacity:.8}
 .dn-lab{font-size:12px}
 .dn-line{fill:none;stroke-width:2.4}
 .dn-line.dn-s-kaiming{stroke:var(--fwd)}

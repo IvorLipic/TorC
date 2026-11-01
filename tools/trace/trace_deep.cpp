@@ -138,8 +138,10 @@ J initialization(const Tensor& x, const Tensor& t, bool& ok) {
     const std::vector<Init> inits = {{"kaiming", 0.0f}, {"too_small", 0.05f}, {"too_large", 0.5f},
                                      {"no_two", static_cast<float>(std::sqrt(1.0 / WIDTH))}};
     J runs = J::array();
+    std::vector<double> kaiming_grads;   // the first run (TorC's default); the others are compared with it (derived)
     for (const Init& in : inits) {
         auto s = make_stack(false, in.std);
+        std::vector<double> grads;
         const std::vector<Tensor> signal = forward_signal(*s, x, false);
         const float loss = one_backward(*s, x, t);
         J layers = J::array();
@@ -150,7 +152,7 @@ J initialization(const Tensor& x, const Tensor& t, bool& ok) {
             if (l > 0) {
                 const Variable& w = s->layers[l - 1]->named_parameters().at("weight");
                 if (!w.has_grad()) ok = false;
-                else e.set("mean_abs_grad", stats_of(w.grad()).mean_abs);
+                else { grads.push_back(stats_of(w.grad()).mean_abs); e.set("mean_abs_grad", grads.back()); }
             }
             layers.push(std::move(e));
         }
@@ -159,6 +161,14 @@ J initialization(const Tensor& x, const Tensor& t, bool& ok) {
         r.set("name", in.name).set("init_std", static_cast<double>(in.std))
             .set("weight_std", in.std > 0.0f ? static_cast<double>(in.std) : static_cast<double>(kaiming_normal_std(WIDTH)))
             .set("layer1_weight_std_observed", w1.std).set("loss", loss).set("layers", std::move(layers));
+        if (kaiming_grads.empty()) kaiming_grads = grads;
+        // added for the lesson: how many times smaller each layer's weight gradient is than with TorC's start (min and max over layers)
+        double lo = 1e300, hi = 0;
+        for (size_t i = 0; i < grads.size() && i < kaiming_grads.size(); ++i) {
+            const double q = kaiming_grads[i] / grads[i];
+            lo = std::fmin(lo, q); hi = std::fmax(hi, q);
+        }
+        r.set("derived", J::object().set("kaiming_over_this_min", lo).set("kaiming_over_this_max", hi));
         runs.push(std::move(r));
     }
     return runs;

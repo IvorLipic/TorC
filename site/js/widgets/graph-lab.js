@@ -27,11 +27,15 @@ import { createInputsPopover } from './inputs-popover.js';
 const D16_CSS = `
 [data-graph-lab] .graph-cue{display:none;margin:0;font-size:.85rem;color:var(--muted)}
 [data-graph-lab].lab-scrolls .graph-cue{display:block}
+[data-graph-lab] .graph-cue .cue-touch{display:none}
+@media(pointer:coarse){[data-graph-lab] .graph-cue .cue-touch{display:inline}[data-graph-lab] .graph-cue .cue-mouse{display:none}}
 @media(max-width:640px){
   [data-graph-lab] .controls{flex-wrap:wrap;row-gap:6px}
   [data-graph-lab] .controls .chips{flex:1 1 100%;order:9;margin:0;padding:2px 0 4px}
   [data-graph-lab] .controls .chips.more-right{-webkit-mask-image:linear-gradient(to right,#000 85%,transparent);mask-image:linear-gradient(to right,#000 85%,transparent)}
   [data-graph-lab] .controls .chips.more-left{-webkit-mask-image:linear-gradient(to left,#000 85%,transparent);mask-image:linear-gradient(to left,#000 85%,transparent)}
+  [data-graph-lab] .controls .chips.few{flex-wrap:wrap;overflow-x:visible}
+  [data-graph-lab] .controls .chips.few.more-left,[data-graph-lab] .controls .chips.few.more-right{-webkit-mask-image:none;mask-image:none}
   [data-graph-lab] .controls .chips.more-left.more-right{-webkit-mask-image:linear-gradient(to right,transparent,#000 12%,#000 88%,transparent);mask-image:linear-gradient(to right,transparent,#000 12%,#000 88%,transparent)}
 }`;
 function injectD16Style() {
@@ -57,7 +61,7 @@ const MARKUP = `
     <div id="goal" class="goal"></div>
     <div id="controls" class="controls"></div>
     <div class="graph-wrap"><div id="graph" class="graph"></div></div>
-    <p class="graph-cue">The graph is wider than the screen. Swipe it sideways to see every node.</p>
+    <p class="graph-cue"><span class="cue-touch">The graph is wider than the screen. Swipe it sideways to see every node.</span><span class="cue-mouse">The graph is wider than the window. Scroll it sideways to see every node.</span></p>
     <div id="window" class="win" aria-live="polite"></div>`;
 
 // Which keyboard events may step the lab? Pure (no DOM) so it can be tested: `d` describes the event target.
@@ -182,8 +186,9 @@ export function mountGraphLab(host, { scenes, layouts, defaultScene }) {
     host.classList.toggle('lab-scrolls', !!wrap && wrap.scrollWidth > wrap.clientWidth + 2);
     const chips = q('#controls .chips');
     if (!chips) return;
-    chips.classList.toggle('more-left', chips.scrollLeft > 2);
-    chips.classList.toggle('more-right', chips.scrollLeft + chips.clientWidth < chips.scrollWidth - 2);
+    const scrolls = !chips.classList.contains('few');   // a short timeline wraps instead of scrolling
+    chips.classList.toggle('more-left', scrolls && chips.scrollLeft > 2);
+    chips.classList.toggle('more-right', scrolls && chips.scrollLeft + chips.clientWidth < chips.scrollWidth - 2);
     if (!chips.dataset.watch) { chips.dataset.watch = '1'; chips.addEventListener('scroll', markScroll, { passive: true }); }
   }
   function refresh(full = false, keepInputs = false) {

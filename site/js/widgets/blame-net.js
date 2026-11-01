@@ -26,7 +26,7 @@ export const STAGES = [
   { title: 'The network', caption: 'Each arrow carries its input times the weight on the arrow. Each neuron adds what it gets and its bias, then applies ReLU.' },
   { title: 'Forward pass', caption: 'The forward pass computes both neurons, the prediction and the loss. The loss is the miss squared.' },
   { title: 'Backward pass, the output', caption: 'The backward pass starts at the loss. The gradient of the prediction is twice the miss.' },
-  { title: 'Backward pass, the neurons', caption: 'Each neuron gets the gradient of the prediction times its output weight. ReLU passes it on, because both neurons are on.' },
+  { title: 'Backward pass, the neurons', caption: 'Each neuron gets the gradient of the prediction times its output weight, times the slope of its ReLU. The slope is one, because both neurons are on.' },
   { title: 'Backward pass, the weights', caption: 'Each weight gets the gradient of its neuron times its input. The labels on the arrows now show these gradients.' },
 ];
 

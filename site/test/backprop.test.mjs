@@ -10,7 +10,7 @@ import { readFileSync } from 'node:fs';
 import { buildD, makeT, anchorValues } from '../js/core/trace.js';
 import { buildGraph, runBackward } from '../js/engine.js';
 import { renderLesson } from '../js/core/sections.js';
-import { costModels, gridFor, sceneParameters, thousands } from '../js/widgets/backprop-cost.js';
+import { costModels, gridFor, thousands } from '../js/widgets/backprop-cost.js';
 import { netValues, STAGES, fmt3 } from '../js/widgets/blame-net.js';
 import { layoutFor } from '../js/widgets/graph-lab.js';
 import { startHint } from '../js/widgets/math-window.js';
@@ -19,15 +19,15 @@ import { reuseLayout } from '../js/lessons/backprop.scenes.js';
 import lesson from '../js/lessons/backprop.js';
 import { readJson, course, proseProblems, uiStringProblems } from './helpers.mjs';
 
-const auto = readJson('data/autograd_trace.json'), why = readJson('data/why-gradients.json');
-const D = buildD({ autograd_trace: auto, 'why-gradients': why }, anchorValues(readJson('data/anchors.json')));
+const auto = readJson('data/autograd_trace.json'), why = readJson('data/why-gradients.json'), timing = readJson('data/backprop-timing.json');
+const D = buildD({ autograd_trace: auto, 'why-gradients': why, 'backprop-timing': timing }, anchorValues(readJson('data/anchors.json')));
 const T = makeT(D);
 const tol = (a, b, t = 1e-5) => Math.abs(a - b) <= t * (1 + Math.abs(b));
 const node = (scene, name) => D.scenes[scene].nodes.find((n) => n.name === name);
 const val = (scene, name) => node(scene, name).value.values;
 const grad = (scene, name) => node(scene, name).grad.values;
 
-test('the lesson reads the two trace files it declares, and course.json agrees', () => {
+test('the lesson reads the three data files it declares, and course.json agrees', () => {
   const entry = course().parts.flatMap((p) => p.lessons).find((l) => l.id === 'backprop');
   assert.deepEqual(lesson.trace, entry.trace);
   assert.equal(lesson.title, entry.title);
@@ -37,22 +37,38 @@ test('the lesson reads the two trace files it declares, and course.json agrees',
 });
 
 // ---- 1 · the cost of nudging ------------------------------------------------------------------------------------------------
-test('nudge counter: the parameter counts are 1, 9 and the anchor, and nudging needs one forward pass more than that', () => {
+test('nudge counter: three timed networks, the first is the digit network, nudging needs one forward pass more than its parameters', () => {
   const m = costModels(D);
-  assert.deepEqual(m.map((x) => x.parameters), [1, 9, D.anchors.mlp_parameters]);
-  assert.equal(sceneParameters(D.scenes.why), 1, 'the notebook model has one parameter, w');
-  assert.equal(sceneParameters(D.scenes.net), auto.net_counts.parameters, 'net_counts.parameters counts every tracked number of scene net');
-  for (const x of m) assert.equal(x.nudgePasses, x.parameters + 1);
+  assert.equal(m.length, 3);
+  assert.equal(m[0].parameters, D.anchors.mlp_parameters, 'the first timed network has the digit network\'s parameter count');
+  for (const x of m) { assert.equal(x.nudgePasses, x.parameters + 1); assert.ok(x.backpropCost > 1 && x.backpropCost < 20); }
   assert.equal(thousands(26507), '26,507');
 });
 
-test('nudge counter: the grid of squares holds every pass and fits its box at phone and laptop width', () => {
-  for (const w of [300, 356, 640]) for (const n of [2, 10, D.anchors.mlp_parameters + 1]) {
+test('timing file: structure, ratios that agree with its own times, and the derived values the prose binds', () => {
+  assert.equal(timing.kind, 'timing');
+  for (const r of timing.runs) {
+    assert.ok(Math.abs(r.backprop_over_nudge - r.forward_backward_us / r.forward_nograd_us) < 1e-9);
+    assert.ok(Math.abs(r.nudging_over_backprop - (r.parameters + 1) * r.forward_nograd_us / r.forward_backward_us) < 1e-6 * r.nudging_over_backprop);
+    assert.ok(r.forward_backward_us > r.forward_us, 'a backward pass takes time');
+    assert.ok(r.nudging_over_backprop > 100, 'backpropagation is far cheaper than nudging for every timed network');
+  }
+  const d = timing.derived, ratios = timing.runs.map((r) => r.backprop_over_nudge);
+  assert.equal(d.backprop_over_nudge_min, Math.min(...ratios));
+  assert.equal(d.backprop_over_nudge_max, Math.max(...ratios));
+  assert.ok(Math.abs(d.largest_over_digit - timing.runs[2].parameters / timing.runs[0].parameters) < 1e-9);
+  // "a forward and a backward pass together cost as much as a few nudges, whatever the size": the ratio does not grow with size
+  assert.ok(d.backprop_over_nudge_max / d.backprop_over_nudge_min < 3, 'the cost in nudges stays within a factor 3 over a 25-fold size range');
+});
+
+test('nudge counter: the grid holds every pass, fits its box at phone and laptop width, and scales pixels when needed', () => {
+  for (const w of [300, 356, 640]) for (const n of [2, 10, ...timing.runs.map((r) => r.parameters + 1)]) {
     const g = gridFor(n, w);
-    assert.ok(g.cols * g.rows >= n, `${n} squares fit`);
+    assert.ok(g.cols * g.rows >= g.cells && g.cells * g.per >= n, `${n} passes fit`);
     assert.ok(g.cols * (g.cell + g.gap) - g.gap <= w, `the grid is not wider than ${w}px`);
     assert.ok(g.height <= 230, `the grid is not much taller than its box (${g.height}px)`);
   }
+  assert.equal(gridFor(D.anchors.mlp_parameters + 1, 356).per, 1, 'the digit network is drawn one pass per square');
 });
 
 // ---- 2 · the chain rule -------------------------------------------------------------------------------------------------------
@@ -73,7 +89,8 @@ test('C7: the gradient of the miss is twice the miss, and TorC gets it as two us
   const bw = runBackward(buildGraph(D.scenes.why));
   const sends = bw.steps.flatMap((st) => st.sends).filter((x) => x.to === 'e' && x.tracked);
   assert.equal(sends.length, 2, 'L = e·e uses e twice');
-  for (const x of sends) assert.ok(tol(x.tensor.v[0], e), 'each use gives the value of the other factor, the miss');
+  for (const x of sends) assert.ok(tol(x.tensor.v[0], e * 1), 'in a product each factor gets the other factor times the arriving gradient (one)');
+  assert.equal(val('why', 'p')[0] - why.setup.t, e, 'the miss is the prediction minus the price');
 });
 
 // ---- 3 · one value, several uses -----------------------------------------------------------------------------------------------
@@ -82,6 +99,9 @@ test('reuse: x gets three gradients (x, x and the gradient of m) and their sum i
   const sends = bw.steps.flatMap((st) => st.sends).filter((x) => x.to === 'x' && x.tracked).map((x) => x.tensor.v[0]).sort((a, b) => b - a);
   const x = val('reuse', 'x')[0], mg = grad('reuse', 'm')[0];
   assert.deepEqual(sends, [x, x, mg]);
+  const u = auto.reuse_uses;
+  assert.deepEqual([u.mul_first, u.mul_second, u.add], [x, x, 1], 'TorC, with one leaf per use, gives each use its own gradient');
+  assert.equal(u.mul_first + u.mul_second + u.add, grad('reuse', 'x')[0]);
   assert.ok(tol(sends.reduce((a, b) => a + b, 0), grad('reuse', 'x')[0]));
   assert.equal(grad('reuse', 'x')[0], 2 * x + 1, 'the sum rule of calculus, d(x² + x)/dx = 2x + 1');
 });
@@ -142,12 +162,26 @@ test('net: the rules the text and the widget state hold for every recorded gradi
 });
 
 test('net: transfer quiz, a neuron whose sum is negative passes no gradient to its weights (engine, checked against TorC)', () => {
-  const g = buildGraph(D.scenes.net, { x: [-1, 0] });
+  const g = buildGraph(D.scenes.net, { x: [-2, 0] });
   const h = g.byName.h.value.v;
-  assert.ok(h[0] < 0 && h[1] > 0, 'the first neuron is off, the second is on');
+  assert.ok(h[0] < -0.1 && h[1] > 0.1, 'the first neuron is off, the second is on, both far from the kink');
   const bw = runBackward(g);
   assert.deepEqual([bw.grad.W1.v[0], bw.grad.W1.v[2]].map(Math.abs), [0, 0], 'the two weights into the first neuron get zero');
   assert.equal(Math.abs(bw.grad.b1.v[0]), 0);
+});
+
+test('net: no gradient that the lesson quotes equals the miss or minus the miss (review H4)', () => {
+  const miss = T.num('net.d.value');
+  for (const p of ['net.o.grad', 'net.h.grad.1', 'net.W1.grad.3', 'net.W1.grad.2', 'net.W1.grad.1'])
+    assert.ok(Math.abs(Math.abs(T.num(p)) - Math.abs(miss)) > 0.1, `${p} is not ± the miss`);
+});
+
+test('accumulation (TorC, recorded): a second backward() on the same loss changes nothing, a new forward pass and backward() add', () => {
+  const a = auto.accumulation;
+  assert.equal(a.after_first_backward, 2 * a.w, 'dL/dw = 2w for L = w·w');
+  assert.equal(a.after_second_backward_same_loss, a.after_first_backward, 'backward_with_grad clears the root\'s tape');
+  assert.equal(a.after_new_forward_and_backward, 2 * a.after_first_backward, 'the new gradient adds to the stored one');
+  assert.equal(a.has_grad_after_zero_grad, false);
 });
 
 test('net: the cumulative quiz counts the parameters as four weights and two biases, then two weights and one bias', () => {
@@ -158,9 +192,9 @@ test('net: the cumulative quiz counts the parameters as four weights and two bia
 
 test('blame-net widget: stage captions and labels follow the writing rules, and readouts have 2 to 3 significant figures', () => {
   for (const s of STAGES) { assert.deepEqual(uiStringProblems(s.caption), [], s.caption); assert.deepEqual(proseProblems(`<p>${s.caption}</p>`, { tics: true }), []); }
-  assert.equal(fmt3(-2.0999999), '−2.1');
-  assert.equal(fmt3(1.10249984), '1.1');
-  assert.equal(fmt3(0.950000048), '0.95');
+  assert.equal(fmt3(-2.25), '−2.25');
+  assert.equal(fmt3(0.5625), '0.563');
+  assert.equal(fmt3(1.25), '1.25');
 });
 
 // ---- the page --------------------------------------------------------------------------------------------------------------------
@@ -168,7 +202,8 @@ test('the page introduces ∂ once, keeps the overline out of the prose, and say
   const html = renderLesson(lesson, D).map((p) => p.html).join('\n');
   assert.equal((html.match(/means the same as d/g) ?? []).length, 1);
   assert.doesNotMatch(html, /\\bar|\\overline|̄/, 'the overline notation stays in the graph-lab windows');
-  assert.match(html, /adds every new gradient to the gradient that a parameter already holds/);
+  assert.match(html, /After a new forward pass, <code>L\.backward\(\)<\/code> adds the new gradient/);
+  assert.doesNotMatch(html, /second <code>L\.backward\(\)<\/code> adds/, 'a second backward() on the same loss does nothing in TorC');
   assert.match(html, /L\.backward\(\)/);
   assert.doesNotMatch(html, /w\.grad\(\)|requires_grad/, 'no C++ in the concept text');
 });

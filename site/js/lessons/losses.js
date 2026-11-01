@@ -96,7 +96,7 @@ Variable L = ce(logits, labels);   // logits (B, C), labels (B)</code></pre>`),
     },
     {
       kind: 'text',
-      html: () => '<section class="ls2"><p>The next lesson, <a href="../training-loop/">The training loop</a>, repeats the forward pass, the loss and the change of the parameters many times.</p></section>',
+      html: () => '<section class="ls2"><p>The next lesson, <a href="../backprop/">How the computer finds every gradient at once</a>, shows how TorC finds the gradient of every parameter.</p></section>',
     },
   ],
 };
