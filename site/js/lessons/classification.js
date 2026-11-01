@@ -59,7 +59,7 @@ export default {
     <p>Each point has a position, given by two numbers <code>x</code> and <code>y</code>, and a colour. There are ${T(`${F}.setup.train_samples`, 'setup')} ${term('training')} points.</p>
     ${pointsFigure(D.files.classification, { caption: 'The orange points fill a disc. The blue points form a ring around it.' })}
     <p>Each colour is a ${term('class')}. ${term('classification', 'Classification')} means choosing a class for each input. The model gives a colour to every spot of the plane. The line where this colour changes is the ${term('decision-boundary')}.</p>
-    <p>A model with one ${term('layer')} computes only weighted sums of <code>x</code> and <code>y</code>, plus a ${term('bias')}. The lesson on nonlinearity showed that its boundary is then a straight line.</p>`),
+    <p>A model with one ${term('layer')} computes only weighted sums of <code>x</code> and <code>y</code>, plus a ${term('bias')}. An earlier lesson showed that its boundary is then a straight line.</p>`),
     },
     {
       kind: 'quiz', id: 'straight', purpose: 'predict', type: 'choice',
@@ -74,7 +74,7 @@ export default {
     {
       kind: 'text',
       html: () => sec('bend', '1 · Hidden neurons bend the boundary', `
-    <p>A ${term('hidden-layer')} of ${term('relu', 'ReLU')} ${term('neuron', 'neurons')} can bend the boundary. In the lesson on nonlinearity, each of them made one bend in a curve. In the plane, each hidden neuron has its own straight line, where its weighted sum is zero:</p>
+    <p>A ${term('hidden-layer')} of ${term('relu', 'ReLU')} ${term('neuron', 'neurons')} can bend the boundary. Earlier, each of them made one bend in a curve. In the plane, each hidden neuron has its own straight line, where its weighted sum is zero:</p>
     ${eq('w_1 x + w_2 y + b = 0', 'The line of one hidden neuron')}
     <p>On one side of its line the neuron is off, because ReLU gives zero. On the other side it is on, and its output grows with the distance from the line. More neurons give the model more lines, so its boundary can bend in more places.</p>
     ${realLine('nn::Sequential model;\n// x and y in, 8 hidden neurons out\nmodel.add(std::make_unique<nn::Linear>(2, 8));\n// each neuron is off on one side of its line\nmodel.add(std::make_unique<nn::ReLU>());\n// 8 neuron outputs in, 2 scores out\nmodel.add(std::make_unique<nn::Linear>(8, 2));',
@@ -123,7 +123,7 @@ export default {
         return sec('prob', '3 · The probability of orange', `
     <p>To say how sure it is, the model turns its two scores into two ${term('probability', 'probabilities')} that add to one. TorC uses a rule that the next lesson names. For two classes, that rule gives the same as this formula:</p>
     ${eq('\\text{probability of orange} = \\sigma(s_{\\text{orange}} - s_{\\text{blue}})', 'The probability of orange')}
-    <p>Here ${math('s', false)} is a score, and ${sym('sigma', 'σ')} is the ${term('sigmoid')} from the lesson on nonlinearity, ${math('\\sigma(z) = 1/(1 + e^{-z})', false)}.</p>
+    <p>Here ${math('s', false)} is a score, and ${sym('sigma', 'σ')} is the ${term('sigmoid')} that you met earlier, ${math('\\sigma(z) = 1/(1 + e^{-z})', false)}.</p>
     <p>On the boundary the two scores are equal. Their difference is ${T(id(0, 'difference'), 'setup')}, so the probability of orange is ${pct(T, id(0, 'sigmoid'))}.</p>
     ${worked(`<p>A point gets the blue score ${T(id(1, 'scores.0'), 'worked')} and the orange score ${T(id(1, 'scores.1'), 'worked')}. The difference is ${T(id(1, 'difference'), 'worked')}.</p>
     <p>${math(`\\sigma(${d}) = 1/(1 + e^{-${d}})`, false)} = <strong>${T(id(1, 'sigmoid'), 'worked')}</strong></p>`)}`);
