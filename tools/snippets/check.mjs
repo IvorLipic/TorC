@@ -38,12 +38,17 @@ export const SPEC = {
   },
   nonlinearity: {
     prelude: `Variable z(Tensor({-1.0f, 0.0f, 2.0f, 1.0f, 1.0f, 1.0f}, {2, 3}), true);`,
-    check: 'CHECK(h.data().data()[0] == 0.0f && h.data().data()[2] == 2.0f);\nCHECK(std::abs(s.data().data()[1] - 0.5f) < 1e-6f);\nCHECK(std::abs(p.data().data()[3] + p.data().data()[4] + p.data().data()[5] - 1.0f) < 1e-6f);',
+    check: 'CHECK(h.data().data()[0] == 0.0f && h.data().data()[2] == 2.0f);\nCHECK(std::abs(s.data().data()[1] - 0.5f) < 1e-6f);',
+  },
+  // the playground's model with 8 hidden units: 2·8 + 8 + 8·2 + 2 = 42 parameters (classification.json models[3].parameters), two scores per point
+  classification: {
+    prelude: '',
+    check: `int n = 0; for (auto* q : model.parameters()) n += q->data().numel();\nCHECK(n == 42);\nVariable pts(${shape(3, 2)}, false);\nVariable s = model(pts);\nCHECK((s.data().shape() == std::vector<int>{3, 2}));`,
   },
   modules: { prelude: '', check: 'CHECK(params.size() == 4);\nint n = 0; for (auto* q : params) n += q->data().numel();\nCHECK(n == 784 * 32 + 32 + 32 * 10 + 10);' },
   losses: {
     prelude: `Variable logits(${shape(4, 10)}, true);\nVariable labels(Tensor({0.0f, 3.0f, 9.0f, 1.0f}, {4}), false);`,
-    check: 'CHECK(std::abs(loss.data().data()[0] - std::log(10.0f)) < 1e-5f);   // equal logits: -log(1/10)\n(void)mse;',
+    check: 'CHECK(std::abs(L.data().data()[0] - std::log(10.0f)) < 1e-5f);   // equal scores: -ln(1/10)\nfor (int j = 0; j < 10; ++j) CHECK(std::abs(p.data().data()[j] - 0.1f) < 1e-6f);   // ten equal shares',
   },
   'training-loop': {
     prelude: `data::TensorDataset dataset(${shape(100, 1)}, ${shape(100, 1)});\nint batches = 0;`,

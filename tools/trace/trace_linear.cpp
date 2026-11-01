@@ -426,6 +426,49 @@ int main() {
     }
 
     // =================================================================================================================
+    // `taxi` (v3 lesson "The neuron and the layer"): a real nn::Linear(3, 2) with weights set by hand. Inputs per ride: the
+    // distance in km, the minutes of waiting and the number of bags. Neuron 0 gives the price in euros (2 per km, 0.5 per
+    // minute, 1 per bag, plus 1), neuron 1 the time in minutes (3 per km, 1 per minute, 0 per bag, plus 2). Two rides.
+    // y is the module's forward pass; y_bias0_plus1 is the same pass after b[0] was raised by one (the bias reaches every row).
+    // All inputs are small integers or halves, so every product and sum is exact in float32 (checked).
+    // =================================================================================================================
+    J taxi = J::object();
+    {
+        Variable::NoGradGuard ng;
+        const Tensor tx = mat(2, 3, {4, 6, 2, 10, 0, 1});
+        const Tensor tw = mat(2, 3, {2, 0.5f, 1, 3, 1, 0});
+        const Tensor tb = trace::make_tensor({2}, {1, 2});
+        nn::Linear lin(3, 2, 0.0f, 1u);
+        lin.named_parameters().at("weight").data() = tw;
+        lin.named_parameters().at("bias").data() = tb;
+        const Variable xv(tx, false);
+        const Tensor y = lin(xv).data();
+        Tensor b1 = tb;
+        b1.data()[0] += 1.0f;
+        lin.named_parameters().at("bias").data() = b1;
+        const Tensor y1 = lin(xv).data();
+        // hand check in double: y[i][k] = sum_j x[i][j] W[k][j] + b[k], exact here
+        bool exact = true;
+        for (int i = 0; i < 2; ++i)
+            for (int k = 0; k < 2; ++k) {
+                double acc = tb.data()[k];
+                for (int j = 0; j < 3; ++j) acc += static_cast<double>(tx.data()[i * 3 + j]) * tw.data()[k * 3 + j];
+                exact = exact && static_cast<double>(y.data()[i * 2 + k]) == acc &&
+                        static_cast<double>(y1.data()[i * 2 + k]) == acc + (k == 0 ? 1.0 : 0.0);
+            }
+        ok = ok && exact;
+        J inputs = J::array();
+        inputs.push("distance in km").push("minutes of waiting").push("bags");
+        J outputs = J::array();
+        outputs.push("price in euros").push("time in minutes");
+        taxi.set("inputs", std::move(inputs)).set("outputs", std::move(outputs))
+            .set("x", trace::tensor_json(tx)).set("W", trace::tensor_json(tw)).set("b", trace::tensor_json(tb))
+            .set("weight_shape", trace::jarr(lin.named_parameters().at("weight").data().shape()))
+            .set("bias_shape", trace::jarr(lin.named_parameters().at("bias").data().shape()))
+            .set("y", trace::tensor_json(y)).set("y_bias0_plus1", trace::tensor_json(y1)).set("exact", exact);
+    }
+
+    // =================================================================================================================
     J checks = J::object();
     checks.set("all_internal_checks_passed", ok);
 
@@ -435,7 +478,7 @@ int main() {
     scenes.push(r2.json);
     doc.set("scenes", std::move(scenes)).set("example", std::move(example)).set("shape_errors", std::move(shape_errors))
         .set("init_stats", std::move(init_stats)).set("signal", std::move(signal)).set("param_counts", std::move(param_counts))
-        .set("checks", std::move(checks));
+        .set("taxi", std::move(taxi)).set("checks", std::move(checks));
     std::fputs(doc.dump().c_str(), stdout);
 
     if (!ok) {

@@ -21,6 +21,8 @@
 // depend on libstdc++'s std::normal_distribution; the training also depends on the C library's exp and log. On one
 // toolchain the output is the same on every run. Everything under "models" and "sigmoid_identity" is library output except
 // `derived`, the counts and shares (counted by this program from the library's scores), and `abs_diff`.
+// v3 additions (derived, double): `typical_right_prob` per checkpoint (e^(-train_loss)), `best_line` (the most training points any
+// straight boundary gets right, by an exhaustive search) and `vote` (each unit's vote at two points for the trained 4-unit model).
 #include "trace_util.hpp"
 
 #include "torc/nn.hpp"
@@ -29,6 +31,7 @@
 #include "torc/nn/losses.hpp"
 #include "torc/optim.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <iostream>
 #include <memory>
@@ -118,6 +121,36 @@ std::vector<float> prob_grid(Model& m, const Tensor& grid_points) {
     return out;
 }
 
+// The best straight boundary for the training points (derived, not library output): for every direction of the normal in steps
+// of 0.25 degrees, sort the projections and try every threshold between two of them; a point is called orange on the side
+// where the projection is below the threshold. Returns {correct, accuracy, angle_deg, threshold}.
+J best_line(const Points& p, int n) {
+    int best = -1;
+    double best_angle = 0, best_thr = 0;
+    for (int a = 0; a < 1440; ++a) {
+        const double th = a * 0.25 * PI / 180.0, cx = std::cos(th), cy = std::sin(th);
+        std::vector<std::pair<double, int>> proj;
+        for (int i = 0; i < n; ++i) proj.push_back({cx * p.xy[2 * i] + cy * p.xy[2 * i + 1], static_cast<int>(p.label[i])});
+        std::sort(proj.begin(), proj.end());
+        int blue_total = 0;
+        for (const auto& q : proj) blue_total += q.second == 0 ? 1 : 0;
+        int orange_below = 0, blue_below = 0;
+        for (int k = 0; k <= n; ++k) {      // threshold between proj[k-1] and proj[k]
+            const int correct = orange_below + (blue_total - blue_below);
+            if (correct > best) {
+                best = correct;
+                best_angle = a * 0.25;
+                best_thr = k == 0 ? proj[0].first - 1 : (k == n ? proj[n - 1].first + 1 : (proj[k - 1].first + proj[k].first) / 2);
+            }
+            if (k < n) { if (proj[k].second == 1) ++orange_below; else ++blue_below; }
+        }
+    }
+    J o = J::object();
+    o.set("correct", best).set("accuracy", static_cast<double>(best) / n).set("angle_deg", best_angle).set("threshold", best_thr)
+        .set("note", "derived: the most training points any straight boundary gets right (orange where cos(a) x + sin(a) y < threshold)");
+    return o;
+}
+
 J checkpoint_json(Model& m, int step, const Tensor& xtr, const Tensor& ttr, const Tensor& xte, const Tensor& tte,
                   const Tensor& grid_points) {
     const Eval tr = evaluate(m, xtr, ttr), te = evaluate(m, xte, tte);
@@ -158,6 +191,8 @@ J checkpoint_json(Model& m, int step, const Tensor& xtr, const Tensor& ttr, cons
         layers.push(std::move(lj));
     }
     c.set("layers", std::move(layers)).set("prob1", trace::jarr(prob_grid(m, grid_points)));
+    // v3 (derived, double): the probability whose surprise is the mean surprise, e^(-train_loss) ("a typical training point")
+    c.set("typical_right_prob", std::exp(-static_cast<double>(tr.loss)));
     return c;
 }
 
@@ -178,7 +213,7 @@ int main() {
     const Tensor grid_points = trace::make_tensor({GRID_N * GRID_N, 2}, gp);
 
     // ---- four models ------------------------------------------------------------------------------------------------------
-    J models = J::array();
+    J models = J::array(), vote = J::object();
     for (int hidden : HIDDEN) {
         auto m = make_model(hidden);
         optim::Adam opt(m->seq.parameters(), LR);
@@ -207,6 +242,40 @@ int main() {
                                                                                 : std::vector<int>{static_cast<int>(m->seed_first), static_cast<int>(m->seed_out)}))
             .set("checkpoints", std::move(checkpoints));
         models.push(std::move(mj));
+        if (hidden == 4) {
+            // v3: the vote of each unit at two points, for the trained model with four units. Unit outputs and scores are the
+            // library's forward pass; the votes (output times the difference of the unit's two output weights) are derived.
+            Variable::NoGradGuard ng;
+            const Tensor pts = trace::make_tensor({2, 2}, {0.0f, 0.0f, 1.4f, 0.0f});
+            const Variable pv(pts, false);
+            Variable z = (*m->first)(pv);
+            Variable h = relu(z);
+            Variable sc = m->seq(pv);
+            const Tensor& W2 = m->out->named_parameters().at("weight").data();   // (2, 4)
+            const Tensor& b2 = m->out->named_parameters().at("bias").data();
+            const double bias_orange = static_cast<double>(b2.data()[1]) - b2.data()[0];
+            J vp = J::array();
+            for (int i = 0; i < 2; ++i) {
+                J outs = J::array(), votes = J::array();
+                double total = bias_orange;
+                for (int k = 0; k < 4; ++k) {
+                    const double o = h.data().data()[i * 4 + k], w = static_cast<double>(W2.data()[4 + k]) - W2.data()[k];
+                    outs.push(h.data().data()[i * 4 + k]);
+                    votes.push(o * w);
+                    total += o * w;
+                }
+                const double diff = static_cast<double>(sc.data().data()[2 * i + 1]) - sc.data().data()[2 * i];
+                ok = ok && std::fabs(total - diff) < 1e-4;
+                J e = J::object();
+                e.set("x", pts.data()[2 * i]).set("y", pts.data()[2 * i + 1]).set("outputs", std::move(outs)).set("votes", std::move(votes))
+                    .set("total", total).set("score_difference", diff).set("prob_orange", 1.0 / (1.0 + std::exp(-diff)));
+                vp.push(std::move(e));
+            }
+            J vw = J::array();
+            for (int k = 0; k < 4; ++k) vw.push(static_cast<double>(W2.data()[4 + k]) - W2.data()[k]);
+            vote.set("hidden", 4).set("step", STEPS).set("bias_orange", bias_orange).set("vote_weights", std::move(vw)).set("points", std::move(vp))
+                .set("note", "derived: vote = unit output x (orange output weight - blue output weight); total = bias_orange + sum of votes = score difference (orange - blue)");
+        }
     }
 
     // ---- softmax of two scores = sigmoid of their difference ------------------------------------------------------------
@@ -243,8 +312,8 @@ int main() {
 
     J doc = trace::envelope("classification", "classification", "tools/trace/trace_classification.cpp");
     doc.set("setup", std::move(setup)).set("data", std::move(data)).set("grid", std::move(grid)).set("models", std::move(models))
-        .set("sigmoid_identity", std::move(ident));
+        .set("sigmoid_identity", std::move(ident)).set("best_line", best_line(train, N_TRAIN)).set("vote", std::move(vote));
     std::fputs(doc.dump().c_str(), stdout);
-    if (!ok) { std::cerr << "trace_classification: softmax of two scores differs from the sigmoid of their difference\n"; return 1; }
+    if (!ok) { std::cerr << "trace_classification: a self-check failed (softmax vs sigmoid of the difference, or the votes vs the scores)\n"; return 1; }
     return 0;
 }

@@ -15,18 +15,47 @@ derivative at exactly 0 is 0), `sigmoid` (backward `s(1 - s)` from the saved out
 - Fit to `t = x²` on 21 points, hidden width 8, Adam lr 0.05, 400 steps, the same hand-set start weights for both models. The
   linear model starts as the line `0.4·x - 0.1` (loss 4.398), falls to 1.710 by step 25 and ends at 1.709 as the line `y = 1.4667`
   (the mean of the targets); multiplying out the layers gives the same line within 2e-7. With relu the loss is 0.0041 after 400 steps.
+- `hinges` (V): the trained relu model's eight hidden neurons as contributions `W2_k·relu(W1_k x + b1_k)` on the grid from the
+  real ops; their sum plus `b2` equals the model's prediction exactly (`max_abs_diff_vs_prediction = 0`). Neuron 4 has its kink
+  at x = 0.149 and rises to the right; neuron 1 has its kink at x = -1.17 and rises to the left (1.66 at x = -2.2).
+- `collapse` (V, added for v3): two real `nn::Linear(1, 1)`, `f = 2x + 1` and `g = 3x + 4`, on x = -2 .. 3: `g(f(x))` equals the one
+  `Linear(1, 1)` with `6x + 7` exactly (the 6 and 7 are under `collapse.derived`). With `relu` between them, `g(relu(f(-2))) = g(0) = 4`, where `6x + 7` gives -5.
 
 ## Expected (mathematics)
 With one sample per row, as in `nn::Linear`: `(x W1ᵀ + b1) W2ᵀ + b2 = x (W2 W1)ᵀ + (b1 W2ᵀ + b2)`. The least-squares line for `x²` on symmetric points is flat at the mean
-(recorded as `derived.best_line_intercept`). Softmax is invariant to adding a constant to every entry.
+(recorded as `derived.best_line_intercept`). Softmax is invariant to adding a constant to every entry. A sum of `H` ReLU hinges plus a
+constant is piecewise linear with at most `H` kinks (one per neuron, fewer if two coincide). The JS of the hinge builder (`hingeSum`,
+`typicalMiss`) is plain addition and √(mean squared miss) at the 21 data points; with every neuron on, its square equals the recorded
+loss (tested).
 
 ## Suspected discrepancy
 None.
 
-## Lesson status
-Published 2026-10-16. Widgets: `nonlinear-widgets.js` (activation plot, curve fit), recorded values only. Tests:
-`site/test/nonlinearity.test.mjs`. Checked: Node tests, `check_site`, `tools/prose/check.sh` (0 hard), Chromium at 1366×768 and
-390×844, axe-core clean. Independent review 2026-10-16 (no blockers); its findings are fixed: the trace no longer depends on
-FMA, the relu derivative is drawn in two pieces, the start line is tilted, terms (activation function, neuron, classifier) are
-defined, the formula uses the row convention of the lesson Layers, and Adam is no longer named before its lesson. Not done:
-screen reader.
+## Lesson status (v3, template 3, "Activation functions")
+
+Files: `site/js/lessons/nonlinearity.js`, `site/js/widgets/hinge-builder.js` (new), `nonlinear-widgets.js` (curves labelled on the
+plot, readouts at 3 significant figures, the curve-fit readout is the typical miss √loss instead of the bare loss, "gradient" for the
+derivative), `site/test/nonlinearity.test.mjs`, `tools/trace/trace_nonlinear.cpp` (`collapse`, additive).
+
+**As built** (after the review of 2026-10-31): hero → Questions → setup "Points on a curve" (t named as the target; "nothing sits
+between the layers, so each layer only multiplies and adds"; hidden layer in plain words; Adam not named) → predict (the flat line;
+the reveal gives the typical miss, defined once as the square root of the mean squared miss) → 1 two layers act like one (f, g,
+worked 6x + 7 from `collapse.derived`) → 2 activation function ("a hidden neuron now does one more thing"), ReLU = the larger of zero
+and z → Your turn g(relu(f(-2))) = 4 → curve fit (opens on no activation at step 0; "typical miss" readout; 0.064 labelled as one
+training run) → 3 each ReLU neuron is a hinge (hinge = the shape, bend = its corner; "kink" is not used on the page; neurons with a
+small second-layer weight change the sum a little; the unshown "training moves the bends" claim is gone) → hinge builder (neurons
+drawn only where active, a dot at each bend, ● and ○ on the toggles, one live region, the sum line includes b2 and task 1 says so;
+tasks name neurons 4, then 0 and 1, then 1 off) → transfer (reverse: fewest neurons for a W-shaped curve with three bends) → 4 sigmoid
+(σ "is not the Σ of sums"; e = 2.718 to four figures, a maths constant in code; the gradient of the sigmoid defined as how much σ
+changes; "on the way back, training multiplies by this gradient", backprop shows how; ReLU's gradient one or zero) → activation plot
+→ cumulative from `why-gradients` (weights A and B, which moves further over many steps; placed before any "barely learns") →
+explain → answer. Budgets: 1,385 words, 4 numbered sections, 5 quizzes, 2 worked blocks, palette 1.
+
+**Deviations**: softmax moved to `losses` (its data and tests stay, `losses` reads them); the overflow fact left the page and no In
+TorC panel was added; the exp-ln refresher is not opened (e is named as a fixed number a little below three, linked to the notation
+guide); "the weights barely learn" points to `backprop` for the chain-rule reason. The old line `Variable r = relu(h);` code block
+left the concept text (course.json `code` keeps relu and sigmoid only, SPEC updated).
+
+**Definition of done**: Node tests, `check_site`, `tools/prose/check.sh` (0 hard), `tools/snippets/check.mjs`, `run.sh` then
+`--check`, Chromium at 1366×768 and 390×844 by keyboard (predict quiz, hinge toggles, slider), no console errors, labels inside the
+plots. Not done: pedagogy reviewer, cold reader, independent review, human think-alouds, screen reader.
