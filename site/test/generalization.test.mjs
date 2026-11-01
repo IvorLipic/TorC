@@ -81,7 +81,7 @@ test('the predict and the game: without weight decay the training miss falls alm
   assert.ok(b > 0 && b < cs.length - 1, 'the lowest validation miss lies between the first and the last step');
   assert.ok(rm(last(r).train_loss) < 0.01, '"almost zero"');
   assert.ok(last(r).val_loss > 2 * cs[b].val_loss, 'the validation miss rises after the turn');
-  // "with a small bump": one local rise before the lowest point
+  // "with one bump": a local rise before the lowest point
   const v = cs.slice(0, b + 1).map((c) => c.val_loss);
   const rises = v.slice(1).filter((x, i) => x > v[i]).length;
   assert.ok(rises >= 1, 'a bump before the lowest point');
@@ -158,6 +158,9 @@ test('the widget helpers: log step axis, typical miss, 2 significant figures, la
   assert.equal(W.miss(0.04), 0.2);
   assert.equal(W.fmt2(0.0869), '0.087');
   assert.equal(W.fmt2(0.46127), '0.46');
+  assert.equal(W.fmt2(0.2038), '0.2');
+  assert.equal(W.fmt2(0.2038), T.human('files.generalization.more_data.checkpoints.26.val_loss', 'rmse').match(/>([^<]*)</)[1], 'the readout and the prose agree');
+  assert.equal(W.fmt2(50.25), '50');
   assert.equal(W.fmtInt(20000), '20,000');
   const ys = W.spreadLabels([100, 104, 300], 10, 200, 14);
   assert.ok(ys[1] - ys[0] >= 14 && ys[2] <= 200 && ys[0] >= 10);

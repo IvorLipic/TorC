@@ -23,8 +23,8 @@ export const miss = (loss) => Math.sqrt(loss);
 export function fmt2(v) {
   if (!Number.isFinite(v)) return '?';
   if (v === 0) return '0';
-  const s = String(Number(v.toPrecision(2)));
-  if (Math.abs(v) >= 1000) return Math.round(v).toLocaleString('en-US');
+  if (Math.abs(v) >= 100) return Math.round(v).toLocaleString('en-US');
+  const s = String(Number(v.toPrecision(2)));   // 0.2, not 0.20, as the prose numbers of T.human
   return s.startsWith('-') ? `−${s.slice(1)}` : s;
 }
 // a whole number with a comma every three digits from 1,000 up (decision 22)
@@ -133,7 +133,7 @@ export function drawFit(pl, G, { points, curve }) {
 // `floor` = an optional horizontal line {y, label}, `at` = the selected checkpoint index (a vertical line and a dot per curve),
 // `stop` = an optional committed step (a solid vertical line).
 export function missPlot(host, label) {
-  return (onResize) => createPlot(host, { width: 640, height: 230, x: [0, stepX(20000)], y: MISS_RANGE, xLabel: 'training step (log axis)', yLabel: 'typical miss', margin: { l: 56, r: 76 }, ariaLabel: label, onResize });
+  return (onResize) => createPlot(host, { width: 640, height: 230, x: [0, stepX(20000)], y: MISS_RANGE, xLabel: 'training step (log axis)', yLabel: 'typical miss', margin: { l: 56, r: 86 }, ariaLabel: label, onResize });
 }
 export function drawMiss(pl, { lines, floor, at, stop, xMax }) {
   pl.axes({ xTicks: X_TICKS.map(stepX), yTicks: [0, 0.2, 0.4, 0.6, 0.8], xFmt: (v) => fmtInt(10 ** v - 1), yFmt: (v) => String(v) });
@@ -178,7 +178,7 @@ export function mountRemedies(host, D) {
   input.addEventListener('change', announce);
   const fitBox = el('div'), missBox = el('div');
   const key = el('p', { class: 'gw-key' }, el('span', {}, el('i', { class: 'k-train', 'aria-hidden': 'true' }), 'training points'), el('span', {}, el('i', { class: 'k-val', 'aria-hidden': 'true' }), 'validation points'));
-  const note = el('p', { class: 'gw-key' }, 'On the step axis, each mark is ten times the mark before it.');
+  const note = el('p', { class: 'gw-key' }, 'On the step axis, each mark is ten times the mark before it. The dotted line shows how much the wave itself misses a validation point.');
   const rStep = el('p'), rTrain = el('p', { class: 'r-train' }), rVal = el('p', { class: 'r-val' });
   host.replaceChildren(el('div', { class: 'gw' },
     el('div', { class: 'gw-ctl' }, pr.root),
@@ -225,8 +225,8 @@ export function mountRemedies(host, D) {
     fit.root.setAttribute('aria-label', `The model with ${which.label} after step ${fmtInt(c.step)}, with ${which.train[0].length} training points, ${G.data.val_x.length} validation points and the wave.`);
     loss.root.setAttribute('aria-label', `Typical miss on the training set and on the validation set with ${which.label}, against the training step on a log axis. After step ${fmtInt(c.step)}: training ${fmt2(miss(c.train_loss))}, validation ${fmt2(miss(c.val_loss))}. The wave itself misses a validation point by about ${fmt2(floorY)}.`);
     rStep.innerHTML = `<b>${which.label}</b>, after step ${fmtInt(c.step)}`;
-    rTrain.innerHTML = `<b>Training points</b> are missed by about ${fmt2(miss(c.train_loss))}.`;
-    rVal.innerHTML = `<b>Validation points</b> are missed by about ${fmt2(miss(c.val_loss))}.`;
+    rTrain.innerHTML = `The model misses a <b>training point</b> by about ${fmt2(miss(c.train_loss))}.`;
+    rVal.innerHTML = `It misses a <b>validation point</b> by about ${fmt2(miss(c.val_loss))}.`;
     table.update(which.run.checkpoints.map((q) => [q.step, miss(q.train_loss), miss(q.val_loss)]));
   }
   draw();

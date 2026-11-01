@@ -78,7 +78,7 @@ export default {
       options: [
         { html: 'It also gets smaller at every step.', feedback: 'You expect that more training always helps on new points. That holds only at first.' },
         { html: 'It falls at first and then rises.', correct: true, feedback: 'At first the curve learns the wave. Later it also learns the noise of its training points.' },
-        { html: 'It stays the same, because training never sees the new points.', feedback: 'The curve changes, and it passes near the new points too. So their miss changes.' },
+        { html: 'It stays the same, because training never sees the new points.', feedback: 'The curve changes, and it passes near the new points too.' },
         { html: 'It falls almost to zero too.', feedback: 'Each new point has its own noise, which no curve can predict.' },
       ],
       reveal: () => '<p>In the game below, you look for the step where it turns.</p>',
@@ -92,7 +92,7 @@ export default {
       <li>The ${term('validation-set', 'validation set')} has ${T(`${S}.val_samples`, 'setup')} other points. You use them to make choices, such as when to stop.</li>
       <li>The ${term('test-set', 'test set')} has ${T(`${S}.test_samples`, 'setup')} more points. You look at them once, at the end, to measure the final model.</li>
     </ul>
-    <p>Training never uses the last two sets. Why keep two? A choice that you make with some points also fits those points a little. So their miss becomes too hopeful. The test set stays new, so its miss is a fair guess for new data.</p>
+    <p>Training never uses the last two sets. Why keep two? A choice that you make with some points also fits those points a little. So their miss becomes too hopeful. The test set stays new, so its miss fairly measures ${term('generalization')}, how well the model works on new data.</p>
     <p>Each set gets a typical miss, the square root of its ${term('loss')}.</p>`),
     },
     {
@@ -100,8 +100,8 @@ export default {
       mount: (host, D) => mountValStop(host, D),
       tasks: () => [
         {
-          do: 'Move the slider slowly from the first step to the last step.',
-          see: 'The training miss falls almost to zero. The validation miss falls, with a small bump, to its lowest value and then rises.',
+          do: 'Move the slider slowly from the first step to the last.',
+          see: 'The training miss falls almost to zero. The validation miss falls, with one bump, to its lowest value and then rises.',
         },
         {
           do: 'Find the step with the smallest validation miss, and press “Stop training here”.',
@@ -143,12 +143,12 @@ export default {
       mount: (host, D) => mountRemedies(host, D),
       tasks: (D, T) => [
         {
-          do: `Choose weight decay ${T(`${RUN.mid}.weight_decay`, 'setup')}, and move the slider to the last step.`,
+          do: `Choose weight decay ${T(`${RUN.mid}.weight_decay`, 'setup')} and go to the last step.`,
           see: 'The curve stays smooth, and the validation miss does not climb.',
         },
         {
           do: `Choose weight decay ${T(`${RUN.high}.weight_decay`, 'setup')}.`,
-          see: 'The curve no longer reaches its training points. Both misses stay high.',
+          see: 'The curve misses many of its training points. Both misses stay high.',
         },
         {
           do: `Choose ${T(`${F}.more_data.train_samples`, 'setup')} training points.`,
@@ -159,8 +159,8 @@ export default {
     {
       kind: 'text',
       html: (D, T) => sec('count', '5 · More parameters do not always overfit', `
-    <p>Many people believe that a model with many parameters always overfits. The widget shows that the count alone does not decide. The same ${T(`${S}.parameters`, 'setup')} parameters overfit strongly on ten points, but not on a hundred.</p>
-    <p>At the last step, the validation miss is much smaller with more points. It is about ${T.human(`${F}.more_data.checkpoints.${lastIdx(D)}.val_loss`, 'rmse')}, against ${T.human(`${RUN.none}.checkpoints.${lastIdx(D)}.val_loss`, 'rmse')} with ten. No curve of this kind passes near a hundred noisy points, so it follows the wave.</p>
+    <p>Many people believe that many parameters always mean overfitting. The widget shows that the count alone does not decide it. The same ${T(`${S}.parameters`, 'setup')} parameters overfit strongly on ten points, but not on a hundred.</p>
+    <p>At the last step, the validation miss is much smaller with more points. It is about ${T.human(`${F}.more_data.checkpoints.${lastIdx(D)}.val_loss`, 'rmse')}, against ${T.human(`${RUN.none}.checkpoints.${lastIdx(D)}.val_loss`, 'rmse')} with ten. No such curve passes near a hundred noisy points, so it follows the wave.</p>
     <p>The digit network of the next lesson has ${T.anchor('mlp_parameters')} parameters, but it also learns from ${T.anchor('train_images')} images.</p>
     <p>Even the wave itself misses a validation point by about ${T.human(WAVE, 'rmse')}, because of the noise. No model can do much better, because nobody can predict the noise of a new point.</p>
     <p>These runs use one draw of random points, so other points give other numbers.</p>`),
@@ -179,8 +179,8 @@ export default {
     {
       kind: 'quiz', id: 'leak', purpose: 'cumulative', from: 'optimizers', type: 'numeric',
       answer: `${F}.derived.decay_factor.2`, tolerance: 0.002,
-      prompt: (D, T) => `<p>These runs use the ${term('learning-rate', 'learning rate')} ${T(`${S}.lr`, 'setup')}. At each step, AdamW takes away a part of every parameter, the learning rate times the weight decay. With weight decay ${T(`${RUN.high}.weight_decay`, 'setup')}, what part of each parameter is left? Give a decimal number.</p>`,
-      reveal: (D, T) => `<p>A part of ${T(`${F}.derived.decay_factor.2`, 'reveal')} is left, besides the usual update. With weight decay ${T(`${RUN.mid}.weight_decay`, 'reveal')}, ${T(`${F}.derived.decay_factor.1`, 'reveal')} is left.</p>`,
+      prompt: (D, T) => `<p>These runs use the ${term('learning-rate', 'learning rate')} ${T(`${S}.lr`, 'setup')}. At each step, AdamW takes away a part of every parameter, the learning rate times the weight decay. With weight decay ${T(`${RUN.high}.weight_decay`, 'setup')}, what part of each parameter does AdamW keep? Give a decimal number.</p>`,
+      reveal: (D, T) => `<p>AdamW keeps ${T(`${F}.derived.decay_factor.2`, 'reveal')} of each parameter, besides the usual update. With weight decay ${T(`${RUN.mid}.weight_decay`, 'reveal')}, it keeps ${T(`${F}.derived.decay_factor.1`, 'reveal')}.</p>`,
     },
     {
       kind: 'explain', id: 'why-validation',

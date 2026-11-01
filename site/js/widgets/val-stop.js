@@ -78,8 +78,8 @@ export function mountValStop(host, D) {
     fit.root.setAttribute('aria-label', `The model without weight decay after step ${fmtInt(c.step)}, with ${G.data.train_x.length} training points, ${G.data.val_x.length} validation points${stopped ? `, ${G.data.test_x.length} test points` : ''} and the wave.`);
     loss.root.setAttribute('aria-label', `Typical miss on the training set and on the validation set${stopped ? ' and on the test set' : ''}, against the training step on a log axis. After step ${fmtInt(c.step)}: training ${fmt2(miss(c.train_loss))}, validation ${fmt2(miss(c.val_loss))}.`);
     rStep.textContent = `After step ${fmtInt(c.step)}`;
-    rTrain.innerHTML = `<b>Training points</b> are missed by about ${fmt2(miss(c.train_loss))}.`;
-    rVal.innerHTML = `<b>Validation points</b> are missed by about ${fmt2(miss(c.val_loss))}.`;
+    rTrain.innerHTML = `The model misses a <b>training point</b> by about ${fmt2(miss(c.train_loss))}.`;
+    rVal.innerHTML = `It misses a <b>validation point</b> by about ${fmt2(miss(c.val_loss))}.`;
   }
   input.addEventListener('input', () => { k = Number(input.value); draw(); });
   input.addEventListener('change', () => { const c = cs[k]; say.textContent = `After step ${fmtInt(c.step)}: training miss about ${fmt2(miss(c.train_loss))}, validation miss about ${fmt2(miss(c.val_loss))}.`; });
@@ -91,7 +91,7 @@ export function mountValStop(host, D) {
     stopBtn.textContent = 'Training stopped';
     testKey.hidden = false;
     result.replaceChildren(...resultText(run, k).map((t, i) => el('p', {}, i === 0 ? el('b', {}, t) : t)),
-      el('p', { class: 'r-note' }, 'The green test curve is shown only so that you can compare it with the validation curve. In real work, you see only the one test miss.'));
+      el('p', { class: 'r-note' }, 'We show the green test curve only so that you can compare it with the validation curve. In real work, you see only the one test miss.'));
     result.hidden = false;
     table.update(cs.map((c) => [c.step, miss(c.train_loss), miss(c.val_loss)]));
     draw();
