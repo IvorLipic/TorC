@@ -61,7 +61,7 @@ const lesson = {
       kind: 'quiz', id: 'cost', purpose: 'predict', type: 'choice',
       prompt: (D, T) => `<p>The digit network has ${T.anchor('mlp_parameters')} parameters. To find all their gradients by nudging, how many forward passes do you need?</p>`,
       options: [
-        { html: 'Two. One at the start, and one after you nudge all the parameters together.', feedback: 'One change of the loss cannot tell how much of it each parameter caused.' },
+        { html: 'Two. One at the start, and one after nudging all the parameters together.', feedback: 'One change of the loss cannot tell how much of it each parameter caused.' },
         { html: 'One at the start, and one more for each parameter.', correct: true, feedback: 'Yes. Each nudge needs its own forward pass.' },
         { html: 'One. The gradient comes out of the forward pass.', feedback: 'A forward pass gives only the loss, not its gradient.' },
       ],
@@ -129,7 +129,7 @@ const lesson = {
       kind: 'text',
       html: (D, T) => sec('net', '4 · Blame flows back through a small network', `
     <p>Now take a ${term('neural-network')} with two inputs, a ${term('layer')} of two ${term('neuron', 'neurons')} with ${term('relu', 'ReLU')}, and one output. Its inputs are ${T('net.x.value.0', 'setup')} and ${T('net.x.value.1', 'setup')}. Its ${term('target')} is ${T('net.t.value', 'setup')}, and the miss, prediction minus target, is ${T('net.d.value', 'setup')}.</p>
-    <p>Read the gradient of a value as its share of the blame for the miss. Its sign says which way to move the value to lower the loss.</p>
+    <p>Read a value's gradient as its share of the blame for the miss. Its sign says which way to move the value to lower the loss.</p>
     <p>A neuron gets the gradient of the prediction times its output weight, times the slope of its ReLU. The slope is one here, because both neurons are on. A weight gets the gradient of its neuron times its input.</p>
     ${worked(`<p>The gradient of the prediction is twice the miss, ${T('net.o.grad', 'worked')}. The second neuron has the output weight ${T('net.W2.value.1', 'worked')}. So its gradient is ${T('net.o.grad', 'worked')} × (${T('net.W2.value.1', 'worked')}) = <strong>${T('net.h.grad.1', 'worked')}</strong>.</p>`)}`),
     },

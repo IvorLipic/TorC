@@ -148,6 +148,13 @@ v3 additions (brief §6 `sgd-step`, the c-zero check of §7, D13), appended afte
   `total`/`tensors` come from the real `Sequential::parameters()`, the per-layer breakdown from each module's `named_parameters()` (sorted by name).
 - `checks`: `{all_internal_checks_passed}`.
 
+Added for the v3 lesson "The neuron and the layer" (appended key, nothing else changed):
+- `taxi` = `{inputs[3], outputs[2], x, W, b, weight_shape, bias_shape, y, y_bias0_plus1, exact}`: a real `nn::Linear(3, 2)` with the
+  weights set by hand. Inputs per ride: km, minutes of waiting, bags; neuron 0 is the price in euros, neuron 1 the time in minutes.
+  `x` (2, 3) = two rides, `W` (2, 3), `b` (2), each `{shape, values}`; `weight_shape`/`bias_shape` as the module holds them ((out, in),
+  (out)); `y` (2, 2) is the module's forward pass, `y_bias0_plus1` the same pass after `b[0] += 1`. `exact` = every entry equals the
+  double-precision hand sum (the numbers are small integers and halves); the program fails otherwise.
+
 ## `tensors.json` (kind `tensors`, lesson `tensors`)
 
 No scenes. `example` = `{shape, numel, values, index[{i, j, flat, value}]}` for `a = [[1, 2, 3], [4, 5, 6]]` (read through
@@ -178,6 +185,11 @@ Added for the v3 hinge builder (appended keys, nothing else changed):
   `sum(contribution, axis 1)` (TorC) plus `b2`, and `max_abs_diff_vs_prediction` compares it with `models[1].checkpoints[3].prediction`
   (0 in the committed run; the program fails above `1e-5`). `derived.kink_x = -b1_k / W1_k` (double) and `active_for` is
   `"x > kink_x"` when `W1_k > 0`, else `"x < kink_x"`.
+- `collapse` = `{f{w, b}, g{w, b}, x[6], f_x[6], g_f_x[6], derived{w, b}, combined_x[6], equal, relu_f_x[6], g_relu_f_x[6]}`: two real
+  `nn::Linear(1, 1)` in a row, `f(x) = 2x + 1` and `g(x) = 3x + 4`, on `x = -2, -1, 0, 1, 2, 3`. `derived` = `{w: 6, b: 7}` is plain
+  arithmetic (`wg·wf`, `wg·bf + bg`), under `derived` like every derived value of this file; it is put into a third `nn::Linear(1, 1)`,
+  whose outputs `combined_x` (library output) equal `g_f_x` exactly (`equal`; the program fails otherwise). `relu_f_x` = `relu(f(x))`
+  and `g_relu_f_x` = `g(relu(f(x)))` from the real ops: at `x = -2` it is 4, where `6x + 7` gives -5.
 
 ## `modules.json` (kind `modules`, lesson `modules`)
 
@@ -197,6 +209,13 @@ one-hot target; the gradients are with respect to `z` from `backward()`. `errors
 target_shape [3], exception, what}`: `nn::MSELoss` on shapes that differ (`ShapeError` since TorC PR #6; v0.1.0 broadcast them,
 threw nothing and recorded `mse_broadcast` = `{…, loss, grad[3]}` instead). Not shown on the lesson page. Producer:
 `tools/trace/trace_losses.cpp`.
+
+v3 additions (lesson "Softmax and cross-entropy"), appended after the keys above; all library output: `curves.p[49]` = the share
+of the right class (column 0 of `torc::softmax(z, 1)`) at each `z`. `exp_rows[]` = `{id, logits[3], exp[3], exp_sum, shares[3]}` for
+the three `ce` rows: `torc::exp` of the logits, `torc::sum` of those, and `torc::softmax` along axis 1. `spread[]` = `{id: even|uneven,
+logits[3], target 0, loss, softmax[3], grad[3]}` for `[2, 0, 0]` and `[2, ln 1.9, ln 0.1]` (float `std::log`): the same share and
+loss for the right class, the rest spread differently. `ten` = the same record for ten equal logits `0` with target 3, plus
+`classes` 10 (loss `ln 10`).
 
 ## `training.json` (kind `training`, lesson `training-loop`)
 
@@ -295,6 +314,13 @@ No scenes (the site's engine has no softmax or cross-entropy op).
   `|softmax[1] - sigmoid|` (0 for all six; the program fails above `1e-6`).
 - Values depend on libstdc++'s `std::normal_distribution` (TorC's Kaiming start weights, seeds `100 + H` and `200 + H`) and on the
   C library's `exp`/`log`. On one toolchain the output is bit-for-bit repeatable.
+- v3 additions, all **derived** (double): each checkpoint ends with `typical_right_prob` = e^(−train_loss), the probability whose
+  surprise is the mean surprise. `best_line` = `{correct, accuracy, angle_deg, threshold, note}`: the most training points any
+  straight boundary gets right (exhaustive search over normal directions in steps of 0.25° and every threshold; committed run 140
+  of 200). `vote` = `{hidden 4, step 1000, bias_orange, vote_weights[4], points[2]{x, y, outputs[4], votes[4], total,
+  score_difference, prob_orange}, note}` for the points (0, 0) and (1.4, 0): `outputs` are the library's ReLU outputs, `votes` =
+  output × (orange output weight − blue output weight), and `total` = `bias_orange` + the votes, which equals the library's score
+  difference (the program fails above `1e-4`).
 
 ## `backprop-timing.json` (kind `timing`, lesson `backprop`): a timing, not a trace
 

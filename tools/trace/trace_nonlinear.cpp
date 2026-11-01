@@ -14,6 +14,9 @@
 //    W2_k * relu(W1_k x + b1_k), computed with the real ops (the first layer's forward pass, relu, and mul by the row W2), and
 //    the check that the eight contributions plus b2 add up to the model's prediction. Each unit's kink x = -b1_k / W1_k and
 //    the side on which it is active are derived (double arithmetic on the recorded weights).
+// 5. Two real nn::Linear(1, 1) in a row, f(x) = 2x + 1 and g(x) = 3x + 4, and the one Linear(1, 1) with 6x + 7 that gives the
+//    same outputs ("collapse", for the plain-number version of "two linear layers are one"), on x = -2 .. 3; and g(relu(f(x))), which
+//    differs from 6x + 7 where f(x) < 0 (relu_f_x, g_relu_f_x).
 // Derived values (plain arithmetic, not library output) are under the key "derived". The input grids are built from integers
 // (k / 10, not -4 + 0.1 k) so that no float rounding or contraction can move a grid point off its exact value.
 #include "trace_util.hpp"
@@ -217,10 +220,42 @@ int main() {
     J derived = J::object();
     derived.set("best_line_slope", 0).set("best_line_intercept", mean_t);  // least squares line for t = x^2 on symmetric x
 
+    // ---- 5. two linear functions in a row are one (v3: f(x) = 2x + 1, g(x) = 3x + 4, so g(f(x)) = 6x + 7) -----------------
+    // f and g are real nn::Linear(1, 1) modules with the weights set by hand. The combined weight and bias are derived in double
+    // (w = wg * wf, b = wg * bf + bg, under the key "derived" like every derived value of this file), put into a third
+    // nn::Linear(1, 1), and its outputs (combined_x, library output) are checked against g(f(x)).
+    J collapse = J::object();
+    {
+        Variable::NoGradGuard ng;
+        nn::Linear f(1, 1, 0.1f, 1), g(1, 1, 0.1f, 1), h(1, 1, 0.1f, 1);
+        auto set = [](nn::Linear& l, float w, float b) {
+            l.named_parameters().at("weight").data().data()[0] = w;
+            l.named_parameters().at("bias").data().data()[0] = b;
+        };
+        set(f, 2.0f, 1.0f);
+        set(g, 3.0f, 4.0f);
+        const double w = 3.0 * 2.0, b = 3.0 * 1.0 + 4.0;
+        set(h, static_cast<float>(w), static_cast<float>(b));
+        const std::vector<float> cx = {-2, -1, 0, 1, 2, 3};
+        const Variable xv(trace::make_tensor({6, 1}, cx), false);
+        const Variable fx = f(xv);
+        const std::vector<float> gfx = trace::values_of(g(fx).data()), hx = trace::values_of(h(xv).data());
+        bool same = true;
+        for (size_t i = 0; i < cx.size(); ++i) same = same && gfx[i] == hx[i];
+        ok = ok && same;
+        J d = J::object();
+        d.set("w", w).set("b", b);
+        collapse.set("f", J::object().set("w", 2.0).set("b", 1.0)).set("g", J::object().set("w", 3.0).set("b", 4.0))
+            .set("x", trace::jarr(cx)).set("f_x", trace::jarr(trace::values_of(fx.data()))).set("g_f_x", trace::jarr(gfx))
+            .set("derived", std::move(d)).set("combined_x", trace::jarr(hx)).set("equal", same)
+            .set("relu_f_x", trace::jarr(trace::values_of(relu(fx).data())))
+            .set("g_relu_f_x", trace::jarr(trace::values_of(g(relu(fx)).data())));
+    }
+
     J doc = trace::envelope("nonlinearity", "nonlinearity", "tools/trace/trace_nonlinear.cpp");
     doc.set("z", trace::jarr(zs)).set("activations", std::move(acts)).set("softmax", std::move(softmax_rows))
         .set("data", std::move(data)).set("setup", std::move(setup)).set("models", std::move(models)).set("derived", std::move(derived))
-        .set("hinges", std::move(hinges));
+        .set("hinges", std::move(hinges)).set("collapse", std::move(collapse));
     std::fputs(doc.dump().c_str(), stdout);
     if (!ok) { std::cerr << "trace_nonlinear: a self-check failed (linear model off its multiplied-out line, or hinges do not add up)\n"; return 1; }
     return 0;

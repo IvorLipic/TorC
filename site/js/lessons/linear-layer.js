@@ -1,109 +1,187 @@
-// Lesson "linear-layer": nn::Linear as matmul plus bias. Shapes and parameter counts, one neuron = one row of W, the backward
-// formulas, and why the weights start at a particular size. Widgets: matmul-grid (live arithmetic) and init-signal (recorded runs).
-// Every number from the real run goes into prose with T('path'), or with sci() for very small/large recorded values.
-// Style budget: docs/authoring.md.
-import { escapeHtml } from '../core/dom.js';
+// Lesson "linear-layer" (Part 3 `networks`, curriculum v3, template 3): "The neuron and the layer". One neuron is a weighted sum
+// plus a bias (a taxi price from three inputs, drawn as circles and arrows; the dot product is named there); a layer is many
+// neurons that read the same inputs, and one matrix product computes all of them (the matmul grid, positions from 0, with the
+// matrix-product refresher); the bias reaches every row (broadcasting, in words); W is (out, in) and is transposed; the parameter
+// count of the digit network (784 = 28 × 28). Brief §6 Part 2 and §7. The backward rules left for `backprop`, initialization for
+// `deep-nets`. The dot-product refresher is not opened here because of the word budget (docs/lessons/linear-layer.md).
+// Every number comes from data/linear.json (taxi, param_counts) or site/data/anchors.json through a role-tagged T()
+// (docs/authoring.md "Number roles"); the formulas take their numbers from the trace with T.num.
 import { math } from '../core/katex.js';
-import { resolvePath } from '../core/trace.js';
+import { worked, refresher, term, sym } from '../core/blocks.js';
 import { mountMatmulGrid } from '../widgets/matmul-grid.js';
-import { mountInitSignal } from '../widgets/init-signal.js';
-import { linearShapes, fmtShape } from '../widgets/linear-shapes.js';
-import { fmtSci } from '../widgets/linear-signal-data.js';
+import { mountLayerCount } from '../widgets/layer-count.js';
+import { neuronFigure, NEURON_FIGURE_CSS } from '../widgets/neuron-figure.js';
 
-const P = 'files.linear';                                  // prefix of the extra tables of linear.json
-const WEIGHT = `${P}.param_counts.0.layers.0.params.1`;    // Linear(784, 32): weight record (params are sorted by name: bias, weight)
-const BIAS = `${P}.param_counts.0.layers.0.params.0`;
-const SIG = (i, layer) => `${P}.signal.${i}.layers.${layer}.post_std`;   // i: 0 kaiming, 1 std 0.01, 2 std 1.0
-const recorded = (D, id) => D.files.linear.shape_errors.find((r) => r.id === id);
-const ERR = 'linear-784x32-(8, 10)';
-// very small or very large recorded numbers in scientific form (T() would print 0.000002173); bound to the trace like T()
-const sci = (D, path) => `<span class="rec" data-trace="${path}" data-fmt="sci">${fmtSci(resolvePath(D, path))}</span>`;
-const shp = (T, base) => `(${T(`${base}.0`)}, ${T(`${base}.1`)})`;
-const eq = (latex) => `<div class="ll-eq" tabindex="0" role="group" aria-label="Formula">${math(latex, true)}</div>`;
+const P = 'files.linear';
+const TX = `${P}.taxi`;
+const x = (i, j) => `${TX}.x.values.${i * 3 + j}`;          // ride i, input j (km, minutes of waiting, bags)
+const w = (k, j) => `${TX}.W.values.${k * 3 + j}`;          // neuron k (0 price, 1 time), weight of input j
+const b = (k) => `${TX}.b.values.${k}`;
+const y = (i, k) => `${TX}.y.values.${i * 2 + k}`;
+// the digit network (examples/mnist_mlp): param_counts[1]; its Linear layers are layers 0, 2 and 4; params sorted by name
+const NET = `${P}.param_counts.1`;
+const LAYER = (n) => `${NET}.layers.${n}`;
+const WEIGHT = (n) => `${LAYER(n)}.params.1`;
+const BIAS = (n) => `${LAYER(n)}.params.0`;
+
 const sec = (id, title, body) => `<section class="ll" aria-labelledby="ll-${id}"><h2 id="ll-${id}">${title}</h2>${body}</section>`;
+const eq = (latex, label = 'Formula') => `<div class="ll-eq" tabindex="0" role="group" aria-label="${label}">${math(latex, true)}</div>`;
+const mat = (T, rows) => `\\begin{bmatrix} ${rows.map((r) => r.map((p) => T.num(p)).join(' & ')).join(' \\\\ ')} \\end{bmatrix}`;
+// a sum of products "a × b + c × d + … + bias = result" with every number bound for a worked block
+const sumOf = (T, pairs, bias, result, unit) => `${pairs.map(([a, c]) => `${T(a, 'worked')} × ${T(c, 'worked')}`).join(' + ')} + ${T(bias, 'worked')} = <strong>${T(result, 'worked')}</strong> ${unit}`;
 
 const STYLE = `<style>
 .ll p{max-width:44rem}
 .ll h2{margin-top:2rem}
 .ll-eq{overflow-x:auto;margin:.2rem 0}
 .ll-eq .katex-display{margin:.4em 0}
-.rec{color:var(--fwd);font-variant-numeric:tabular-nums}
+${NEURON_FIGURE_CSS}
 </style>`;
 
 export default {
   id: 'linear-layer',
-  title: 'Layers',
+  title: 'The neuron and the layer',
   trace: ['linear.json'],
+  template: 3,
+  loop: 'model',
   sections: [
     {
       kind: 'text',
-      html: () => `${STYLE}<section class="hero"><h1>Layers</h1>
-    <p class="lead">A linear layer, <code>nn::Linear</code>, is one matrix product and one addition. This lesson shows the shapes, the gradients, and the start values of its weights.</p></section>`,
+      html: () => `${STYLE}<section class="hero"><h1>The neuron and the layer</h1>
+    <p class="lead">Every ${term('neural-network')} uses one small formula many times.</p></section>`,
     },
     {
-      kind: 'tldr',
-      items: () => [
-        '<code>Linear(in, out)</code> computes <code>y = x·Wᵀ + b</code>. Each row of <code>W</code> belongs to one output, called a neuron.',
-        'The layer has <code>in·out + out</code> parameters. The batch size does not change this number.',
-        'The backward pass uses the same matrices, transposed.',
-        'The weights start as random numbers of a size that keeps the signal steady from layer to layer.',
+      kind: 'questions',
+      items: (D, T) => [
+        'A taxi price depends on the distance, the waiting time and the bags. How does one formula combine three inputs?',
+        `The digit network of this course has ${T.anchor('mlp_parameters')} ${term('parameter', 'parameters')}. Where does that number come from?`,
       ],
     },
     {
-      kind: 'text',
-      html: (D, T) => sec('shapes', '1 · Shapes', `
-    <p>The input <code>x</code> holds a batch of <code>B</code> samples, one sample in each row. The weight matrix <code>W</code> has one row for each output and one column for each input. The bias <code>b</code> has one value for each output.</p>
-    ${eq('\\underset{(B,\\,\\text{in})}{x}\\;\\cdot\\;\\underset{(\\text{in},\\,\\text{out})}{W^{\\top}}\\;+\\;\\underset{(\\text{out})}{b}\\;=\\;\\underset{(B,\\,\\text{out})}{y}')}
-    <p>For example, <code>Linear(784, 32)</code> has a weight of shape ${shp(T, `${WEIGHT}.shape`)} with ${T(`${WEIGHT}.numel`)} numbers and a bias with ${T(`${BIAS}.numel`)} numbers. That is ${T(`${P}.param_counts.0.total`)} parameters. If <code>x</code> has the wrong number of columns, TorC throws an error. This is the message for an input of shape <code>(8, 10)</code>.</p>
-    <p><code>${escapeHtml(recorded(D, ERR).exception)}: ${escapeHtml(recorded(D, ERR).what)}</code></p>
-    <p>The second shape in the message is the shape of <code>Wᵀ</code>, not of <code>W</code>.</p>`),
+      kind: 'text', setup: true,
+      html: (D, T) => sec('taxi', 'Taxi prices', `
+    <p>In the last lesson, a taxi ride cost a fixed fee plus a price per kilometre. The ${term('gradient')} showed the ${term('model')} how to improve both. This method is ${term('gradient-descent')}.</p>
+    <p>That model had one input, the distance. Our taxi company also charges for waiting and for bags.</p>
+    <p>Each kilometre costs ${T(w(0, 0), 'setup')} euros. Each minute of waiting costs ${T(w(0, 1), 'setup')} euro. Each bag costs ${T(w(0, 2), 'setup')} euro. Every ride also pays a fee of ${T(b(0), 'setup')} euro.</p>
+    <p>We choose these prices by hand. ${term('training', 'Training')} could find them from data.</p>`),
+    },
+    {
+      kind: 'quiz', id: 'price', purpose: 'predict', type: 'numeric',
+      answer: y(0, 0), tolerance: 0.01, unit: 'euros',
+      prompt: (D, T) => `<p>A ride is ${T(x(0, 0), 'setup')} km long. It has ${T(x(0, 1), 'setup')} minutes of waiting and ${T(x(0, 2), 'setup')} bags. What does it cost?</p>`,
+      reveal: (D, T) => `${worked(`<p>price = ${sumOf(T, [[w(0, 0), x(0, 0)], [w(0, 1), x(0, 1)], [w(0, 2), x(0, 2)]], b(0), y(0, 0), 'euros')}</p>`)}`,
     },
     {
       kind: 'text',
-      html: () => sec('neuron', '2 · One neuron is one row of W', `
-    ${eq('y_{ik} = \\sum_{j} x_{ij}\\,W_{kj} + b_k')}
-    <p>Each output <code>y[i,k]</code> multiplies sample <code>i</code> by row <code>k</code> of <code>W</code>, element by element, adds the products, and adds the bias <code>b[k]</code>. The indices <code>i</code>, <code>j</code> and <code>k</code> count from <code>0</code>, as in TorC. Click an output in the grid to see the numbers it uses. You can change any number.</p>
-    <p>Then copy the first neuron into the second. The two output columns become identical, because two neurons with equal weights always give equal outputs. For this reason the weights start as random numbers.</p>`),
-    },
-    {
-      kind: 'widget', id: 'matmul-grid', className: 'lin-w lin-mg', label: 'Interactive: one output is one neuron looking at one sample',
-      mount: (host, D, ctx) => mountMatmulGrid(host, D, ctx),
-    },
-    {
-      kind: 'text',
-      html: () => sec('backward', '3 · The backward pass', `
-    <p>In TorC, <code>forward()</code> computes <code>add(matmul(x, transpose(weight)), bias)</code>. A bar over a name means the gradient of the loss with respect to that value. The backward pass of the three operations gives three gradients.</p>
-    ${eq('\\overline{W} = \\overline{y}^{\\top}x \\qquad \\overline{b}_k = \\sum_i \\overline{y}_{ik} \\qquad \\overline{x} = \\overline{y}\\,W')}
-    <p>The layer adds the same bias to every sample. So the gradient of the bias is the sum of the gradients of all samples. The layer sends ${math('\\overline{x}', false)} back to the layer before it.</p>`),
-    },
-    {
-      kind: 'predict', id: 'predict-dx', title: 'Before you read on',
-      prompt: (D, T) => `<p>Use the <code>W</code> of the grid, and let the loss be <code>sum(y)</code>. Then every entry of ${math('\\overline{y}', false)} is one. What is each row of ${math('\\overline{x}', false)}?</p>`,
-      reveal: (D, T) => `<p>Each row is the column sums of <code>W</code>, which are ${T('linear-dx.x.grad.0')}, ${T('linear-dx.x.grad.1')} and ${T('linear-dx.x.grad.2')}. Both samples get the same row.</p>`,
+      html: (D, T) => sec('neuron', '1 · One neuron', `
+    <p>You multiplied each input by its own number, added the products, and then added the fee. A ${term('neuron')} computes exactly this.</p>
+    <p>The numbers that multiply the inputs are its ${term('weight', 'weights')}. Each input times its weight, all added up, is a <strong>weighted sum</strong>, also called a dot product. The number added at the end is the ${term('bias')}, here the fee.</p>
+    ${neuronFigure(D.files.linear.taxi, { neurons: [0], caption: 'Each arrow multiplies an input by its weight. The circle adds everything.' })}
+    <p>With letters, the inputs are ${sym('subscript', '<i>x</i>₀')}, <i>x</i>₁ and <i>x</i>₂, and the weights are <i>w</i>₀, <i>w</i>₁ and <i>w</i>₂. The small number is the position, counted from <code>0</code> as in TorC and most programs.</p>
+    <p>The output of the neuron is <i>y</i>. The sign ${sym('sum', 'Σ')} means “add up the terms”, one term for each position <i>j</i> from <code>0</code> (under the sign) to <code>2</code> (above it):</p>
+    ${eq('y = w_0 x_0 + w_1 x_1 + w_2 x_2 + b = \\sum_{j=0}^{2} w_j\\, x_j + b', 'The formula of one neuron')}
+`),
     },
     {
       kind: 'text',
-      html: (D, T) => sec('init', '4 · The start values of the weights', `
-    <p>The bias starts at zero. Each weight is a random number from a normal distribution with standard deviation ${math('\\sqrt{2/\\text{in}}', false)}. This is the default, and it is called Kaiming initialization. Each output adds <code>in</code> products, and this scale keeps the size of that sum steady from layer to layer.</p>
-    <p>The plot sends random inputs through six <code>Linear(256, 256)</code> layers. After each layer, a ReLU sets the negative values to zero. With Kaiming initialization the spread of the values after six layers is between ${T(`${P}.signal.0.across_seeds.5.post_std_min`)} and ${T(`${P}.signal.0.across_seeds.5.post_std_max`)}. With <code>init_std = 0.01</code> it falls to ${sci(D, SIG(1, 6))}. With <code>init_std = 1.0</code> it grows to ${sci(D, SIG(2, 6))}.</p>`),
-    },
-    {
-      kind: 'widget', id: 'init-signal', className: 'lin-w lin-is', label: 'Signal through six layers',
-      mount: (host, D, ctx) => mountInitSignal(host, D, ctx),
-    },
-    {
-      kind: 'check', id: 'check-shapes',
-      prompt: () => '<p>You apply <code>Linear(784, 32)</code> to a batch of <code>8</code> samples. What are the shapes of <code>W</code>, <code>b</code>, <code>x</code> and <code>y</code>?</p>',
-      reveal: () => { const s = linearShapes(784, 32, 8); return `<p><code>W</code> is <code>${fmtShape(s.W)}</code>, <code>b</code> is <code>${fmtShape(s.b)}</code>, <code>x</code> is <code>${fmtShape(s.x)}</code> and <code>y</code> is <code>${fmtShape(s.y)}</code>.</p>`; },
-    },
-    {
-      kind: 'check', id: 'check-bias',
-      prompt: () => '<p>In the grid, increase <code>b[1]</code> by one. Which entries of <code>y</code> change, and by how much?</p>',
-      reveal: () => '<p>Only the second column changes, because the layer adds <code>b[1]</code> to the second output of every sample. Both entries of that column increase by exactly one.</p>',
+      html: (D, T) => sec('layer', '2 · A layer is many neurons', `
+    <p>The taxi app also guesses how long a ride takes. A second neuron reads the same three inputs with its own weights and bias.</p>
+    <p>Each kilometre adds ${T(w(1, 0), 'setup')} minutes, and each minute of waiting adds ${T(w(1, 1), 'setup')} minute. A bag adds no time, so its weight is ${T(w(1, 2), 'setup')}. The bias is ${T(b(1), 'setup')} minutes for getting in and out.</p>
+    <p>Neurons that read the same inputs side by side form a ${term('layer')}. A neuron is not a small brain. It only multiplies and adds.</p>
+    ${neuronFigure(D.files.linear.taxi, { neurons: [0, 1], caption: 'A layer of two neurons. Each has its own weights and bias.' })}`),
     },
     {
       kind: 'text',
-      html: () => '<section class="ll"><p>The next lesson, <a href="../nonlinearity/">Nonlinearity</a>, shows why two linear layers in a row are still one linear layer, and how an activation function changes that.</p></section>',
+      html: (D, T) => sec('matrix', '3 · One matrix product for the whole layer', `
+    <p>A second ride is ${T(x(1, 0), 'setup')} km long, with no waiting and ${T(x(1, 2), 'setup')} bag. A ${term('matrix')} is a grid of numbers in rows and columns. Now <i>x</i> is a matrix with one row per ride, and <i>W</i> has one row per neuron:</p>
+    ${eq(`x = ${mat(T, [[x(0, 0), x(0, 1), x(0, 2)], [x(1, 0), x(1, 1), x(1, 2)]])} \\qquad W = ${mat(T, [[w(0, 0), w(0, 1), w(0, 2)], [w(1, 0), w(1, 1), w(1, 2)]])} \\qquad b = (${T.num(b(0))},\\ ${T.num(b(1))})`, 'The two rides, the weights and the biases')}
+    <p>Rows count from <code>0</code> too, so ride <code>1</code> is the second ride. The output <i>y</i>ᵢₖ of neuron <i>k</i> for ride <i>i</i> combines row <i>i</i> of <i>x</i> with row <i>k</i> of <i>W</i>:</p>
+    ${eq('y_{ik} = \\sum_{j=0}^{2} x_{ij}\\, W_{kj} + b_k', 'The formula of a layer')}
+    <p>A matrix product pairs a row of the left matrix with a column of the right one. So TorC turns <i>W</i> on its side. Its rows become the columns of ${sym('transpose', '<i>W</i>ᵀ')}, the transpose:</p>
+    ${eq('y = x \\times W^{\\top} + b', 'The layer as one formula')}
+    <p>This one matrix product computes every neuron for every ride. TorC adds <i>b</i> to each row of the result. This reuse of <i>b</i> in every row is ${term('broadcasting')}.</p>
+    ${refresher('matrix-product')}`),
+    },
+    {
+      kind: 'quiz', id: 'your-entry', purpose: 'check', type: 'numeric', title: 'Your turn',
+      answer: y(1, 0), tolerance: 0.01, unit: 'euros',
+      prompt: '<p>Compute <i>y</i>₁₀, the price of ride <code>1</code>, from the matrices above.</p>',
+      reveal: (D, T) => `${worked(`<p><i>y</i>₁₀ = ${sumOf(T, [[x(1, 0), w(0, 0)], [x(1, 1), w(0, 1)], [x(1, 2), w(0, 2)]], b(0), y(1, 0), 'euros')}</p>`)}
+    <p>It uses row <code>1</code> of <i>x</i>, row <code>0</code> of <i>W</i> and <i>b</i>₀.</p>`,
+    },
+    {
+      kind: 'widget', id: 'matmul-grid', className: 'lin-w lin-mg', label: 'Interactive: the taxi layer as one matrix product',
+      mount: (host, D, ctx) => mountMatmulGrid(host, D, { ...ctx, rowName: 'ride', neuronNames: ['price neuron', 'time neuron'], inputNames: ['kilometres', 'minutes of waiting', 'bags'] }),
+      tasks: (D, T) => [
+        { do: 'Choose the output <i>y</i>₀₁ in the grid.',
+          see: 'Row <code>0</code> of <i>x</i> and row <code>1</code> of <i>W</i> light up. Under the grid is the time of the first ride.' },
+        { do: 'Press Show all outputs. Then type a number one larger into <i>b</i>₀.',
+          see: 'Both prices go up by one euro, and the times stay the same.' },
+        { do: 'In row <code>0</code> of <i>W</i>, set the weight of the bags to zero.',
+          see: `The first price falls by ${T(x(0, 2), 'setup')} euros and the second by ${T(x(1, 2), 'setup')} euro.` },
+      ],
+    },
+    {
+      kind: 'quiz', id: 'w-shape', purpose: 'transfer', type: 'choice',
+      prompt: (D, T) => `<p>A digit image is a square of ${T.anchor('image_side')} by ${T.anchor('image_side')} ${term('pixel', 'pixels')}. Its ${T.anchor('pixels')} pixels are the inputs of the first layer, which has ${T(`${WEIGHT(0)}.shape.0`, 'setup')} neurons. What ${term('shape')} does TorC give its <i>W</i>, as (rows, columns)?</p>`,
+      options: [
+        { html: (D, T) => `(${T(`${WEIGHT(0)}.shape.0`, 'setup')}, ${T(`${WEIGHT(0)}.shape.1`, 'setup')})`, correct: true,
+          feedback: 'Yes. <i>W</i> has one row per neuron, and each row holds one weight per input.' },
+        { html: (D, T) => `(${T(`${WEIGHT(0)}.shape.1`, 'setup')}, ${T(`${WEIGHT(0)}.shape.0`, 'setup')})`,
+          feedback: 'Each row of <i>W</i> belongs to one neuron, not to one input.' },
+        { html: (D, T) => `(${T(`${WEIGHT(0)}.shape.1`, 'setup')})`,
+          feedback: 'This is enough for one neuron. But each neuron has its own weights.' },
+        { html: (D, T) => `(${T(`${BIAS(0)}.shape.0`, 'setup')})`,
+          feedback: 'This is the shape of <i>b</i>, one bias per neuron.' },
+      ],
+      reveal: (D, T) => `<p>TorC stores this <i>W</i> with ${T(`${WEIGHT(0)}.shape.0`, 'reveal')} rows and ${T(`${WEIGHT(0)}.shape.1`, 'reveal')} columns. So it holds ${T(`${WEIGHT(0)}.numel`, 'reveal')} weights.</p>`,
+    },
+    {
+      kind: 'text',
+      html: () => sec('shape', '4 · The shape of W and the size of a layer', `
+    <p>Many people expect <i>W</i> to have one row per input. TorC stores one row per neuron, so each row keeps the weights of one neuron together. The shape of <i>W</i> is (neurons, inputs).</p>
+    <p>Each neuron has one weight per input and one bias. So a layer has (neurons × inputs) weights and one bias per neuron.</p>`),
+    },
+    {
+      kind: 'quiz', id: 'second-layer', purpose: 'check', type: 'numeric',
+      answer: `${LAYER(2)}.count`, tolerance: 0.5,
+      prompt: (D, T) => `<p>The second layer of the digit network reads the ${T(`${WEIGHT(2)}.shape.1`, 'setup')} outputs of the first layer. It has ${T(`${WEIGHT(2)}.shape.0`, 'setup')} neurons. How many parameters does it have?</p>`,
+      reveal: (D, T) => `${worked(`<p>The second layer has ${T(`${WEIGHT(2)}.shape.0`, 'worked')} × ${T(`${WEIGHT(2)}.shape.1`, 'worked')} + ${T(`${BIAS(2)}.numel`, 'worked')} = <strong>${T(`${LAYER(2)}.count`, 'worked')}</strong> parameters.</p>
+    <p>The whole network has ${T(`${LAYER(0)}.count`, 'worked')} + ${T(`${LAYER(2)}.count`, 'worked')} + ${T(`${LAYER(4)}.count`, 'worked')} = <strong>${T(`${NET}.total`, 'worked')}</strong> parameters.</p>`)}`,
+    },
+    {
+      kind: 'widget', id: 'layer-count', className: 'widget', label: 'Interactive: the parameters of the digit network, layer by layer',
+      mount: (host, D) => mountLayerCount(host, D),
+      tasks: (D, T) => [
+        { do: 'Choose the first layer.',
+          see: `<i>W</i> is a long strip with ${T(`${WEIGHT(0)}.shape.0`, 'setup')} rows and ${T(`${WEIGHT(0)}.shape.1`, 'setup')} columns. It holds most parameters of the network.` },
+        { do: 'Choose the whole network.',
+          see: 'The three layers add up to the same total.' },
+      ],
+    },
+    {
+      kind: 'quiz', id: 'gradient-size', purpose: 'cumulative', from: 'sgd-step', type: 'choice',
+      prompt: () => `<p>In the last lesson, the taxi model had two parameters, and its gradient was a list of two numbers. How many numbers does the gradient of the first digit layer hold?</p>`,
+      options: [
+        { html: 'One number for each parameter', correct: true,
+          feedback: 'Yes. Each weight and each bias gets its own number.' },
+        { html: 'One number for the whole layer',
+          feedback: 'One number cannot tell each weight which way to move.' },
+        { html: 'One number for each neuron',
+          feedback: 'Each neuron has many weights, and each weight needs its own number.' },
+      ],
+      reveal: (D, T) => `<p>The first layer has ${T(`${LAYER(0)}.count`, 'reveal')} parameters. So its gradient is a list of ${T(`${LAYER(0)}.count`, 'reveal')} numbers.</p>`,
+    },
+    {
+      kind: 'explain', id: 'what-a-layer-does',
+      prompt: '<p>Explain what a layer of neurons computes.</p>',
+      model: '<p>Every neuron in the layer computes its own weighted sum of the same inputs plus its bias, all in one matrix product.</p>',
+    },
+    {
+      kind: 'answer',
+      html: (D, T) => `<p>A neuron computes a weighted sum of its inputs and adds its bias. A layer is many neurons that read the same inputs, and one matrix product computes them all.</p>
+    <p>Each neuron has one weight per input and one bias, which gives ${T.anchor('mlp_parameters')} parameters in the digit network.</p>`,
+      next: () => '<p>Each output of a layer is a weighted sum, so it changes along a straight line. Can a second layer on top fit a curve?</p>',
     },
   ],
 };

@@ -90,61 +90,58 @@
       "lessons": [
         {
           "id": "linear-layer",
-          "title": "Layers",
-          "outcome": "You can calculate the output of one neuron from its inputs and weights. You can explain why a layer of many neurons is one matrix product.",
+          "title": "The neuron and the layer",
+          "outcome": "You can compute the output of one neuron from its inputs, weights and bias. You can explain why a layer of many neurons is one matrix product, and count its parameters.",
           "prereqs": [
             "sgd-step"
           ],
           "symbols": [
             "nn::Linear",
             "nn::Linear::forward",
-            "kaiming_normal_std",
             "matmul",
             "transpose"
           ],
           "trace": [
             "linear.json"
           ],
-          "est_minutes": 7,
+          "est_minutes": 15,
           "status": "published",
           "widgets": [
+            "network picture",
             "matrix grid",
-            "signal through six layers"
+            "parameter counter"
           ],
           "code": "nn::Linear layer(784, 32);   // W (32, 784), b (32)\nVariable y = layer(x);       // x (B, 784) → y (B, 32)"
         },
         {
           "id": "nonlinearity",
-          "title": "Nonlinearity",
-          "outcome": "You can explain why two layers without an activation function act like one layer. You can see how ReLU units bend a straight line into a curve.",
+          "title": "Activation functions",
+          "outcome": "You can explain why two layers without an activation function act like one layer. You can show how ReLU neurons, as hinges, bend a straight line into a curve, and why a small sigmoid gradient slows learning.",
           "prereqs": [
             "linear-layer"
           ],
           "symbols": [
             "relu",
             "sigmoid",
-            "softmax",
             "nn::ReLU",
-            "nn::Sigmoid",
-            "nn::Softmax",
-            "Tensor::softmax",
-            "optim::Adam"
+            "nn::Sigmoid"
           ],
           "trace": [
             "nonlinearity.json"
           ],
-          "est_minutes": 7,
+          "est_minutes": 15,
           "status": "published",
           "widgets": [
-            "activation plotter",
-            "fit a curve"
+            "fit a curve",
+            "hinge builder",
+            "activation plotter"
           ],
-          "code": "Variable h = relu(z);                 // max(0, z)\nVariable s = sigmoid(z);              // 1 / (1 + e^-z)\nVariable p = softmax(z, /*axis=*/1);  // each row sums to 1"
+          "code": "Variable h = relu(z);      // max(0, z)\nVariable s = sigmoid(z);   // 1 / (1 + e^-z)"
         },
         {
           "id": "classification",
-          "title": "Two classes and the line between them",
-          "outcome": "You can explain how a network sorts points into two classes. You can see how more hidden units bend the line between the classes.",
+          "title": "Two classes and the decision boundary",
+          "outcome": "You can explain how a model sorts points into two classes. You can see why hidden neurons let the decision boundary bend.",
           "prereqs": [
             "nonlinearity"
           ],
@@ -152,39 +149,40 @@
             "nn::Sequential",
             "nn::Linear",
             "nn::ReLU",
-            "nn::CrossEntropyLoss",
             "sigmoid"
           ],
-          "trace": [],
+          "trace": [
+            "classification.json"
+          ],
           "est_minutes": 15,
-          "status": "planned",
+          "status": "published",
           "widgets": [
-            "decision boundary"
-          ]
+            "decision boundary playground"
+          ],
+          "code": "nn::Sequential model;\n// x and y in, 8 hidden neurons out\nmodel.add(std::make_unique<nn::Linear>(2, 8));\n// each neuron is off on one side of its line\nmodel.add(std::make_unique<nn::ReLU>());\n// 8 neuron outputs in, 2 scores out\nmodel.add(std::make_unique<nn::Linear>(8, 2));"
         },
         {
           "id": "losses",
-          "title": "Losses",
-          "outcome": "You can turn the scores of a network into probabilities with softmax. You can explain why cross-entropy is a better loss than squared error for classes.",
+          "title": "Softmax and cross-entropy",
+          "outcome": "You can turn the scores of a model into probabilities with softmax. You can explain cross-entropy as the surprise at the right class, and why it beats the squared miss for classes.",
           "prereqs": [
             "classification"
           ],
           "symbols": [
-            "nn::MSELoss",
-            "nn::CrossEntropyLoss",
             "softmax",
-            "log"
+            "nn::CrossEntropyLoss",
+            "ln"
           ],
           "trace": [
             "losses.json"
           ],
-          "est_minutes": 7,
+          "est_minutes": 15,
           "status": "published",
           "widgets": [
-            "loss explorer",
+            "probabilities and surprise",
             "gradient comparison"
           ],
-          "code": "nn::MSELoss mse;                      // regression\nnn::CrossEntropyLoss ce;              // classification\nVariable loss = ce(logits, labels);   // logits (B, 10), labels (B)"
+          "code": "Variable p = softmax(logits, 1);      // each row: probabilities that add to 1\nnn::CrossEntropyLoss ce;             // the surprise at the right class\nVariable L = ce(logits, labels);     // logits (B, 10), labels (B)"
         },
         {
           "id": "backprop",
