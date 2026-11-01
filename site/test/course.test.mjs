@@ -23,8 +23,8 @@ const V3 = [
   ['labs', 'lab', ['backprop-lab']],
 ];
 const PUBLISHED = ['what-is-learning', 'why-gradients', 'sgd-step', 'tensors', 'linear-layer', 'nonlinearity', 'modules', 'losses', 'training-loop',
-  'optimizers', 'generalization', 'mnist-mlp', 'convolution', 'mnist-cnn', 'backprop-lab', 'notation', 'glossary', 'classification'];
-const NEW = ['backprop', 'deep-nets', 'one-step', 'from-digits-to-chatgpt', 'torc-pitfalls'];
+  'optimizers', 'generalization', 'mnist-mlp', 'convolution', 'mnist-cnn', 'backprop-lab', 'notation', 'glossary', 'classification', 'backprop', 'deep-nets'];
+const NEW = ['one-step', 'from-digits-to-chatgpt', 'torc-pitfalls'];
 
 test('course.json: parts, kinds and lesson ids follow curriculum v3 exactly', () => {
   assert.deepEqual(validateCourse(real), []);
@@ -61,7 +61,7 @@ test('course.json: the curriculum has the 17 main-path lessons, numbered 1 to 17
 test('course.json: prev/next on the real course stay within the main path, the appendix or the labs, and skip planned lessons', () => {
   const chain = (ids) => ids.map((id, i) => [id, ids[i - 1] ?? null, ids[i + 1] ?? null]);
   const expected = [
-    ...chain(['what-is-learning', 'why-gradients', 'sgd-step', 'linear-layer', 'nonlinearity', 'classification', 'losses', 'training-loop', 'optimizers', 'generalization',
+    ...chain(['what-is-learning', 'why-gradients', 'sgd-step', 'linear-layer', 'nonlinearity', 'classification', 'losses', 'backprop', 'deep-nets', 'training-loop', 'optimizers', 'generalization',
       'mnist-mlp', 'convolution', 'mnist-cnn']),
     ...chain(['tensors', 'modules', 'notation', 'glossary']),
     ...chain(['backprop-lab']),

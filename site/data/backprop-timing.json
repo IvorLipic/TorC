@@ -1,0 +1,49 @@
+{
+  "schema":"torc-trace/1",
+  "library":{"ref":"38785db59b98a78548b58a16c51a03ec56a65a9d","compiler":"clang 18.1.3 (libstdc++ 13)","flags":"-O3 -DNDEBUG -std=c++23 -ffp-contract=off TORC_NATIVE_ARCH=OFF"},
+  "generator":"tools/trace/time_backprop.cpp",
+  "kind":"timing",
+  "lesson":"backprop",
+  "setup":{
+    "model":"Linear(784, h) -> ReLU -> Linear(h, h) -> ReLU -> Linear(h, 10), nn::MSELoss, one sample",
+    "rounds":5,
+    "round_seconds":0.25,
+    "note":"machine-dependent timing, not drift-checked; backward = forward_backward - forward (with the record)"
+  },
+  "runs":[
+    {
+      "hidden":32,
+      "parameters":26506,
+      "forward_us":109.72549633789062,
+      "forward_nograd_us":74.00435131835938,
+      "forward_backward_us":483.11864062499995,
+      "backward_over_forward":3.402975213138029,
+      "backward_over_forward_nograd":5.045556614378107,
+      "backprop_over_nudge":6.528246407385851,
+      "nudging_over_backprop":4060.3553153279913
+    },
+    {
+      "hidden":128,
+      "parameters":118282,
+      "forward_us":714.373568359375,
+      "forward_nograd_us":295.44092675781246,
+      "forward_backward_us":2543.5315859375,
+      "backward_over_forward":2.56050629333747,
+      "backward_over_forward_nograd":6.191281748440955,
+      "backprop_over_nudge":8.609272973282264,
+      "nudging_over_backprop":13739.023070481744
+    },
+    {
+      "hidden":512,
+      "parameters":669706,
+      "forward_us":4210.197421875,
+      "forward_nograd_us":2151.919296875,
+      "forward_backward_us":16681.1575625,
+      "backward_over_forward":2.962084408638275,
+      "backward_over_forward_nograd":5.795273158586955,
+      "backprop_over_nudge":7.7517579710002344,
+      "nudging_over_backprop":86394.2092239479
+    }
+  ],
+  "derived":{"backward_over_forward_nograd_min":5.045556614378107,"backward_over_forward_nograd_max":6.191281748440955,"backprop_over_nudge_min":6.528246407385851,"backprop_over_nudge_max":8.609272973282264,"largest_over_digit":25.26620387836716}
+}

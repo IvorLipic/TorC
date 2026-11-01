@@ -2,6 +2,9 @@
 // `tl` is the list from engine.timeline(); `step` the current index; onGo(i) moves. Pure render into `box`.
 import { el } from '../core/dom.js';
 
+// A short timeline (at most FEW chips) wraps onto more rows on a phone instead of scrolling (D16).
+export const FEW = 12;
+
 export function renderStepper(box, { tl, step }, { onGo }) {
   const chips = [];
   let phase = null;
@@ -16,7 +19,7 @@ export function renderStepper(box, { tl, step }, { onGo }) {
     el('button', { class: 'btn', 'data-key': 'back', onclick: () => onGo(step - 1), disabled: step === 0, 'aria-label': 'Previous step' }, '◀ Back'),
     el('button', { class: 'btn primary', 'data-key': 'next', onclick: () => onGo(step + 1), disabled: step === tl.length - 1, 'aria-label': 'Next step' }, 'Next ▶'),
     el('span', { class: 'counter' }, `${step}/${tl.length - 1}`),
-    el('div', { class: 'chips', role: 'group', 'aria-label': 'Steps (checkpoints)' }, chips));
+    el('div', { class: tl.length <= FEW ? 'chips few' : 'chips', role: 'group', 'aria-label': 'Steps (checkpoints)' }, chips));
 }
 
 // Keep the current chip centred when the chip row scrolls.
