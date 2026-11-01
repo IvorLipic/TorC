@@ -18,6 +18,12 @@
 //    seed 7 the loss after 3000 samples equals the 30-epoch loss of the runs in 3. bit for bit (a self-check). Also
 //    `gradient_estimate`: at w = b = 0, the gradient of each batch of 10 in the first shuffled epoch (seed 7) against the
 //    gradient on all 100 samples.
+// 7. (v3, training-loop lesson) Additions to `gradient_estimate`: the sample indices of each batch (from a loader with the same
+//    seed and calls on the index dataset), each batch's one optim::SGD step from w = b = 0 (lr 0.1), and the mean and range of the
+//    ten batch gradients (plain arithmetic). `sorted_order`: the loop of 6. with batch 10, the samples sorted by x and no shuffle
+//    (a TensorDataset in x order), 300 steps, the loss on all 100 samples after every step, next to the shuffled run with seed 7.
+//    `accumulate`: on all 100 samples from w = b = 0, the gradient TorC stores after a second forward pass and L.backward(), with
+//    and without zero_grad() in between (one opt.step() between the two passes), and L.backward() called twice on the same L.
 // Everything is library output, except `derived` (plain arithmetic) and the min/max/mean summaries (plain arithmetic on it).
 #include "trace_util.hpp"
 
@@ -92,14 +98,15 @@ int train_epoch(nn::Linear& model, data::DataLoader& loader, optim::SGD& opt) {
 constexpr int CMP_STEPS = 300, CMP_SAMPLES = 3000;
 const std::vector<unsigned> CMP_SEEDS = {7, 8, 9};
 
-// The loop of train_epoch, stopped after `max_steps` steps; loss[k] = loss on all samples after k steps (loss[0] = the start).
-std::vector<float> train_steps(const data::Dataset& ds, int bs, unsigned seed, int max_steps) {
+// The loop of train_epoch, stopped after `max_steps` steps; loss[k] = loss on all samples of `loss_ds` after k steps (loss[0] =
+// the start). The loader reads `ds` (the same samples as `loss_ds`, possibly in another order).
+std::vector<float> train_steps(const data::Dataset& ds, int bs, unsigned seed, int max_steps, bool shuffle, const data::Dataset& loss_ds) {
     nn::Linear model(1, 1, 0.0f, 1);
     zero_start(model);
     optim::SGD opt(model.parameters(), LR);
-    data::DataLoader loader(ds, bs, true, seed);
+    data::DataLoader loader(ds, bs, shuffle, seed);
     nn::MSELoss loss_fn;
-    std::vector<float> curve{full_loss(model, ds)};
+    std::vector<float> curve{full_loss(model, loss_ds)};
     int steps = 0;
     while (steps < max_steps) {
         loader.reset();
@@ -113,7 +120,7 @@ std::vector<float> train_steps(const data::Dataset& ds, int bs, unsigned seed, i
             opt.step();
             opt.zero_grad();
             ++steps;
-            curve.push_back(full_loss(model, ds));
+            curve.push_back(full_loss(model, loss_ds));
         }
     }
     return curve;
@@ -230,7 +237,7 @@ int main() {
         std::map<int, std::vector<std::vector<float>>> curves;  // batch size -> one loss curve per seed (CMP_SEEDS order)
         for (int bs : {10, 100}) {
             for (unsigned seed : CMP_SEEDS) {
-                std::vector<float> c = train_steps(dataset, bs, seed, CMP_STEPS);
+                std::vector<float> c = train_steps(dataset, bs, seed, CMP_STEPS, true, dataset);
                 // seed 7 is the loader seed of the runs in 3.: the same loop must give the same loss after 3000 samples (30 epochs)
                 if (seed == LOADER_SEED) seed7_ok = seed7_ok && c[CMP_SAMPLES / bs] == run_final.at(bs);
                 J r = J::object();
@@ -274,34 +281,119 @@ int main() {
         // gradient estimate at the start: each batch of 10 (seed 7, first epoch) vs. all 100 samples
         J ge = J::object();
         {
-            auto grad_on = [&](const Tensor& xb, const Tensor& yb) {
+            // gw, gb from backward() at w = b = 0; with_step adds the w and b after one optim::SGD step (lr 0.1) on that gradient
+            auto grad_on = [&](const Tensor& xb, const Tensor& yb, bool with_step, float* gw_out = nullptr, float* gb_out = nullptr) {
                 nn::Linear m(1, 1, 0.0f, 1);
                 zero_start(m);
+                optim::SGD opt(m.parameters(), LR);
                 nn::MSELoss mse;
                 const Variable x(xb, false), y(yb, false);
                 Variable out = m(x);
                 Variable L = mse(out, y);
                 L.backward();
+                const float gw = m.named_parameters().at("weight").grad().data()[0], gb = m.named_parameters().at("bias").grad().data()[0];
+                if (gw_out) *gw_out = gw;
+                if (gb_out) *gb_out = gb;
                 J o = J::object();
-                o.set("gw", m.named_parameters().at("weight").grad().data()[0]).set("gb", m.named_parameters().at("bias").grad().data()[0]);
+                o.set("gw", gw).set("gb", gb);
+                if (with_step) {
+                    opt.step();
+                    J st = J::object();
+                    st.set("w", m.named_parameters().at("weight").data().data()[0]).set("b", m.named_parameters().at("bias").data().data()[0]);
+                    o.set("step", std::move(st));
+                }
                 return o;
             };
             auto [xa, ya] = dataset.get_batch(0, dataset.len());
             J batches = J::array();
             data::DataLoader loader(dataset, 10, true, LOADER_SEED);
+            data::DataLoader index_loader(index_ds, 10, true, LOADER_SEED);   // the same seed and calls: the same order
             loader.reset();
+            index_loader.reset();
+            std::vector<float> gws, gbs;
             while (loader.has_next()) {
                 auto [xb, yb] = loader.next_batch();
-                batches.push(grad_on(xb, yb));
+                const std::vector<int> idx = indices_of(index_loader.next_batch().first);
+                for (size_t k = 0; k < idx.size(); ++k) ok = ok && xb.data()[k] == xs[idx[k]];
+                float gw = 0, gb = 0;
+                J b = grad_on(xb, yb, true, &gw, &gb);
+                b.set("indices", trace::jarr(idx));
+                gws.push_back(gw);
+                gbs.push_back(gb);
+                batches.push(std::move(b));
             }
+            auto mean_of = [](const std::vector<float>& v) { double m = 0; for (float f : v) m += static_cast<double>(f); return m / static_cast<double>(v.size()); };
+            J mean = J::object(), range = J::object();
+            mean.set("gw", mean_of(gws)).set("gb", mean_of(gbs));
+            range.set("gw_min", *std::min_element(gws.begin(), gws.end())).set("gw_max", *std::max_element(gws.begin(), gws.end()))
+                .set("gb_min", *std::min_element(gbs.begin(), gbs.end())).set("gb_max", *std::max_element(gbs.begin(), gbs.end()));
             ge.set("at", [] { J o = J::object(); o.set("w", 0).set("b", 0); return o; }()).set("batch_size", 10).set("seed", static_cast<int>(LOADER_SEED))
-                .set("full", grad_on(xa, ya)).set("batches", std::move(batches));
+                .set("full", grad_on(xa, ya, false)).set("batches", std::move(batches)).set("lr", static_cast<double>(LR))
+                .set("mean", std::move(mean)).set("range", std::move(range));
         }
         batch_compare.set("batch_sizes", trace::jarr(std::vector<int>{10, 100})).set("seeds", trace::jarr(std::vector<int>{7, 8, 9}))
             .set("seed_decides", "the shuffled order of the samples (DataLoader seed); the data and the start w = b = 0 are the same in every run")
             .set("lr", static_cast<double>(LR)).set("steps", CMP_STEPS)
             .set("runs", std::move(cruns)).set("band", std::move(band)).set("equal_steps", std::move(eq_steps)).set("equal_samples", std::move(eq_samples))
             .set("gradient_estimate", std::move(ge));
+    }
+
+    // ---- 7. sorted order without shuffle, and gradient accumulation ------------------------------------------------------------
+    J sorted_order = J::object();
+    {
+        std::vector<int> order(N);
+        for (int i = 0; i < N; ++i) order[i] = i;
+        std::stable_sort(order.begin(), order.end(), [&](int a, int b) { return xs[a] < xs[b]; });
+        std::vector<float> sx, sy;
+        for (int i : order) { sx.push_back(xs[i]); sy.push_back(ys[i]); }
+        const data::TensorDataset sorted_ds(trace::make_tensor({N, 1}, sx), trace::make_tensor({N, 1}, sy));
+        const std::vector<float> sorted_curve = train_steps(sorted_ds, 10, LOADER_SEED, CMP_STEPS, false, dataset);
+        const std::vector<float> shuffled_curve = train_steps(dataset, 10, LOADER_SEED, CMP_STEPS, true, dataset);
+        sorted_order.set("batch_size", 10).set("steps", CMP_STEPS).set("order", "the samples sorted by x, smallest first; no shuffle")
+            .set("sorted_indices", trace::jarr(order)).set("sorted_loss", trace::jarr(sorted_curve))
+            .set("shuffled_seed", static_cast<int>(LOADER_SEED)).set("shuffled_loss", trace::jarr(shuffled_curve));
+    }
+    J accumulate = J::object();
+    {
+        auto [xa, ya] = dataset.get_batch(0, dataset.len());
+        nn::MSELoss mse;
+        auto grads = [](nn::Linear& m) {
+            J o = J::object();
+            o.set("gw", m.named_parameters().at("weight").grad().data()[0]).set("gb", m.named_parameters().at("bias").grad().data()[0]);
+            return o;
+        };
+        auto gw_of = [](nn::Linear& m) { return m.named_parameters().at("weight").grad().data()[0]; };
+        J with_zero, without_zero, first;
+        float g1 = 0, g2 = 0, stored = 0;
+        for (bool clear : {true, false}) {
+            nn::Linear m(1, 1, 0.0f, 1);
+            zero_start(m);
+            optim::SGD opt(m.parameters(), LR);
+            const Variable x(xa, false), y(ya, false);
+            Variable out1 = m(x);
+            Variable L1 = mse(out1, y);
+            L1.backward();
+            if (clear) { first = grads(m); g1 = gw_of(m); }
+            opt.step();
+            if (clear) opt.zero_grad();
+            Variable out2 = m(x);
+            Variable L2 = mse(out2, y);
+            L2.backward();
+            if (clear) { with_zero = grads(m); g2 = gw_of(m); }
+            else { without_zero = grads(m); stored = gw_of(m); }
+        }
+        ok = ok && std::fabs(stored - (g1 + g2)) <= 1e-5f * (1.0f + std::fabs(stored));
+        // L.backward() twice on the same L: the second call finds an empty tape (backward clears it) and changes nothing
+        nn::Linear m(1, 1, 0.0f, 1);
+        zero_start(m);
+        const Variable x(xa, false), y(ya, false);
+        Variable out = m(x);
+        Variable L = mse(out, y);
+        L.backward();
+        L.backward();
+        accumulate.set("at", [] { J o = J::object(); o.set("w", 0).set("b", 0); return o; }()).set("samples", N).set("lr", static_cast<double>(LR))
+            .set("first", std::move(first)).set("second_with_zero_grad", std::move(with_zero)).set("second_without_zero_grad", std::move(without_zero))
+            .set("same_loss_twice", grads(m));
     }
 
     J setup = J::object();
@@ -316,7 +408,8 @@ int main() {
     J doc = trace::envelope("training", "training-loop", "tools/trace/trace_training.cpp");
     doc.set("setup", std::move(setup)).set("data", std::move(data)).set("loaders", std::move(loaders))
         .set("exhausted", std::move(exhausted)).set("runs", std::move(runs)).set("no_reset", std::move(no_reset))
-        .set("true_line_loss", true_line_loss).set("derived", std::move(derived)).set("batch_compare", std::move(batch_compare));
+        .set("true_line_loss", true_line_loss).set("derived", std::move(derived)).set("batch_compare", std::move(batch_compare))
+        .set("sorted_order", std::move(sorted_order)).set("accumulate", std::move(accumulate));
     std::fputs(doc.dump().c_str(), stdout);
     if (!seed7_ok) { std::cerr << "trace_training: batch_compare with seed 7 does not reproduce the runs after 30 epochs\n"; return 1; }
     if (!ok) { std::cerr << "trace_training: the index loader and the data loader disagree on the batch order\n"; return 1; }
