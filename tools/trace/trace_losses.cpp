@@ -9,11 +9,19 @@
 // 5. The errors CrossEntropyLoss throws for bad targets and logits.
 // 6. nn::MSELoss on a prediction of shape (3, 1) and targets of shape (3): the exception forward() throws and its what() text
 //    (TorC after PR #6 requires equal shapes; v0.1.0 broadcast them to (3, 3) and threw nothing).
+// v3 additions (lesson `losses` as "Softmax and cross-entropy"), appended after the keys above:
+// 7. `exp_rows`: for each row of logits of 2., torc::exp of the logits, torc::sum of those, and torc::softmax (so a lesson never
+//    computes e^z, the sum or a share itself).
+// 8. `curves.p`: the probability of the correct class (column 0 of torc::softmax) at each z of 4.
+// 9. `spread`: two rows of logits whose correct class (0) gets the same probability while the rest is spread differently
+//    ([2, 0, 0] and [2, ln 1.9, ln 0.1]): cross-entropy, softmax and gradient.
+// 10. `ten`: ten equal logits (ten classes, as for the ten digits) with target 3: cross-entropy and softmax (expected ln 10).
 // Everything is library output.
 #include "trace_util.hpp"
 
 #include "torc/nn/losses.hpp"
 
+#include <cmath>
 #include <iostream>
 
 using namespace torc;
@@ -30,6 +38,19 @@ J ce_case(const std::vector<float>& row, int target) {
     J o = J::object();
     o.set("target", target).set("loss", L.data().data()[0]).set("softmax", trace::jarr(trace::values_of(z.data().softmax(1))))
         .set("grad", trace::jarr(trace::values_of(z.grad())));
+    return o;
+}
+
+J ce_one(const char* id, const std::vector<float>& row, int target) {
+    nn::CrossEntropyLoss ce;
+    const int n = static_cast<int>(row.size());
+    Variable z(trace::make_tensor({1, n}, row), true);
+    const Variable t(trace::make_tensor({1}, {static_cast<float>(target)}), false);
+    Variable L = ce(z, t);
+    L.backward();
+    J o = J::object();
+    o.set("id", id).set("logits", trace::jarr(row)).set("target", target).set("loss", L.data().data()[0])
+        .set("softmax", trace::jarr(trace::values_of(z.data().softmax(1)))).set("grad", trace::jarr(trace::values_of(z.grad())));
     return o;
 }
 
@@ -78,7 +99,7 @@ int main() {
         .set("loss", Lb.data().data()[0]).set("grad", trace::jarr(trace::values_of(zb.grad())));
 
     // ---- 4. cross-entropy against squared error on probabilities, two classes ------------------------------------------------
-    J zs = J::array(), ce_loss = J::array(), ce_grad = J::array(), sq_loss = J::array(), sq_grad = J::array();
+    J zs = J::array(), ce_loss = J::array(), ce_grad = J::array(), sq_loss = J::array(), sq_grad = J::array(), p_right = J::array();
     for (int k = 0; k <= 48; ++k) {
         const float zk = -6.0f + 0.25f * static_cast<float>(k);
         zs.push(zk);
@@ -96,13 +117,14 @@ int main() {
             Variable p = softmax(z, 1);
             Variable L = mse(p, onehot);
             L.backward();
+            p_right.push(p.data().data()[0]);
             sq_loss.push(L.data().data()[0]);
             sq_grad.push(z.grad().data()[0]);
         }
     }
     J curves = J::object();
     curves.set("z", std::move(zs)).set("ce_loss", std::move(ce_loss)).set("ce_grad", std::move(ce_grad))
-        .set("sq_loss", std::move(sq_loss)).set("sq_grad", std::move(sq_grad));
+        .set("sq_loss", std::move(sq_loss)).set("sq_grad", std::move(sq_grad)).set("p", std::move(p_right));
 
     // ---- 5. errors ----------------------------------------------------------------------------------------------------------
     J errors = J::array();
@@ -122,9 +144,32 @@ int main() {
             .set("exception", c.type).set("what", c.what);
     }
 
+    // ---- 7. e to the power of each logit, their sum and the shares -----------------------------------------------------
+    J exp_rows = J::array();
+    for (const auto& r : rows) {
+        const Variable z(trace::make_tensor({1, 3}, r.v), false);
+        Variable e = exp(z);
+        Variable s = sum(e);
+        Variable p = softmax(z, 1);
+        J o = J::object();
+        o.set("id", r.id).set("logits", trace::jarr(r.v)).set("exp", trace::jarr(trace::values_of(e.data())))
+            .set("exp_sum", s.data().data()[0]).set("shares", trace::jarr(trace::values_of(p.data())));
+        exp_rows.push(std::move(o));
+    }
+
+    // ---- 9. the same probability for the correct class, the rest spread differently ------------------------------------
+    J spread = J::array();
+    spread.push(ce_one("even", {2.0f, 0.0f, 0.0f}, 0))
+        .push(ce_one("uneven", {2.0f, std::log(1.9f), std::log(0.1f)}, 0));
+
+    // ---- 10. ten classes with equal logits ------------------------------------------------------------------------------
+    J ten = ce_one("ten-equal", std::vector<float>(10, 0.0f), 3);
+    ten.set("classes", 10);
+
     J doc = trace::envelope("losses", "losses", "tools/trace/trace_losses.cpp");
     doc.set("mse", std::move(m)).set("ce", std::move(ce_rows)).set("batch", std::move(batch)).set("curves", std::move(curves))
-        .set("errors", std::move(errors)).set("mse_mismatch", std::move(mse_mismatch));
+        .set("errors", std::move(errors)).set("mse_mismatch", std::move(mse_mismatch))
+        .set("exp_rows", std::move(exp_rows)).set("spread", std::move(spread)).set("ten", std::move(ten));
     std::fputs(doc.dump().c_str(), stdout);
     return 0;
 }

@@ -23,6 +23,12 @@ export function exampleFromScene(scene) {
   return { x: mat(scene, 'x'), W: mat(scene, 'W'), b: vec(scene, 'b'), y: mat(scene, 'y', false) };
 }
 
+// The same from a plain record of tensors {x, W, b} ({shape, values} each), such as `taxi` in linear.json.
+export function exampleFromTensors(rec) {
+  const m = (t) => rowsOf(t.values.map(round7), t.shape[0], t.shape[1] ?? 1);
+  return { x: m(rec.x), W: m(rec.W), b: rec.b.values.map(round7), ...(rec.y ? { y: rowsOf(rec.y.values, rec.y.shape[0], rec.y.shape[1]) } : {}) };
+}
+
 export function linearForward(x, W, b) {
   return x.map((row) => W.map((w, k) => row.reduce((s, v, j) => s + v * w[j], 0) + b[k]));
 }
@@ -42,7 +48,7 @@ export function neuronTex(x, W, b, i, k) {
   const n = xr.length, I = i, K = k;
   return aligned([
     `y_{${I}${K}} &= \\sum_{j=0}^{${n - 1}} x_{${I}j}\\,W_{${K}j} + b_{${K}}`,
-    `&= ${joinPlus(xr.map((v, j) => `${par(v)}\\cdot ${par(wr[j])}`))} + ${par(b[k])}`,
+    `&= ${joinPlus(xr.map((v, j) => `${par(v)}\\times ${par(wr[j])}`))} + ${par(b[k])}`,
     `&= ${joinPlus(xr.map((v, j) => par(v * wr[j])))} + ${par(b[k])} = ${tn(y)}`,
   ]);
 }

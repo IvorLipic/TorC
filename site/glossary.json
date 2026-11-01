@@ -167,7 +167,7 @@
       "term": "logit",
       "forms": ["logit", "logits"],
       "short": "A logit is the raw score that a model gives one class, before softmax changes the scores into probabilities.",
-      "lesson": "classification"
+      "lesson": "losses"
     },
     "loss": {
       "term": "loss",

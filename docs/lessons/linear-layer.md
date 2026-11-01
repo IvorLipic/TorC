@@ -81,21 +81,53 @@ Weights are `{in, out}` (they are `{out, in}`; the error message shows the trans
 ## 5. Test hooks suggested by the data
 Engine equals scenes `linear` and `linear-dx` (values and grads, `1e-5 (1+|b|)`); parity flags true; `param_counts[*].total == sum(in*out+out)` (and for conv `out*in*k*k+out`) using `layers[*].params`; `init_stats[*].std` within 5 % of `expected_std` when `numel >= 1000`; `shape_errors[*].what` matches `/inner dimensions must match/` for the width cases and `/rank >= 2/` for the rank-1 case; `x.grad` rows equal column sums of `W`; `example.gW_equals_dYT_x_max_abs_diff < 1e-5`; FD present and `ok`; `signal` consumers read the table, never recompute it; quoted numbers bound to paths (4.6, -0.7, 0.3125 in `scenes[0]`, 25120 and 26506 in `param_counts`, shipped stds in `init_stats`).
 
-## Lesson status (concise rewrite, decisions 7-9)
+## 6. The taxi layer (`linear.json` `taxi`, v3)
 
-Files: `site/js/lessons/linear-layer.js`, `site/js/widgets/matmul-grid.js` (editable x, W, b; pick an output to light up its rows;
-"Copy the first neuron into the second" copies weights and bias; Reset), `init-signal.js` (six Linear(256, 256) + ReLU layers, three recorded
-initialisations and all three on a log scale), helpers `linear-ui.js`, `linear-math.js`, `linear-shapes.js`, `linear-signal-data.js`,
-`site/test/linear-layer.test.mjs`.
+**Observed (V).** A real `nn::Linear(3, 2)` (`trace_linear.cpp`, weights set by hand through `named_parameters()`), inputs per ride
+(km, minutes of waiting, bags): `x = [[4, 6, 2], [10, 0, 1]]`, `W = [[2, 0.5, 1], [3, 1, 0]]` (row 0 = price in euros, row 1 = time in
+minutes), `b = [1, 2]`. `weight_shape = [2, 3]` (out, in), `bias_shape = [2]`. Forward `y = [[14, 20], [22, 32]]`. After `b[0] += 1`,
+`y_bias0_plus1 = [[15, 20], [23, 32]]` (the bias reaches every row, the second column is unchanged). Every product and sum is exact in
+float32 (`exact: true`, checked in double inside the program).
 
-**As built**: hero → TL;DR → 1 shapes (one equation with the shapes, 25088 + 32 = 25120, the real `ShapeError` for x (8, 10)) →
-2 one neuron is one row of W → grid → 3 backward (three formulas; bias sums over the batch) → predict (dX rows = column sums of W) →
-4 initialisation (√(2/in); after six layers 0.69–0.89 over 10 Kaiming draws, 2.17e-6 at init_std 0.01, 2.17e6 at 1.0) → signal widget → 2 checks (shapes; raising b[2]) → course map.
-Measured: 359 words, 9 numbers in the text (+2 in scientific form), 2 widgets, 3 questions.
+**Expected (math).** `y_ik = Σ_j x_ij W_kj + b_k`: 2·4 + 0.5·6 + 1·2 + 1 = 14, 3·4 + 1·6 + 0·2 + 2 = 20, 2·10 + 0.5·0 + 1·1 + 1 = 22,
+3·10 + 0 + 0 + 2 = 32. Setting `W[0][2] = 0` lowers price i by `x[i][2]` (2 and 1), which is the third grid task (tested on the JS port).
 
-**Removed in the rewrite**: the shape explorer, the graph lab of the three operations and the parity box, the backward widget, the
-weight histogram, the long initialisation derivation and seed discussion, the six mix-up cards, the recap, the gotcha box (one sentence
-now), the colour legend for printed/derived numbers and the long footer.
+**Suspected discrepancy.** None.
 
-**Definition of done**: tests and site check green; Chromium at 1366×768 and 390×844 (grid copy/Reset/edit b[2], signal views; no
-console errors, no horizontal overflow). Independent review done (2026-10-15, no blocker/high; findings fixed). Not done: a real screen reader.
+## Lesson status (v3, template 3, "The neuron and the layer")
+
+Files: `site/js/lessons/linear-layer.js`, `site/js/widgets/neuron-figure.js` (new: the circles-and-arrows picture, pure SVG from
+`taxi`; weight labels placed on backing boxes without overlap), `matmul-grid.js` (now the taxi layer by default, captions name rides
+and neurons, no twin button), `layer-count.js` (new: the three Linear layers of the digit network from `param_counts`, W drawn to scale,
+whole-network sum), `linear-math.js` (`exampleFromTensors`), `site/test/linear-layer.test.mjs`. `init-signal.js` and
+`linear-signal-data.js` stay in the repo for `deep-nets` (the signal table test stays in this lesson's test file).
+
+**As built** (after the review of 2026-10-31): hero → Questions (three inputs; where 26,506 comes from) → setup "Taxi prices" →
+predict (cost of the first ride; reveal worked 14) → 1 one neuron (weights; "weighted sum, also called a dot product" defined;
+bias; the picture before the formula; positions from 0 "as in TorC and most programs"; y and j named; the limits of Σ) → 2 a layer
+(time neuron, picture of two neurons, "a neuron is not a small brain") → 3 one matrix product (the second ride introduced; x, W, b;
+y_ik with Σ from 0 to 2; Wᵀ explained BEFORE the product claim; y = x × Wᵀ + b; "TorC adds b to each row", broadcasting;
+matrix-product refresher) → Your turn y₁₀ ("ride 1, the second ride") → matmul grid (header y = x × Wᵀ + b, no operator glyphs, ×
+in the calculation; outputs show "?" until the reader chooses one with a click or Enter or presses Show all outputs, so the grid
+never answers the quiz above it; 3 tasks) → transfer (shape of W of the first digit layer) → 4 why W is (neurons, inputs): each
+row keeps one neuron's weights together; the count rule → Your step: the second layer (32 × 32 + 32 = 1,056), whose reveal works out
+25,120 + 1,056 + 330 = 26,506 → layer counter (2 tasks) → cumulative from `sgd-step` → explain → answer.
+Budgets: 1,394 words (cap 1,400), 4 numbered sections, 5 quizzes, 3 worked blocks (all in quiz reveals), palette 1.
+
+**Deviations from the brief and the task.**
+- The dot-product refresher is not opened: the lesson is at the 1,400-word cap with the matrix-product refresher, and the neuron
+  section does the dot product with the reader's own numbers and names it in one sentence. Add it back only if something else goes.
+- "A neuron is a little brain" is answered in one plain sentence, not with the analogy block (the palette would be 3 with two
+  refreshers, and the word cap).
+- The worked block of the time neuron left section 2 (the grid's first task shows that calculation), so that the third worked
+  block can answer the opening question (26,506) in the reveal of the second-layer quiz.
+- The misconception refuted with page evidence is "W is (in, out)": the transfer quiz, then the recorded shape (32, 784) in the layer
+  counter and in the grid (one row per neuron).
+- The backward rules, the x̄ predict, the `ShapeError` message, initialization (twin button, six-layer plot) left the page.
+- The concrete data is new (taxi), so that the reader computes a neuron before it is named; the old `linear` scenes stay for `backprop`.
+- Tooling: `tools/prose/extract.mjs` now writes a picture as "Picture. <aria-label>" and drops the SVG label text, because the labels of
+  the network picture and of the matrix-product refresher ran together into one "sentence" of 26-32 words (hard finding).
+
+**Definition of done**: `node --test site/test/*.test.mjs`, `node tools/check_site.mjs`, `tools/prose/check.sh` (0 hard),
+`tools/trace/run.sh` then `--check`; Chromium at 1366×768 and 390×844 by keyboard (predict quiz, grid tasks, layer counter), no console
+errors, no horizontal scroll, no overlapping labels. Not done: pedagogy reviewer, cold reader, independent review, human think-alouds.
