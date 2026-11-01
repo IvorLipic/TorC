@@ -33,8 +33,42 @@ counts, that each epoch gives each sample once, and the loss of the true line ag
 - The recorded orders and samples come from libstdc++'s `std::shuffle` and distributions. A libc++ build gives other values,
   which the drift check would report. CI uses libstdc++.
 
+## v3 additions (curriculum v3, template 3; brief §6, §7, C1, C5)
+**Observed** (`batch_compare`, `sorted_order`, `accumulate`, extra fields of `gradient_estimate`; schema in `docs/trace-schema.md`):
+- At w = b = 0 the gradient of all 100 samples is (gw, gb) = (−1.505, −1.484). The ten batches of 10 of the first training epoch
+  (seed 7, the order after one `reset()`, so `loaders[10, shuffle].epochs[1]`) give gw from −2.462 to −0.528 and gb from −2.412
+  to −0.233, every one with the sign of the full gradient, none within 0.05 of it. Their mean equals the full gradient to 1e-6.
+  One `optim::SGD` step (lr 0.1) on the first batch alone moves w from 0 to 0.1548.
+- Batch 10 against batch 100 (lr 0.1, start 0, loader seeds 7, 8, 9): after 30 steps the losses are 0.0986 to 0.1005 (typical miss
+  0.314 to 0.317) and 0.1012 (0.318). After 3000 samples (300 against 30 steps) they are 0.008108 (0.090) and 0.1012 (0.318). After
+  300 steps both are at 0.008108. Batch 100 is the same for every seed to 7 significant figures (not bit for bit at every step,
+  because the shuffled order changes the order of the float sums). The three batch-10 runs spread apart in the first steps (loss
+  2.32 to 2.82 after one step, against 2.60 for batch 100).
+- Sorted by x, no shuffle, batch 10: the loss on all samples rises from 3.019 to 3.357 over the first two steps and is still above the start after three (typical miss 1.74
+  to 1.83), then falls. Shuffled (seed 7) it falls from the first step. After one epoch: 1.21 against 0.93 (typical miss).
+- `accumulate`: at the start, `L.backward()` stores gw −1.505. After `opt.step()`, `zero_grad()`, a new forward pass and
+  `L.backward()`: −1.447. The same without `zero_grad()`: −2.952 = −1.505 + (−1.447) (a self-check in the program). Calling
+  `L.backward()` twice on the same `L` leaves −1.505, because `backward_with_grad` ends with `tape_.clear()` on the root
+  (`include/torc/autograd.hpp`). So the lesson says that gradients add up over a new forward pass and backward, never over a
+  second backward on the same loss.
+
+**Expected mathematics.** For MSE, the gradient is a mean over the samples, so the mean of the gradients of equal-sized batches that
+partition the data is the full gradient (an unbiased estimate). Far from the minimum the noise of a batch of 10 is small next to the
+gradient, so per step batch 10 and batch 100 progress about equally; per sample seen, batch 10 takes ten times more steps. Near the
+minimum the full gradient goes to zero, and the batch noise dominates (the loss of batch 10 wobbles slightly by seed). A sorted order
+makes consecutive batches biased estimates (the first ones see only small x), which is why the loss rises at first.
+
+**Suspected discrepancy.** None found. The page says "a different random order gives slightly different numbers, so we ran three"
+(C5). The comparison is one problem (a line with 100 samples); the page does not claim more.
+
+**Moved.** The `reset()` question (`no_reset`) left this page for the appendix lesson `torc-pitfalls`; the data stays in the trace.
+The batch-32 run stays in the trace for the "Your turn" quiz (4 steps per epoch).
+
 ## Lesson status
-Published 2026-10-20. Widgets: `training-widgets.js` (batch viewer, training curves). Tests: `site/test/training-loop.test.mjs`.
+Rewritten as `template: 3` on 2026-11-01 (branch `part4-train`): widgets `training-widgets.js` (batch viewer, batch gradients,
+batch-size comparison with three views) and `curve-labels.js` (direct curve labels). The `code` in `course.json` is the five-line
+loop of the page; `tools/snippets/check.mjs` runs it and checks that it lands at w 3.0023, b 1.0134 with the gradients cleared.
+Earlier history: published 2026-10-20. Widgets: `training-widgets.js` (batch viewer, training curves). Tests: `site/test/training-loop.test.mjs`.
 Both code blocks were compiled and run against v0.1.0. Checked: Node tests, `check_site`, `tools/prose/check.sh`, Chromium at both
 widths, axe-core clean. Independent review 2026-10-20 (no blockers). Fixed after it: section 4 said the true line's loss is the lowest loss, but the
 fitted line is a little below it on the training samples (the page now says so, and a test checks the sign); "update" and

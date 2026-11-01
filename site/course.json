@@ -233,26 +233,27 @@
         {
           "id": "training-loop",
           "title": "The training loop",
-          "outcome": "You can explain why training uses small groups of examples, called batches. You can follow the five lines of the training loop in TorC.",
+          "outcome": "You can explain why each training step uses a small random batch, and why its gradient is only an estimate. You can compare two batch sizes fairly and follow the five lines of the training loop.",
           "prereqs": [
             "deep-nets"
           ],
           "symbols": [
-            "data::Dataset",
-            "data::SyntheticRegression",
             "data::DataLoader",
-            "optim::SGD"
+            "optim::SGD",
+            "optim::SGD::zero_grad",
+            "Variable::backward"
           ],
           "trace": [
             "training.json"
           ],
-          "est_minutes": 8,
+          "est_minutes": 15,
           "status": "published",
           "widgets": [
             "batch viewer",
-            "training curves"
+            "batch gradients",
+            "batch-size comparison"
           ],
-          "code": "data::DataLoader loader(dataset, 32, /*shuffle=*/true);\nwhile (loader.has_next()) {\n    auto [xb, tb] = loader.next_batch();\n    // forward → loss → backward → step → zero_grad\n}"
+          "code": "for (int epoch = 0; epoch < 30; ++epoch) {\n  loader.reset();                // a new order\n  while (loader.has_next()) {\n    auto [xb, tb] = loader.next_batch();\n    Variable x(xb, false), t(tb, false);\n    Variable y = model(x);       // 1. predict\n    Variable L = loss_fn(y, t);  // 2. the loss\n    L.backward();                // 3. gradients\n    opt.step();                  // 4. the step\n    opt.zero_grad();             // 5. clear\n  }\n}"
         },
         {
           "id": "optimizers",
