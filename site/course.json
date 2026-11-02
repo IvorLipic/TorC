@@ -386,8 +386,8 @@
         },
         {
           "id": "mnist-cnn",
-          "title": "Digits with a CNN",
-          "outcome": "You can explain why a convolutional network reads the same digits with fewer weights than the first network for digits.",
+          "title": "Reading digits with a convolutional network",
+          "outcome": "You can explain why a convolutional network reads digits better than the MLP with fewer parameters. You can say why that comparison is not perfectly fair.",
           "prereqs": [
             "convolution"
           ],
@@ -398,15 +398,16 @@
           ],
           "trace": [
             "mnist-cnn.json",
-            "mnist-mlp.json"
+            "mnist-mlp.json",
+            "mnist-seeds.json"
           ],
-          "est_minutes": 10,
+          "est_minutes": 15,
           "status": "published",
           "widgets": [
             "first-layer kernels and feature maps",
             "digit pad"
           ],
-          "code": "using std::make_unique;\nmodel.add(make_unique<nn::Conv2d>(1, 8, 3, 2, 1));   // (N, 8, 14, 14)\nmodel.add(make_unique<nn::ReLU>());\nmodel.add(make_unique<nn::Conv2d>(8, 16, 3, 2, 1));  // (N, 16, 7, 7)\nmodel.add(make_unique<nn::ReLU>());\nmodel.add(make_unique<nn::Flatten>());\nmodel.add(make_unique<nn::Linear>(16 * 7 * 7, 10)); // 9,098 params"
+          "code": "using std::make_unique;\n// (B, 1, 28, 28) becomes (B, 8, 14, 14)\nmodel.add(make_unique<nn::Conv2d>(1, 8, 3, 2, 1));\nmodel.add(make_unique<nn::ReLU>());\n// (B, 8, 14, 14) becomes (B, 16, 7, 7)\nmodel.add(make_unique<nn::Conv2d>(8, 16, 3, 2, 1));\nmodel.add(make_unique<nn::ReLU>());\nmodel.add(make_unique<nn::Flatten>());\n// 9,098 parameters\nmodel.add(make_unique<nn::Linear>(16 * 7 * 7, 10));"
         }
       ]
     },
