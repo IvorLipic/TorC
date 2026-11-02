@@ -258,22 +258,24 @@
         {
           "id": "optimizers",
           "title": "Better optimizers",
-          "outcome": "You can compare momentum, Adam and AdamW on the same problem. You can say how each of them changes the size of a step.",
+          "outcome": "You can explain how momentum, Adam and AdamW change the step of plain gradient descent. You can say why a fair comparison gives each optimizer its own best learning rate, and why no optimizer wins on every problem.",
           "prereqs": [
             "training-loop"
           ],
           "symbols": [
             "optim::SGD",
             "optim::Adam",
-            "optim::AdamW"
+            "optim::AdamW",
+            "optim::SGD::step"
           ],
           "trace": [
             "optimizers.json"
           ],
-          "est_minutes": 7,
+          "est_minutes": 14,
           "status": "published",
           "widgets": [
-            "optimizer race"
+            "plain SGD and momentum in a valley",
+            "a fair race on two problems"
           ],
           "code": "optim::SGD sgd(params, 0.01f, /*momentum=*/0.9f);\noptim::Adam adam(params, /*lr=*/1e-3f);\noptim::AdamW adamw(params, 1e-3f, /*weight_decay=*/0.01f);"
         },

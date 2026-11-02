@@ -13,6 +13,7 @@
 //    TorC's sum() threw NumericalError; final_loss is then null and the exception is recorded), and `best` is the lr with the
 //    lowest final loss among the runs that did not diverge.
 //    `race`: the four optimizers, each at its own best lr, with the full path in the format of valley.runs.
+// 6. (v3) `race_surface`: the valley's loss on a wider grid than valley.surface, for the map of the race.
 // 5. (v3, brief C4) `bowl`: a second problem, the round bowl L = 2 w1^2 + 2 w2^2 (curvature 4 in both directions), from the same
 //    start and with the same 50 steps, lr grid, optimizers and rules as 4. It holds its own `sweep` and `race` in the formats of
 //    4., and a loss grid for the contour lines. On it, every direction is equally steep.
@@ -289,6 +290,23 @@ int main() {
     J sweep = J::object();
     J race = J::array();
     sweep_problem(HALF_CURV, sweep, race);
+    // the valley's loss on a wider grid for the race map: the Adam and AdamW paths at their best lr overshoot to w1 = 1.8 and
+    // w2 = -0.6, outside valley.surface. w1 = -4.5 .. 2.5 (step 0.1), w2 = -0.7 .. 0.7 (step 0.025)
+    J race_surface = J::object();
+    {
+        J g1 = J::array(), g2 = J::array(), grid = J::array();
+        std::vector<float> w1s, w2s;
+        for (int i = 0; i <= 70; ++i) w1s.push_back(static_cast<float>(i - 45) / 10.0f);
+        for (int j = 0; j <= 56; ++j) w2s.push_back(static_cast<float>(j - 28) / 40.0f);
+        for (float v : w1s) g1.push(v);
+        for (float v : w2s) g2.push(v);
+        for (float b : w2s) {
+            J row = J::array();
+            for (float a : w1s) row.push(valley_at(a, b));
+            grid.push(std::move(row));
+        }
+        race_surface.set("w1", std::move(g1)).set("w2", std::move(g2)).set("order", "loss[j][i] at (w1[i], w2[j])").set("loss", std::move(grid));
+    }
     J bowl = J::object();
     {
         J bsweep = J::object(), brace = J::array();
@@ -318,7 +336,7 @@ int main() {
     J doc = trace::envelope("optimizers", "optimizers", "tools/trace/trace_optimizers.cpp");
     doc.set("valley", std::move(valley)).set("first_step", std::move(first)).set("decay_setup", std::move(decay_setup))
         .set("decay", std::move(decay)).set("derived", std::move(derived))
-        .set("sweep", std::move(sweep)).set("race", std::move(race)).set("bowl", std::move(bowl));
+        .set("sweep", std::move(sweep)).set("race", std::move(race)).set("bowl", std::move(bowl)).set("race_surface", std::move(race_surface));
     std::fputs(doc.dump().c_str(), stdout);
     return 0;
 }

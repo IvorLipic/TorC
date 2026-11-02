@@ -273,6 +273,8 @@ v3 additions (brief C4), appended after the keys above:
   (equally steep in every direction), with the same start, lr grid, optimizers and rules as `sweep` and `race` above, in their formats.
   `surface` = `{w1[61] (-4.5 .. 3), w2[61] (-3 .. 3), order, loss[61][61]}`. Observed: plain SGD at its best lr (0.2) reaches a loss
   of exactly 0 in float32; Adam, AdamW and momentum at their best lr end above it. On the valley, Adam ends lowest.
+- `race_surface` = `{w1[71] (-4.5 .. 2.5), w2[57] (-0.7 .. 0.7), order, loss[57][71]}`: the valley's loss on a wider grid than
+  `valley.surface`, for the map of the race (Adam and AdamW at lr 1 overshoot to w1 = 1.8 and w2 = -0.6).
 
 ## `generalization.json` (kind `generalization`, lesson `generalization`)
 
