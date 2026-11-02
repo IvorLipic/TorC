@@ -306,6 +306,16 @@ unchanged, because the validation samples are drawn from the same `std::mt19937`
   batch_size 64, shuffle false, steps_per_epoch 1, loss "nn::MSELoss"}`: what the code on the page must show. `batch_size` is
   the `DataLoader` batch size; it is larger than the 10 samples, so each step uses all of them.
 
+Added for the v3 lesson (C10), appended keys only (all earlier values unchanged; the new draws come after the validation samples):
+- `settings.parameters` = 16: the parameter count of the model, read from `model.parameters()`.
+- `more_data` = `{train_samples 100, batch_size 128, weight_decay 0, train_x[100], train_t[100], checkpoints[27], val_stop,
+  best_test}`: the same model without weight decay on the 10 training samples plus 90 more (x uniform in `[-1, 1)`), one batch per
+  step. Checkpoints as in `runs`.
+- `derived.true_wave_loss` = `{train, val, test, more_train}`: the mean squared miss of `sin(pi x)` itself on each set.
+- `derived.decay_factor[3]` = `1 - lr * weight_decay` for each run (AdamW keeps this part of each parameter, besides its update).
+- `derived.misses[3]` (per run, `weight_decay` included) and `derived.more_data_misses` = `{stop, last}`, each `{step, train, val,
+  test, ratio}`: typical misses (square roots of the losses) at the validation stop and at the last step, `ratio = val / train`.
+
 ## `classification.json` (kind `classification`, lesson `classification`)
 
 A disc of class 1 inside a ring of class 0, so no straight line separates them. Producer: `tools/trace/trace_classification.cpp`.
