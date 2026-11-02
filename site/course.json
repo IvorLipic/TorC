@@ -452,7 +452,7 @@
           "trace": [
             "tensors.json"
           ],
-          "est_minutes": 7,
+          "est_minutes": 15,
           "status": "published",
           "widgets": [
             "broadcast grid",

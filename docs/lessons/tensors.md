@@ -24,9 +24,20 @@ Broadcasting rule as stated in the lesson; `C_ij = Σ_l A_il B_lj`. Matches ever
 ## Suspected discrepancy
 None.
 
+## Observed, added for the v3 appendix rewrite (same program, additive keys)
+- `matmul_2x2`: `[[1, 2], [3, 4]]` times `[[5, 6], [7, 8]]` is `[[19, 22], [43, 50]]` (the worked entry 19, the "your turn" entry 50).
+- `image`: a made-up colour image of shape `(3, 2, 2)` (channels, rows, columns). `image[c, i, j]` sits at position `(c*2 + i)*2 + j`
+  (checked against `data()`), `image[2, 1, 0]` at position 10 with value 3. `sum`, `mean`, `max` along axes 0, 1 and 2 give shapes
+  `(2, 2)`, `(3, 2)`, `(3, 2)`; `image.sum(0)` is `[[24, 18], [12, 6]]`.
+- `index_errors`: `a[2, 0]` and `a[0, 3]` throw `ShapeError` "Index out of bounds at dim d: k not in [0, n)" (positions count from 0);
+  `a[1]` throws `ShapeError` "Rank mismatch: got 1 indices for rank 2".
+- `TorC` has no keep-dimension option: `Tensor::sum(int)`, `mean(int)` and `max(int)` have only the axis argument (`include/torc/tensor.hpp`).
+
 ## Lesson status
-Published 2026-10-16. Widgets: `tensor-widgets.js` (broadcast grid, axis explorer), both showing recorded values only.
-Tests: `site/test/tensors.test.mjs`. Checked: Node tests, `check_site`, `tools/prose/check.sh` (0 hard), Chromium at 1366×768 and
-390×844 (widgets driven, no console errors, no horizontal overflow), axe-core clean. Independent review 2026-10-16 (no blockers); its findings are fixed: the page and the widgets count from 0 and
-say so, dimension, axis and transpose are defined, the check answers take their shapes from the trace, and moving the mouse no
-longer makes a screen reader speak. Not done: screen reader.
+Rewritten 2026-11 as an appendix page (`template: 3`, part `using-torc`, outside the lesson order; brief §6 appendix and §7):
+storage and position formula, a 3-D image example, reshape copies, broadcasting rules (predict quiz "(2) + (2, 3)?", broadcast grid),
+reductions and axes ("the position of a dimension", axis explorer now with the image and axis 2), one worked 2 x 2 product before the
+index formula and a numeric "your turn", batched `matmul`. `gotcha` boxes for reshape, addition and matmul errors.
+Widgets: `tensor-widgets.js` (broadcast grid, axis explorer with `reducedIndices`). Tests: `site/test/tensors.test.mjs` (the n-d
+reduction helper against every recorded reduction, the worked product, every message quoted). Checked: Node tests, `check_site`,
+`tools/prose/check.sh`, Chromium at 1366x768 and 390x844. Not done: human think-aloud, screen reader.

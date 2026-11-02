@@ -2,7 +2,8 @@
 //
 //   mountBroadcastGrid(host, D)   a (2, 3) plus b of a chosen shape: the shapes lined up from the right, the grids, the result
 //                                 or TorC's ShapeError. Selecting a result cell marks the cell of a and the cell of b it used.
-//   mountAxisExplorer(host, D)    sum, mean or max of a along axis 0 or 1: which cells each result combines.
+//   mountAxisExplorer(host, D)    sum, mean or max of a tensor along one axis: the matrix a (axes 0 and 1) or the colour image
+//                                 (axes 0, 1 and 2). Which cells each result combines.
 //
 // Pure helpers (alignShapes, sourceIndex, reducedCells) are exported for the tests. The module touches the DOM only in mount*.
 import { el } from '../core/dom.js';
@@ -26,6 +27,15 @@ export function sourceIndex(shape, idx) {
   let flat = 0;
   shape.forEach((d, k) => { flat = flat * d + (d === 1 ? 0 : idx[off + k]); });
   return flat;
+}
+
+// The flat positions of a tensor of shape `shape` that entry `r` (a flat position of the result) of a reduction along `axis`
+// combines. This is the loop of Tensor::reduce_axis: the result has the shape without `axis`, and entry r takes every
+// position that differs only in the index along `axis`.
+export function reducedIndices(shape, axis, r) {
+  const inner = shape.slice(axis + 1).reduce((x, y) => x * y, 1);
+  const o = Math.floor(r / inner), j = r % inner;
+  return Array.from({ length: shape[axis] }, (_, k) => o * shape[axis] * inner + k * inner + j);
 }
 
 // The cells (as [row, col]) of a 2-D tensor that result `r` of a reduction along `axis` combines.
@@ -55,6 +65,7 @@ function presetGroup(label, items, pick) {
 
 const CSS = `
 .tw{background:var(--panel);border:1px solid var(--border);border-radius:var(--r);padding:.8rem 1rem 1rem;margin:14px 0}
+.tw-axes{margin:0}
 .tw-presets{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 .7rem}
 .tw .btn[aria-pressed=true]{border-color:var(--fwd);color:var(--fwd);background:rgba(88,196,221,.1)}
 .tw-row{display:flex;flex-wrap:wrap;gap:.8rem 1rem;align-items:center}
@@ -136,37 +147,55 @@ export function mountBroadcastGrid(host, D) {
 }
 
 // ======================================================================================================================
+const TENSORS = [['a', 'a, shape (2, 3)'], ['image', 'image, shape (3, 2, 2)']];
+const AXIS_TEXT = {
+  a: [[0, 'axis 0 (down the rows)'], [1, 'axis 1 (across the columns)']],
+  image: [[0, 'axis 0 (the channels)'], [1, 'axis 1 (the rows)'], [2, 'axis 2 (the columns)']],
+};
+
 export function mountAxisExplorer(host, D) {
   injectStyles();
-  const T = D.files.tensors, A = T.example, [R, C] = A.shape;
-  let op = 'sum', axis = 0, sel = 0;
+  const TD = D.files.tensors;
+  const pick = (id) => (id === 'a'
+    ? { name: 'a', shape: TD.example.shape, values: TD.example.values, reds: TD.reductions }
+    : { name: 'image', shape: TD.image.shape, values: TD.image.values, reds: TD.image.reductions });
+  let tid = 'a', op = 'sum', axis = 0, sel = 0;
+  const tens = presetGroup('Tensor', TENSORS, (k) => { tid = k; if (axis >= pick(k).shape.length) axis = 0; sel = 0; draw(); });
   const ops = presetGroup('Reduction', [['sum', 'sum'], ['mean', 'mean'], ['max', 'max']], (k) => { op = k; draw(); });
-  const axes = presetGroup('Axis', [[0, 'axis 0 (down the rows)'], [1, 'axis 1 (across the columns)']], (k) => { axis = k; sel = 0; draw(); });
+  const axisHost = el('div', { class: 'tw-axes' });
   const row = el('div', { class: 'tw-row' });
   const read = el('p', { class: 'tw-read' });
   const say = el('p', { class: 'sr', 'aria-live': 'polite' });
-  host.replaceChildren(el('div', { class: 'tw' }, ops.root, axes.root, row, read, say));
+  host.replaceChildren(el('div', { class: 'tw' }, tens.root, ops.root, axisHost, row, read, say));
 
   function draw() {
-    ops.set(op); axes.set(axis);
-    const res = T.reductions.find((x) => x.op === op && x.axis === axis).result;
-    const ga = grid('a', R, C, A.values);
-    const n = res.shape[0];
-    const gr = el('div', { class: 'tw-grid', style: `grid-template-columns:repeat(${axis === 0 ? n : 1}, auto)`, role: 'group', 'aria-label': `a.${op}(${axis}), shape ${shapeText(res.shape)}` });
+    const t = pick(tid);
+    tens.set(tid); ops.set(op);
+    const axes = presetGroup('Axis', AXIS_TEXT[tid], (k) => { axis = k; sel = 0; draw(); });
+    axisHost.replaceChildren(axes.root); axes.set(axis);
+    const res = t.reds.find((x) => x.op === op && x.axis === axis).result;
+    // the input: a matrix is one grid, the image is one grid per channel
+    const [r0, c0] = t.shape.length === 2 ? t.shape : [t.shape[1], t.shape[2]];
+    const count = t.shape.length === 2 ? 1 : t.shape[0], size = r0 * c0;
+    const inputs = Array.from({ length: count }, (_, c) => grid(count === 1 ? t.name : `${t.name}[${c}]`, r0, c0, t.values.slice(c * size, (c + 1) * size)));
+    const cells = inputs.flatMap((g) => g.cells);
+    const [, rc] = as2d(res.shape);
+    const gr = el('div', { class: 'tw-grid', style: `grid-template-columns:repeat(${rc}, auto)`, role: 'group', 'aria-label': `${t.name}.${op}(${axis}), shape ${shapeText(res.shape)}` });
     const rs = res.values.map((v, r) => {
-      const b = el('button', { type: 'button', class: 'tw-cell', 'aria-label': `a.${op}(${axis}), entry ${r}: ${fmt(v)}` }, fmt(v));
+      const b = el('button', { type: 'button', class: 'tw-cell', 'aria-label': `${t.name}.${op}(${axis}), entry ${r}: ${fmt(v)}` }, fmt(v));
       const choose = (announce) => () => { sel = r; mark(announce); };
       b.addEventListener('mouseenter', choose(false)); b.addEventListener('focus', choose(true)); b.addEventListener('click', choose(true));
       gr.append(b);
       return b;
     });
-    row.replaceChildren(ga.root, el('span', { class: 'tw-op', 'aria-hidden': 'true' }, '→'), el('div', { class: 'tw-mat' }, el('div', { class: 'tw-name' }, `a.${op}(${axis})  shape ${shapeText(res.shape)}`), gr));
+    row.replaceChildren(...inputs.map((g) => g.root), el('span', { class: 'tw-op', 'aria-hidden': 'true' }, '→'),
+      el('div', { class: 'tw-mat' }, el('div', { class: 'tw-name' }, `${t.name}.${op}(${axis})  shape ${shapeText(res.shape)}`), gr));
     function mark(announce = true) {
-      [...ga.cells, ...rs].forEach((x) => x.classList.remove('hl', 'src'));
+      [...cells, ...rs].forEach((x) => x.classList.remove('hl', 'src'));
       rs[sel].classList.add('hl');
-      const cells = reducedCells(R, C, axis, sel);
-      cells.forEach(([i, j]) => ga.cells[i * C + j].classList.add('src'));
-      read.textContent = `Entry ${sel} is the ${op} of ${cells.map(([i, j]) => fmt(A.values[i * C + j])).join(', ')}, which is ${fmt(res.values[sel])}.`;
+      const idx = reducedIndices(t.shape, axis, sel);
+      idx.forEach((k) => cells[k].classList.add('src'));
+      read.textContent = `Entry ${sel} is the ${op} of ${idx.map((k) => fmt(t.values[k])).join(', ')}, which is ${fmt(res.values[sel])}.`;
       if (announce) say.textContent = read.textContent;
     }
     mark();

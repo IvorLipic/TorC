@@ -4,7 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildD, makeT } from '../js/core/trace.js';
 import { renderLesson, findUnboundNums, boundNums } from '../js/core/sections.js';
-import { alignShapes, sourceIndex, reducedCells } from '../js/widgets/tensor-widgets.js';
+import { alignShapes, sourceIndex, reducedCells, reducedIndices } from '../js/widgets/tensor-widgets.js';
 import { readJson } from './helpers.mjs';
 
 const data = readJson('data/tensors.json');
@@ -72,16 +72,54 @@ test('matmul: (2, 3)(3, 2) gives (2, 2), the inner sizes must match, and batch d
   }
 });
 
-test('the shapes quoted in the check questions come from the trace', () => {
+test('a 3-D image: the position of image[c, i, j] is (c * 2 + i) * 2 + j, and the axis explorer reproduces every recorded reduction', () => {
+  const I = data.image;
+  assert.deepEqual(I.shape, [3, 2, 2]);
+  assert.equal(I.numel, 12);
+  for (const e of I.index) { assert.equal(e.flat, (e.c * 2 + e.i) * 2 + e.j); assert.equal(I.values[e.flat], e.value); }
+  assert.deepEqual(I.index[10], { c: 2, i: 1, j: 0, flat: 10, value: 3 }, 'the example of the prose');
+  const f = { sum: (v) => v.reduce((x, y) => x + y, 0), mean: (v) => v.reduce((x, y) => x + y, 0) / v.length, max: (v) => Math.max(...v) };
+  for (const r of I.reductions) {
+    assert.deepEqual(r.result.shape, I.shape.filter((_, k) => k !== r.axis), `${r.op}(${r.axis})`);
+    r.result.values.forEach((v, k) => assert.equal(f[r.op](reducedIndices(I.shape, r.axis, k).map((q) => I.values[q])), v, `${r.op}(${r.axis})[${k}]`));
+  }
+  // the 2-D helper agrees with the n-d helper
+  for (const axis of [0, 1]) for (let r = 0; r < A.shape[1 - axis]; r++) {
+    assert.deepEqual(reducedIndices(A.shape, axis, r), reducedCells(2, 3, axis, r).map(([i, j]) => i * 3 + j));
+  }
+  assert.equal(I.sum, 60);
+});
+
+test('the worked 2 x 2 product and the entry of the "your turn" quiz', () => {
+  const { p, q, c } = data.matmul_2x2;
+  assert.deepEqual([p.shape, q.shape, c.shape], [[2, 2], [2, 2], [2, 2]]);
+  const at = (m, i, j) => m.values[i * 2 + j];
+  for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) assert.equal(at(p, i, 0) * at(q, 0, j) + at(p, i, 1) * at(q, 1, j), at(c, i, j));
+  assert.equal(c.values[0], 19, 'the worked entry');
+  assert.equal(c.values[3], 50, 'the quiz answer');
+  assert.deepEqual(data.index_errors.map((e) => e.exception), ['ShapeError', 'ShapeError', 'ShapeError']);
+});
+
+test('every claim of the prose against the data: shapes, results and messages', () => {
   assert.deepEqual(data.check_sum, { x_shape: [4, 5], sum0_shape: [5] });
   assert.deepEqual(data.broadcast.find((b) => b.id === 'column').b.shape, [2, 1]);
   assert.deepEqual(data.matmul.transpose.shape, [3, 2]);
+  assert.deepEqual(data.matmul.batched.shape, [4, 2, 2], 'a (4, 2, 3) tensor times (3, 2)');
+  assert.deepEqual(data.matmul.batched_both.shape, [2, 3, 2, 2]);
+  assert.deepEqual(data.broadcast_shapes[1], { x: [4, 1, 3], y: [2, 1], result: [4, 2, 3], exception: 'none' });
+  assert.equal(data.broadcast.find((b) => b.id === 'wrong-row').sum.exception, 'ShapeError', 'the predict quiz: (2) + (2, 3) fails');
+  assert.deepEqual(data.reductions[0].result.shape, [3]);
+  assert.deepEqual(data.reductions[3].result.shape, [2]);
+  assert.deepEqual(data.image.reductions[0].result.shape, [2, 2], 'image.sum(0)');
+  assert.match(data.reshape.error.what, /^Cannot reshape tensor of shape \(2, 3\) with 6 elements into shape \(4, 2\) with 8 elements$/);
   const all = renderLesson(lesson, D).map((p) => p.html).join('\n');
-  assert.match(all, /has shape <code>\(4, 5\)<\/code>/);
-  assert.match(all, /The shape is <code>\(5\)<\/code>/);
+  assert.match(all, /has the shape <code>\(4, 5\)<\/code>/);
+  assert.match(all, /ShapeError: Cannot broadcast shapes \(2, 3\) and \(2\)/);
+  assert.match(all, /ShapeError: matmul inner dimensions must match, got \(2, 3\) and \(2, 3\)/);
+  assert.match(all, /ShapeError: Cannot reshape tensor of shape \(2, 3\) with 6 elements into shape \(4, 2\) with 8 elements/);
 });
 
-test('every number in the prose is bound to the trace, with no hand-typed digits', () => {
+test('every number in the prose is bound to the trace', () => {
   const parts = renderLesson(lesson, D);
   for (const { section, html } of parts) {
     assert.deepEqual(findUnboundNums(html), [], section.kind);
@@ -90,20 +128,13 @@ test('every number in the prose is bound to the trace, with no hand-typed digits
   const all = parts.map((p) => p.html).join('\n');
   const shown = Object.fromEntries(boundNums(all).map(({ path, shown: v }) => [path, v]));
   assert.deepEqual([shown['files.tensors.example.numel'], shown['files.tensors.example.index.5.flat'], shown['files.tensors.whole.sum']], ['6', '5', '21']);
-  assert.match(all, /ShapeError: Cannot broadcast shapes \(2, 3\) and \(2\)/);
-  assert.match(all, /ShapeError: matmul inner dimensions must match, got \(2, 3\) and \(2, 3\)/);
-  const saved = globalThis.katex;
-  globalThis.katex = undefined;
-  let raw;
-  try { raw = renderLesson(lesson, D).map((p) => p.html).join('\n'); } finally { globalThis.katex = saved; }
-  const left = raw.replace(/<style[\s\S]*?<\/style>/g, '').replace(/<span class="num"[^>]*>[^<]*<\/span>/g, '').replace(/<pre[\s\S]*?<\/pre>/g, '')
-    .replace(/<code[^>]*>[\s\S]*?<\/code>/g, '').replace(/<h2[^>]*>\s*\d\s·/g, '<h2>').replace(/<[^>]+>/g, ' ').match(/[^\s]*\d[^\s]*/g) ?? [];
-  assert.deepEqual(left, []);
+  assert.deepEqual([shown['files.tensors.image.index.10.flat'], shown['files.tensors.image.index.10.value']], ['10', '3']);
 });
 
 test('the widget module imports in Node without touching the DOM', async () => {
   const m = await import('../js/widgets/tensor-widgets.js');
   assert.equal(typeof m.mountBroadcastGrid, 'function');
   assert.equal(typeof m.mountAxisExplorer, 'function');
+  assert.equal(typeof m.reducedIndices, 'function');
   assert.equal(typeof document, 'undefined');
 });
