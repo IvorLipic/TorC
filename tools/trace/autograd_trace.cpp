@@ -9,6 +9,7 @@
 
 #include "torc/nn/linear.hpp"
 #include "torc/nn/losses.hpp"
+#include "torc/optim.hpp"
 
 using namespace torc;
 using trace::Graph;
@@ -193,6 +194,19 @@ int main() {
             rec("local", "Variable make_loss(const Variable& w) {\n    Variable scale(Tensor({2.0f}, {1}), true);\n    return mul(w, scale);\n}\nVariable L = make_loss(w);\nL.backward();", c, NAN);
         }
         doc.set("lifetime", std::move(cases));
+    }
+    // A parameter that is not part of the graph of the loss gets no gradient, so step() skips it (appendix torc-pitfalls).
+    {
+        Variable used(Tensor({3.0f}, {1}), true), unused(Tensor({3.0f}, {1}), true);
+        optim::SGD opt({&used, &unused}, 0.1f);
+        Variable sq = mul(used, used);
+        Variable L = sum(sq);
+        L.backward();
+        opt.step();
+        trace::J o = trace::J::object();
+        o.set("start", 3.0f).set("lr", 0.1f).set("used_has_grad", used.has_grad()).set("unused_has_grad", unused.has_grad())
+            .set("used_after", used.data().data()[0]).set("unused_after", unused.data().data()[0]);
+        doc.set("unused_parameter", std::move(o));
     }
     std::fputs(doc.dump().c_str(), stdout);
     return 0;

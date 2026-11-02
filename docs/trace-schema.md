@@ -50,7 +50,8 @@ nothing, because `backward_with_grad` clears the root's tape), then 12 (a new fo
 gradient), then `false` after `zero_grad()`. `lifetime[]` (appendix `torc-pitfalls`) = `{id, code, exception, what?, grad?}` for
 `named` (works, `grad` 6), `temporary` (`sum(mul(w, w))`), `model-temporary` (`mse(layer(x), t)`), `model-named` (works) and `local`
 (a tracked Variable made inside a function): the three failing cases throw `TorcError` "autograd graph input expired before
-backward(); keep all graph Variables alive". Unchanged by the
+backward(); keep all graph Variables alive". `unused_parameter` = `{start 3, lr, used_has_grad, unused_has_grad, used_after, unused_after}`: two
+parameters, a loss built from one of them, `backward()` and `SGD::step()`; the other has no gradient and `step()` skips it. Unchanged by the
 refactor except for the envelope (`library` changed from the string `"torc"` to the object above).
 
 ## `why-gradients.json` (kind `why`, lesson `why-gradients`)
