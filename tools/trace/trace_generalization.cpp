@@ -38,7 +38,8 @@ namespace {
 
 constexpr int DEGREE = 15, N_TRAIN = 10, N_TEST = 100, N_VAL = 30, STEPS = 20000, DATA_SEED = 3, BATCH = 64;
 constexpr int N_MORE = 90, BATCH_MORE = 128;   // the "more data" run: 10 + 90 training samples, one batch per step
-constexpr float NOISE = 0.3f, LR = 0.05f;
+constexpr double LR_SET = 0.05;                     // the learning rate as configured (written to the JSON)
+constexpr float NOISE = 0.3f, LR = static_cast<float>(LR_SET);   // what AdamW gets: 0.05f
 const std::vector<int> CHECKPOINTS = {0, 1, 2, 3, 5, 7, 10, 15, 20, 30, 50, 70, 100, 150, 200, 300, 500, 700, 1000, 1500, 2000,
                                       3000, 5000, 7000, 10000, 15000, 20000};
 constexpr double PI = 3.14159265358979323846;
@@ -203,7 +204,7 @@ int main() {
 
     J setup = J::object();
     setup.set("degree", DEGREE).set("train_samples", N_TRAIN).set("test_samples", N_TEST).set("noise", 0.3)
-        .set("lr", 0.05).set("steps", STEPS).set("optimizer", "optim::AdamW").set("loss", "nn::MSELoss");
+        .set("lr", LR_SET).set("steps", STEPS).set("optimizer", "optim::AdamW").set("loss", "nn::MSELoss");
     J data = J::object();
     data.set("train_x", trace::jarr(xtr)).set("train_t", trace::jarr(ttr)).set("test_x", trace::jarr(xte)).set("test_t", trace::jarr(tte))
         .set("grid", trace::jarr(grid)).set("val_x", trace::jarr(xva)).set("val_t", trace::jarr(tva));
@@ -211,7 +212,7 @@ int main() {
     J settings = J::object();
     settings.set("train_samples", N_TRAIN).set("val_samples", N_VAL).set("test_samples", N_TEST).set("noise", 0.3)
         .set("data_seed", DATA_SEED).set("degree", DEGREE).set("features", "x, x^2, ..., x^15")
-        .set("model", "nn::Linear(15, 1)").set("start_weights", "all 0").set("optimizer", "optim::AdamW").set("lr", 0.05)
+        .set("model", "nn::Linear(15, 1)").set("start_weights", "all 0").set("optimizer", "optim::AdamW").set("lr", LR_SET)
         .set("weight_decays", trace::jarr(DECAYS)).set("steps", STEPS).set("batch_size", BATCH).set("shuffle", false)
         .set("steps_per_epoch", 1).set("loss", "nn::MSELoss").set("parameters", parameters);
     J derived = J::object();
@@ -225,7 +226,7 @@ int main() {
     J wave = J::object();
     wave.set("train", wave_loss(xtr, ttr)).set("val", wave_loss(xva, tva)).set("test", wave_loss(xte, tte)).set("more_train", wave_loss(xmo, tmo));
     J decay = J::array();
-    for (double wd : DECAYS) decay.push(1.0 - 0.05 * wd);   // AdamW: p <- p - lr * update - lr * wd * p, so each step keeps 1 - lr * wd of p
+    for (double wd : DECAYS) decay.push(1.0 - LR_SET * wd);   // AdamW: p <- p - lr * update - lr * wd * p, so each step keeps 1 - lr * wd of p
     J more_misses = misses_json(more);
     derived.set("true_wave_loss", std::move(wave)).set("decay_factor", std::move(decay)).set("misses", std::move(run_misses))
         .set("more_data_misses", std::move(more_misses));

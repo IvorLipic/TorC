@@ -119,7 +119,14 @@ test('weight decay 0.1 keeps the weights small and the validation miss from clim
   assert.deepEqual(G.derived.decay_factor.map((f, i) => near(f, 1 - G.settings.lr * G.settings.weight_decays[i])), [true, true, true]);
   // the reveal of the cumulative quiz: 0.95 and 0.995
   assert.deepEqual(shown('files.generalization.derived.decay_factor.2'), ['0.95']);
-  assert.deepEqual(shown('files.generalization.derived.decay_factor.1'), ['0.995']);
+  // section 4: "the size of the weights ends near 441, against 13 with weight decay"
+  assert.deepEqual(shown('files.generalization.runs.0.checkpoints.26.weight_sum_sq'), ['440']);
+  assert.deepEqual(shown('files.generalization.runs.1.checkpoints.26.weight_sum_sq'), ['13']);
+  // "It still looks like the wave but sags": with weight decay 1 the curve has the sign of the wave at its peaks, but is smaller
+  const g = G.data.grid, hc = last(high).curve, at = (x) => hc[g.findIndex((v) => Math.abs(v - x) < 1e-6)];
+  assert.ok(at(0.5) > 0 && at(0.5) < 0.8 * W.wave(0.5) && at(-0.5) < 0 && at(-0.5) > 0.8 * W.wave(-0.5), 'it sags at the peaks of the wave');
+  // the leak quiz reveal: 0.05 × 1 and 0.95
+  assert.deepEqual(shown('files.generalization.settings.lr'), ['0.05', '0.05']);
 });
 
 test('more data: the same 16 parameters on a hundred points end with a small gap, near the wave itself and not below it', () => {
@@ -131,8 +138,9 @@ test('more data: the same 16 parameters on a hundred points end with a small gap
   for (const r of [...G.runs, G.more_data]) for (const c of r.checkpoints) assert.ok(c.val_loss > 0.9 * G.derived.true_wave_loss.val, 'no run beats the wave by much');
 });
 
-test('C2: the test set is never used to choose, and the page says so', () => {
+test('C2: the test set is never used to choose, and the page says so; no test number in the prose before the game result', () => {
   assert.match(html, /You look at them once, at the end, to measure the final model/);
+  assert.deepEqual(shown('files.generalization.runs.0.val_stop.test_loss'), [], 'the test miss at the stop appears only in the game, after the commit');
   assert.match(html, /They chose with the test set, so its miss is too hopeful/);
   // the game shows no test value before the commit; the remedies widget never shows the test set
   const vs = readFileSync(new URL('../js/widgets/val-stop.js', import.meta.url), 'utf8');
@@ -144,12 +152,21 @@ test('C2: the test set is never used to choose, and the page says so', () => {
 
 test('the result text of the game: the chosen step, its test miss, and where the lowest validation miss is', () => {
   const r = runOf(0), b = W.lowestVal(r.checkpoints);
-  const atBest = V.resultText(r, b);
+  const atBest = V.resultText(G, b);
   assert.match(atBest[0], new RegExp(`after step ${r.val_stop.step}\\. .* about ${W.fmt2(rm(r.val_stop.test_loss))}\\.`));
-  assert.match(atBest[2], /lowest validation miss/);
-  const atEnd = V.resultText(r, r.checkpoints.length - 1);
+  assert.match(atBest[2], /lowest validation miss on the slider/);
+  const atEnd = V.resultText(G, r.checkpoints.length - 1);
   assert.match(atEnd[0], /after step 20,000/);
   assert.match(atEnd[2], new RegExp(`after step ${r.val_stop.step},`));
+  // review H2: at the stop the test miss is smaller than the validation miss, because this validation set is harder by chance
+  // (the wave itself misses it by more); the text says so with the wave's own misses
+  assert.ok(r.val_stop.test_loss < r.val_stop.val_loss);
+  assert.ok(G.derived.true_wave_loss.val > G.derived.true_wave_loss.test);
+  assert.match(atBest[3], /^Here the test miss is even a little smaller\. Small sets differ by chance\./);
+  assert.ok(atBest[3].includes(`about ${W.fmt2(rm(G.derived.true_wave_loss.val))} and a test point by about ${W.fmt2(rm(G.derived.true_wave_loss.test))}`));
+  assert.match(atBest[4], /Each further choice with the same points makes it more hopeful/);
+  // from step 20 on, the test curve lies below the validation curve (what the reader sees after the commit)
+  for (const c of r.checkpoints.filter((q) => q.step >= 20)) assert.ok(c.test_loss < c.val_loss, `step ${c.step}`);
 });
 
 test('the widget helpers: log step axis, typical miss, 2 significant figures, labels kept apart, four runs; no DOM in Node', () => {
@@ -161,6 +178,7 @@ test('the widget helpers: log step axis, typical miss, 2 significant figures, la
   assert.equal(W.fmt2(0.2038), '0.2');
   assert.equal(W.fmt2(0.2038), T.human('files.generalization.more_data.checkpoints.26.val_loss', 'rmse').match(/>([^<]*)</)[1], 'the readout and the prose agree');
   assert.equal(W.fmt2(50.25), '50');
+  assert.equal(W.fmt2(441.2), '440', 'the weight readout agrees with the prose');
   assert.equal(W.fmtInt(20000), '20,000');
   const ys = W.spreadLabels([100, 104, 300], 10, 200, 14);
   assert.ok(ys[1] - ys[0] >= 14 && ys[2] <= 200 && ys[0] >= 10);

@@ -44,6 +44,19 @@ None.
   to keep the lesson under 1,400 words).
 - Single draw of random points, labelled (C5).
 
+## Review fixes (2026-11, three gates)
+- The validation set is harder by chance (the wave itself misses it by 0.18, the test set by 0.17), so from step 20 on the test
+  curve lies below the validation curve (0.24 against 0.27 at the stop). The page does not claim that the validation miss is
+  below the test miss. It says, in the game result next to those numbers, that small sets differ by chance by more than the
+  small optimism of one choice, and that the optimism grows with every further choice made with the same points (tested).
+- The ratio of the two misses compares steps of one run only; between runs the page compares the validation miss (weight decay
+  0.1 ends at a ratio of 4.4 and weight decay 1 at 1.75, so the ratio alone would rank them wrongly).
+- "The weights grow, and the curve swings" is shown by a weight-size readout (sum of the squared weights: 440 against 13). With a
+  hundred points the weights also grow (150) while the curve follows the wave, so the page claims only what the two ten-point
+  runs show.
+- The test miss at the stop appears only in the game, after the commit. The trace uses one learning-rate constant (`LR_SET`);
+  the JSON is byte-identical.
+
 ## Lesson status
 v3 rewrite 2026-11 (branch `part4-general`). Widgets: `val-stop.js` (the game), `generalization-widgets.js` (helpers and the
 remedies widget). Tests: `site/test/generalization.test.mjs`. The code block is the home-page snippet, which the snippet check

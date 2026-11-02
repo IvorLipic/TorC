@@ -15,17 +15,22 @@ import { srTable } from './plot.js';
 import { injectStyles, fitPlot, drawFit, missPlot, drawMiss, miss, fmt2, fmtInt, lowestVal, stepX } from './generalization-widgets.js';
 
 // The text of the result after the commit (pure, for the tests): the chosen step, the test miss there, the validation miss
-// there, and where the lowest validation miss is.
-export function resultText(run, k) {
-  const c = run.checkpoints[k], b = lowestVal(run.checkpoints), best = run.checkpoints[b];
-  const lines = [
+// there, where the lowest validation miss of the recorded steps is, and why the two sets differ (brief C2, review H2: this
+// validation set is harder by chance, so its miss is not below the test miss here).
+export function resultText(G, k) {
+  const run = G.runs[0], c = run.checkpoints[k], b = lowestVal(run.checkpoints), best = run.checkpoints[b];
+  const w = G.derived.true_wave_loss, lower = c.test_loss < c.val_loss;
+  return [
     `You stopped after step ${fmtInt(c.step)}. There the model misses a test point by about ${fmt2(miss(c.test_loss))}.`,
     `The validation set promised a miss of about ${fmt2(miss(c.val_loss))}.`,
     b === k
-      ? 'You chose the step with the lowest validation miss.'
-      : `The lowest validation miss comes after step ${fmtInt(best.step)}, where it is about ${fmt2(miss(best.val_loss))}.`,
+      ? 'You chose the step with the lowest validation miss on the slider.'
+      : `On the slider, the lowest validation miss comes after step ${fmtInt(best.step)}, where it is about ${fmt2(miss(best.val_loss))}.`,
+    lower
+      ? `Here the test miss is even a little smaller. Small sets differ by chance. Even the wave itself misses a validation point by about ${fmt2(miss(w.val))} and a test point by about ${fmt2(miss(w.test))}.`
+      : `Small sets differ by chance. Even the wave itself misses a validation point by about ${fmt2(miss(w.val))} and a test point by about ${fmt2(miss(w.test))}.`,
+    'One choice makes the validation miss only a little too hopeful. Each further choice with the same points makes it more hopeful. So the test set stays untouched until the end.',
   ];
-  return lines;
 }
 
 export function mountValStop(host, D) {
@@ -41,14 +46,14 @@ export function mountValStop(host, D) {
     el('span', {}, el('i', { class: 'k-val', 'aria-hidden': 'true' }), 'validation points'));
   const testKey = el('span', { hidden: true }, el('i', { class: 'k-test', 'aria-hidden': 'true' }), 'test points');
   key.append(testKey);
-  const note = el('p', { class: 'gw-key' }, 'On the step axis, each mark is ten times the mark before it.');
+  const note = el('p', { class: 'gw-key' }, 'On the step axis, each mark after 10 is ten times the mark before it.');
   const rStep = el('p'), rTrain = el('p', { class: 'r-train' }), rVal = el('p', { class: 'r-val' });
   const result = el('div', { class: 'gw-result', hidden: true, tabindex: '-1' });
   host.replaceChildren(el('div', { class: 'gw' },
     el('div', { class: 'gw-ctl' }, el('div', { class: 'gw-field' }, el('label', { for: 'vs-step', class: 'gw-lbl' }, 'after step'), input), stopBtn),
     fitBox, key, missBox, note,
     el('div', { class: 'gw-read' }, rStep, rTrain, rVal, el('p', { class: 'r-note' }, 'A smaller miss is better.')), result, say));
-  const table = srTable(host, { columns: ['step', 'typical miss on the training set', 'typical miss on the validation set'], rows: cs.map((c) => [c.step, miss(c.train_loss), miss(c.val_loss)]), caption: 'Typical misses of the run without weight decay, step by step' });
+  const table = srTable(host, { columns: ['step', 'typical miss on the training set', 'typical miss on the validation set', 'typical miss on the test set, after you stop'], rows: cs.map((c) => [c.step, miss(c.train_loss), miss(c.val_loss), 'not shown yet']), caption: 'Typical misses of the run without weight decay, step by step' });
 
   const paintFit = (pl) => {
     pl.clear('wave'); pl.clear('data'); pl.clear('model'); pl.clear('labels');
@@ -90,10 +95,10 @@ export function mountValStop(host, D) {
     stopBtn.disabled = true;
     stopBtn.textContent = 'Training stopped';
     testKey.hidden = false;
-    result.replaceChildren(...resultText(run, k).map((t, i) => el('p', {}, i === 0 ? el('b', {}, t) : t)),
+    result.replaceChildren(...resultText(G, k).map((t, i) => el('p', {}, i === 0 ? el('b', {}, t) : t)),
       el('p', { class: 'r-note' }, 'We show the green test curve only so that you can compare it with the validation curve. In real work, you see only the one test miss.'));
     result.hidden = false;
-    table.update(cs.map((c) => [c.step, miss(c.train_loss), miss(c.val_loss)]));
+    table.update(cs.map((c) => [c.step, miss(c.train_loss), miss(c.val_loss), miss(c.test_loss)]));
     draw();
     result.focus();   // the button is now disabled, so keyboard focus moves to the result, and a screen reader reads it
   });
