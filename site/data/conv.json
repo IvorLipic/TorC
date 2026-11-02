@@ -382,5 +382,46 @@
   "errors":[
     {"id":"channels","input_shape":[1,3,28,28],"weight_shape":[8,1,3,3],"exception":"ShapeError","what":"conv2d input channels 3 must match weight channels 1"},
     {"id":"too-small","input_shape":[1,1,2,2],"weight_shape":[1,1,5,5],"exception":"ShapeError","what":"conv2d output dims must be positive, got -2x-2 from input 2x2 weight 5x5 stride 1 padding 0"}
-  ]
+  ],
+  "derived":{
+    "note":"Plain arithmetic in the producer (not library output): the steps of floor((H + 2P - K) / S) + 1 and of C_out * (C_in * K * K + 1) for each convolution of cnn, checked against the library's shapes and counts.",
+    "layers":[
+      {
+        "module":0,
+        "side_in":28,
+        "kernel":3,
+        "stride":2,
+        "padding":1,
+        "twice_padding":2,
+        "numerator":27,
+        "quotient":13.5,
+        "rounded_down":13,
+        "side_out":14,
+        "in_channels":1,
+        "out_channels":8,
+        "kernel_area":9,
+        "weights_per_kernel":9,
+        "parameters_per_kernel":10,
+        "parameters":80
+      },
+      {
+        "module":2,
+        "side_in":14,
+        "kernel":3,
+        "stride":2,
+        "padding":1,
+        "twice_padding":2,
+        "numerator":13,
+        "quotient":6.5,
+        "rounded_down":6,
+        "side_out":7,
+        "in_channels":8,
+        "out_channels":16,
+        "kernel_area":9,
+        "weights_per_kernel":72,
+        "parameters_per_kernel":73,
+        "parameters":1168
+      }
+    ]
+  }
 }

@@ -360,7 +360,7 @@
         {
           "id": "convolution",
           "title": "Convolution",
-          "outcome": "You can explain how a small pattern detector slides over an image. You can count the weights of a convolution layer and find the size of its output.",
+          "outcome": "You can explain how one small kernel slides over an image, count its parameters and find the size of its feature map. You can say why the map moves with the digit, but the answer can still change.",
           "prereqs": [
             "one-step"
           ],
@@ -371,15 +371,18 @@
             "Tensor::conv2d"
           ],
           "trace": [
-            "conv.json"
+            "conv.json",
+            "shift.json",
+            "mnist-cnn.json"
           ],
-          "est_minutes": 7,
+          "est_minutes": 16,
           "status": "published",
           "widgets": [
             "sliding window",
-            "feature maps"
+            "feature map of a moved digit",
+            "accuracy on moved digits"
           ],
-          "code": "// in 1, out 8, kernel 3, stride 2, padding 1\nnn::Conv2d conv(1, 8, 3, 2, 1);\nVariable y = conv(x);   // (N, 1, 28, 28) → (N, 8, 14, 14)\nnn::Flatten flat;       // (N, C, H, W) → (N, C·H·W)"
+          "code": "// in 1, out 8, kernel 3, stride 2, padding 1\nnn::Conv2d conv(1, 8, 3, 2, 1);\n// (B, 1, 28, 28) becomes (B, 8, 14, 14)\nVariable y = conv(x);\n// (B, C, H, W) becomes (B, C·H·W)\nnn::Flatten flat;"
         },
         {
           "id": "mnist-cnn",

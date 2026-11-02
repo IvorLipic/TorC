@@ -478,7 +478,10 @@ stride/padding 1/0, 1/1 and 2/1. `digit` = `{label, shape (1, 1, 28, 28), pixels
 kernel[9], shape, output[784], relu[784]}]}` (stride 1, padding 1; MNIST from `MNIST_DIR`). `cnn[]` = `{label, in_shape, out_shape,
 parameters, params[{name, shape}], kernel?, stride?, padding?}` for the six modules of the example's CNN on (2, 1, 28, 28);
 `cnn_parameters` is their sum. `dense_compare` = `{label, parameters}` for `Linear(784, 8)`. `errors[]` = `{id: channels|too-small,
-input_shape, weight_shape, exception, what}`. Producer: `tools/trace/trace_conv.cpp`.
+input_shape, weight_shape, exception, what}`. Added for v3 (additive): `derived` = `{note, layers[2]{module, side_in, kernel, stride,
+padding, twice_padding, numerator, quotient, rounded_down, side_out, in_channels, out_channels, kernel_area, weights_per_kernel,
+parameters_per_kernel, parameters}}`, the steps of `floor((H + 2P - K) / S) + 1` and `C_out·(C_in·K·K + 1)` for the two
+convolutions of `cnn` (plain arithmetic, checked by the producer against the library). Producer: `tools/trace/trace_conv.cpp`.
 
 ## `mnist-cnn.json` (kind `mnist-cnn`, lesson `mnist-cnn`)
 

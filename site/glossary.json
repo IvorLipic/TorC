@@ -67,6 +67,12 @@
       "short": "Classification is the task of choosing one class for each input, for example the digit that an image shows.",
       "lesson": "classification"
     },
+    "cnn": {
+      "term": "CNN",
+      "forms": ["CNN", "CNNs", "convolutional neural network", "convolutional neural networks"],
+      "short": "A CNN, or convolutional neural network, is a network whose first layers are convolution layers.",
+      "lesson": "convolution"
+    },
     "confusion-matrix": {
       "term": "confusion matrix",
       "forms": ["confusion matrix"],

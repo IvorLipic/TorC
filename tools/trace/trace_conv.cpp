@@ -8,6 +8,9 @@
 //    Flatten, Linear(784, 10), run on a batch of shape (2, 1, 28, 28): each module's output shape and parameter count, and a
 //    Linear layer from the same image to 8 outputs for comparison.
 // 4. The errors conv2d throws for a channel mismatch and for a kernel larger than the padded input.
+// 5. "derived" (added for the v3 lesson, plain arithmetic in the producer, not library output): for each convolution of 3, the
+//    steps of the output-size formula floor((H + 2P - K) / S) + 1 and of the parameter count C_out * (C_in * K * K + 1), so that
+//    the lesson's worked examples show every intermediate value from the trace. The producer checks both against the library.
 // Everything is library output, except the kernel, stride and padding of each convolution in "cnn" (the producer writes the
 // arguments it passes to nn::Conv2d) and the order of "params" (the order of an unordered_map). MNIST comes from MNIST_DIR (tools/trace/run.sh sets it; tools/trace/fetch_mnist.sh fills it).
 #include "trace_util.hpp"
@@ -74,6 +77,7 @@ int main() {
 
     // ---- 3. the CNN of the example --------------------------------------------------------------------------------------------------
     J cnn = J::array();
+    J derived_layers = J::array();
     int total = 0;
     {
         struct Cfg { int kernel = 0, stride = 0, padding = 0; };
@@ -103,7 +107,24 @@ int main() {
             }
             e.set("label", label_text).set("in_shape", trace::jarr(in_shape)).set("out_shape", trace::jarr(outs.back().data().shape()))
                 .set("parameters", n).set("params", std::move(params));
-            if (cfg[mi].kernel) e.set("kernel", cfg[mi].kernel).set("stride", cfg[mi].stride).set("padding", cfg[mi].padding);
+            if (cfg[mi].kernel) {
+                e.set("kernel", cfg[mi].kernel).set("stride", cfg[mi].stride).set("padding", cfg[mi].padding);
+                const int H = in_shape[2], K = cfg[mi].kernel, S = cfg[mi].stride, P = cfg[mi].padding;
+                const int c_in = in_shape[1], c_out = outs.back().data().shape()[1];
+                const int num = H + 2 * P - K, rounded = num / S, side_out = rounded + 1;   // num >= 0 here, so / rounds down
+                const int per_kernel = c_in * K * K + 1;
+                if (side_out != outs.back().data().shape()[2] || c_out * per_kernel != n) {
+                    std::cerr << "trace_conv: the derived size or parameter count disagrees with the library\n";
+                    return 1;
+                }
+                J d = J::object();
+                d.set("module", static_cast<int>(mi)).set("side_in", H).set("kernel", K).set("stride", S).set("padding", P)
+                    .set("twice_padding", 2 * P).set("numerator", num).set("quotient", static_cast<double>(num) / S)
+                    .set("rounded_down", rounded).set("side_out", side_out).set("in_channels", c_in).set("out_channels", c_out)
+                    .set("kernel_area", K * K).set("weights_per_kernel", c_in * K * K).set("parameters_per_kernel", per_kernel)
+                    .set("parameters", c_out * per_kernel);
+                derived_layers.push(std::move(d));
+            }
             cnn.push(std::move(e));
         }
     }
@@ -125,6 +146,11 @@ int main() {
     J doc = trace::envelope("conv", "convolution", "tools/trace/trace_conv.cpp");
     doc.set("example", std::move(example)).set("digit", std::move(digit)).set("cnn", std::move(cnn)).set("cnn_parameters", total)
         .set("dense_compare", std::move(compare)).set("errors", std::move(errors));
+    J derived = J::object();
+    derived.set("note", "Plain arithmetic in the producer (not library output): the steps of floor((H + 2P - K) / S) + 1 and of "
+                        "C_out * (C_in * K * K + 1) for each convolution of cnn, checked against the library's shapes and counts.")
+        .set("layers", std::move(derived_layers));
+    doc.set("derived", std::move(derived));
     std::fputs(doc.dump().c_str(), stdout);
     return 0;
 }
