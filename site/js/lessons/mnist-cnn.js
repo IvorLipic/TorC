@@ -83,7 +83,7 @@ optim::AdamW opt(model.parameters(), 1e-3f);</code></pre>
     },
     {
       kind: 'text',
-      html: () => '<section class="mc"><p>This is the last lesson of the course. Go back to the <a href="../../">course map</a>, or try the <a href="../backprop-lab/">Backprop lab</a>.</p></section>',
+      html: () => '<section class="mc"><p>The next lesson, <a href="../from-digits-to-chatgpt/">From digits to ChatGPT</a>, shows how the same training loop teaches a model to write text.</p></section>',
     },
   ],
 };

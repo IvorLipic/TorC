@@ -16,7 +16,7 @@
     "attention": {
       "term": "attention",
       "forms": ["attention"],
-      "short": "Attention lets each token take a weighted average of the other tokens, with weights that the model computes from the tokens.",
+      "short": "Attention lets each token take a weighted average of itself and the tokens before it, with weights that the model computes for every text.",
       "lesson": "from-digits-to-chatgpt"
     },
     "backpropagation": {

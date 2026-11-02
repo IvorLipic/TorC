@@ -287,25 +287,26 @@
         },
         {
           "id": "generalization",
-          "title": "Generalization",
-          "outcome": "You can tell when a model only memorizes its training data. You can use a separate set of data to choose when to stop training.",
+          "title": "Does it work on new data?",
+          "outcome": "You can tell how much a model overfits from its training and validation miss. You can choose when to stop with a validation set and measure the final model once on a test set.",
           "prereqs": [
             "optimizers"
           ],
           "symbols": [
-            "data::TensorDataset",
             "data::DataLoader",
-            "optim::AdamW"
+            "optim::AdamW",
+            "nn::Linear"
           ],
           "trace": [
             "generalization.json"
           ],
-          "est_minutes": 7,
+          "est_minutes": 16,
           "status": "published",
           "widgets": [
-            "train and test curves"
+            "validation-stop game",
+            "weight decay and more data"
           ],
-          "code": "// 10 samples: one batch\ndata::DataLoader train(train_set, 64, /*shuffle=*/false);\n// 100 samples that the model never trains on\ndata::DataLoader test(test_set, 256);\n// the other two runs use a weight decay of 0.0f and 1.0f\noptim::AdamW opt(params, 0.05f, /*weight_decay=*/0.1f);"
+          "code": "// 10 training samples, all in one batch of up to 64\ndata::DataLoader train(train_set, 64, /*shuffle=*/false);\n// 30 validation and 100 test samples, never trained on\ndata::DataLoader val(val_set, 64), test(test_set, 256);\n// the other two runs use a weight decay of 0.0f and 1.0f\noptim::AdamW opt(params, 0.05f, /*weight_decay=*/0.1f);"
         }
       ]
     },
@@ -414,14 +415,20 @@
         {
           "id": "from-digits-to-chatgpt",
           "title": "From digits to ChatGPT",
-          "outcome": "You can explain how ChatGPT learns to predict the next word with the same loop as this course. You know where TorC stops and where to learn more.",
+          "outcome": "You can explain how a language model such as ChatGPT learns to predict the next token with the loop of this course. You know where TorC stops and where to learn more.",
           "prereqs": [
             "mnist-cnn"
           ],
-          "symbols": [],
+          "symbols": [
+            "nn::CrossEntropyLoss",
+            "optim::AdamW"
+          ],
           "trace": [],
           "est_minutes": 10,
-          "status": "planned"
+          "status": "published",
+          "widgets": [
+            "training examples from one sentence"
+          ]
         }
       ]
     },
