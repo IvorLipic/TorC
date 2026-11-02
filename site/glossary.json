@@ -145,6 +145,12 @@
       "short": "Hidden points are examples that a model never trains on, so they show how well it works on new data.",
       "lesson": "what-is-learning"
     },
+    "initialization": {
+      "term": "initialization",
+      "forms": ["initialization"],
+      "short": "Initialization is the choice of the start values of the weights, before training changes them.",
+      "lesson": "deep-nets"
+    },
     "kernel": {
       "term": "kernel",
       "forms": ["kernel", "kernels"],
@@ -354,6 +360,12 @@
       "forms": ["validation set", "validation sets"],
       "short": "The validation set is data that training does not use, and you use it to make choices such as when to stop.",
       "lesson": "generalization"
+    },
+    "vanishing-gradients": {
+      "term": "vanishing gradients",
+      "forms": ["vanishing gradient", "vanishing gradients"],
+      "short": "Vanishing gradients are gradients that get smaller at every layer on the way back, so the first layers of a deep network learn almost nothing.",
+      "lesson": "deep-nets"
     },
     "vector": {
       "term": "vector",

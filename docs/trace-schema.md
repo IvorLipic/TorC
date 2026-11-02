@@ -40,7 +40,15 @@ numbers mean, derivations, library symbols): `docs/lessons/<lesson>.md`.
 ## `autograd_trace.json` (kind `autograd`, lesson `backprop-lab`)
 
 `scenes[]` with ids `reuse` (`y = x*x + x`), `chain` (`f = sum(relu(a*b + c))`), `mlp` (tiny 2-2-1 network, batch of 2, MSE written as
-`sub`, `mul`, `mean`). Unchanged by the refactor except for the envelope (`library` changed from the string `"torc"` to the object above).
+`sub`, `mul`, `mean`) and `net` (added for the lesson `backprop`: the same 2-2-1 network with one sample, x = (1, 2), b1 = (0.5, 0),
+W2 = (1.5, −2), t = 2, both neurons on, the second output weight negative; `W1[i][j]` goes from input i to neuron j). `net_counts` =
+`{inputs 2, hidden 2, outputs 1, parameters 9}`: `parameters` counts the tracked numbers of scene `net` (derived by the producer).
+`reuse_uses` = `{x 3, mul_first, mul_second, add}`: y = a·b + c with three leaves a = b = c = 3, so each use of x in scene `reuse`
+gets its own gradient from TorC (3, 3, 1). `accumulation` = `{w 3, after_first_backward, after_second_backward_same_loss,
+after_new_forward_and_backward, has_grad_after_zero_grad}` for L = w·w: 6, then 6 (a second `backward()` on the same loss does
+nothing, because `backward_with_grad` clears the root's tape), then 12 (a new forward pass and its `backward()` add to the stored
+gradient), then `false` after `zero_grad()`. Unchanged by the
+refactor except for the envelope (`library` changed from the string `"torc"` to the object above).
 
 ## `why-gradients.json` (kind `why`, lesson `why-gradients`)
 
@@ -335,32 +343,51 @@ No scenes (the site's engine has no softmax or cross-entropy op).
   output × (orange output weight − blue output weight), and `total` = `bias_orange` + the votes, which equals the library's score
   difference (the program fails above `1e-4`).
 
+## `backprop-timing.json` (kind `timing`, lesson `backprop`): a timing, not a trace
+
+Producer: `tools/trace/time_backprop.cpp`, built by the trace CMake project but **not run by `run.sh`**, and `run.sh --check` never
+compares it (it only accepts that the file exists): a timing depends on the computer and its load. Regenerate it by hand on a quiet
+machine (`cmake --build build/trace --target time_backprop && build/trace/time_backprop > site/data/backprop-timing.json`).
+`runs[]` = `{hidden, parameters, forward_us, forward_nograd_us, forward_backward_us, backward_over_forward,
+backward_over_forward_nograd, backprop_over_nudge, nudging_over_backprop}` for MLPs 784-h-h-10 (h = 32, the digit network; 128;
+512), one sample, best of 5 rounds. `forward_us` has the gradient record on, `forward_nograd_us` runs under `NoGradGuard` (a nudge),
+`forward_backward_us` includes `zero_grad()`. `backprop_over_nudge` = forward_backward / forward_nograd (one backprop counted in
+nudges); `nudging_over_backprop` = (parameters + 1) · forward_nograd / forward_backward. `derived` = min and max of the ratios over the
+three networks and `largest_over_digit` (25.3). The lesson binds these ratios with one significant figure only.
+
 ## `deep.json` (kind `deep`, lesson `deep-nets`)
 
 Producer: `tools/trace/trace_deep.cpp`. No scenes. Per-layer statistics (mean absolute value, population std, rms, share of
 exact zeros) are computed by the producer in double from the library's tensors.
 
-- `setup` = `{depth 8, width 32, batch 64, data_seed, inputs, targets, weight_seeds, loss "nn::MSELoss", kaiming_std}`: a fixed batch
+- `setup` = `{depth 8, width 32, batch 64, data_seed, inputs, targets, weight_seeds, loss "nn::MSELoss", kaiming_std, no_two_std,
+  sigmoid_max_slope, kaiming_digit{inputs 784, std}}` (the last three added for the lesson): `no_two_std` = √(1/32) (derived);
+  `sigmoid_max_slope` = the gradient of `sigmoid` at 0 from a real `backward()` (`0.25`); `kaiming_digit.std` =
+  `torc::kaiming_normal_std(784)` (`0.0505`), the start spread of the digit network's first layer. A fixed batch
   `x` (64, 32) uniform in `[-√3, √3)` (std 1) and targets (64, 1) uniform in `[-1, 1)` (producer input); `kaiming_std` is
   `torc::kaiming_normal_std(32)` = `0.25`. The stack is 8 × (`Linear(32, 32)` → activation) and a head `Linear(32, 1)` in an
   `nn::Sequential`; layer `l` uses seed `300 + l`, the head `309`.
 - `vanishing[]` = `{activation: sigmoid|relu, loss, input_std, layers[9], derived{first_over_last_hidden}}`, both with the same
   start weights (TorC's default Kaiming init). `layers[l]` = `{layer 1..9, name ("hidden 1".."hidden 8", "head"), mean_abs_grad,
   signal_std?}`: the mean of `|weight.grad|` after one forward pass and one `backward()` of the loss, and (hidden layers) the std of
-  the signal after the activation. `first_over_last_hidden` = layer 1's `mean_abs_grad` over layer 8's (derived). Committed run:
-  sigmoid `6.1e-5`, relu `0.49`.
-- `init[]` = `{name: kaiming|too_small|too_large, init_std (0 = TorC's default), weight_std, layer1_weight_std_observed, loss,
-  layers[9]}` for the ReLU stack with `nn::Linear(32, 32, init_std, seed)` and `init_std` 0, 0.05, 0.5. `layers[l]` = `{layer 0..8,
+  the signal after the activation. `first_over_last_hidden` = layer 1's `mean_abs_grad` over layer 8's, `last_over_first_hidden` its
+  inverse (both derived). Committed run: sigmoid `6.1e-5` (inverse `16,421`), relu `0.49` (inverse `2.0`).
+- `init[]` = `{name: kaiming|too_small|too_large|no_two, init_std (0 = TorC's default), weight_std, layer1_weight_std_observed, loss,
+  layers[9], derived}` for the ReLU stack with `nn::Linear(32, 32, init_std, seed)` and `init_std` 0, 0.05, 0.5 and √(1/32) (`no_two`,
+  Kaiming without its 2, added for the lesson; std after layer 8 `0.076`). `derived` (added) = `{kaiming_over_this_min,
+  kaiming_over_this_max}`: over the 8 layers, how many times smaller the mean weight gradient is than with TorC's start (too small:
+  at least 5.5 million). `layers[l]` = `{layer 0..8,
   std, rms, frac_zero, mean_abs_grad?}`: layer 0 is the input, layer `l` the signal after the `l`-th ReLU; `mean_abs_grad` is layer
   `l`'s weight gradient after one `backward()`. Committed run, std after layer 8: `1.2`, `3.1e-6`, `313`.
 - `twins_setup` = `{model "Linear(2, 2) -> ReLU -> Linear(2, 1)", x (4, 2) XOR inputs, t (4, 1), optimizer "optim::SGD", lr 0.2,
   momentum 0, loss, recorded_steps 10, long_steps [0, 10, 100, 500, 2000], note}`. Start weights set by hand (no generator).
-- `twins[]` = `{id: twins|different, start{W1, b1, W2, b2}, steps[11], equal_every_step, long_run[5]}`. `steps[k]` = `{step, loss,
+- `twins[]` = `{id: twins|different|zeros, start{W1, b1, W2, b2}, steps[11], equal_every_step, long_run[5]}` (`zeros`, added for the
+  lesson: every weight and bias starts at 0; only the output bias learns, and the loss stays at `0.25`). `steps[k]` = `{step, loss,
   neuron0, neuron1, grad0, grad1, output_bias, neurons_equal}`: the state before update `k + 1`; `neuronN` = `{w[2] (row N of W1),
   b (bias N), v (output weight N)}`, `gradN` the same fields of the gradients `step()` reads (after `backward()`);
   `neurons_equal` is a bit-for-bit comparison of the two neurons' parameters and gradients. `equal_every_step` covers all 2000
   steps (`true` for `twins`, `false` for `different`; the program fails otherwise). `long_run[k]` = `{step, loss, prediction[4],
-  neurons_equal}`. Committed run: the twins stay at loss `0.1667` (predictions 1/3, 1/3, 1, 1/3), the different start reaches `4e-14`.
+  neurons_equal, neuron0, neuron1, output_bias}` (the last three added for the twins widget). Committed run: the twins stay at loss `0.1667` (predictions 1/3, 1/3, 1, 1/3), the different start reaches `4e-14`.
 - Values of `vanishing` and `init` depend on libstdc++'s `std::normal_distribution`; on one toolchain they are bit-for-bit repeatable.
 
 ## `mnist-mlp.json` (kind `mnist-mlp`, lesson `mnist-mlp`)

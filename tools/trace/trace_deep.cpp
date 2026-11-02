@@ -123,7 +123,7 @@ J vanishing(const Tensor& x, const Tensor& t, bool& ok) {
             layers.push(std::move(e));
         }
         J d = J::object();
-        d.set("first_over_last_hidden", g[0] / g[DEPTH - 1]);
+        d.set("first_over_last_hidden", g[0] / g[DEPTH - 1]).set("last_over_first_hidden", g[DEPTH - 1] / g[0]);
         J r = J::object();
         r.set("activation", sig ? "sigmoid" : "relu").set("loss", loss).set("input_std", stats_of(signal[0]).std)
             .set("layers", std::move(layers)).set("derived", std::move(d));
@@ -134,10 +134,14 @@ J vanishing(const Tensor& x, const Tensor& t, bool& ok) {
 
 J initialization(const Tensor& x, const Tensor& t, bool& ok) {
     struct Init { const char* name; float std; };
-    const std::vector<Init> inits = {{"kaiming", 0.0f}, {"too_small", 0.05f}, {"too_large", 0.5f}};
+    // no_two (added for the lesson): std sqrt(1 / in), Kaiming without its 2, to show what the 2 is for
+    const std::vector<Init> inits = {{"kaiming", 0.0f}, {"too_small", 0.05f}, {"too_large", 0.5f},
+                                     {"no_two", static_cast<float>(std::sqrt(1.0 / WIDTH))}};
     J runs = J::array();
+    std::vector<double> kaiming_grads;   // the first run (TorC's default); the others are compared with it (derived)
     for (const Init& in : inits) {
         auto s = make_stack(false, in.std);
+        std::vector<double> grads;
         const std::vector<Tensor> signal = forward_signal(*s, x, false);
         const float loss = one_backward(*s, x, t);
         J layers = J::array();
@@ -148,7 +152,7 @@ J initialization(const Tensor& x, const Tensor& t, bool& ok) {
             if (l > 0) {
                 const Variable& w = s->layers[l - 1]->named_parameters().at("weight");
                 if (!w.has_grad()) ok = false;
-                else e.set("mean_abs_grad", stats_of(w.grad()).mean_abs);
+                else { grads.push_back(stats_of(w.grad()).mean_abs); e.set("mean_abs_grad", grads.back()); }
             }
             layers.push(std::move(e));
         }
@@ -157,6 +161,14 @@ J initialization(const Tensor& x, const Tensor& t, bool& ok) {
         r.set("name", in.name).set("init_std", static_cast<double>(in.std))
             .set("weight_std", in.std > 0.0f ? static_cast<double>(in.std) : static_cast<double>(kaiming_normal_std(WIDTH)))
             .set("layer1_weight_std_observed", w1.std).set("loss", loss).set("layers", std::move(layers));
+        if (kaiming_grads.empty()) kaiming_grads = grads;
+        // added for the lesson: how many times smaller each layer's weight gradient is than with TorC's start (min and max over layers)
+        double lo = 1e300, hi = 0;
+        for (size_t i = 0; i < grads.size() && i < kaiming_grads.size(); ++i) {
+            const double q = kaiming_grads[i] / grads[i];
+            lo = std::fmin(lo, q); hi = std::fmax(hi, q);
+        }
+        r.set("derived", J::object().set("kaiming_over_this_min", lo).set("kaiming_over_this_max", hi));
         runs.push(std::move(r));
     }
     return runs;
@@ -233,7 +245,10 @@ J twins_run(const char* name, const std::vector<float>& w1, const std::vector<fl
             if (s == step) {
                 J e = J::object();
                 std::vector<float> pred = trace::values_of(y.data());
-                e.set("step", step).set("loss", L.data().data()[0]).set("prediction", trace::jarr(pred)).set("neurons_equal", params_eq);
+                e.set("step", step).set("loss", L.data().data()[0]).set("prediction", trace::jarr(pred)).set("neurons_equal", params_eq)
+                    .set("neuron0", neuron_json(P(m->l1, "weight").data(), P(m->l1, "bias").data(), P(m->l2, "weight").data(), 0))
+                    .set("neuron1", neuron_json(P(m->l1, "weight").data(), P(m->l1, "bias").data(), P(m->l2, "weight").data(), 1))
+                    .set("output_bias", P(m->l2, "bias").data().data()[0]);   // added for the twins widget
                 long_run.push(std::move(e));
             }
         if (step == LONG_STEPS.back()) break;
@@ -268,12 +283,28 @@ int main() {
     J twins = J::array();
     twins.push(twins_run("twins", {0.5f, -0.4f, 0.5f, -0.4f}, {0.1f, 0.1f}, {0.3f, 0.3f}, xx, tx, true, ok));
     twins.push(twins_run("different", {0.5f, -0.4f, -0.3f, 0.6f}, {0.1f, 0.1f}, {0.3f, 0.3f}, xx, tx, false, ok));
+    // zeros (added for the lesson): every weight and bias starts at 0, the extreme case of twins
+    twins.push(twins_run("zeros", {0.0f, 0.0f, 0.0f, 0.0f}, {0.0f, 0.0f}, {0.0f, 0.0f}, xx, tx, true, ok));
+
+    // The largest slope of the sigmoid, read from TorC: the gradient of sigmoid(z) at z = 0, from backward().
+    float sigmoid_max_slope = 0.0f;
+    {
+        Variable z(Tensor({0.0f}, {1}), true);
+        Variable s = sigmoid(z);
+        Variable total = sum(s);
+        total.backward();
+        sigmoid_max_slope = z.grad().data()[0];
+    }
+    // Kaiming std for the first layer of the digit network (784 inputs), from the library's own function.
+    constexpr int DIGIT_INPUTS = 784;
 
     J setup = J::object();
     setup.set("depth", DEPTH).set("width", WIDTH).set("batch", BATCH).set("data_seed", DATA_SEED)
         .set("inputs", "uniform in [-sqrt(3), sqrt(3)), std 1").set("targets", "uniform in [-1, 1)")
         .set("weight_seeds", "layer l uses 300 + l (head: 309)").set("loss", "nn::MSELoss")
-        .set("kaiming_std", kaiming_normal_std(WIDTH));
+        .set("kaiming_std", kaiming_normal_std(WIDTH)).set("no_two_std", std::sqrt(1.0 / WIDTH))
+        .set("sigmoid_max_slope", sigmoid_max_slope)
+        .set("kaiming_digit", J::object().set("inputs", DIGIT_INPUTS).set("std", kaiming_normal_std(DIGIT_INPUTS)));
     J tsetup = J::object();
     tsetup.set("model", "Linear(2, 2) -> ReLU -> Linear(2, 1)").set("x", trace::tensor_json(xx)).set("t", trace::tensor_json(tx))
         .set("optimizer", "optim::SGD").set("lr", static_cast<double>(TWIN_LR)).set("momentum", 0).set("loss", "nn::MSELoss")
