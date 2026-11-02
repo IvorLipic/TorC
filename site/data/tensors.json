@@ -45,5 +45,42 @@
     "batched":{"shape":[4,2,2],"values":[14,32,32,77,50,122,68,167,86,212,104,257,122,302,140,347],"exception":"none"},
     "batched_both":{"shape":[2,3,2,2],"values":[22,28,49,64,58,64,139,154,94,100,229,244,76,100,103,136,220,244,301,334,364,388,499,532],"exception":"none"}
   },
-  "check_sum":{"x_shape":[4,5],"sum0_shape":[5]}
+  "check_sum":{"x_shape":[4,5],"sum0_shape":[5]},
+  "matmul_2x2":{"p":{"shape":[2,2],"values":[1,2,3,4]},"q":{"shape":[2,2],"values":[5,6,7,8]},"c":{"shape":[2,2],"values":[19,22,43,50],"exception":"none"}},
+  "image":{
+    "shape":[3,2,2],
+    "numel":12,
+    "values":[9,7,5,3,8,6,4,2,7,5,3,1],
+    "index":[
+      {"c":0,"i":0,"j":0,"flat":0,"value":9},
+      {"c":0,"i":0,"j":1,"flat":1,"value":7},
+      {"c":0,"i":1,"j":0,"flat":2,"value":5},
+      {"c":0,"i":1,"j":1,"flat":3,"value":3},
+      {"c":1,"i":0,"j":0,"flat":4,"value":8},
+      {"c":1,"i":0,"j":1,"flat":5,"value":6},
+      {"c":1,"i":1,"j":0,"flat":6,"value":4},
+      {"c":1,"i":1,"j":1,"flat":7,"value":2},
+      {"c":2,"i":0,"j":0,"flat":8,"value":7},
+      {"c":2,"i":0,"j":1,"flat":9,"value":5},
+      {"c":2,"i":1,"j":0,"flat":10,"value":3},
+      {"c":2,"i":1,"j":1,"flat":11,"value":1}
+    ],
+    "reductions":[
+      {"op":"sum","axis":0,"result":{"shape":[2,2],"values":[24,18,12,6],"exception":"none"}},
+      {"op":"mean","axis":0,"result":{"shape":[2,2],"values":[8,6,4,2],"exception":"none"}},
+      {"op":"max","axis":0,"result":{"shape":[2,2],"values":[9,7,5,3],"exception":"none"}},
+      {"op":"sum","axis":1,"result":{"shape":[3,2],"values":[14,10,12,8,10,6],"exception":"none"}},
+      {"op":"mean","axis":1,"result":{"shape":[3,2],"values":[7,5,6,4,5,3],"exception":"none"}},
+      {"op":"max","axis":1,"result":{"shape":[3,2],"values":[9,7,8,6,7,5],"exception":"none"}},
+      {"op":"sum","axis":2,"result":{"shape":[3,2],"values":[16,8,14,6,12,4],"exception":"none"}},
+      {"op":"mean","axis":2,"result":{"shape":[3,2],"values":[8,4,7,3,6,2],"exception":"none"}},
+      {"op":"max","axis":2,"result":{"shape":[3,2],"values":[9,5,8,4,7,3],"exception":"none"}}
+    ],
+    "sum":60
+  },
+  "index_errors":[
+    {"call":"a[2, 0]","exception":"ShapeError","what":"Index out of bounds at dim 0: 2 not in [0, 2)"},
+    {"call":"a[0, 3]","exception":"ShapeError","what":"Index out of bounds at dim 1: 3 not in [0, 3)"},
+    {"call":"a[1]","exception":"ShapeError","what":"Rank mismatch: got 1 indices for rank 2"}
+  ]
 }

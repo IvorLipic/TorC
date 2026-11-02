@@ -73,5 +73,6 @@
       "what":"autograd graph input expired before backward(); keep all graph Variables alive"
     },
     {"id":"latest-backward","code":"Variable y1 = model(x1);\nVariable L1 = mse(y1, t);\nVariable y2 = model(x2);\nVariable L2 = mse(y2, t);\nL2.backward();","exception":"none"}
-  ]
+  ],
+  "parameter_order":{"linear_names":["bias","weight"],"linear_shapes":[[2],[2,3]],"sequential_shapes":[[32],[32,784],[10],[10,32]],"sequential_named_count":0,"linear_named_count":2}
 }

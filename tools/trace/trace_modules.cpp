@@ -4,6 +4,7 @@
 //    output shape, or the error TorC throws; the total from Sequential::parameters().
 // 2. The order of calls: forward, loss, backward and a second forward, in three orders, with the result of each (the
 //    gradient shape, or the exception). A module clears the values of its last forward pass when it is called again.
+// 3. The order of parameters() and the named parameters of a Sequential (additive, appendix rewrite).
 // The weights are random (nn::Linear's default), but no weight value is recorded: only shapes, counts and messages.
 #include "trace_util.hpp"
 
@@ -114,6 +115,28 @@ J orders_json() {
     return arr;
 }
 
+// The order in which parameters() lists the parameters (v3 appendix): one Linear, and the 784-32-10 Sequential. The order inside
+// one module comes from an std::unordered_map, so it is what THIS standard library gives; the order of the modules is the order
+// of add(). named_parameters() of a Sequential is its own map, which is empty.
+J order_json() {
+    nn::Linear lin(3, 2, 0.1f, 1);
+    J names = J::array();
+    for (const auto& [name, v] : lin.named_parameters()) { (void)v; names.push(name); }
+    J shapes_lin = J::array();
+    for (Variable* p : lin.parameters()) shapes_lin.push(trace::jarr(p->data().shape()));
+    nn::Sequential seq;
+    seq.add(std::make_unique<nn::Linear>(784, 32, 0.1f, 1));
+    seq.add(std::make_unique<nn::ReLU>());
+    seq.add(std::make_unique<nn::Linear>(32, 10, 0.1f, 1));
+    J shapes_seq = J::array();
+    for (Variable* p : seq.parameters()) shapes_seq.push(trace::jarr(p->data().shape()));
+    J o = J::object();
+    o.set("linear_names", std::move(names)).set("linear_shapes", std::move(shapes_lin)).set("sequential_shapes", std::move(shapes_seq))
+        .set("sequential_named_count", static_cast<int>(seq.named_parameters().size()))
+        .set("linear_named_count", static_cast<int>(lin.named_parameters().size()));
+    return o;
+}
+
 }  // namespace
 
 int main() {
@@ -123,7 +146,7 @@ int main() {
         .push(model_json("no-relu", {{"Linear", 784, 32}, {"Linear", 32, 10}}))
         .push(model_json("mismatch", {{"Linear", 784, 32}, {"ReLU"}, {"Linear", 64, 10}}));
     J doc = trace::envelope("modules", "modules", "tools/trace/trace_modules.cpp");
-    doc.set("models", std::move(models)).set("orders", orders_json());
+    doc.set("models", std::move(models)).set("orders", orders_json()).set("parameter_order", order_json());
     std::fputs(doc.dump().c_str(), stdout);
     return 0;
 }
