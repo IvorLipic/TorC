@@ -1,13 +1,14 @@
-// widgets/next-token.js — "One sentence, many training examples" (lesson from-digits-to-chatgpt, brief §6 Part 5, decision 18).
+// widgets/next-token.js — "One sentence, many samples" (lesson from-digits-to-chatgpt, brief §6 Part 5, decision 18).
 // A made-up illustration, not a TorC run and not a real tokenizer: the widget cuts a sentence at spaces and punctuation, then
-// steps through the training examples that next-token prediction makes from it. Example k reads the first k tokens, and its
-// target is token k + 1 (counting from 1). The tokens after the target stay grey, because the model may not read them. The
-// reader can type a sentence of their own, so any text gives examples without a person writing a label.
+// steps through the samples that next-token prediction makes from it. Sample k reads the first k tokens, and its target is
+// token k + 1 (counting from 1). The target and the tokens after it are hidden from the model. The reader can type a sentence
+// of their own, so any text gives samples without a person writing a target. Going one sample on shows the target joining the
+// tokens that the model reads, as a picked token joins the text when the model writes.
 //
 //   splitTokens(text) -> [string]                                  (pure, tested)
-//   trainingExamples(tokens) -> [{ context: [string], target }]   (pure, tested)
+//   samplesOf(tokens) -> [{ context: [string], target }]          (pure, tested)
 //   tokenRoles(n, k) -> ['read' | 'target' | 'later']              (pure, tested)
-//   mountNextToken(host) -> { destroy(), go(k), setText(s) }
+//   mountNextToken(host, {announceDelay}) -> { destroy(), go(k), step(d), setText(s) }
 import { el, escapeHtml } from '../core/dom.js';
 
 export const START_SENTENCE = 'The cat sat on the mat.';
@@ -19,7 +20,7 @@ export function splitTokens(text) {
   return String(text).match(/[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*|[^\s\p{L}\p{N}]/gu) ?? [];
 }
 
-export function trainingExamples(tokens) {
+export function samplesOf(tokens) {
   return tokens.slice(1).map((target, i) => ({ context: tokens.slice(0, i + 1), target }));
 }
 
@@ -46,6 +47,8 @@ const CSS = `
 .nt-keys .k-later::before{border-color:var(--border);border-style:dashed}
 .nt-btns{display:flex;flex-wrap:wrap;gap:6px}
 .nt-read{margin:.5rem 0 0;font-size:.95rem;line-height:1.5}
+.nt .btn[aria-disabled=true]{opacity:.4;cursor:default}
+.nt-sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 `;
 function injectStyles() {
   if (typeof document === 'undefined' || document.getElementById('nt-styles')) return;
@@ -54,45 +57,60 @@ function injectStyles() {
 
 const quote = (ts) => `“${escapeHtml(ts.join(' '))}”`;
 
-export function mountNextToken(host) {
+export function mountNextToken(host, { announceDelay = 700 } = {}) {
   injectStyles();
-  let tokens = [], examples = [], at = 0;
+  let tokens = [], samples = [], at = 0, timer = null;
   const input = el('input', { id: 'nt-text', type: 'text', value: START_SENTENCE, maxlength: String(MAX_CHARS), autocomplete: 'off', spellcheck: 'false' });
   const row = el('div', { class: 'nt-row', 'aria-hidden': 'true' });
-  const read = el('div', { class: 'nt-read', 'aria-live': 'polite' });
-  const back = el('button', { type: 'button', class: 'btn small', onclick: () => go(at - 1) }, 'Previous example');
-  const next = el('button', { type: 'button', class: 'btn small primary', onclick: () => go(at + 1) }, 'Next example');
+  const read = el('div', { class: 'nt-read' });
+  // screen readers hear a change after a step, or after the typing stops, not at every keystroke
+  const live = el('p', { class: 'nt-sr', 'aria-live': 'polite' });
+  // aria-disabled, not disabled, so that a button keeps the focus at the first and the last sample
+  const back = el('button', { type: 'button', class: 'btn small', onclick: () => step(-1) }, 'Previous sample');
+  const next = el('button', { type: 'button', class: 'btn small primary', onclick: () => step(1) }, 'Next sample');
   const keys = el('div', { class: 'nt-keys', 'aria-hidden': 'true' },
     el('span', { class: 'k-read' }, 'the model reads'), el('span', { class: 'k-target' }, 'the target, hidden from the model'), el('span', { class: 'k-later' }, 'later tokens, hidden too'));
   host.replaceChildren(el('div', { class: 'nt' },
     el('p', { class: 'nt-note' }, 'A made-up illustration, not a TorC run. This widget cuts the text at spaces and punctuation. A real tokenizer also cuts rare words into smaller pieces.'),
     el('label', { for: 'nt-text' }, 'Your sentence'), input, row, keys,
-    el('div', { class: 'nt-btns' }, back, next), read));
+    el('div', { class: 'nt-btns' }, back, next), read, live));
 
+  const message = () => {
+    if (!samples.length) return 'Type a sentence with at least two words.';
+    const x = samples[at];
+    return `Sample ${at + 1} of ${samples.length}. The model reads ${quote(x.context)}. Its target is ${quote([x.target])}.`;
+  };
   function draw() {
     row.replaceChildren();
-    back.disabled = at <= 0;
-    next.disabled = at >= examples.length - 1;
-    if (!examples.length) {
-      read.innerHTML = '<p>Type a sentence with at least two words.</p>';
-      return;
-    }
-    const ex = examples[at], k = ex.context.length;
-    const roles = tokenRoles(tokens.length, k);
+    back.setAttribute('aria-disabled', String(at <= 0));
+    next.setAttribute('aria-disabled', String(at >= samples.length - 1));
+    read.innerHTML = `<p>${message()}</p>`;
+    if (!samples.length) return;
+    const roles = tokenRoles(tokens.length, samples[at].context.length);
     tokens.forEach((t, i) => row.append(el('span', { class: `nt-tok ${roles[i]}` }, t)));
-    read.innerHTML = `<p>Example ${at + 1} of ${examples.length}. The model reads ${quote(ex.context)}. Its target is ${quote([ex.target])}.</p>`;
   }
+  function announce() { clearTimeout(timer); timer = null; live.innerHTML = message(); }
   function go(k) {
-    at = Math.max(0, Math.min(examples.length - 1, k));
+    at = Math.max(0, Math.min(samples.length - 1, k));
     draw();
+  }
+  function step(d) {
+    const k = Math.max(0, Math.min(samples.length - 1, at + d));
+    if (k === at) return;
+    go(k);
+    announce();
   }
   function setText(s) {
     tokens = splitTokens(s);
-    examples = trainingExamples(tokens);
+    samples = samplesOf(tokens);
     at = 0;
     draw();
   }
-  input.addEventListener('input', () => setText(input.value));
+  input.addEventListener('input', () => {
+    setText(input.value);
+    clearTimeout(timer);
+    timer = setTimeout(announce, announceDelay);
+  });
   setText(input.value);
-  return { destroy() {}, go, setText };
+  return { destroy() { clearTimeout(timer); }, go, step, setText };
 }
