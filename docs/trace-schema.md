@@ -205,7 +205,9 @@ sequential_out_shape | sequential_exception, sequential_what}`. `orders[]` = `{i
 forward and backward calls. No weight value is recorded. `parameter_order` = `{linear_names, linear_shapes, sequential_shapes,
 sequential_named_count, linear_named_count}`: the order in which `named_parameters()` and `parameters()` list one `Linear(3, 2)` and the
 784-32-10 `Sequential` (the order inside one module is the standard library's, stdlib-dependent; a Sequential's own
-`named_parameters()` is empty, count 0). Producer: `tools/trace/trace_modules.cpp`.
+`named_parameters()` is empty, count 0). `custom_module[]` = `{id: local|cached, exception, what?, scale_has_grad?, shift_has_grad?}`: a module of our
+own with two operations whose product is kept in a local Variable (backward throws "autograd graph input expired…") or in
+`forward_cache_` (backward works). Producer: `tools/trace/trace_modules.cpp`.
 
 ## `losses.json` (kind `losses`, lesson `losses`)
 

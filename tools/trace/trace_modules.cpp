@@ -4,7 +4,8 @@
 //    output shape, or the error TorC throws; the total from Sequential::parameters().
 // 2. The order of calls: forward, loss, backward and a second forward, in three orders, with the result of each (the
 //    gradient shape, or the exception). A module clears the values of its last forward pass when it is called again.
-// 3. The order of parameters() and the named parameters of a Sequential (additive, appendix rewrite).
+// 3. A module of our own (v3 appendix): intermediate results in a local Variable, then in forward_cache_.
+// 4. The order of parameters() and the named parameters of a Sequential (additive, appendix rewrite).
 // The weights are random (nn::Linear's default), but no weight value is recorded: only shapes, counts and messages.
 #include "trace_util.hpp"
 
@@ -137,6 +138,46 @@ J order_json() {
     return o;
 }
 
+// A module of our own with two operations, y = x * scale + shift. The first version keeps the product in a local Variable, which
+// dies when forward() returns. The second keeps it in forward_cache_, as nn::Linear does.
+class AffineLocal : public nn::Module {
+public:
+    AffineLocal() {
+        register_parameter("scale", Variable(Tensor({2.0f}, {1}), true));
+        register_parameter("shift", Variable(Tensor({1.0f}, {1}), true));
+    }
+    Variable forward(const Variable& x) const override {
+        Variable scaled = mul(x, named_parameters().at("scale"));
+        return add(scaled, named_parameters().at("shift"));
+    }
+};
+class AffineCached : public nn::Module {
+public:
+    AffineCached() {
+        register_parameter("scale", Variable(Tensor({2.0f}, {1}), true));
+        register_parameter("shift", Variable(Tensor({1.0f}, {1}), true));
+    }
+    Variable forward(const Variable& x) const override {
+        forward_cache_.emplace_back(mul(x, named_parameters().at("scale")));
+        Variable& scaled = forward_cache_.back();
+        return add(scaled, named_parameters().at("shift"));
+    }
+};
+template <class M>
+J custom_json(const char* id) {
+    M m;
+    nn::MSELoss mse;
+    const Variable x(trace::make_tensor({3, 1}, {1, 2, 3}), false), t(trace::make_tensor({3, 1}, {4, 6, 8}), false);
+    Variable y = m(x);
+    Variable L = mse(y, t);
+    auto c = trace::catch_call([&] { L.backward(); });
+    J o = J::object();
+    o.set("id", id).set("exception", c.type);
+    if (c.type != "none") o.set("what", c.what);
+    else o.set("scale_has_grad", m.named_parameters().at("scale").has_grad()).set("shift_has_grad", m.named_parameters().at("shift").has_grad());
+    return o;
+}
+
 }  // namespace
 
 int main() {
@@ -146,7 +187,8 @@ int main() {
         .push(model_json("no-relu", {{"Linear", 784, 32}, {"Linear", 32, 10}}))
         .push(model_json("mismatch", {{"Linear", 784, 32}, {"ReLU"}, {"Linear", 64, 10}}));
     J doc = trace::envelope("modules", "modules", "tools/trace/trace_modules.cpp");
-    doc.set("models", std::move(models)).set("orders", orders_json()).set("parameter_order", order_json());
+    doc.set("models", std::move(models)).set("orders", orders_json()).set("parameter_order", order_json())
+        .set("custom_module", J::array().push(custom_json<AffineLocal>("local")).push(custom_json<AffineCached>("cached")));
     std::fputs(doc.dump().c_str(), stdout);
     return 0;
 }
