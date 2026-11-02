@@ -479,7 +479,7 @@
           "trace": [
             "modules.json"
           ],
-          "est_minutes": 6,
+          "est_minutes": 12,
           "status": "published",
           "widgets": [
             "model viewer",

@@ -123,7 +123,7 @@ test('every number in the prose is bound to the trace', () => {
   const parts = renderLesson(lesson, D);
   for (const { section, html } of parts) {
     assert.deepEqual(findUnboundNums(html), [], section.kind);
-    for (const { path, shown } of boundNums(html)) assert.equal(T.text(path), shown, path);
+    for (const b of boundNums(html)) assert.equal(T.reformat(b), b.shown, b.path);
   }
   const all = parts.map((p) => p.html).join('\n');
   const shown = Object.fromEntries(boundNums(all).map(({ path, shown: v }) => [path, v]));
