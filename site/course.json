@@ -315,8 +315,8 @@
       "lessons": [
         {
           "id": "mnist-mlp",
-          "title": "Digits with an MLP",
-          "outcome": "You can train a network that reads handwritten digits and count its mistakes. You can say which digits it mixes up, and why.",
+          "title": "Reading handwritten digits with a network",
+          "outcome": "You can say how often a digit network is wrong on new digits, tell overfitting from the validation images, and read a confusion matrix.",
           "prereqs": [
             "generalization"
           ],
@@ -327,13 +327,17 @@
             "nn::CrossEntropyLoss"
           ],
           "trace": [
-            "mnist-mlp.json"
+            "mnist-mlp.json",
+            "mnist-mistakes.json",
+            "mnist-seeds.json"
           ],
-          "est_minutes": 10,
+          "est_minutes": 16,
           "status": "published",
           "widgets": [
             "digit pad",
-            "first-layer weights"
+            "first-layer weights",
+            "training vs validation mistakes",
+            "confusion matrix and mistakes"
           ],
           "code": "data::MNISTDataset train_set(path);\ndata::DataLoader loader(train_set, 128, /*shuffle=*/true);\noptim::AdamW opt(model.parameters(), 5e-4f);\nnn::CrossEntropyLoss loss_fn;   // 26,506 parameters"
         },

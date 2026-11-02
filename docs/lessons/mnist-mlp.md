@@ -4,36 +4,44 @@ Not shipped. Library symbols, and what is observed, expected and suspected.
 
 ## Library symbols (TorC `38785db`, `main` = v0.1.0 + PR #5 + PR #6)
 `data::MNISTDataset(path, max_samples = 0, sample_shape = {})` (`src/data.cpp`): one CSV line per image, the label then the
-pixels; every pixel is divided by 255. `nn::Sequential`, `nn::Linear(in, out, init_std = 0, seed)` (Kaiming normal start from
-`seed`), `nn::ReLU`, `nn::CrossEntropyLoss`, `optim::AdamW(params, lr, weight_decay = 0.01)`, `data::DataLoader`. The model and
-the settings are those of `examples/mnist_mlp/mnist_mlp.cpp` (batch 128, 20 epochs, lr 5e-4), with fixed seeds.
+pixels; every pixel is divided by 255 (`rows[i][j + 1] / 255.0f`). `data::DataLoader::next_batch` returns a last, smaller batch
+(`std::min(current_ + batch_size_, size)`), so one epoch of 60,000 images in batches of 128 is 469 steps. `nn::Sequential`,
+`nn::Linear(in, out, init_std = 0, seed)` (Kaiming normal start from `seed` when `init_std <= 0`), `nn::ReLU`,
+`nn::CrossEntropyLoss`, `optim::AdamW(params, lr, weight_decay = 0.01)`. The model and the settings are those of
+`examples/mnist_mlp/mnist_mlp.cpp` (batch 128, 20 epochs, lr 5e-4), with fixed seeds (`settings` in the trace).
 
 ## Data
-`tools/trace/fetch_mnist.sh` downloads the four IDX archives from `storage.googleapis.com/cvdf-datasets/mnist`, checks their
-SHA-256 (the published MNIST values), and writes `build/mnist/mnist_{train,test}.csv` with raw pixels 0..255. TorC's own
-`datasets/mnist/convert_to_csv.py` writes `p / 255`, which `MNISTDataset` divides by 255 again (logged in
-`docs/library-audit/v0.1.0-findings.md`). CI caches the archives (`verify.yml`).
+`tools/trace/fetch_mnist.sh` downloads the four IDX archives, checks their SHA-256, and writes `mnist_{train,test}.csv` with raw
+pixels 0..255. TorC's own `datasets/mnist/convert_to_csv.py` writes `p / 255`, which `MNISTDataset` divides by 255 again (logged
+in `docs/library-audit/v0.1.0-findings.md`).
 
-## Observed (tools/trace/trace_mnist_mlp.cpp → site/data/mnist-mlp.json)
-- 26,506 parameters. Test images correct: 9204 after epoch 1, 9666 of 10000 after epoch 20 (96.66 %). The mean training loss
-  of the last epoch is 0.0713. The test count rises with small drops (epochs 10, 12, 14, 17, each under 0.5 %), so there is no
-  overfitting in 20 epochs. The test loss is not recorded.
-- Per class, the digit 9 is read worst (958 of 1009, 94.9 %); the page computes this from the data.
-- The first 16 test images are all read correctly. The first four errors after them are images 115 (4 read as 9), 149 (2 as 5),
-  151 (9 as 8) and 233 (8 as 7).
-- About 1.8 s per epoch on the CI-like container, so the trace adds under a minute to `run.sh`.
+## Observed (tools/trace/trace_mnist_mlp.cpp → mnist-mlp.json; trace_mnist_mistakes.cpp → mnist-mistakes.json; trace_mnist_seeds.cpp → mnist-seeds.json)
+- 26,506 parameters; layers `(32, 784)`, `(32, 32)`, `(10, 32)`, as the real line on the page.
+- Validation run (C2): 55,000 training images, the last 5,000 held out. After pass 1: 8.1 mistakes per 100 on 5,000 training
+  images, 6.9 on the validation images (validation lower). After pass 20: 1.6 and 2.8 (whole numbers on the page: 2 and 3). The
+  training curve keeps falling; the validation curve falls more slowly (its loss is roughly flat from about pass 12). A small gap:
+  overfitting a little, as a degree (C10).
+- Final network of the main run (all 60,000 images), measured once on the test set: 9,666 of 10,000 (3 mistakes per 100). The
+  page shows no per-epoch test curve.
+- Three seed sets (C5): 96.66 %, 96.66 %, 96.51 % on the test set, so 3 mistakes per 100 for each.
+- Confusion matrix (test set, shown only to look, nothing chosen with it): the largest off-diagonal count is a four read as a nine
+  (19); a nine as a four is 9. Nines go wrong most as eights (14), fours (9) and sevens (9). The nine has the lowest per-digit
+  accuracy (958 / 1,009 = 0.9495). The first of the 24 recorded mistakes (test image 115) is a four read as a nine.
+- First-layer weights: the mean neighbour difference relative to the mean size is 0.85 in the middle and 1.04 at the edge (about
+  1.41 for independent random values), so the middle forms patches and the edge looks speckled. 67 pixels have no ink in any
+  training image; their weights stay near the Kaiming start (std 0.049 against 0.0505 × the AdamW decay). Pixels with rare ink get
+  large weights (AdamW scales each step by the size of recent gradients). The page says only what the tasks show.
 
 ## Expected (mathematics)
 The browser forward pass (`digit-widgets.js` `forward`: `x·Wᵀ + b`, ReLU, twice, then `x·Wᵀ + b`) must give TorC's logits;
-the test allows 1e-4 and observes 8.4e-6. The preprocessing of a drawing follows the MNIST recipe (crop, fit into 20 × 20,
-centre of mass at the centre); 18 of the 20 recorded images keep their class after being upscaled and preprocessed again.
+the test allows 1e-4. Per-digit accuracy is the diagonal over the row sum; the matrix sums to the test count. Mistakes per 100
+are `T.human(…, 'per100')`, 100 minus the whole percent.
 
 ## Suspected discrepancy
 None in the parts used here (see the data note above for the converter).
 
 ## Lesson status
-Published 2026-10-20 as "Digits with an MLP" (the plan said "Project: MNIST MLP"; a colon in a title breaks the writing rules).
-Widgets: `digit-widgets.js` (weights gallery, digit pad). Tests: `site/test/mnist-mlp.test.mjs`. The home-page code is compiled
-by the snippet check. Checked: Node tests, `check_site`, `tools/prose/check.sh`, Chromium at both widths (drawing with the mouse,
-the test images), axe-core clean. Independent review 2026-10-20 (no blockers; fixed: "MLP" and "hidden layer" defined, the overfitting answer no longer says
-"almost every epoch", the digit pad announces only on a click or the end of a stroke). Not done: screen reader, a real touch device.
+Rewritten 2026-11 as a `template: 3` lesson, "Reading handwritten digits with a network" (brief §6, §7, C2, C5, D9). Widgets:
+`digit-widgets.js` (digit pad and weights gallery, unchanged) and `mnist-widgets.js` (training vs validation curves, confusion
+matrix with the grid of mistakes). Tests: `site/test/mnist-mlp.test.mjs`. The home-page code is compiled by the snippet check
+(compile only). Not done: pedagogy review, cold read, human think-aloud, screen reader, a real touch device.

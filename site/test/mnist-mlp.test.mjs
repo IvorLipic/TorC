@@ -1,23 +1,48 @@
-// Lesson mnist-mlp: the browser port of the forward pass against the logits TorC recorded, the preprocessing of a drawing, the
-// training record (data/mnist-mlp.json), every number bound to the trace, and the widget module importing without a DOM.
+// Lesson mnist-mlp ("Reading handwritten digits with a network", template 3): every claim of the page checked from what TorC
+// recorded (data/mnist-mlp.json, data/mnist-mistakes.json, data/mnist-seeds.json), the browser port of the forward pass against
+// TorC's logits, the preprocessing of a drawing, the widget helpers, and no hand-typed digits. The v3 rules (roles, budgets,
+// glossary, notation order) run on this lesson in lessons.test.mjs.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildD, makeT } from '../js/core/trace.js';
-import { renderLesson, findUnboundNums, boundNums } from '../js/core/sections.js';
-import { readJson } from './helpers.mjs';
+import { buildD, makeT, anchorValues } from '../js/core/trace.js';
+import { renderLesson } from '../js/core/sections.js';
+import { humanValue } from '../js/core/numbers.js';
+import { readJson, course } from './helpers.mjs';
 
 const data = readJson('data/mnist-mlp.json');
-const D = buildD({ 'mnist-mlp': data });
+const mistakes = readJson('data/mnist-mistakes.json');
+const seeds = readJson('data/mnist-seeds.json');
+const D = buildD({ 'mnist-mlp': data, 'mnist-mistakes': mistakes, 'mnist-seeds': seeds }, anchorValues(readJson('data/anchors.json')));
 const T = makeT(D);
-const lesson = (await import('../js/lessons/mnist-mlp.js')).default;
+const mod = await import('../js/lessons/mnist-mlp.js');
+const lesson = mod.default;
 const { forward, softmax, argmax, preprocess, linear } = await import('../js/widgets/digit-widgets.js');
+const W = await import('../js/widgets/mnist-widgets.js');
+const per100 = (acc) => humanValue('per100', acc);
+const render = () => {
+  const saved = globalThis.katex;
+  globalThis.katex = undefined;
+  try { return renderLesson(lesson, D, { course: course() }).map((p) => p.html).join('\n'); } finally { globalThis.katex = saved; }
+};
+const html = render();
+const V = data.validation_run;
 
-test('the layers are Linear(784, 32), Linear(32, 32), Linear(32, 10), with the parameter count the page states', () => {
+test('the layers are Linear(784, 32), Linear(32, 32), Linear(32, 10), as the real line shows, with the parameter count the page states', () => {
   assert.deepEqual(data.layers.map((l) => l.weight_shape), [[32, 784], [32, 32], [10, 32]]);
   const n = data.layers.reduce((a, l) => a + l.weight.length + l.bias.length, 0);
   assert.equal(n, data.setup.parameters);
-  assert.equal(n, 26506);
-  assert.equal(data.setup.image_side ** 2, data.layers[0].weight_shape[1]);
+  assert.equal(n, D.anchors.mlp_parameters);
+  assert.equal(data.setup.image_side ** 2, data.setup.pixels);
+  assert.equal(data.setup.pixels, data.layers[0].weight_shape[1]);
+  assert.equal(data.setup.classes, data.layers[2].weight_shape[0]);
+  // every Linear(in, out) of the real line, in order, against the recorded shapes (out, in)
+  const lines = [...mod.MODEL_CODE.matchAll(/nn::Linear>\((\d+), (\d+)\)/g)].map((m) => [Number(m[2]), Number(m[1])]);
+  assert.deepEqual(lines, data.layers.map((l) => l.weight_shape));
+  assert.equal((mod.MODEL_CODE.match(/nn::ReLU/g) ?? []).length, 2, 'ReLU after each of the first two layers');
+  assert.equal(data.layers[0].weight_shape[0], data.layers[1].weight_shape[0], 'the first two layers have the same number of neurons');
+  assert.match(data.settings.model, /^Linear\(784, 32\), ReLU, Linear\(32, 32\), ReLU, Linear\(32, 10\)$/);
+  assert.deepEqual([data.settings.optimizer, data.settings.loss], ['optim::AdamW', 'nn::CrossEntropyLoss']);
+  assert.deepEqual([data.setup.pixel_max, data.setup.batch_size, data.setup.epochs], [255, data.settings.batch_size, mod.LAST]);
 });
 
 test('the browser forward pass gives the logits TorC computed, for all 20 recorded test images', () => {
@@ -32,12 +57,12 @@ test('the browser forward pass gives the logits TorC computed, for all 20 record
   assert.deepEqual(linear({ weight_shape: [1, 2], weight: [2, 3], bias: [1] }, [1, 1]), [6]);
 });
 
-test('the shown images: the first 16 test images, then 4 that TorC reads wrongly', () => {
+test('the pad task: the last four buttons are test images that TorC reads wrongly', () => {
   assert.deepEqual(data.shown.slice(0, 16).map((s) => s.index), Array.from({ length: 16 }, (_, i) => i));
   const wrong = data.shown.slice(16);
   assert.equal(wrong.length, 4);
   for (const s of wrong) assert.notEqual(argmax(s.logits), s.label, `image ${s.index}`);
-  for (const s of data.shown) { assert.equal(s.pixels.length, 784); s.pixels.forEach((p) => assert.ok(Number.isInteger(p) && p >= 0 && p <= 255)); }
+  for (const s of data.shown) { assert.equal(s.pixels.length, 784); s.pixels.forEach((q) => assert.ok(Number.isInteger(q) && q >= 0 && q <= 255)); }
 });
 
 test('preprocess: a drawing is cropped, scaled into 20 x 20 and centred; upscaled test images keep their class', () => {
@@ -58,37 +83,117 @@ test('preprocess: a drawing is cropped, scaled into 20 x 20 and centred; upscale
   assert.ok(same >= 16, `${same} of 20 keep their class`);
 });
 
-test('the training record: the final test count equals the per-class counts, and the accuracy rises over the epochs', () => {
-  const E = data.epochs;
-  assert.equal(E.length, data.setup.epochs + 1);
-  assert.equal(E.at(-1).test_correct, data.test_per_class.correct.reduce((a, b) => a + b, 0));
-  assert.equal(data.test_per_class.total.reduce((a, b) => a + b, 0), data.setup.test_samples);
-  assert.ok(E.at(-1).test_correct > E[1].test_correct && E[1].test_correct > E[0].test_correct);
-  E.slice(1).forEach((e, i) => assert.equal(e.steps, (i + 1) * Math.ceil(data.setup.train_samples / data.setup.batch_size)));
-  assert.ok(E.at(-1).test_correct / data.setup.test_samples > 0.95);
-  // "rises, with only small drops": every drop is under half a percent of the test images
-  for (let e = 2; e < E.length; e++) assert.ok(E[e].test_correct > E[e - 1].test_correct - data.setup.test_samples * 0.005, `epoch ${e}`);
-  assert.ok(E.at(-1).test_correct >= Math.max(...E.slice(1, 10).map((x) => x.test_correct)));
-});
-
-test('every number in the prose is bound to the trace, with no hand-typed digits', () => {
-  const parts = renderLesson(lesson, D);
-  for (const { section, html } of parts) {
-    assert.deepEqual(findUnboundNums(html), [], section.kind);
-    for (const { path, shown } of boundNums(html)) assert.equal(T.text(path), shown, path);
+test('the weight gallery tasks: neighbouring weights in the middle agree more than at the edge', () => {
+  const Wt = data.layers[0].weight;
+  let re = 0, ae = 0, rc = 0, ac = 0;
+  for (let r = 0; r < 32; r++) for (let y = 0; y < 28; y++) for (let x = 0; x < 27; x++) {
+    const k = y * 28 + x, a = Wt[r * 784 + k], b = Wt[r * 784 + k + 1];
+    if (y < 4 || y > 23 || x < 4 || x > 22) { re += Math.abs(a - b); ae += Math.abs(a); } else if (y >= 7 && y < 21 && x >= 7 && x < 20) { rc += Math.abs(a - b); ac += Math.abs(a); }
   }
-  const saved = globalThis.katex;
-  globalThis.katex = undefined;
-  let raw;
-  try { raw = renderLesson(lesson, D).map((p) => p.html).join('\n'); } finally { globalThis.katex = saved; }
-  const left = raw.replace(/<style[\s\S]*?<\/style>/g, '').replace(/<span class="num"[^>]*>[^<]*<\/span>/g, '').replace(/<pre[\s\S]*?<\/pre>/g, '')
-    .replace(/<code[^>]*>[\s\S]*?<\/code>/g, '').replace(/<h2[^>]*>\s*\d\s·/g, '<h2>').replace(/<[^>]+>/g, ' ').match(/[^\s]*\d[^\s]*/g) ?? [];
-  assert.deepEqual(left, []);
+  // for independent random weights the ratio is about the square root of 2
+  assert.ok(rc / ac < re / ae, `middle ${rc / ac} vs edge ${re / ae}`);
+  assert.ok(rc / ac < 0.9 * Math.SQRT2, 'the middle forms patches, not noise');
 });
 
-test('the widget module imports in Node without touching the DOM', async () => {
+test('the validation run (C2): held-out images, small gap, the predict reveal and the slider tasks', () => {
+  assert.equal(V.train_samples + V.validation_samples, data.setup.train_samples);
+  assert.equal(V.validation_first_index, V.train_samples, 'the last images are the validation set');
+  assert.equal(V.epochs.length, mod.LAST + 1);
+  const E = V.epochs, last = E[mod.LAST];
+  assert.equal(last.validation.total, V.validation_samples);
+  assert.equal(last.train_subset.total, V.train_subset_samples);
+  // predict: on new images "a few, a little more than on its training images"
+  const val = per100(last.validation.accuracy), tr = per100(last.train_subset.accuracy);
+  assert.ok(val >= 1 && val <= 5, `a few: ${val}`);
+  assert.ok(tr < val, 'a little more on new images');
+  assert.ok(last.train_subset.accuracy > 0.98, 'almost all training images right');
+  assert.ok(val - tr <= 2, 'the gap is small');
+  // task 1: after the first pass the validation images have fewer mistakes than the training images
+  assert.ok(E[1].validation.accuracy > E[1].train_subset.accuracy);
+  // task 2: the training curve keeps falling, the validation curve falls more slowly, and a gap opens
+  const C = W.trainValidationCurves(data);
+  assert.equal(C.passes.length, mod.LAST);
+  assert.ok(C.train.at(-1) < C.train[9] && C.train[9] < C.train[0]);
+  assert.ok(C.train[9] - C.train.at(-1) > C.validation[9] - C.validation.at(-1));
+  assert.ok(C.validation.at(-1) - C.train.at(-1) > 0.5, 'a gap opens');
+  assert.ok(C.validation[0] < C.train[0]);
+  C.train.forEach((v, i) => assert.ok(Math.abs(v - 100 * (1 - V.epochs[i + 1].train_subset.accuracy)) < 1e-9));
+});
+
+test('the test set once, and three random starts (C5)', () => {
+  assert.equal(data.final.test_correct, data.confusion.correct);
+  assert.equal(data.final.test_samples, data.setup.test_samples);
+  assert.equal(per100(data.final.test_accuracy), 3);
+  assert.equal(seeds.mlp.runs.length, 3);
+  assert.equal(seeds.mlp.runs[0].test_correct, data.final.test_correct, 'seed set 1 is the run of the page');
+  assert.equal(per100(seeds.mlp.min_accuracy), per100(seeds.mlp.max_accuracy), 'each start made about the same number of mistakes');
+  assert.equal(per100(seeds.mlp.min_accuracy), per100(data.final.test_accuracy));
+  // the page shows no per-epoch test curve (C2): no binding to epochs[].test_*
+  assert.doesNotMatch(html, /data-trace="files\.mnist-mlp\.epochs\./);
+});
+
+test('the confusion matrix: sums, diagonal, the most common mistake and the rare pairs the quiz feedback names', () => {
+  const M = data.confusion.matrix;
+  assert.equal(M.flat().reduce((a, b) => a + b, 0), data.setup.test_samples);
+  M.forEach((row, t) => {
+    assert.equal(row[t], data.test_per_class.correct[t]);
+    assert.equal(row.reduce((a, b) => a + b, 0), data.test_per_class.total[t]);
+    assert.ok(Math.abs(data.test_per_class.accuracy[t] - row[t] / data.test_per_class.total[t]) < 1e-12);
+  });
+  const top = W.confusions(M);
+  assert.deepEqual([top[0].t, top[0].p], [4, 9], 'a four read as a nine is the most common mistake');
+  assert.ok(M[9][4] < M[4][9], 'the opposite mistake is less common');
+  // the most common mistakes of a nine: eights, then fours and sevens
+  const nine = top.filter((c) => c.t === 9).slice(0, 3).map((c) => c.p).sort();
+  assert.deepEqual(nine, [4, 7, 8]);
+  assert.equal(W.cellText(M, 4, 9), `The network read ${M[4][9]} of the ${data.test_per_class.total[4]} test images of a four as a nine.`);
+  assert.match(W.cellText(M, 8, 8), /of an eight correctly\.$/);
+  assert.match(W.cellText(M, 9, 8), /of the 1,009 test images of a nine as an eight\.$/, 'a comma from 1,000 up (decision 22)');
+  assert.match(W.cellText(M, 1, 7), /^The network never read a one as a seven\.$/);});
+
+test('the worked row and the "your turn" quiz: the nine is the digit read worst', () => {
+  const acc = data.test_per_class.accuracy;
+  assert.equal(Math.min(...acc), acc[mod.MINE]);
+  assert.ok(Math.abs(acc[mod.ROW] - data.confusion.matrix[mod.ROW][mod.ROW] / data.test_per_class.total[mod.ROW]) < 1e-12);
+  assert.ok(Math.abs(T.num(`files.mnist-mlp.test_per_class.accuracy.${mod.MINE}`) - 958 / 1009) < 1e-12);
+});
+
+test('the grid of mistakes: the same images as mistakes.items, and the first is a four read as a nine', () => {
+  assert.equal(mistakes.items.length, data.mistakes.items.length);
+  mistakes.items.forEach((it, i) => {
+    const r = data.mistakes.items[i];
+    assert.deepEqual([it.index, it.label, it.predicted], [r.index, r.label, r.predicted]);
+    assert.notEqual(it.label, it.predicted);
+    assert.equal(it.pixels.length, 784);
+    assert.ok(data.confusion.matrix[it.label][it.predicted] > 0);
+  });
+  assert.deepEqual([mistakes.items[0].label, mistakes.items[0].predicted], [4, 9]);
+  assert.ok(mistakes.checks.predictions_match_mnist_mlp && mistakes.checks.weights_reproduce_mnist_mlp_logits);
+  for (let i = 1; i < mistakes.items.length; i++) assert.ok(mistakes.items[i].index > mistakes.items[i - 1].index, 'in test-set order');
+});
+
+test('the cumulative quiz: one epoch is the batches of all training images, rounded up', () => {
+  const s = data.settings;
+  assert.ok(s.train_samples % s.batch_size !== 0, 'the division does not give a whole number');
+  assert.equal(s.steps_per_epoch, Math.ceil(s.train_samples / s.batch_size));
+  assert.equal(s.steps, s.steps_per_epoch * s.epochs);
+  assert.equal(data.epochs.at(-1).steps, s.steps);
+  assert.ok(Math.abs(s.train_samples / s.batch_size - s.steps_per_epoch) < 0.3, 'the tolerance accepts the plain division');
+});
+
+test('no hand-typed digits in the prose: every number is bound', () => {
+  const prose = html.replace(/<style[\s\S]*?<\/style>/g, ' ').replace(/<pre[\s\S]*?<\/pre>/g, ' ').replace(/<svg[\s\S]*?<\/svg>/g, ' ')
+    .replace(/<code[^>]*>[\s\S]*?<\/code>/g, ' ').replace(/<span class="num"[^>]*>[^<]*<\/span>/g, ' ').replace(/<h2[^>]*>\s*\d+ ·/g, '<h2>').replace(/<[^>]+>/g, ' ');
+  assert.deepEqual(prose.match(/\S*\d\S*/g), null);
+});
+
+test('the widget modules import in Node without touching the DOM', async () => {
   const m = await import('../js/widgets/digit-widgets.js');
   assert.equal(typeof m.mountDigitPad, 'function');
   assert.equal(typeof m.mountWeightsGallery, 'function');
+  assert.equal(typeof W.mountConfusion, 'function');
+  assert.equal(typeof W.mountTrainValidation, 'function');
+  assert.equal(W.sig2(1.6), '1.6');
+  assert.equal(W.sig2(12.6), '13');
   assert.equal(typeof document, 'undefined');
 });
