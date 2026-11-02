@@ -419,14 +419,20 @@
         {
           "id": "from-digits-to-chatgpt",
           "title": "From digits to ChatGPT",
-          "outcome": "You can explain how ChatGPT learns to predict the next word with the same loop as this course. You know where TorC stops and where to learn more.",
+          "outcome": "You can explain how a language model such as ChatGPT learns to predict the next token with the loop of this course. You know where TorC stops and where to learn more.",
           "prereqs": [
             "mnist-cnn"
           ],
-          "symbols": [],
+          "symbols": [
+            "nn::CrossEntropyLoss",
+            "optim::AdamW"
+          ],
           "trace": [],
           "est_minutes": 10,
-          "status": "planned"
+          "status": "published",
+          "widgets": [
+            "training examples from one sentence"
+          ]
         }
       ]
     },
