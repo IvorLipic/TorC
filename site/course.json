@@ -343,8 +343,8 @@
         },
         {
           "id": "one-step",
-          "title": "One training step from start to end",
-          "outcome": "You can follow one training step on one digit, from the pixels to the changed weight. You see the probability of the right digit go up.",
+          "title": "One training step, followed end to end",
+          "outcome": "You can follow one training step on one digit, from the pixels to a changed weight, and say why the right digit becomes more probable.",
           "prereqs": [
             "mnist-mlp"
           ],
@@ -354,11 +354,13 @@
             "Variable::backward",
             "optim::SGD::step"
           ],
-          "trace": [],
+          "trace": [
+            "one-step.json"
+          ],
           "est_minutes": 15,
-          "status": "planned",
+          "status": "published",
           "widgets": [
-            "one step, end to end"
+            "one step, stage by stage"
           ]
         },
         {
