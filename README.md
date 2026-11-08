@@ -59,7 +59,7 @@ Then open http://localhost:8000/TorC/ in a browser. The folder `build/` is not t
 ## Checks for contributors
 
 Run these commands from the root of the checkout. GitHub Actions runs the same checks on each push to `web` and on each pull
-request (see [`.github/workflows/`](.github/workflows/)).
+request that changes `site/`, `tools/` or the writing skill (see [`.github/workflows/`](.github/workflows/)).
 
 | Command | What it checks |
 |---|---|
@@ -69,7 +69,8 @@ request (see [`.github/workflows/`](.github/workflows/)).
 | `tools/trace/run.sh --check` | The data in `site/data/` equals a fresh run of the pinned TorC |
 | `node tools/snippets/check.mjs` | The TorC code on the home page compiles and runs against the pinned TorC |
 
-The last two commands need clang 18 (or GCC 14) and CMake 3.24 or later. The trace check downloads TorC and the MNIST digits
+The last two commands need clang 18 and CMake 3.24 or later. With GCC 14, set `CXX=g++-14` for the trace check and add
+`--cxx g++-14` to the snippet check. The trace check downloads TorC and the MNIST digits
 into `build/`.
 The trace check takes about 6 minutes. Run the snippet check after the trace check, because it uses the TorC source that the
 trace check downloads. To write new data after a change to a trace program, run `tools/trace/run.sh` without `--check`.
@@ -85,6 +86,9 @@ The repository has two independent branches. Do not merge one into the other.
 |---|---|
 | `main` | [The TorC library](https://github.com/IvorLipic/TorC/tree/main), with its C++ source, tests and examples |
 | `web` | This course, with the site, the tools that run TorC, and the project documents. It holds no library source |
+
+Other branches are short-lived work branches. For example, `claude/trusting-archimedes-kjzrto` held the course rework until it
+merged into `web` on 2026-11-08.
 
 The branch `web` uses TorC at one fixed commit, which [`tools/trace/TORC_REF`](tools/trace/TORC_REF) names. A change to the
 library goes to `main` first. Then `TORC_REF` moves to the new commit.

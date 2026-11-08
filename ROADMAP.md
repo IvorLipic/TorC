@@ -124,7 +124,7 @@ had two gates and no cold reader, because they are for TorC users. The cold read
 - The cited sources of the conceptual pages (the epilogue `from-digits-to-chatgpt`, the refreshers, the backprop cost principle)
   could not be fetched in this environment. The notes `docs/lessons/from-digits-to-chatgpt.md` and `docs/lessons/backprop.md`
   mark them "verify before quoting". The refreshers have no lesson note.
-- Pin a release tag when TorC tags one that includes PR #6 (see "Open decisions").
+- Pin a release tag when TorC tags one that includes PR #6 and PR #7 (see "Open decisions").
 
 ### Acceptance criteria (per lesson; brief section 12)
 - [ ] A human reader from the target group can answer the lesson's opening question in their own words afterwards

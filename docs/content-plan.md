@@ -388,8 +388,8 @@ Revisit decision 1 ("no build step") only if the 15-line lesson shells start to 
 (3) Engine/explain tests vs the C++ run, FD check, KaTeX `throwOnError`, prose-number binding test. (4) `node --test site/test/` green; browser check at 360, 768 and 1280 px and under a `/TorC/` prefix server.
 (5) Accessibility: full keyboard path, focus kept on re-render, `aria-live` for step text, `prefers-reduced-motion` honoured, AA contrast, no colour-only encoding, table view for every plot.
 (6) Independent read-only review (`independent-reviewer`), the `pedagogy-reviewer` with no High findings, and a `cold-reader` pass
-(a smoke test). Before a part merges into `web`, 3 to 5 readers from the target group do the human think-aloud test
-(`CLAUDE.md` "Verification"). (7) No audit talk on the page. (8) The per-lesson acceptance criteria of `ROADMAP.md` (v3 milestone)
+(a smoke test). For each part, 3 to 5 readers from the target group do the human think-aloud test
+(`CLAUDE.md` "Verification"). Since decision 25 they test the live site on `web`. (7) No audit talk on the page. (8) The per-lesson acceptance criteria of `ROADMAP.md` (v3 milestone)
 are met. Report exactly what ran and what did not.
 
 **Effort** (S = one specialist session plus review; M = 2 to 3; L = 4 or more; section 2 gives each lesson's size). Platform extraction is L. Roughly: Part 1 new = 2M; Part 2 = 1S+3M; Part 3 = 3S+1M; Part 4 = 3M+1S; Part 5 = 1M+1L+1M; Part 6 = 2M; Part 7 = 1L+1M; Part 8 = 2L; Part 9 = 1M.

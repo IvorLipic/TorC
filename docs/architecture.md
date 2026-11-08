@@ -103,6 +103,6 @@ Library bugs found while writing lessons are reported with a minimal reproductio
   files and page title; no root-absolute URLs; every relative asset reference exists. `--write-shells` regenerates the shells.
 - `tools/trace/run.sh --check` — committed JSON equals a fresh run against the pinned TorC, and `site/data/anchors.json` equals the
   traces (`node tools/anchors.mjs --check`).
-- `.github/workflows/verify.yml` runs on every push to `web` and every PR that touches `site/`, `tools/`, `.claude/skills/` or the
-  workflow. Its steps are the site check, `tools/prose/check.sh`, the trace drift check, the Node tests and
+- `.github/workflows/verify.yml` runs on each push to `web` and each PR that touches `site/`, `tools/`, `.claude/skills/` or the
+  workflow. A push that changes only docs runs no check. Its steps are the site check, `tools/prose/check.sh`, the trace drift check, the Node tests and
   `tools/snippets/check.mjs`. `pages.yml` deploys `site/` on push to `web` after the site check and the Node tests.

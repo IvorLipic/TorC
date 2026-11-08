@@ -12,8 +12,8 @@ and the machinery contract, and `docs/decisions.md` (13 onward) records what is 
 - Never force-push or rebase `web`. Before changing anything: `git status`, `git branch --show-current`; stop if unrelated changes.
 - Standing approvals from the owner: pushes to `web`; library fix branches → `main` after independent review; creating TorC release
   tags when the owner has asked for a release. Anything else outward-facing (new repositories, repo settings, other branches): ask.
-- **Work branch (decision 20).** The v3 rework lives on `claude/trusting-archimedes-kjzrto` (the brief's `web-v3`). `web` stays live
-  and gets only the Phase A quick fixes and the TorC pin bump, because both are safe and tested. The work branch merges `web`
+- **Work branch (decisions 20 and 25).** The v3 rework lives on `claude/trusting-archimedes-kjzrto` (the brief's `web-v3`). Until
+  2026-11-08, `web` got only the Phase A quick fixes and the TorC pin bump. The work branch merges `web`
   whenever `web` changes. It merges into `web` only when the owner says so. (2026-11-08, decision 25: the owner merged it before
   the human-reader tests, so readers use the live site. Later fixes go to `web` with the usual checks.) Never
   merge `main` into either branch. Pages deploy only from `web`. Agents work in their own worktrees on local branches; the lead
@@ -59,10 +59,11 @@ and the machinery contract, and `docs/decisions.md` (13 onward) records what is 
 - **Lesson changes need two more gates** (decision 19). The `pedagogy-reviewer` (read-only, the checklist of the brief's Appendix A)
   must report no High findings. The `cold-reader` role-plays the high-school persona and reports every confusion and likely quit
   point. The cold reader is a smoke test, not evidence of learning: never report its result as "readers understood it".
-- **The human think-aloud protocol is the real gate before a part merges into `web`.** Test each part with 3 to 5 people from the
+- **The human think-aloud protocol is the real learning gate for each part.** (Decision 25: curriculum v3 is already on `web`,
+  so readers test the live site and fixes follow on `web`.) Test each part with 3 to 5 people from the
   target group, thinking aloud while one person observes. Before and after each lesson, ask three short questions, including
   "explain the main idea in one sentence". Record where each person stopped. The site has no backend and no analytics, so this
-  is the only learning data there is. Agents cannot do it; the owner decides when it is done and when the work branch merges.
+  is the only learning data there is. Agents cannot do it; the owner decides when it is done.
 - Report exactly what was run, what passed, what failed, what is unverified.
 
 ## Working method

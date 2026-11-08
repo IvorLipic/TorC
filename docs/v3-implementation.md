@@ -198,4 +198,4 @@ The details are in `docs/authoring.md` ("Add a lesson", "Numbers in prose") and 
 ## What cannot be done by agents
 
 The real gate of brief §10 is 3–5 human readers from the target group per part. The cold reader is a smoke test only. The
-owner decides when the work branch merges into `web`.
+owner merged the work branch into `web` on 2026-11-08, before these tests (decision 25), so readers test the live site.
