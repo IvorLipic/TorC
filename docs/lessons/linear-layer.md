@@ -130,4 +130,5 @@ Budgets: 1,394 words (cap 1,400), 4 numbered sections, 5 quizzes, 3 worked block
 
 **Definition of done**: `node --test site/test/*.test.mjs`, `node tools/check_site.mjs`, `tools/prose/check.sh` (0 hard),
 `tools/trace/run.sh` then `--check`; Chromium at 1366×768 and 390×844 by keyboard (predict quiz, grid tasks, layer counter), no console
-errors, no horizontal scroll, no overlapping labels. Not done: pedagogy reviewer, cold reader, independent review, human think-alouds.
+errors, no horizontal scroll, no overlapping labels. The pedagogy reviewer, the
+independent reviewer and the cold reader ran later, and their fixes are `c0b6b4c`. Not done: human think-alouds.

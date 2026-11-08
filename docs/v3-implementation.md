@@ -162,6 +162,8 @@ The details are in `docs/authoring.md` ("Add a lesson", "Numbers in prose") and 
 9. **Not tested yet**: "each anchor is used in at least two lessons" (no lesson is migrated), "no bare loss value" (the reviewer
    checks it), and the contrast sentence wording. The MNIST anchors `setup.pixels` and `setup.classes` come with the MNIST trace
    change; `site/anchors.json` lists only paths that exist today.
+   Note 2026-11-08: every lesson now has `template: 3`, and `site/anchors.json` lists `pixels` and `classes`. The two-lesson rule is
+   still not tested. Five anchors are bound in one lesson only, and `mlp_test_accuracy` and `cnn_test_accuracy` in none.
 10. **`site/data/anchors.json` is not a trace file.** `tools/trace/run.sh` writes it with `node tools/anchors.mjs` after the
     traces, and `--check` runs `node tools/anchors.mjs --check` and knows the file in its "no generator" check.
 

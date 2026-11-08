@@ -90,7 +90,7 @@ kept 0.6 at every state (within 1.2e-6, float32 drift). lr 0.1: kept 0.2. lr 0.2
    says what the gradient tells (direction and steepness here) and what it does not (where the bottom is, how far). The 2-D
    case, where the gradient does not point at the minimum, belongs to `sgd-step`.
 Not on the page any more: the tangent promise (`tangent_L_next`), the float32 secant floor at h = 0.001 (the widget shows 3
-significant figures, -24.0 either way), and the chain rule (moved to the future `backprop` lesson).
+significant figures, -24.0 either way), and the chain rule (moved to the lesson `backprop`).
 
 ## 5. Test hooks
 
@@ -106,7 +106,8 @@ checkout exists; no hand-typed digit; KaTeX for every formula and widget string;
 
 Files: `site/js/lessons/why-gradients.js` (template 3, loop `adjust`), widgets `site/js/widgets/nudge-lens.js` (new),
 `two-bowls.js` (new), `bowl.js` (fog mode), `landscape-tex.js` (3-figure readouts, the new step line), `landscape-model.js`
-(unchanged). `why-gradients.scenes.js` is kept unchanged for the future `backprop` lesson; `lessons.test.mjs` still lints its texts.
+(unchanged). `why-gradients.scenes.js` is kept unchanged. As built, `backprop` uses its own layout (`backprop.scenes.js`), so only the tests
+import this file. `lessons.test.mjs` still lints its texts.
 
 **As built (after the 2026-10-30 review round)**: hero -> Questions (2) -> "The price of a notebook" (setup: the loss named
 `L`, the start, the true price 3, a static picture of the whole bowl from the recorded grid, `widgets/bowl-figure.js`) -> predict
@@ -143,4 +144,5 @@ of the squared misses) -> explain -> The answer. No In TorC panel: the `SGD::ste
 - `course.json` `code` now shows `L.backward()`, `optim::SGD` and `step()` (no `Variable w(...)` setup line); its SPEC in
   `tools/snippets/check.mjs` checks the gradient -24 and the new weight 1.2 against the pinned TorC.
 
-**Not done here**: pedagogy reviewer, cold reader, independent review, human think-alouds (brief §10), a real screen reader.
+**Reviews**: the independent reviewer, the pedagogy reviewer and the cold reader ran on this lesson, and their fixes are `623eef4`
+(`ROADMAP.md`, Phase B). **Not done**: human think-alouds (brief §10), a real screen reader.

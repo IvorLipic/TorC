@@ -156,7 +156,7 @@ Numbers serve claims. A number the reader cannot check, did not predict, and can
 ### "This is the real line" moments
 The concept text is completable without reading C++ (decision 15). Four or five short real lines stay on the main path, each with
 a plain-English comment, through the `realLine(code, caption)` block:
-- `loss.backward()` in `why-gradients`;
+- `L.backward()` in `why-gradients` (the loss is `L`, decision 24);
 - the `SGD::step` update line in `sgd-step`;
 - a `Sequential` model in `classification`;
 - the five-line training loop in `training-loop`;
@@ -177,7 +177,9 @@ recorded-run overlays on lesson pages. The guarantee lives in the tests (`T()` b
 `site/test/lessons.test.mjs` asserts the budget that applies to each published lesson, legacy or `template: 3` (`lessonStats` in `site/test/helpers.mjs`).
 
 ### Legacy lessons (not yet `template: 3`)
-Unmigrated lessons still follow the budget of decision 7, until each is rewritten. Do not add new lessons to it.
+Unmigrated lessons still follow the budget of decision 7, until each is rewritten. Do not add new lessons to it. Status on
+2026-11-08: every main-path lesson and every appendix page is `template: 3`. Only the Backprop lab (`backprop-lab`) keeps this
+budget, because it is a free playground and exempt from the v3 template.
 - **Shape**: hero (`<h1>` + one-line lead) → `tldr` (shown as "Summary", 3-4 sentences, ≤ 60 words) → the TorC code → 3-4
   sections → checks → one "Next" line. Each section title names its topic; its body is ≤ 100 words with at most one equation. No follow-up
   "what you should have seen" sections, no recap that repeats the TL;DR, no mix-up cards.
@@ -187,7 +189,8 @@ Unmigrated lessons still follow the budget of decision 7, until each is rewritte
   instead of explanations inside the widget; no visible tables (`srTable` gives screen readers the values).
 - `site/test/lessons.test.mjs` asserts this budget for every lesson that is not `template: 3` yet (`lessonStats` in
   `site/test/helpers.mjs`). A `template: 3` lesson has the v3 budgets instead (`site/test/v3.mjs`, see "Add a lesson").
-- The `predict` and `check` kinds and the `tldr` kind are removed once every lesson on the main path is `template: 3`.
+- The `predict`, `check` and `tldr` kinds stay in `site/js/core/sections.js`, because the Backprop lab still uses them
+  (`docs/v3-implementation.md`, "Machinery API"). This replaces the earlier plan to remove them once the main path is `template: 3`.
 
 ## Add a lesson
 1. **Trace data**: write the C++ trace program(s) (see "Add a scene"); the lesson lists the files it reads, e.g. `["why-gradients.json"]`.
@@ -220,7 +223,7 @@ Unmigrated lessons still follow the budget of decision 7, until each is rewritte
    - `{kind:'answer', html:(D, T) => html, next:(D, T) => html}` — "The answer", then "Next question" and a link to the next
      lesson, which `lesson-boot.js` takes from `neighbors()` in `core/course.js`. Last section.
    - `{kind:'gotcha', title, html}` — "Why did my X fail?" box with the recorded real message (appendix pages only in v3).
-   - Legacy, until every lesson is migrated: `{kind:'tldr', items}` (the summary box), `{kind:'predict', id, prompt, reveal}` and
+   - Legacy, used only by the Backprop lab: `{kind:'tldr', items}` (the summary box), `{kind:'predict', id, prompt, reveal}` and
      `{kind:'check', id, prompt, reveal}` (open the answer; `check` also stores "I got it" as `seen`).
    The first section should be a hero containing the lesson's `<h1>`.
 
@@ -275,7 +278,7 @@ Never type a number the trace could change. In a `template: 3` lesson every numb
 - **Anchors**: add a name and its trace path to `site/anchors.json` (at most about 15, each used in at least two lessons), then
   run `node tools/anchors.mjs`, which writes `site/data/anchors.json`. `tools/trace/run.sh` runs it after the traces, and
   `anchors.test.mjs` fails when the file is stale. `lesson-boot.js` always loads it, so a lesson binds `T.anchor('mlp_parameters')`
-  without loading `mnist-mlp.json`. The MNIST traces will get `setup.pixels` and `setup.classes`; add anchors for them then.
+  without loading `mnist-mlp.json`. The anchors `pixels` and `classes` read `setup.pixels` and `setup.classes` of `mnist-mlp.json`.
 - **Derived values** (a step size, a share in percent) come from new trace fields or `T.human`, never from arithmetic in the lesson.
 - **The span** is `<span class="num" data-trace="path" data-role="…" data-sig="exact|1-4">` (plus `data-human`, `data-of` or
   `data-anchor`; an anchor's `data-trace` is `anchors.<name>`). `lessons.test.mjs` re-formats every bound number from these

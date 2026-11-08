@@ -58,4 +58,5 @@ left the concept text (course.json `code` keeps relu and sigmoid only, SPEC upda
 
 **Definition of done**: Node tests, `check_site`, `tools/prose/check.sh` (0 hard), `tools/snippets/check.mjs`, `run.sh` then
 `--check`, Chromium at 1366×768 and 390×844 by keyboard (predict quiz, hinge toggles, slider), no console errors, labels inside the
-plots. Not done: pedagogy reviewer, cold reader, independent review, human think-alouds, screen reader.
+plots. The pedagogy reviewer, the independent reviewer and the cold reader ran later, and their fixes are `c0b6b4c`. Not done: human
+think-alouds, screen reader.

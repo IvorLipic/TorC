@@ -51,8 +51,9 @@ site/
              blocks (worked, inTorc, realLine, analogy, chatgpt, refresher, term, sym, loopDiagram)  quiz  popover  chrome
     content/ notation.js (NOTATION, the symbol guide)  refreshers.js (REFRESHERS, the maths refreshers)
     ops/     registry (index.js) + one file per op + tensor.js, texutil.js, elementwise.js
-    engine.js  explain.js
-    widgets/ graph  stepper  math-window  inputs-popover  graph-lab (the four composed)
+    engine.js  explain.js  optim.js (the SGD step rule and the sgd-step model, tested against optim.json)
+    widgets/ graph  stepper  math-window  inputs-popover  graph-lab (the four composed)  plot (shared SVG plots)
+             and one or more widget files per lesson (nudge-lens, descent, matmul-grid, digit-widgets, …)
     lessons/ <id>.js          lesson modules (and <id>.scenes.js style helpers)
   data/   generated only (tools/trace, plus anchors.json from tools/anchors.mjs)      vendor/katex/
   test/   *.test.mjs, helpers.mjs, v3.mjs (the v3 rules), fixtures/v3-fixture.js (a v3 lesson that exercises every kind and role)
@@ -102,5 +103,6 @@ Library bugs found while writing lessons are reported with a minimal reproductio
   files and page title; no root-absolute URLs; every relative asset reference exists. `--write-shells` regenerates the shells.
 - `tools/trace/run.sh --check` — committed JSON equals a fresh run against the pinned TorC, and `site/data/anchors.json` equals the
   traces (`node tools/anchors.mjs --check`).
-- `.github/workflows/verify.yml` runs all three on every push/PR touching `site/` or `tools/`; `pages.yml` deploys `site/` on push
-  to `web` after the site check and the Node tests.
+- `.github/workflows/verify.yml` runs on every push to `web` and every PR that touches `site/`, `tools/`, `.claude/skills/` or the
+  workflow. Its steps are the site check, `tools/prose/check.sh`, the trace drift check, the Node tests and
+  `tools/snippets/check.mjs`. `pages.yml` deploys `site/` on push to `web` after the site check and the Node tests.

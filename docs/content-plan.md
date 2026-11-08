@@ -1,6 +1,6 @@
 # Content plan: a complete interactive course on TorC
 
-Status (2026-11-08): all 17 main-path lessons and the appendix are built on the work branch. The titles, part names and minutes in
+Status (2026-11-08): all 17 main-path lessons and the appendix are built on the work branch, and `web` contains that branch. The titles, part names and minutes in
 section 2 equal `site/course.json`. Sections 1 and 2 were rewritten on 2026-10-29 for curriculum v3 (decisions 13 to 23, owner-approved, from
 `docs/pedagogy-review.md`). Sections 2 (v2), 2 (v1) and 3 are kept as history and for their verified facts. Basis of the
 original plan: TorC `main` @ 5416a87 (read-only checkout) plus the current `web` site.
@@ -35,16 +35,16 @@ researchers; not a PyTorch tutorial. TorC is small enough (about a dozen source 
 each lesson, and that stays part of the pitch.
 
 **After each part a learner can** (each part ends at a real stopping point: "you can stop here and explain X"):
-1. *The whole game* (`whole-game`) - say what it means for a machine to learn (data, model, loss, adjust), fit a line by hand, and
+1. *What it means to learn* (`whole-game`) - say what it means for a machine to learn (data, model, loss, adjust), fit a line by hand, and
    say why a model is scored on points it has not seen.
-2. *Learning means going downhill* (`gradient`) - find a gradient by nudging, take one step by hand, say what the learning rate
+2. *The gradient and gradient descent* (`gradient`) - find a gradient by nudging, take one step by hand, say what the learning rate
    does and why a step that is too large fails, and read a contour map with two weights.
 3. *Neural networks* (`networks`) - describe a neuron and a layer, say why a network needs a bend (nonlinearity), read a decision
    boundary, turn scores into probabilities, explain cross-entropy as surprise, say why backpropagation exists (the cost of
    nudging every weight) and follow one backward pass, and say why a deep network is hard to start.
 4. *Training in practice* (`training`) - write and trace the five-line training loop, explain batches, epochs and shuffling,
    compare optimizers fairly, and tell overfitting from a good fit using a validation set.
-5. *Images* (`images`) - follow one real training step end to end on a digit, explain what a kernel does and why a CNN needs
+5. *Reading handwritten digits* (`images`) - follow one real training step end to end on a digit, explain what a kernel does and why a CNN needs
    fewer weights than an MLP, and read the digit models.
 6. *Where this goes next* (`next`) - say how next-word prediction with the same loop trains a language model, and where TorC stops.
 7. *Using TorC* (appendix `using-torc`) - predict shapes, broadcasting and reductions; use `Module` and `Sequential`; avoid the
@@ -377,7 +377,9 @@ site/
   css/  data/ (generated only)  vendor/katex/  test/
 .github/workflows/  pages.yml  verify.yml
 ```
-`pages.yml` currently hard-codes seven site files; replace that list by `node tools/check_site.mjs` (manifest-driven from `course.json`).
+`pages.yml` runs `node tools/check_site.mjs` (manifest-driven from `course.json`) in place of the old list of seven site files.
+As built, the repository has no `tools/train/` and no `site/ref/`. The MNIST runs are trace programs in `tools/trace/`, and the
+reference pages are still open in `ROADMAP.md` (M2).
 Revisit decision 1 ("no build step") only if the 15-line lesson shells start to drift; `check_site.mjs` can assert they equal the template.
 
 ## 5. Quality bar, effort, order

@@ -13,7 +13,7 @@ Aged 17-19, just finished high school. Knows algebra, graphs of functions (lines
 ## Read first
 - `docs/pedagogy-review.md` sections 2, 3, 4, 5, 8, 9 and Appendix A. `docs/authoring.md` ("Writing rules", "Style budget", "Conventions"). `docs/v3-implementation.md` for the section kinds.
 - The lesson: `site/js/lessons/<id>.js`, its trace data and `docs/lessons/<id>.md`. For the rendered prose run `node tools/prose/extract.mjs` (it writes only to the git-ignored `build/prose/`) and read `build/prose/<id>.md`.
-- Course order: `docs/content-plan.md` section 2, so you know which terms and symbols earlier lessons introduced (`site/js/content/notation.js` and `site/glossary.json`, once they exist).
+- Course order: `docs/content-plan.md` section 2, so you know which terms and symbols earlier lessons introduced (`site/js/content/notation.js` and `site/glossary.json`).
 
 ## Rules
 - Be read-only. Do not edit, create or format repository files. Use shell commands only for inspection and for existing safe commands (`node tools/prose/extract.mjs`, `node --test site/test/`, `tools/prose/check.sh`).

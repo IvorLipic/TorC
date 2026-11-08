@@ -66,7 +66,8 @@ Lessons 09 to 13 had an independent review on 2026-10-20; its findings are fixed
 device for the digit pads. TorC findings for `main` are in `docs/library-audit/v0.1.0-findings.md`.
 
 ## M5 — Curriculum v3 (the pedagogy rework; brief `docs/pedagogy-review.md`, contract `docs/v3-implementation.md`)
-Status (2026-11-08): phases A to C are done; phase D, the human tests and the merge into `web` are open.
+Status (2026-11-08): phases A to C are done. Phase D and the human tests are open. `web` and the work branch now point at the
+same commit (`ec224ff`), so `web` holds curriculum v3 (see "Not done, owner-only").
 Goal: the best resource for the high-school graduate of decision 13. All approval items of brief section 12 were granted on
 2026-10-29 (decisions 13-23). Work happens on the work branch `claude/trusting-archimedes-kjzrto` (decision 20). Lessons are
 referred to by id. Defect and error ids (D1-D20, C1-C10) are in the brief, sections 5 and 11.
@@ -113,19 +114,22 @@ had two gates and no cold reader, because they are for TorC users. The cold read
 
 ### Not done, owner-only
 - [ ] The human think-aloud tests, 3 to 5 readers from the target group per part (`CLAUDE.md`, "Verification")
-- [ ] Merge of the work branch `claude/trusting-archimedes-kjzrto` into `web`. The owner decides, after the human tests
+- [ ] Merge of the work branch `claude/trusting-archimedes-kjzrto` into `web`. The owner decides, after the human tests.
+      Note 2026-11-08: the branch `web` already contains the work branch (both at `ec224ff`). `docs/decisions.md` records no owner
+      decision for this, and the human tests are still open.
 
 ### Known open items
 - A TorC library bug, recorded in `docs/library-audit/v0.1.0-findings.md`: `conv2d` accepts an input smaller than the kernel when the
   size numerator is negative. It awaits a fix branch on `main`, then a pin bump here.
 - The cited sources of the conceptual pages (the epilogue `from-digits-to-chatgpt`, the refreshers, the backprop cost principle)
-  could not be fetched in this environment. They are marked "verify before quoting" in their lesson notes (`docs/lessons/`).
+  could not be fetched in this environment. The notes `docs/lessons/from-digits-to-chatgpt.md` and `docs/lessons/backprop.md`
+  mark them "verify before quoting". The refreshers have no lesson note.
 - Pin a release tag when TorC tags one that includes PR #6 (see "Open decisions").
 
 ### Acceptance criteria (per lesson; brief section 12)
 - [ ] A human reader from the target group can answer the lesson's opening question in their own words afterwards
-- [ ] No term, symbol or notation appears before its introduction in course order (test)
-- [ ] Every prose number has a role; at most 10 numbers outside `worked`, `setup` and `reveal`; at most 2 non-`worked` numbers per sentence (test)
+- [ ] No term, symbol or notation appears before its introduction in course order (test). The test covers the symbols. It does not check the order of the glossary terms
+- [x] Every prose number has a role; at most 10 numbers outside `worked`, `setup` and `reveal`; at most 2 non-`worked` numbers per sentence (tested by `site/test/v3.mjs` on every `template: 3` lesson)
 - [ ] Every widget has a guided task, and the text states the observation
 - [ ] The core template of `docs/authoring.md` is met (exceptions: `from-digits-to-chatgpt` and the appendix pages)
 - [ ] No unfair comparison, no test-set peeking, and claims from a single seed are labelled

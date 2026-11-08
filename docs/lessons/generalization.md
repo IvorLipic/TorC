@@ -60,4 +60,5 @@ None.
 ## Lesson status
 v3 rewrite 2026-11 (branch `part4-general`). Widgets: `val-stop.js` (the game), `generalization-widgets.js` (helpers and the
 remedies widget). Tests: `site/test/generalization.test.mjs`. The code block is the home-page snippet, which the snippet check
-compiles and runs (now with the validation loader). Pending: pedagogy reviewer, cold reader, independent review, human readers.
+compiles and runs (now with the validation loader). The three review gates ran later,
+and their fixes are `cd2a498`. Pending: human readers.
