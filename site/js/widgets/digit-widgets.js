@@ -137,7 +137,8 @@ function paintGray(canvas, pixels) {   // 784 values 0..255 onto a 28 x 28 canva
 export function mountDigitPad(host, D, { file = 'mnist-mlp', forward: fwd = forward, simple = false, markWrong = false, torcNote = true, name = 'The model' } = {}) {
   injectStyles();
   const M = D.files[file], layers = M.layers, N = 280;
-  const pct = (v) => `${Math.round(100 * v)}%`;
+  // never a false 0 % or 100 %: a probability is never exactly 0 or 1 (losses, classification)
+  const pct = (v, words = false) => (v > 0.995 && v < 1 ? (words ? 'more than 99%' : '>99%') : v < 0.005 && v > 0 ? (words ? 'less than 1%' : '<1%') : `${Math.round(100 * v)}%`);
   const pad = el('canvas', { class: 'dw-pad', width: N, height: N, role: 'img', 'aria-label': 'Drawing area. Draw a digit with a mouse, a pen or a finger.' });
   const seen = el('canvas', { class: 'dw-seen', width: 28, height: 28, role: 'img', 'aria-label': 'The 28 by 28 image the model reads' });
   const bars = el('div', { class: 'dw-bars', 'aria-hidden': 'true' });
@@ -159,7 +160,7 @@ export function mountDigitPad(host, D, { file = 'mnist-mlp', forward: fwd = forw
     if (!pixels) { bars.replaceChildren(); read.textContent = simple ? 'Draw a digit, or press one of the buttons.' : 'Draw a digit, or pick a test image.'; if (announce) say.textContent = read.textContent; return; }
     const p = softmax(fwd(layers, pixels)), top = argmax(p);
     bars.replaceChildren(...p.flatMap((v, d) => [el('span', {}, String(d)), el('div', { class: `dw-bar${d === top ? ' top' : ''}`, style: `width:${(100 * v).toFixed(1)}%` }), el('span', {}, simple ? pct(v) : v.toFixed(3))]));
-    if (simple) read.textContent = (recorded ? `This handwritten digit is a ${recorded.label}. ` : '') + `The model reads ${top}, and it is ${pct(p[top])} sure.`;
+    if (simple) read.textContent = (recorded ? `This handwritten digit is a ${recorded.label}. ` : '') + `The model reads ${top}, and it is ${pct(p[top], true)} sure.`;
     else read.textContent = recorded
       ? `Test image ${recorded.index}, label ${recorded.label}. ${name} reads ${top}, with probability ${p[top].toFixed(3)}.${torcNote ? ` TorC also reads ${argmax(recorded.logits)}.` : ''}`
       : `${name} reads ${top}, with probability ${p[top].toFixed(3)}.`;

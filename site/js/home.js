@@ -70,7 +70,7 @@ function startDemo() {
     try {
       const [{ mountDigitPad }, { loadTrace }] = await Promise.all([import('./widgets/digit-widgets.js'), import('./core/trace.js')]);
       const D = await loadTrace(['mnist-mlp.json'], SITE);
-      mountDigitPad(host, D);
+      mountDigitPad(host, D, { simple: true });   // plain words on the front page (no "label", no "TorC also reads")
     } catch (err) {
       host.replaceChildren(el('p', { class: 'hint', role: 'alert' }, `The page could not load the network. The lessons work without it. (${err.message})`));
     }
