@@ -59,9 +59,16 @@ alive, but they turn a destroyed tracked ancestor into a controlled `TorcError` 
 use-after-free. Untracked constants may be temporary because their values are captured by the
 backward closure and they are not traversed.
 
-Variable move construction, like move assignment, gives the destination a fresh identity and resets the moved-from object's token, so existing graph edges to the moved-from object fail deterministically instead of observing partially moved state.
-the destination's identity and resets the moved-from token, so existing graph edges to the moved-
-from object fail deterministically instead of observing partially moved state.
+Variable move construction gives the destination a fresh lifetime token. Move assignment keeps
+the destination's token. Both reset the moved-from object's token, so existing graph edges to the
+moved-from object fail deterministically instead of observing partially moved state.
+
+Do not assign a new value to a tracked Variable while a result that uses it still needs
+`backward()`. The edges of that result point at the Variable's address, which is still alive, so
+`backward()` follows the new value's tape and computes wrong gradients without an error. For
+example, after `auto out = mul(v, v); v = mul(a, b);`, the call `out.backward()` sends gradients
+into `a` and `b`. A moved-from Variable that receives a new tracked value keeps an empty lifetime
+token, so a graph that uses it fails in `backward()` with `TorcError`.
 
 ### Backward Algorithm: Topological Sort (Not Recursion)
 
@@ -420,8 +427,8 @@ Ops are **free functions in `namespace torc`**, declared in `autograd.hpp` and d
 3. **Define it** in `autograd.cpp`, following the existing pattern (see `add`/`mul`/`neg`):
    ```cpp
    Variable my_op(const Variable& a) {
-       bool needs_grad = a.requires_grad_ && Variable::grad_enabled();
-       Tensor out_data = a.data_.my_op();
+       bool needs_grad = a.requires_grad() && Variable::grad_enabled();
+       Tensor out_data = a.data().my_op();
        Variable out(std::move(out_data), needs_grad);
 
        if (needs_grad) {
@@ -439,7 +446,7 @@ Ops are **free functions in `namespace torc`**, declared in `autograd.hpp` and d
                // reduce_sum_to_shape here, that happens centrally (see "Broadcasting
                // Gradients" above).
            };
-           out.tape_.push_back(std::move(entry));
+           out.tape().push_back(std::move(entry));
        }
        return out;
    }

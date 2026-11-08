@@ -1,7 +1,7 @@
 # torc — Agent Guide
 
 `torc` is a minimal, from-scratch C++ tensor library (naive `float32`-only storage) with a
-CMake build, a small demo binary, a tape-based autograd system (Milestone 4, complete),
+CMake build, example programs, a tape-based autograd system (Milestone 4, complete),
 and a unit test target.
 
 This file is the stable orientation doc: what exists, how to build/test it, and the
@@ -23,29 +23,31 @@ torc/
 ├── cmake/
 │   └── torcConfig.cmake.in     # template for the installed package config
 ├── CHANGELOG.md
-├── LICENSE                    # MIT
+├── LICENSE                     # MIT
 ├── README.md
 ├── AGENTS.md                   # this file
-├── ROADMAP.md                   # milestone checklist, updated frequently
+├── ROADMAP.md                  # milestone checklist, updated frequently
+├── EXAMPLES.md                 # how to run the example programs
 ├── .gitignore
 ├── .github/
 │   └── workflows/ci.yml        # GitHub Actions: build+ctest matrix, consumer smoke test, ASan/UBSan
 ├── docs/
-│   ├── DESIGN.md                # design decisions + planned future structure
-│   ├── AUTOGRAD.md              # autograd algorithm details
-│   └── BENCHMARKS.md            # CPU benchmark suite results + methodology
+│   ├── DESIGN.md               # design decisions + planned future structure
+│   ├── AUTOGRAD.md             # autograd algorithm details
+│   └── BENCHMARKS.md           # CPU benchmark suite results + methodology
 ├── include/
 │   └── torc/
 │       ├── tensor.hpp          # Tensor class declaration
 │       ├── utils.hpp           # shape_product / shape_to_string / error types, used by Tensor
 │       ├── autograd.hpp        # Variable class + free-function ops (add, mul, ...)
-│   ├── nn.hpp              # nn::Module base + nn::Sequential container
-│   ├── optim.hpp           # optim::SGD, optim::Adam, optim::AdamW declarations
-│   └── nn/
-│       ├── linear.hpp      # nn::Linear declaration
-│       ├── activations.hpp # nn::ReLU, nn::Sigmoid, nn::Softmax declarations
-│       ├── conv.hpp        # nn::Conv2d, nn::Flatten declarations
-│       └── losses.hpp      # nn::MSELoss, nn::CrossEntropyLoss declarations
+│       ├── nn.hpp              # nn::Module base + nn::Sequential container
+│       ├── optim.hpp           # optim::SGD, optim::Adam, optim::AdamW declarations
+│       ├── data.hpp            # data::Dataset subclasses + data::DataLoader declarations
+│       └── nn/
+│           ├── linear.hpp      # nn::Linear declaration
+│           ├── activations.hpp # nn::ReLU, nn::Sigmoid, nn::Softmax declarations
+│           ├── conv.hpp        # nn::Conv2d, nn::Flatten declarations
+│           └── losses.hpp      # nn::MSELoss, nn::CrossEntropyLoss declarations
 ├── src/
 │   ├── tensor.cpp              # Tensor implementation
 │   ├── simd_ops.hpp            # AVX2-accelerated elementwise/unary ops
@@ -54,29 +56,33 @@ torc/
 │   ├── nn/
 │   │   ├── conv.cpp            # nn::Conv2d, nn::Flatten forward
 │   │   ├── linear.cpp          # nn::Linear forward
-│   │   └── activations.cpp     # activation forward functions
+│   │   ├── activations.cpp     # activation forward functions
 │   │   └── losses.cpp          # loss function forward/backward
 │   ├── optim.cpp               # SGD/Adam/AdamW step/zero_grad
 │   └── data.cpp                # Dataset / DataLoader implementation
 ├── benchmarks/
-│   └── bench_tensor.cpp        # Google Benchmark suite (optional)
-├── examples/
+│   ├── bench_tensor.cpp        # Google Benchmark suite (optional)
+│   └── bench_torch.py          # PyTorch comparison script (see docs/BENCHMARKS.md)
+├── datasets/
+│   └── mnist/
+│       └── convert_to_csv.py   # MNIST parquet -> CSV converter (the data itself is git-ignored)
+├── examples/                   # each example folder also tracks its output CSVs and plot PNGs
 │   ├── linear_regression/
 │   │   ├── linear_regression.cpp   # end-to-end training script (Step 5.11)
 │   │   └── plot_results.py         # optional matplotlib visualization
 │   ├── mnist_mlp/
-│       ├── mnist_mlp.cpp           # 3-layer MLP on MNIST (Step 5.12)
-│       └── plot_results.py         # optional matplotlib visualization
+│   │   ├── mnist_mlp.cpp           # 3-layer MLP on MNIST (Step 5.12)
+│   │   └── plot_results.py         # optional matplotlib visualization
 │   ├── mnist_cnn/
-│       ├── mnist_cnn.cpp           # CNN on MNIST (Step 5.13)
-│       └── plot_results.py         # optional matplotlib visualization
+│   │   ├── mnist_cnn.cpp           # CNN on MNIST (Step 5.13)
+│   │   └── plot_results.py         # optional matplotlib visualization
 │   └── consume/                # standalone consumer projects (not in the default build)
 │       ├── find_package/       # find_package(torc CONFIG) against an installed prefix
 │       └── fetchcontent/       # FetchContent consumer
 └── tests/
     ├── test_tensor.cpp         # GoogleTest suite for Tensor
     ├── test_autograd.cpp       # GoogleTest suite for Variable / autograd
-    ├── test_nn.cpp             # GoogleTest suite for nn::Module / nn::Sequential / activations
+    ├── test_nn.cpp             # GoogleTest suite for nn modules, losses and optimizers
     └── test_data.cpp           # GoogleTest suite for data::Dataset / DataLoader
 ```
 
@@ -224,8 +230,8 @@ each with gradient checks against central finite differences where applicable. S
    lifetime tokens now detect destroyed tracked ancestors and make backward throw `TorcError`,
    but the graph is still not ownership-retaining; callers must keep tracked ancestors alive.
    See `docs/DESIGN.md`'s "Tape / graph structure" section.
-3. `Variable`'s data members (`data_`, `grad_`, `requires_grad_`, `has_grad_`, `tape_`) are all
-   `public`, despite the trailing-underscore naming that elsewhere in this codebase
-   (`Tensor::shape_`, `storage_`) signals "private." Tests reach directly into `tape_`. This is
-   inconsistent with `Tensor`'s own convention; not urgent to fix, but don't copy the pattern
-   for new types without deciding it's intentional.
+3. `Variable`'s data members (`data_`, `grad_`, `requires_grad_`, `has_grad_`, `tape_`) are
+   `private`, but the non-const `data()` and `tape()` accessors still hand out mutable references.
+   Callers (and tests, through `tape()`) can therefore change a tracked Variable's data or tape
+   directly. See the "Encapsulate `Variable` state" and "Close tracked-mutation loopholes" items in
+   `ROADMAP.md`.
