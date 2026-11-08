@@ -57,21 +57,22 @@ because backward closures capture the tensor values they need. Backward validate
 token before every graph traversal or pointer dereference, throwing `TorcError` if a tracked input
 has expired. This converts the former use-after-free UB into a deterministic error, but does not
 retain graph nodes: every tracked Variable must still outlive `backward()` for a graph that uses it.
-Variable copy construction creates a fresh token. Move construction transfers the token, while
-move assignment preserves the destination identity and resets the moved-from token; ordinary
-value-return and container moves therefore do not invalidate live graph edges, while stale edges
-to a move-assigned-from object fail deterministically.
+Variable copy construction creates a fresh token. Move construction also gives the destination a
+fresh token and resets the moved-from token, while move assignment preserves the destination
+identity and resets the moved-from token. Edges in a moved Variable's own tape point at its inputs,
+so they move with it, while stale edges to a moved-from object fail deterministically.
 
-`Variable` data, gradients, flags, and tape are currently public. This was convenient for
-incremental tests but prevents invariant enforcement; make them private before adding version
+`Variable` data, gradients, flags, and tape are now private, but the non-const `data()` and
+`tape()` accessors still return mutable references. Narrow those accessors before adding version
 counters, saved-tensor checks, or graph reuse.
 
 The `fill()` guard is incomplete while mutable `data()` and indexing remain available: callers can
 modify a tracked input after forward and invalidate saved derivatives. Either remove those mutable
 access paths, add version checking, or explicitly detect unsupported mutation.
 
-`set_grad_enabled()` is a process-global boolean. It must become thread-local and scoped by an RAII
-guard so exceptions and nested inference regions restore the previous state reliably.
+`set_grad_enabled()` sets a thread-local boolean (`Variable::g_grad_enabled`). The RAII guard
+`Variable::NoGradGuard` disables it for a scope and restores the previous state on exit, including
+when an exception leaves the scope, so nested inference regions are safe.
 
 ### Memory, shape, and portability constraints
 
@@ -84,8 +85,9 @@ Broadcast kernels currently reconstruct an index vector per output element, and 
 element counts use `int`. Replace allocation-heavy indexing and add checked arithmetic before
 accepting large shapes.
 
-The default build enables CPU-specific optimization (`-march=native` or AVX2 under MSVC). Keep a
-portable baseline path and make ISA-specific dispatch opt-in or runtime-selected; otherwise a
+A top-level build enables CPU-specific optimization (`-march=native` or AVX2 under MSVC) through
+`TORC_NATIVE_ARCH`, which defaults to OFF when torc is consumed via `add_subdirectory`/FetchContent.
+Keep a portable baseline path and make ISA-specific dispatch opt-in or runtime-selected; otherwise a
 binary built on one machine may fail on another.
 
 ### Verification and product boundary
@@ -94,7 +96,7 @@ The aggregate GoogleTest target does not replace sanitizer, fuzz/property, malfo
 clean-build coverage. New hardening work should add those checks and keep the documented test
 command reproducible from a fresh build directory.
 
-The project currently has no CI, serialization/state-dict API, or
+The project has Linux CI (`.github/workflows/ci.yml`) but no serialization/state-dict API or
 train/eval mode. These are scope decisions, not accidental PyTorch compatibility: documentation
 and examples should call torc a small CPU reference/educational library until those capabilities
 are designed.
@@ -154,11 +156,10 @@ they are not re-litigated:
   bottleneck for ML workloads.
 
 ### Error handling convention
-`TorcError` (base, derives `std::runtime_error`), `ShapeError` (shape mismatches), and
-`NumericalError` (invalid numeric domains or non-finite values) live in `utils.hpp`. Tensor shape
-failures should use `ShapeError`; numeric-domain failures should use `NumericalError`. The current
-data-loader code still throws standard `invalid_argument`, `out_of_range`, and `runtime_error`
-exceptions in several paths; unifying those errors is part of the review-derived hardening backlog.
+`TorcError` (base, derives `std::runtime_error`), `ShapeError` (shape mismatches),
+`NumericalError` (invalid numeric domains or non-finite values), and `IndexError` (out-of-range
+indices) live in `utils.hpp`. Tensor shape failures should use `ShapeError`; numeric-domain failures
+should use `NumericalError`. The data-loader code in `src/data.cpp` also throws only these types.
 Existing `catch (std::runtime_error&)` sites remain compatible because the torc base error derives
 from it.
 
@@ -406,9 +407,10 @@ batch steps into a single PR. *(Check ROADMAP.md for actual checkbox state — n
 **Step 7 — `detach()` and gradient disabling**
 - `Variable detach() const` — new Variable, copy of the data (Tensor copy ctor deep-copies
   storage_), `requires_grad=false`, empty tape
-- `set_grad_enabled(bool)` — process-global flag that all current differentiable
-  free functions check; when disabled, those ops return plain Variables with empty tapes. The
-  state is not yet scoped or thread-local (see the hardening backlog).
+- `set_grad_enabled(bool)` — flag that all current differentiable
+  free functions check; when disabled, those ops return plain Variables with empty tapes. It was
+  process-global in this step; it is now thread-local with an RAII `Variable::NoGradGuard` (see
+  "Graph ownership, mutability, and gradient mode" above).
 - **Test**: verify `detach()` breaks graph, gradient doesn't flow back through detached path;
   verify `set_grad_enabled(false)` blocks tape-building for arithmetic, activation, and
   transcendental ops
@@ -551,7 +553,8 @@ PR. *(Check ROADMAP.md for actual checkbox state — not duplicated here.)*
 
 **Step 5.3 — `nn::Linear`**
 - `Linear(in_features, out_features)` registers `weight` (shape `{out, in}`) and `bias`
-  (shape `{out}`), both initialized to `0.01` and `0.0` respectively
+  (shape `{out}`). `init_std` defaults to `0.0f`, so this form uses the Kaiming normal branch
+  below; bias is `0.0`
 - `Linear(in_features, out_features, init_std)` overload: if `init_std <= 0`, weight is
   initialized with Kaiming normal (`std::sqrt(2 / fan_in)`); otherwise samples weight from
   `N(0, init_std)`. Bias remains `0.0`.
@@ -634,7 +637,7 @@ Optimizers are deliberately separated from `Module`. They operate on non-owning
 based on `param->grad()`. This matches PyTorch's separation of `nn.Module` and `torch.optim`.
 
 - **API shape**: each optimizer class (`optim::SGD`, `optim::Adam`, `optim::AdamW`) exposes:
-  - `optim::SGD(std::vector<Variable*>& params, float lr, float momentum = 0.0f)` — takes
+  - `optim::SGD(const std::vector<Variable*>& params, float lr, float momentum = 0.0f)` — takes
     pointers, not copies, because `step()` must mutate the original `data_` tensors
   - `void step()` — reads `param->grad()` and updates `param->data()` in-place; skips parameters
     without gradients
@@ -651,7 +654,7 @@ based on `param->grad()`. This matches PyTorch's separation of `nn.Module` and `
 
 **Step 5.6 — `optim::SGD` with momentum**
 - `include/torc/optim.hpp` / `src/optim.cpp`
-- Constructor: `SGD(std::vector<Variable*>& params, float lr, float momentum = 0.0f)`
+- Constructor: `SGD(const std::vector<Variable*>& params, float lr, float momentum = 0.0f)`
 - `step()`: for each parameter with a gradient, either applies vanilla SGD
   (`param = param - lr * grad`) or momentum SGD (`velocity = momentum * velocity + grad;
   param = param - lr * velocity`)
@@ -662,7 +665,7 @@ based on `param->grad()`. This matches PyTorch's separation of `nn.Module` and `
 
 **Step 5.7 — `optim::Adam`**
 - `include/torc/optim.hpp` / `src/optim.cpp`
-- Constructor: `Adam(std::vector<Variable*>& params, float lr, float beta1=0.9f, float beta2=0.999f, float eps=1e-8f)`
+- Constructor: `Adam(const std::vector<Variable*>& params, float lr, float beta1=0.9f, float beta2=0.999f, float eps=1e-8f)`
 - Maintains per-parameter moving averages `m_` and `v_` (initialized to zero), plus a `step_` counter
 - `step()`:
   - `m = beta1 * m + (1 - beta1) * grad`
@@ -678,7 +681,7 @@ based on `param->grad()`. This matches PyTorch's separation of `nn.Module` and `
 
 **Step 5.8 — `optim::AdamW`**
 - `include/torc/optim.hpp` / `src/optim.cpp`
-- Constructor: `AdamW(std::vector<Variable*>& params, float lr, float weight_decay = 0.01f, float beta1 = 0.9f, float beta2 = 0.999f, float eps = 1e-8f)`
+- Constructor: `AdamW(const std::vector<Variable*>& params, float lr, float weight_decay = 0.01f, float beta1 = 0.9f, float beta2 = 0.999f, float eps = 1e-8f)`
 - `step()` applies decoupled weight decay: `param = param - lr * (m_hat / (sqrt(v_hat) + eps) + weight_decay * param)`
   - Weight decay is added directly to the parameter update rather than being injected into the gradient
   - This matches PyTorch's `torch.optim.AdamW` behavior
@@ -693,7 +696,7 @@ based on `param->grad()`. This matches PyTorch's separation of `nn.Module` and `
   `Tensor`s, not `Variable`s
 - `TensorDataset(Tensor xs, Tensor ys)` stores `xs` and `ys` by value; `get(idx)` slices the
   first dimension and reshapes to remove the sample axis
-- `DataLoader(const Dataset& dataset, size_t batch_size, bool shuffle = false)`:
+- `DataLoader(const Dataset& dataset, size_t batch_size, bool shuffle = false, unsigned int seed = std::random_device{}())`:
   - `std::pair<Tensor, Tensor> next_batch()` — stacks individual samples into batched tensors
     with the batch dimension prepended; the last batch may be smaller. Samples retain the
     sampler order, including when shuffling is enabled; only ascending contiguous spans use
@@ -800,14 +803,15 @@ Data loading is the thinnest possible wrapper around a dataset, matching PyTorch
   - `virtual std::pair<Tensor, Tensor> get(size_t idx) const = 0` — returns `(x, y)` as
     `Tensor`s, not `Variable`s. The training loop wraps them in `Variable`s if `requires_grad`
     is needed.
-  - `virtual std::pair<Tensor, Tensor> get_indices(const std::vector<size_t>& indices) const` —
-    gathers arbitrary (possibly non-contiguous) indices into one batch. The default implementation
+  - `std::pair<Tensor, Tensor> get_indices(const std::vector<size_t>& indices) const` (and
+    `get_batch(start, end)` for a contiguous range) — gathers arbitrary (possibly non-contiguous)
+    indices into one batch by calling the virtual `gather(indices)`. The default `gather`
     falls back to per-sample `get()` + `stack_samples()`. `TensorDataset`, `MNISTDataset`,
-    `SyntheticRegression`, and `CSVDataset` override this to copy directly from their backing
+    `SyntheticRegression`, and `CSVDataset` override `gather` to copy directly from their backing
     storage in a single pass, avoiding the three-copy-per-sample cost of the default path when
     shuffling produces non-contiguous batches.
 - **`data::DataLoader`** takes a `Dataset` and produces batches:
-  - `DataLoader(const Dataset& ds, size_t batch_size, bool shuffle = false)`
+  - `DataLoader(const Dataset& ds, size_t batch_size, bool shuffle = false, unsigned int seed = std::random_device{}())`
   - `std::pair<Tensor, Tensor> next_batch()` — returns `(x_batch, y_batch)` with the batch
     dimension prepended (shape `{batch_size, *sample_shape}`); the last batch may be smaller
     if `len(ds) % batch_size != 0`. Within each batch, dataset order (or the shuffled sampler
@@ -826,7 +830,7 @@ Rationale for the specific moves:
 - **`nn/` as a subdirectory, not a single file, once it has ≥2 layer types.** A single
   `nn.cpp` is fine for `Linear` alone but won't stay readable once activations, losses, and
   more layers land in the same milestone.
-- **`nn.hpp` splits into `nn/` sub-headers** (`linear.hpp`, `activations.hpp`) once those
+- **`nn.hpp` splits into `nn/` sub-headers** (`linear.hpp`, `activations.hpp`, `conv.hpp`, `losses.hpp`) once those
   modules exist, keeping each header focused. The top-level `nn.hpp` remains the public entry
   point and re-exports the sub-headers or just the base `Module`/`Sequential` types.
 - **`examples/` binaries instead of a single `main.cpp`.** Each end-to-end example
@@ -842,8 +846,8 @@ Rationale for the specific moves:
   and do not track graph state. This keeps the optimizer implementation independent from
   `nn::Module` and avoids circular dependencies.
 - **CMake currently uses explicit source lists per target**, including the `nn/` and data sources.
-  Separate `BUILD_EXAMPLES`/`BUILD_TESTS` options remain a possible ergonomic improvement if the
-  example or test count grows enough that not everyone wants to compile them by default.
+  The `TORC_BUILD_EXAMPLES`/`TORC_BUILD_TESTS` options (ON only for a top-level build) let
+  consumers skip the examples and tests.
 
 This structure is a target, not a mandate to create now — build it milestone-by-milestone so
 each directory only exists once something real lives in it.

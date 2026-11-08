@@ -1,5 +1,25 @@
 # Examples
 
+Run every example from the repository root. The programs read and write files at paths relative
+to the root. The commands below use the binary paths of a single-configuration generator (Make or
+Ninja). With a multi-configuration generator such as Visual Studio, the binaries are in
+`build/Release/`.
+
+## Linear regression
+
+`nn::Linear(1, 1)` learns `y = 3x + 1` from 100 noisy points made by `data::SyntheticRegression`.
+It uses `optim::SGD` and `nn::MSELoss` for 100 epochs (batch size 10, learning rate 0.01). It needs
+no dataset download.
+
+```bash
+./build/linear_regression_example
+```
+
+It prints the loss after epoch 1 and after every 10th epoch, then the learned weight and bias. It writes
+`examples/linear_regression/loss_history.csv` and `examples/linear_regression/predictions.csv`.
+The optional helper `python examples/linear_regression/plot_results.py` makes the plots from these
+files.
+
 ## MNIST MLP
 
 A 3-layer MLP trained end-to-end on MNIST:
@@ -13,8 +33,8 @@ optimized with `AdamW` and `CrossEntropyLoss` for 20 epochs (batch size 128, lea
 `per_class_accuracy.csv`.
 
 ```bash
-./build/Release/mnist_mlp_example              # full training run
-./build/Release/mnist_mlp_example 100          # cap to 100 samples (truncates BOTH train and test)
+./build/mnist_mlp_example              # full training run
+./build/mnist_mlp_example 100          # cap to 100 samples (truncates BOTH train and test)
 ```
 
 The MNIST CSVs are **not bundled** with the repo — only the conversion script
@@ -56,8 +76,8 @@ optimized with `AdamW` and `CrossEntropyLoss` for 10 epochs (batch size 128, lea
 `per_class_accuracy.csv`.
 
 ```bash
-./build/Release/mnist_cnn_example              # full training run
-./build/Release/mnist_cnn_example 100          # cap to 100 samples (truncates BOTH train and test)
+./build/mnist_cnn_example              # full training run
+./build/mnist_cnn_example 100          # cap to 100 samples (truncates BOTH train and test)
 ```
 
 The MNIST CSV setup is identical to the MLP example above — see the MNIST MLP section for the

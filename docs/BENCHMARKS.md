@@ -6,8 +6,11 @@ Baseline measurements for `torc` tensor operations. Generated with
 Run benchmarks:
 
 ```bash
-./build/Release/torc_benchmarks --benchmark_out=benchmark_results.json
+./build/torc_benchmarks --benchmark_out=benchmark_results.json
 ```
+
+These paths are for a single-configuration generator (Make or Ninja). With a multi-configuration
+generator such as Visual Studio, the binary is `build/Release/torc_benchmarks`.
 
 ## Baseline (Reference Machine: 12-core, 2096 MHz, L1=32KB, L2=512KB, L3=4096KB)
 
@@ -115,7 +118,7 @@ Run torc:
 ```bash
 cmake -S . -B build -DBUILD_BENCHMARKS=ON
 cmake --build build --config Release
-./build/Release/torc_benchmarks --benchmark_min_time=1s
+./build/torc_benchmarks --benchmark_min_time=1s
 ```
 
 Run torch:
@@ -125,7 +128,8 @@ python benchmarks/bench_torch.py
 ```
 
 `bench_torch.py` calls `torch.set_num_threads(1)` so its numbers are comparable to torc's
-single-threaded AVX2 path, and mirrors the exact shapes in `benchmarks/bench_tensor.cpp`.
+single-threaded AVX2 path. It runs the shapes in the table below, which are a subset of the
+shapes in `benchmarks/bench_tensor.cpp`.
 
 Latest numbers (single-threaded, Release, same 12-core reference machine):
 

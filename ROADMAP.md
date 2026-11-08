@@ -57,7 +57,8 @@ Do not implement multiple steps in one PR.
       `reduce_sum_to_shape`) — hand test + grad check
 - [x] **Step 6**: View ops backward (`transpose` — true inverse permutation, not re-applying
       `axes`; `reshape`/`view`; `slice` — zero-fill-and-scatter into original shape) — grad check
-- [x] **Step 7**: `detach()` and process-global `set_grad_enabled(bool)` mode
+- [x] **Step 7**: `detach()` and `set_grad_enabled(bool)` mode (process-global at first, now
+      thread-local with `Variable::NoGradGuard`; see the hardening backlog)
 - [x] **Step 8**: In-place ops forbidden for `requires_grad` Variables (throw `TorcError`) —
       new guarded in-place API (`Tensor::fill`, `Variable::fill`) added; direct `data()`/`operator[]`
       mutation remains unguarded
@@ -87,7 +88,7 @@ Each step must pass tests before proceeding.
       standalone classes in `nn/losses.hpp` / `nn/losses.cpp` with `forward(input, target)`
       signature and custom backward closures)
 - [x] **Step 5.6**: Optimizer — `optim::SGD` with momentum (`optim::SGD` takes
-      `std::vector<Variable*>&` and mutates `param->data()` in-place via `step()`; `zero_grad()`
+      `const std::vector<Variable*>&` and mutates `param->data()` in-place via `step()`; `zero_grad()`
       clears all parameter gradients)
 - [x] **Step 5.7**: Optimizer — `optim::Adam` (with bias correction, `beta1=0.9`, `beta2=0.999`)
 - [x] **Step 5.8**: Optimizer — `optim::AdamW`
@@ -96,7 +97,7 @@ Each step must pass tests before proceeding.
       classification dataset
 - [x] **Step 5.11**: End-to-end example — linear regression on a synthetic dataset
 - [x] **Step 5.12**: End-to-end example — small MLP on MNIST
-- [ ] **Step 5.13**: `nn::Conv2d` + end-to-end example — MNIST CNN
+- [x] **Step 5.13**: `nn::Conv2d` + end-to-end example — MNIST CNN
 - [ ] **Step 5.14**: `nn::LayerNorm` — per-row variance (`mean(x^2) - mean(x)^2`) using
       existing `mul`/`mean(axis)`; test on `{batch, features}` tensors
 - [ ] **Step 5.15**: Embedding lookup / gather-by-index — `Tensor::slice()` is contiguous-range
@@ -158,6 +159,8 @@ primitives would make the eventual fixes more expensive.
       tracked ancestor has expired. Destroyed-intermediate coverage prevents the former UB.
 - [ ] **Encapsulate `Variable` state.** Make `data_`, `grad_`, `requires_grad_`, `has_grad_`, and
       `tape_` private and expose only invariant-preserving operations.
+      *Partly done:* the members are private. The non-const `data()` and `tape()` accessors still
+      return mutable references.
 - [ ] **Close tracked-mutation loopholes.** Prevent or version-check mutable `data()` and indexing
       on tracked Variables; the current `fill()` guard does not protect direct writes after
       forward. Add mutation-after-forward tests.
@@ -170,6 +173,7 @@ primitives would make the eventual fixes more expensive.
 - [ ] **Validate dataset contracts.** Check sample-shape consistency in generic batching and guard
       all `size_t`-to-`int` conversions and shape-product arithmetic against overflow. Align data
       loader errors with the project's TorcError hierarchy.
+      *Partly done:* `src/data.cpp` already throws only `TorcError`, `ShapeError` and `IndexError`.
 
 ### Performance and portability
 
@@ -181,6 +185,9 @@ primitives would make the eventual fixes more expensive.
 - [ ] Add a portable SIMD dispatch/build mode. `-march=native` and unconditional AVX2 options
       currently make binaries dependent on the build CPU; retain optimized paths without making
       the default artifact non-portable.
+      *Partly done:* `TORC_NATIVE_ARCH` controls `-march=native` (`/arch:AVX2` on MSVC). It defaults
+      to ON only for a top-level build, so `add_subdirectory`/FetchContent consumers get a portable
+      build. There is no runtime ISA dispatch yet.
 - [ ] Add checked shape-product/element-count arithmetic so large shapes fail predictably instead
       of overflowing `int` and producing invalid allocations or indexing.
 
