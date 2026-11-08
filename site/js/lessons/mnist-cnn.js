@@ -138,7 +138,7 @@ export default {
     },
     {
       kind: 'widget', id: 'pad', className: 'widget', label: 'Interactive: draw a digit and see the probability of each digit, from the CNN',
-      mount: (host, D) => mountDigitPad(host, D, { file: 'mnist-cnn', forward: forwardCnn, name: 'The CNN', echoTorc: false }),
+      mount: (host, D) => mountDigitPad(host, D, { file: 'mnist-cnn', forward: forwardCnn, name: 'The CNN', torcNote: false }),
       tasks: () => [
         { do: 'Press each of the last four image buttons above the pad.',
           see: `The bars show the ${term('probability')} of each digit. The longest bar is never the label, so the CNN reads all four wrongly.` },

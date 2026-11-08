@@ -242,46 +242,49 @@
         {
           "id": "training-loop",
           "title": "The training loop",
-          "outcome": "You can explain why training uses small groups of examples, called batches. You can follow the five lines of the training loop in TorC.",
+          "outcome": "You can explain why each training step uses a small random batch, and why its gradient is only an estimate. You can compare two batch sizes fairly and follow the five lines of the training loop.",
           "prereqs": [
             "deep-nets"
           ],
           "symbols": [
-            "data::Dataset",
-            "data::SyntheticRegression",
             "data::DataLoader",
-            "optim::SGD"
+            "optim::SGD",
+            "optim::SGD::zero_grad",
+            "Variable::backward"
           ],
           "trace": [
             "training.json"
           ],
-          "est_minutes": 8,
+          "est_minutes": 15,
           "status": "published",
           "widgets": [
             "batch viewer",
-            "training curves"
+            "batch gradients",
+            "batch-size comparison"
           ],
-          "code": "data::DataLoader loader(dataset, 32, /*shuffle=*/true);\nwhile (loader.has_next()) {\n    auto [xb, tb] = loader.next_batch();\n    // forward → loss → backward → step → zero_grad\n}"
+          "code": "for (int epoch = 0; epoch < 30; ++epoch) {\n  // a new random order\n  loader.reset();\n  while (loader.has_next()) {\n    auto [xb, tb] = loader.next_batch();\n    Variable x(xb, false), t(tb, false);\n    // 1. predict\n    Variable y = model(x);\n    // 2. the loss of this batch\n    Variable L = loss_fn(y, t);\n    // 3. the gradients\n    L.backward();\n    // 4. change the parameters\n    opt.step();\n    // 5. clear the gradients\n    opt.zero_grad();\n  }\n}"
         },
         {
           "id": "optimizers",
           "title": "Better optimizers",
-          "outcome": "You can compare momentum, Adam and AdamW on the same problem. You can say how each of them changes the size of a step.",
+          "outcome": "You can explain how momentum, Adam and AdamW change the step of plain gradient descent. You can say why a fair comparison gives each optimizer its own best learning rate, and why no optimizer wins on every problem.",
           "prereqs": [
             "training-loop"
           ],
           "symbols": [
             "optim::SGD",
             "optim::Adam",
-            "optim::AdamW"
+            "optim::AdamW",
+            "optim::SGD::step"
           ],
           "trace": [
             "optimizers.json"
           ],
-          "est_minutes": 7,
+          "est_minutes": 14,
           "status": "published",
           "widgets": [
-            "optimizer race"
+            "plain SGD and momentum in a valley",
+            "a fair race on two problems"
           ],
           "code": "optim::SGD sgd(params, 0.01f, /*momentum=*/0.9f);\noptim::Adam adam(params, /*lr=*/1e-3f);\noptim::AdamW adamw(params, 1e-3f, /*weight_decay=*/0.01f);"
         },
@@ -316,8 +319,8 @@
       "lessons": [
         {
           "id": "mnist-mlp",
-          "title": "Digits with an MLP",
-          "outcome": "You can train a network that reads handwritten digits and count its mistakes. You can say which digits it mixes up, and why.",
+          "title": "Reading handwritten digits with a network",
+          "outcome": "You can say how often a digit network is wrong on new digits, tell overfitting from the validation images, and read a confusion matrix.",
           "prereqs": [
             "generalization"
           ],
@@ -328,20 +331,24 @@
             "nn::CrossEntropyLoss"
           ],
           "trace": [
-            "mnist-mlp.json"
+            "mnist-mlp.json",
+            "mnist-mistakes.json",
+            "mnist-seeds.json"
           ],
-          "est_minutes": 10,
+          "est_minutes": 16,
           "status": "published",
           "widgets": [
             "digit pad",
-            "first-layer weights"
+            "first-layer weights",
+            "training vs validation mistakes",
+            "confusion matrix and mistakes"
           ],
           "code": "data::MNISTDataset train_set(path);\ndata::DataLoader loader(train_set, 128, /*shuffle=*/true);\noptim::AdamW opt(model.parameters(), 5e-4f);\nnn::CrossEntropyLoss loss_fn;   // 26,506 parameters"
         },
         {
           "id": "one-step",
-          "title": "One training step from start to end",
-          "outcome": "You can follow one training step on one digit, from the pixels to the changed weight. You see the probability of the right digit go up.",
+          "title": "One training step, followed end to end",
+          "outcome": "You can follow one training step on one digit, from the pixels to a changed weight, and say why the right digit becomes more probable.",
           "prereqs": [
             "mnist-mlp"
           ],
@@ -351,11 +358,13 @@
             "Variable::backward",
             "optim::SGD::step"
           ],
-          "trace": [],
+          "trace": [
+            "one-step.json"
+          ],
           "est_minutes": 15,
-          "status": "planned",
+          "status": "published",
           "widgets": [
-            "one step, end to end"
+            "one step, stage by stage"
           ]
         },
         {

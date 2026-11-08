@@ -50,10 +50,11 @@ export const SPEC = {
     prelude: `Variable logits(${shape(4, 10)}, true);\nVariable labels(Tensor({0.0f, 3.0f, 9.0f, 1.0f}, {4}), false);`,
     check: 'CHECK(std::abs(L.data().data()[0] - std::log(10.0f)) < 1e-5f);   // equal scores: -ln(1/10)\nfor (int j = 0; j < 10; ++j) CHECK(std::abs(p.data().data()[j] - 0.1f) < 1e-6f);   // ten equal shares',
   },
+  // the loop of the lesson (batch 10, shuffled with seed 7, lr 0.1, 30 epochs from w = b = 0) must land where TorC's recorded run
+  // does (data/training.json runs[batch 10].epochs[30]: weight 3.00227499, bias 1.01338017), with the gradients cleared
   'training-loop': {
-    prelude: `data::TensorDataset dataset(${shape(100, 1)}, ${shape(100, 1)});\nint batches = 0;`,
-    after: '++batches;',
-    check: 'CHECK(batches == 4);   // 32 + 32 + 32 + 4',
+    prelude: 'data::SyntheticRegression dataset(100, 1, 3.0f, 1.0f, 0.1f, 42);\ndata::DataLoader loader(dataset, 10, true, 7);\nnn::Linear model(1, 1, 0.0f, 1);\nmodel.named_parameters().at("weight").data().data()[0] = 0.0f;\nmodel.named_parameters().at("bias").data().data()[0] = 0.0f;\noptim::SGD opt(model.parameters(), 0.1f);\nnn::MSELoss loss_fn;',
+    check: 'const auto& np = model.named_parameters();\nCHECK(std::abs(np.at("weight").data().data()[0] - 3.00227499f) < 1e-4f);\nCHECK(std::abs(np.at("bias").data().data()[0] - 1.01338017f) < 1e-4f);\nCHECK(!np.at("weight").has_grad() && !np.at("bias").has_grad());',
   },
   // each optimizer takes one step on L = w² from w = 1 (gradient 2): every one must move w down
   optimizers: {
@@ -84,7 +85,7 @@ function program(course) {
   const indent = (s, n = 4) => s.split('\n').map((x) => (x ? ' '.repeat(n) + x : x)).join('\n');
   const fn = (l) => {
     const s = SPEC[l.id];
-    // the training-loop snippet's body is a comment; `after` adds a statement inside its loop so the loop can be counted
+    // `after` (optional) adds a statement inside a snippet's last loop, for a snippet whose loop body is only a comment
     const code = s.after ? l.code.replace(/\n\}$/, `\n    ${s.after}\n}`) : l.code;
     return `// ${l.id}\nstatic void snippet_${l.id.replace(/-/g, '_')}() {\n${indent(s.prelude)}\n${indent(code)}\n${indent(s.check)}\n}`;
   };
