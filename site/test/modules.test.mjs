@@ -60,7 +60,7 @@ test('the order of parameters(): inside one module it is the map\'s, across modu
   assert.ok(sorted(o.sequential_shapes.slice(2, 4), [[10], [10, 32]]));
   // the prose names the first entry and the weight that follows it: it must say what was recorded
   const all = renderLesson(lesson, D).map((p) => p.html).join('\n');
-  const reveal = all.match(/In one run of TorC, the first entry has the shape <code>\(([^)]*)\)<\/code>\. That is a bias, and the weight has the shape <code>\(([^)]*)\)<\/code>/);
+  const reveal = all.match(/In one run of TorC, the first entry has the <a [^>]*>shape<\/a> <code>\(([^)]*)\)<\/code>\. That is a bias, and the weight has the shape <code>\(([^)]*)\)<\/code>/);
   assert.ok(reveal, 'the reveal of p-first names the recorded shapes');
   assert.equal(JSON.stringify(o.sequential_shapes[0]), JSON.stringify(reveal[1].split(', ').map(Number)));
   assert.equal(o.sequential_shapes[0].length, 1, 'a bias has one dimension');
@@ -88,10 +88,16 @@ test('every claim and message of the prose against the data, and every number bo
   assert.match(all, /TorcError: autograd graph input expired before backward\(\); keep all graph Variables alive/);
   assert.match(all, /ShapeError: matmul inner dimensions must match, got \(8, 32\) and \(64, 10\)/);
   // the quiz answers
+  assert.equal(byId('wide').total, 784 * 64 + 64 + 64 * 10 + 10, 'the check quiz asks about Linear(784, 64), ReLU, Linear(64, 10)');
+  assert.equal(data.models[4].id, 'wide', 'the quiz reads models.4');
   assert.equal(byId('mlp').total, 25450);
   assert.deepEqual([byId('mlp').layers[0].params.map((p) => p.numel), byId('mlp').layers[2].params.map((p) => p.numel)], [[32, 25088], [10, 320]]);
   const shown = Object.fromEntries(boundNums(all).map(({ path, shown: v }) => [path, v]));
-  assert.equal(shown['files.modules.models.0.total'], '25,450');
+  assert.equal(shown['files.modules.models.4.total'], '50,890');
+  assert.ok(!/not fixed|no fixed order/.test(all.slice(0, all.indexOf('id="quiz-p-first"'))), 'nothing before the predict quiz gives its answer');
+  assert.ok(all.indexOf('quiz-p-first') < all.indexOf('md-module'), 'the predict quiz comes before section 1');
+  assert.match(all, /every in-between Variable, except the one it returns, in <code>forward_cache_<\/code>/);
+  assert.ok(!/another standard library/i.test(all), 'one name: another compiler');
 });
 
 test('the widget module imports in Node without touching the DOM', async () => {

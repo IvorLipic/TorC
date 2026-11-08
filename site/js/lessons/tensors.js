@@ -43,13 +43,13 @@ export default {
     <p>A dimension is named by its position in the shape. Dimension <code>0</code> is the first entry, and dimension <code>1</code> is the second. TorC counts every position from zero.</p>
     <pre class="tn-code" tabindex="0" role="group" aria-label="The tensor a in TorC"><code>Tensor a({1.f, 2.f, 3.f, 4.f, 5.f, 6.f}, {2, 3});
 float v = a[1, 2];     // row 1, column 2</code></pre>
-    <p>TorC keeps the numbers in one list, row after row. The entry in row <code>i</code> and column <code>j</code> is at position <code>3·i + j</code>. So <code>a[1, 2]</code> is at position ${T(`${F}.example.index.5.flat`, 'setup')}, and its value is ${T(`${F}.example.index.5.value`, 'setup')}.</p>`),
+    <p>TorC keeps the numbers in one list, row after row. The entry in row <code>i</code> and column <code>j</code> is at position <code>3·i + j</code>, where <code>3</code> is the number of columns. So <code>a[1, 2]</code> is at position ${T(`${F}.example.index.5.flat`, 'setup')}, and its value is ${T(`${F}.example.index.5.value`, 'setup')}.</p>`),
     },
     {
       kind: 'text',
       html: (D, T) => sec('image', '2 · Three dimensions, and reshape', `
     <p>A colour image has three dimensions. They are the ${term('channel', 'channels')} (red, green, blue), the rows and the columns. The tensor <code>image</code> has the shape ${shp(D.files.tensors.image.shape)} and holds ${T(`${F}.image.numel`, 'setup')} brightness values that we made up.</p>
-    <p>The rule for a position works for any number of dimensions. Start at zero. For each dimension, multiply by its size and add its index. So <code>image[2, 1, 0]</code> is at position <code>(2·2 + 1)·2 + 0</code>, which is ${T(`${F}.image.index.10.flat`, 'setup')}, and its value is ${T(`${F}.image.index.10.value`, 'setup')}.</p>
+    <p>The rule for a position works for any number of dimensions. Start at zero. For each dimension, multiply the running position by the size of that dimension, and then add the index. So <code>image[2, 1, 0]</code> is at position <code>(${D.files.tensors.image.index[10].c}·${D.files.tensors.image.shape[1]} + ${D.files.tensors.image.index[10].i})·${D.files.tensors.image.shape[2]} + ${D.files.tensors.image.index[10].j}</code>, which is ${T(`${F}.image.index.10.flat`, 'setup')}, and its value is ${T(`${F}.image.index.10.value`, 'setup')}.</p>
     <p><code>reshape</code> gives the same numbers a new shape, as in <code>a.reshape({3, 2})</code>. In TorC, <code>reshape</code> copies the numbers. A change to the copy does not change <code>a</code>.</p>`),
     },
     {
@@ -70,7 +70,7 @@ float v = a[1, 2];     // row 1, column 2</code></pre>
       kind: 'text',
       html: () => sec('broadcast', '3 · Broadcasting', `
     <p>An element-wise operation such as <code>add</code>, <code>sub</code> or <code>mul</code> combines the numbers at equal positions. TorC also accepts two different shapes, and the word for this is ${term('broadcasting')}.</p>
-    <p>TorC lines the two shapes up from the right. A shape that is shorter gets sizes of 1 on its left. Two sizes fit if they are equal or if one of them is 1. A size of 1 repeats to match the other size, and the result takes the larger size.</p>
+    <p>TorC lines the two shapes up from the right. A shape that is shorter gets sizes of 1 on its left. Two sizes fit if they are equal or if one of them is 1. A size of 1 repeats to match the other size. So if one of the two sizes is 1, the result takes the other size.</p>
     <p>If one pair of sizes does not fit, TorC throws a <code>ShapeError</code>. Select a shape for <code>b</code> below, and then select a result entry.</p>`),
     },
     {
@@ -84,17 +84,17 @@ float v = a[1, 2];     // row 1, column 2</code></pre>
     },
     {
       kind: 'gotcha', title: 'Why did my addition fail?',
-      html: (D) => `<p>Check the last sizes of both shapes first. For <code>b</code> of shape ${shp(bc(D, 'wrong-row').b.shape)}, TorC reports ${err(bc(D, 'wrong-row').sum)}.</p>`,
+      html: (D) => `<p>Check the last sizes of both shapes first. For <code>b</code> of shape ${shp(bc(D, 'wrong-row').b.shape)}, TorC reports ${err(bc(D, 'wrong-row').sum)}. To add one number to each row, give <code>b</code> the shape ${shp(bc(D, 'column').b.shape)}, for example with <code>b.reshape({2, 1})</code>.</p>`,
     },
     {
       kind: 'quiz', id: 'q-shapes', purpose: 'transfer', type: 'choice', title: 'Check yourself',
       prompt: (D) => { const p = D.files.tensors.broadcast_shapes[1]; return `<p>A tensor of shape ${shp(p.x)} meets a tensor of shape ${shp(p.y)} in an <code>add</code>. What is the shape of the result?</p>`; },
       options: [
-        { html: (D) => shp(D.files.tensors.broadcast_shapes[1].result), correct: true, feedback: () => 'Right. From the right, <code>3</code> meets a missing size, <code>1</code> meets <code>2</code>, and <code>4</code> meets a missing size.' },
+        { html: (D) => shp(D.files.tensors.broadcast_shapes[1].result), correct: true, feedback: () => 'Right. From the right, <code>3</code> meets <code>1</code>, <code>1</code> meets <code>2</code>, and <code>4</code> meets a missing size.' },
         { html: 'None. TorC throws a <code>ShapeError</code>, because the shapes have different numbers of dimensions.', feedback: () => 'A missing size on the left counts as <code>1</code>, so shapes with different numbers of dimensions can fit.' },
         { html: (D) => shp(D.files.tensors.broadcast_shapes[1].x), feedback: () => 'A size of <code>1</code> repeats to match the other size. Here the <code>1</code> in the second position meets a <code>2</code>, so the result has a <code>2</code> there.' },
       ],
-      reveal: (D) => `<p>The result has the shape ${shp(D.files.tensors.broadcast_shapes[1].result)}. Each pair of sizes gives the larger size.</p>`,
+      reveal: (D) => `<p>The result has the shape ${shp(D.files.tensors.broadcast_shapes[1].result)}. In each pair, a size of <code>1</code> gives way to the other size, and a missing size counts as <code>1</code>.</p>`,
     },
     {
       kind: 'text',
@@ -140,18 +140,18 @@ float v = a[1, 2];     // row 1, column 2</code></pre>
       kind: 'text',
       html: (D) => sec('matmul-rule', 'The index formula and the shapes', `
     ${eq('C_{ij} = \\sum_{l} P_{il}\\,Q_{lj}')}
-    <p>The letter <code>l</code> runs along the row of <code>P</code> and down the column of <code>Q</code>. So <code>P</code> needs as many columns as <code>Q</code> has rows. A tensor of shape <code>(m, k)</code> times one of shape <code>(k, n)</code> gives shape <code>(m, n)</code>.</p>
+    <p>A tensor <code>P</code> of shape <code>(m, k)</code> times a tensor <code>Q</code> of shape <code>(k, n)</code> gives the shape <code>(m, n)</code>. The letter <code>l</code> runs from <code>0</code> to <code>k − 1</code>, along the row of <code>P</code> and down the column of <code>Q</code>. So <code>P</code> needs as many columns as <code>Q</code> has rows.</p>
     <p><code>a.transpose({1, 0})</code> swaps the two dimensions of <code>a</code> and gives the shape ${shp(D.files.tensors.matmul.transpose.shape)}. So <code>a.matmul(a.transpose({1, 0}))</code> has the shape ${shp(D.files.tensors.matmul.a_at.shape)}.</p>`),
     },
     {
       kind: 'gotcha', title: 'Why did my matmul fail?',
-      html: (D) => `<p>Compare the last size of the first tensor with the second-last size of the second tensor. The call <code>a.matmul(a)</code> reports ${err(D.files.tensors.matmul.a_a)}.</p>`,
+      html: (D) => `<p>Compare the last size of the first tensor with the second-last size of the second tensor. The call <code>a.matmul(a)</code> reports ${err(D.files.tensors.matmul.a_a)}. The usual repair is <code>a.matmul(a.transpose({1, 0}))</code>, which swaps the two dimensions of the second tensor.</p>`,
     },
     {
       kind: 'text',
       html: (D) => sec('batched', '6 · Batches of matrices', `
     <p>A tensor with more than two dimensions holds a ${term('batch')} of matrices. TorC multiplies only the last two dimensions and treats the others as the batch.</p>
-    <p>The batch shapes broadcast as in the broadcasting section. A tensor of shape ${shp([4, 2, 3])} times one of shape ${shp(D.files.tensors.matmul.transpose.shape)} gives ${shp(D.files.tensors.matmul.batched.shape)}, four separate products.</p>`),
+    <p>The batch shapes broadcast as in the broadcasting section. A tensor of shape ${shp(D.files.tensors.matmul.batched_a_shape)} times one of shape ${shp(D.files.tensors.matmul.transpose.shape)} gives ${shp(D.files.tensors.matmul.batched.shape)}, four separate products.</p>`),
     },
     {
       kind: 'quiz', id: 'c-batch', purpose: 'check', type: 'choice', title: 'Check yourself',
@@ -165,7 +165,7 @@ float v = a[1, 2];     // row 1, column 2</code></pre>
     },
     {
       kind: 'text',
-      html: (D, T) => `<section class="tn"><p>The next lesson, <a href="../modules/">Modules</a>, shows how TorC puts ${term('layer', 'layers')} together into one ${term('model')}.</p></section>`,
+      html: (D, T) => `<section class="tn"><p>The next page, <a href="../modules/">Modules</a>, shows how TorC puts ${term('layer', 'layers')} together into one ${term('model')}.</p></section>`,
     },
   ],
 };

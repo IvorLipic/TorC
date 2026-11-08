@@ -122,6 +122,7 @@ int main() {
         .set("a_at", result_or_error([&] { return a.matmul(at); }))                         // (2, 3)(3, 2) -> (2, 2)
         .set("at_a", result_or_error([&] { return at.matmul(a); }))                         // (3, 2)(2, 3) -> (3, 3)
         .set("a_a", result_or_error([&] { return a.matmul(a); }))                           // inner sizes 3 and 2: error
+        .set("batched_a_shape", shape_json({4, 2, 3}))
         .set("batched", result_or_error([&] { return trace::make_tensor({4, 2, 3}, iota(24)).matmul(at); }))  // (4, 2, 3)(3, 2)
         .set("batched_both", result_or_error([&] {                                         // (2, 1, 2, 3)(3, 3, 2) -> (2, 3, 2, 2)
             return trace::make_tensor({2, 1, 2, 3}, iota(12)).matmul(trace::make_tensor({3, 3, 2}, iota(18)));

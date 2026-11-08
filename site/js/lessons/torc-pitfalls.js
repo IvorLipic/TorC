@@ -6,7 +6,7 @@
 // tensors.json (all written by tools/trace/*) through a role-tagged T() or the recorded text.
 // Widget: widgets/loop-timeline.js (the zero_grad loop, kept for this page). Writing: docs/authoring.md "Writing rules".
 import { escapeHtml } from '../core/dom.js';
-import { term } from '../core/blocks.js';
+import { term, worked } from '../core/blocks.js';
 import { mountLoopTimeline } from '../widgets/loop-timeline.js';
 
 const A = 'files.autograd_trace';
@@ -43,9 +43,9 @@ export default {
       kind: 'quiz', id: 'p-twice', purpose: 'predict', type: 'choice', title: 'Before you read on',
       prompt: (D, T) => `<p>The ${term('weight')} is <code>w</code> = ${T(`${A}.accumulation.w`, 'setup')}, and the ${term('loss')} is <code>L = w · w</code>. After <code>L.backward()</code>, the stored ${term('gradient')} of <code>w</code> is ${T(`${A}.accumulation.after_first_backward`, 'setup')}. You call <code>L.backward()</code> a second time on the same <code>L</code>. What does the stored gradient hold now?</p>`,
       options: [
-        { html: (D, T) => `${T(`${A}.accumulation.after_new_forward_and_backward`, 'setup')}, because each <code>backward()</code> adds to the stored gradient.`, feedback: () => 'The gradients add up across passes. But the first call already used up the graph of this loss, so the second call adds nothing.' },
-        { html: (D, T) => `It still holds ${T(`${A}.accumulation.after_second_backward_same_loss`, 'setup')}, because the second call does nothing.`, correct: true, feedback: () => 'Right. TorC clears the graph of the loss when <code>backward()</code> ends.' },
-        { html: 'TorC throws an error, because the graph is already used.', feedback: () => 'Some libraries do this. TorC returns without a message, so a repeated call can hide a mistake.' },
+        { html: (D, T) => `${T(`${A}.accumulation.after_new_forward_and_backward`, 'setup')}, because each <code>backward()</code> adds to the stored gradient.`, feedback: () => 'The gradients add up across passes. But the first call already used up the record of this loss, so the second call adds nothing.' },
+        { html: (D, T) => `It still holds ${T(`${A}.accumulation.after_second_backward_same_loss`, 'setup')}, because the second call does nothing.`, correct: true, feedback: () => 'Right. When <code>backward()</code> ends, TorC clears the record that the loss itself holds.' },
+        { html: 'TorC throws an error, because the record is already used.', feedback: () => 'TorC returns without a message, so a repeated call can hide a mistake.' },
       ],
       reveal: (D, T) => `<p>It still holds ${T(`${A}.accumulation.after_second_backward_same_loss`, 'reveal')}. A new forward pass builds a new loss, and its <code>backward()</code> adds to the stored gradient. Then it holds ${T(`${A}.accumulation.after_new_forward_and_backward`, 'reveal')}.</p>`,
     },
@@ -75,7 +75,8 @@ optimizer.zero_grad();    // without this line, the gradients add up`)}`),
       kind: 'text',
       html: (D, T) => sec('skip', '2 · A step that changes nothing', `
     <p><code>step()</code> skips every parameter that has no stored gradient. It gives no message. This happens when you call <code>step()</code> before the first <code>backward()</code>, right after <code>zero_grad()</code>, or for a parameter that the loss does not use. ${term('adam', 'Adam')} and AdamW skip such a parameter too, so ${term('weight-decay', 'weight decay')} does not change it either.</p>
-    <p>In one run, a loss that used only one of two parameters moved that parameter from ${T(`${A}.unused_parameter.start`, 'setup')} to ${T(`${A}.unused_parameter.used_after`, 'contrast')}. The other parameter stayed at ${T(`${A}.unused_parameter.start`, 'setup')}.</p>`),
+    <p>Take a loss that uses only one of two parameters, both at ${T(`${A}.unused_parameter.start`, 'setup')}. The step changes the parameter that the loss uses. The other parameter stays where it was.</p>
+    ${worked(`<p>${T(`${A}.unused_parameter.start`, 'worked')} − ${T(`${A}.unused_parameter.lr`, 'worked')} × ${T(`${A}.unused_parameter.used_grad`, 'worked')} = ${T(`${A}.unused_parameter.used_after`, 'worked')}</p>`)}`),
     },
     {
       kind: 'gotcha', title: 'Why does my model not learn?',
@@ -86,7 +87,7 @@ optimizer.zero_grad();    // without this line, the gradients add up`)}`),
       prompt: (D) => `<p>The parameter <code>w</code> needs a gradient. What does this code do?</p>${code('A loss in one statement', escapeHtml(lifetime(D, 'temporary').code))}`,
       options: [
         { html: 'It works. The graph keeps the product <code>mul(w, w)</code> alive.', feedback: () => 'The graph points to its in-between results. It does not own them, and this one is gone when the statement ends.' },
-        { html: 'TorC throws a <code>TorcError</code> in <code>backward()</code>.', correct: true, feedback: () => 'Right. TorC checks that every input of the graph still exists.' },
+        { html: 'TorC throws a <code>TorcError</code> in <code>backward()</code>.', correct: true, feedback: () => 'Right. TorC checks that every input that needs a gradient still exists.' },
         { html: 'It works, but the gradient is wrong.', feedback: () => 'TorC does not guess. It stops with an error before it computes anything.' },
       ],
       reveal: (D) => `<p>The message is ${err(lifetime(D, 'temporary'))}.</p>`,
@@ -102,7 +103,7 @@ ${escapeHtml(lifetime(D, 'model-named').code)}   // works`)}`),
     },
     {
       kind: 'gotcha', title: 'Why did backward() throw a TorcError?',
-      html: (D) => `<p>TorC reports ${err(lifetime(D, 'local'))}. Look for a temporary in the loss expression, for a tracked Variable made inside a function, and for a second call of the same module. The page <a href="../modules/">Modules</a> explains the last case.</p>`,
+      html: (D) => `<p>TorC reports ${err(lifetime(D, 'local'))}. Look for a temporary in the loss expression. Look for a Variable that needs a gradient and is made inside a function. Look for a second call of the same module. The page <a href="../modules/">Modules</a> explains the last case.</p>`,
     },
     {
       kind: 'quiz', id: 'p-reset', purpose: 'predict', type: 'numeric', title: 'Before you read on',
@@ -128,9 +129,9 @@ while (loader.has_next()) {
       kind: 'quiz', id: 'p-mse', purpose: 'predict', type: 'choice', title: 'Before you read on',
       prompt: (D) => `<p>A <code>Linear</code> ${term('layer')} with one output gives a ${term('prediction')} of the ${term('shape')} <code>(${D.files.losses.mse_mismatch.prediction_shape.join(', ')})</code>. Your ${term('target')} has the shape <code>(${D.files.losses.mse_mismatch.target_shape.join(', ')})</code>. What does <code>MSELoss</code> do?</p>`,
       options: [
-        { html: 'It combines the two shapes and returns a loss.', feedback: () => 'Element-wise operations broadcast. A loss function checks that the two shapes are equal.' },
+        { html: 'It combines the two shapes and returns a loss.', feedback: () => 'Element-wise operations broadcast, but <code>MSELoss</code> checks that its two shapes are equal.' },
         { html: 'It throws a <code>ShapeError</code>.', correct: true, feedback: () => 'Right. The two shapes must be equal.' },
-        { html: 'It reshapes the target to fit and returns a loss.', feedback: () => 'TorC never reshapes your data without being asked.' },
+        { html: 'It reshapes the target to fit and returns a loss.', feedback: () => '<code>MSELoss</code> never reshapes your data.' },
       ],
       reveal: (D) => `<p>The message is ${err(D.files.losses.mse_mismatch)}.</p>`,
     },
@@ -155,7 +156,7 @@ while (loader.has_next()) {
     },
     {
       kind: 'gotcha', title: 'Why did my Linear layer fail?',
-      html: (D) => `<p>The last size of the input must equal the number of inputs of the layer. For <code>Linear(784, 32)</code> and an input of the shape <code>(8, 10)</code>, TorC reports ${err(lin(D, 'linear-784x32-(8, 10)'))}. An input without a batch dimension gives ${err(lin(D, 'linear-3x2-(3)'))}.</p>`,
+      html: (D) => `<p>The last size of the input must equal the number of inputs of the layer. The layer multiplies the input by its transposed weight, so the message names <code>matmul</code> and the shape <code>(in, out)</code>. For <code>Linear(784, 32)</code> and an input of the shape <code>(8, 10)</code>, TorC reports ${err(lin(D, 'linear-784x32-(8, 10)'))}. An input without a batch dimension gives ${err(lin(D, 'linear-3x2-(3)'))}. Here rank means the number of dimensions.</p>`,
     },
     {
       kind: 'gotcha', title: 'Why did my index or axis fail?',
@@ -163,11 +164,11 @@ while (loader.has_next()) {
     },
     {
       kind: 'gotcha', title: 'Why did a constructor throw?',
-      html: (D) => `<p>Sizes and rates must be positive. For a ${term('learning-rate', 'learning rate')} of zero, <code>SGD</code> reports ${err(D.files.optim.ctor_errors[0])}. For <code>Linear(0, 2)</code>, TorC reports ${err(lin(D, 'linear-zero-features'))}.</p>`,
+      html: (D) => `<p>Sizes and ${term('learning-rate', 'learning rates')} must be positive. For a learning rate of zero, <code>SGD</code> reports ${err(D.files.optim.ctor_errors[0])}. For <code>Linear(0, 2)</code>, TorC reports ${err(lin(D, 'linear-zero-features'))}.</p>`,
     },
     {
       kind: 'text',
-      html: () => '<section class="pf"><p>The next lesson, <a href="../notation/">The symbols of this course</a>, lists the symbols of the course.</p></section>',
+      html: () => '<section class="pf"><p>The next page, <a href="../notation/">The symbols of this course</a>, explains each symbol and how to read it aloud.</p></section>',
     },
   ],
 };

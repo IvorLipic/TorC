@@ -129,5 +129,5 @@
       "what":"autograd graph input expired before backward(); keep all graph Variables alive"
     }
   ],
-  "unused_parameter":{"start":3,"lr":0.100000001,"used_has_grad":true,"unused_has_grad":false,"used_after":2.4000001,"unused_after":3}
+  "unused_parameter":{"start":3,"lr":0.100000001,"used_grad":6,"used_has_grad":true,"unused_has_grad":false,"used_after":2.4000001,"unused_after":3}
 }

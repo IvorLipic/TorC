@@ -66,6 +66,7 @@ function presetGroup(label, items, pick) {
 const CSS = `
 .tw{background:var(--panel);border:1px solid var(--border);border-radius:var(--r);padding:.8rem 1rem 1rem;margin:14px 0}
 .tw-axes{margin:0}
+.tw-presets[hidden]{display:none}
 .tw-presets{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 .7rem}
 .tw .btn[aria-pressed=true]{border-color:var(--fwd);color:var(--fwd);background:rgba(88,196,221,.1)}
 .tw-row{display:flex;flex-wrap:wrap;gap:.8rem 1rem;align-items:center}
@@ -162,7 +163,9 @@ export function mountAxisExplorer(host, D) {
   let tid = 'a', op = 'sum', axis = 0, sel = 0;
   const tens = presetGroup('Tensor', TENSORS, (k) => { tid = k; if (axis >= pick(k).shape.length) axis = 0; sel = 0; draw(); });
   const ops = presetGroup('Reduction', [['sum', 'sum'], ['mean', 'mean'], ['max', 'max']], (k) => { op = k; draw(); });
-  const axisHost = el('div', { class: 'tw-axes' });
+  // One axis group for each tensor, built once. draw() only shows one and updates its state, so a focused button keeps focus.
+  const axisGroups = Object.fromEntries(Object.keys(AXIS_TEXT).map((id) => [id, presetGroup('Axis', AXIS_TEXT[id], (k) => { axis = k; sel = 0; draw(); })]));
+  const axisHost = el('div', { class: 'tw-axes' }, ...Object.values(axisGroups).map((g) => g.root));
   const row = el('div', { class: 'tw-row' });
   const read = el('p', { class: 'tw-read' });
   const say = el('p', { class: 'sr', 'aria-live': 'polite' });
@@ -171,8 +174,8 @@ export function mountAxisExplorer(host, D) {
   function draw() {
     const t = pick(tid);
     tens.set(tid); ops.set(op);
-    const axes = presetGroup('Axis', AXIS_TEXT[tid], (k) => { axis = k; sel = 0; draw(); });
-    axisHost.replaceChildren(axes.root); axes.set(axis);
+    for (const [id, g] of Object.entries(axisGroups)) g.root.hidden = id !== tid;
+    axisGroups[tid].set(axis);
     const res = t.reds.find((x) => x.op === op && x.axis === axis).result;
     // the input: a matrix is one grid, the image is one grid per channel
     const [r0, c0] = t.shape.length === 2 ? t.shape : [t.shape[1], t.shape[2]];

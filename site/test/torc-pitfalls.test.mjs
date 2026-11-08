@@ -45,7 +45,8 @@ test('step() skips a parameter without a stored gradient, and gives no error', (
   const u = A.unused_parameter;
   assert.deepEqual([u.used_has_grad, u.unused_has_grad], [true, false]);
   assert.equal(u.unused_after, u.start);
-  assert.ok(Math.abs(u.used_after - (u.start - u.lr * 2 * u.start)) < 1e-5, 'the used parameter took a step of lr times 2w');
+  assert.equal(u.used_grad, 2 * u.start, 'the gradient of w * w is 2w');
+  assert.ok(Math.abs(u.used_after - (u.start - u.lr * u.used_grad)) < 1e-5, 'the step of the worked block');
 });
 
 test('graph lifetime: temporaries and locals break backward(), named Variables work', () => {

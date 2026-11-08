@@ -185,7 +185,8 @@ int main() {
     models.push(model_json("mlp", {{"Linear", 784, 32}, {"ReLU"}, {"Linear", 32, 10}}))
         .push(model_json("mnist", {{"Linear", 784, 32}, {"ReLU"}, {"Linear", 32, 32}, {"ReLU"}, {"Linear", 32, 10}}))
         .push(model_json("no-relu", {{"Linear", 784, 32}, {"Linear", 32, 10}}))
-        .push(model_json("mismatch", {{"Linear", 784, 32}, {"ReLU"}, {"Linear", 64, 10}}));
+        .push(model_json("mismatch", {{"Linear", 784, 32}, {"ReLU"}, {"Linear", 64, 10}}))
+        .push(model_json("wide", {{"Linear", 784, 64}, {"ReLU"}, {"Linear", 64, 10}}));
     J doc = trace::envelope("modules", "modules", "tools/trace/trace_modules.cpp");
     doc.set("models", std::move(models)).set("orders", orders_json()).set("parameter_order", order_json())
         .set("custom_module", J::array().push(custom_json<AffineLocal>("local")).push(custom_json<AffineCached>("cached")));

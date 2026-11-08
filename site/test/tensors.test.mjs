@@ -114,6 +114,13 @@ test('every claim of the prose against the data: shapes, results and messages', 
   assert.match(data.reshape.error.what, /^Cannot reshape tensor of shape \(2, 3\) with 6 elements into shape \(4, 2\) with 8 elements$/);
   const all = renderLesson(lesson, D).map((p) => p.html).join('\n');
   assert.match(all, /has the shape <code>\(4, 5\)<\/code>/);
+  // H1: (4, 1, 3) + (2, 1): from the right 3 meets 1, 1 meets 2, and 4 meets a missing size
+  assert.match(all, /From the right, <code>3<\/code> meets <code>1<\/code>, <code>1<\/code> meets <code>2<\/code>, and <code>4<\/code> meets a missing size/);
+  const al = alignShapes([4, 1, 3], [2, 1]);
+  assert.deepEqual([al.a, al.b], [[4, 1, 3], [null, 2, 1]]);
+  assert.deepEqual(data.matmul.batched_a_shape, [4, 2, 3]);
+  assert.match(all, /b\.reshape\(\{2, 1\}\)/);
+  assert.match(all, /a\.matmul\(a\.transpose\(\{1, 0\}\)\)/);
   assert.match(all, /ShapeError: Cannot broadcast shapes \(2, 3\) and \(2\)/);
   assert.match(all, /ShapeError: matmul inner dimensions must match, got \(2, 3\) and \(2, 3\)/);
   assert.match(all, /ShapeError: Cannot reshape tensor of shape \(2, 3\) with 6 elements into shape \(4, 2\) with 8 elements/);

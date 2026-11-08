@@ -202,9 +202,10 @@ int main() {
         Variable sq = mul(used, used);
         Variable L = sum(sq);
         L.backward();
+        const float used_grad = used.grad().data()[0];
         opt.step();
         trace::J o = trace::J::object();
-        o.set("start", 3.0f).set("lr", 0.1f).set("used_has_grad", used.has_grad()).set("unused_has_grad", unused.has_grad())
+        o.set("start", 3.0f).set("lr", 0.1f).set("used_grad", used_grad).set("used_has_grad", used.has_grad()).set("unused_has_grad", unused.has_grad())
             .set("used_after", used.data().data()[0]).set("unused_after", unused.data().data()[0]);
         doc.set("unused_parameter", std::move(o));
     }

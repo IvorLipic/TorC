@@ -34,13 +34,23 @@ export default {
     <p class="lead">In TorC, a ${term('model')} is a module. This page shows how a module holds its ${term('parameter', 'parameters')} and how <code>Sequential</code> joins modules. It also gives the rule for calling a module again.</p></section>`,
     },
     {
+      kind: 'quiz', id: 'p-first', purpose: 'predict', type: 'choice', title: 'Before you read on',
+      prompt: () => `<p>You add <code>Linear(784, 32)</code>, <code>ReLU</code> and <code>Linear(32, 10)</code> to a <code>Sequential</code>. Then you call <code>parameters()</code>. Each <code>Linear</code> has a ${term('weight')} and a ${term('bias')}. Which one is the first entry of the list?</p>`,
+      options: [
+        { html: 'The weight of the first <code>Linear</code>, because the constructor registers it first.', feedback: () => 'The module keeps its parameters in a map, not in a list. The map does not remember the order of registration.' },
+        { html: 'One of the two parameters of the first <code>Linear</code>, but TorC does not fix which one.', correct: true, feedback: () => 'Right. Only the order of the modules is fixed.' },
+        { html: 'The bias of the first <code>Linear</code>, always.', feedback: () => 'One build may list the bias first. Another compiler may list the weight first, so you cannot rely on it.' },
+      ],
+      reveal: (D) => `<p>In one run of TorC, the first entry has the ${term('shape')} ${shp(D.files.modules.parameter_order.sequential_shapes[0])}. That is a bias, and the weight has the shape ${shp(D.files.modules.parameter_order.sequential_shapes[1])}. Another compiler may give the other order.</p>`,
+    },
+    {
       kind: 'text',
       html: () => sec('module', '1 · What a module is', `
     <p>A module is an object that holds named parameters and has a <code>forward()</code> function. <code>nn::Linear</code> is a module. Its constructor registers two parameters, named <code>weight</code> and <code>bias</code>. <code>nn::ReLU</code> is also a module, and it has no parameters.</p>
     <p>You call a module like a function, and the call runs <code>forward()</code>.</p>
     ${code('A module in TorC', `nn::Linear layer(784, 32);
 for (const auto&amp; [name, p] : layer.named_parameters())
-    std::cout &lt;&lt; name &lt;&lt; "\\n";   // weight and bias, in no fixed order
+    std::cout &lt;&lt; name &lt;&lt; "\\n";   // weight and bias
 Variable y = layer(x);          // runs forward(x)`)}`),
     },
     {
@@ -60,18 +70,8 @@ optim::SGD opt(model.parameters(), 0.01f);`)}
       tasks: () => [
         { do: 'Select the model <code>784 → 32 → 10</code>.', see: `Each <code>Linear</code> lists a ${term('bias')} and a ${term('weight')}. <code>ReLU</code> lists no parameters. The total counts every one.` },
         { do: 'Select <code>no ReLU</code>.', see: `The total stays the same, because <code>ReLU</code> has no parameters. The output ${term('shape', 'shapes')} stay the same too.` },
-        { do: 'Select <code>wrong sizes</code>.', see: 'The forward pass stops at the second <code>Linear</code> with a <code>ShapeError</code>. The constructor did not check the sizes.' },
+        { do: 'Select <code>784 → 32 → 32 → 10</code>.', see: 'The model has three <code>Linear</code> modules, and each one adds its own bias and weight. The two <code>ReLU</code> modules add none.' },
       ],
-    },
-    {
-      kind: 'quiz', id: 'p-first', purpose: 'predict', type: 'choice', title: 'Before you read on',
-      prompt: () => '<p>You add <code>Linear(784, 32)</code>, <code>ReLU</code> and <code>Linear(32, 10)</code> to a <code>Sequential</code>. Then you call <code>parameters()</code>. Which parameter is the first entry of the list?</p>',
-      options: [
-        { html: 'The weight of the first <code>Linear</code>, because the constructor registers it first.', feedback: () => 'The module keeps its parameters in a map, not in a list. The map does not remember the order of registration.' },
-        { html: 'One of the two parameters of the first <code>Linear</code>, but TorC does not fix which one.', correct: true, feedback: () => 'Right. Only the order of the modules is fixed.' },
-        { html: 'The bias of the first <code>Linear</code>, always.', feedback: () => 'One build may list the bias first. Another standard library may list the weight first, so you cannot rely on it.' },
-      ],
-      reveal: (D) => `<p>In one run of TorC, the first entry has the shape ${shp(D.files.modules.parameter_order.sequential_shapes[0])}. That is a bias, and the weight has the shape ${shp(D.files.modules.parameter_order.sequential_shapes[1])}. Another compiler may give the other order.</p>`,
     },
     {
       kind: 'text',
@@ -97,7 +97,8 @@ Variable&amp; w = first_layer->named_parameters().at("weight");`)}
     {
       kind: 'text',
       html: (D) => sec('cache', '4 · Call backward() before the next forward pass', `
-    <p><code>backward()</code> needs the in-between results of the forward pass, and TorC does not keep them alive for you. A module that makes more than one in-between result keeps them in <code>forward_cache_</code>. <code>nn::Linear</code> keeps the transposed weight, the product and the sum there.</p>
+    <p><code>backward()</code> needs the in-between results of the forward pass, and TorC does not keep them alive for you. So <code>forward()</code> keeps every in-between Variable, except the one it returns, in <code>forward_cache_</code>. <code>nn::Linear</code> keeps the transposed weight and the product there.</p>
+    <p>The returned Variable is a copy that the caller owns. In <code>mse(layer(x), t)</code> it is a temporary, so keep it in a named Variable. The page <a href="../torc-pitfalls/">Common errors in TorC programs</a> shows this case.</p>
     <p>Every call of a module clears this cache first. So call <code>backward()</code> on a loss before you call the same module again. After two forward passes, only the loss of the latest one still works.</p>`),
     },
     {
@@ -112,7 +113,7 @@ Variable&amp; w = first_layer->named_parameters().at("weight");`)}
     {
       kind: 'text',
       html: (D) => sec('own', 'Your own module', `
-    <p>A module of your own registers its parameters in the constructor. If <code>forward()</code> makes an in-between result, keep it in <code>forward_cache_</code>, as below.</p>
+    <p>A module of your own registers its parameters in the constructor. It follows the same rule, as below.</p>
     ${code('A module with two operations', `class Affine : public nn::Module {
 public:
     Affine() {
@@ -133,9 +134,9 @@ public:
     },
     {
       kind: 'quiz', id: 'c-count', purpose: 'check', type: 'numeric', title: 'Check yourself', unit: 'parameters',
-      answer: `${F}.models.0.total`, tolerance: 0.5,
-      prompt: () => '<p>A <code>Linear(in, out)</code> has <code>in × out</code> weights and <code>out</code> biases. How many parameters do <code>Linear(784, 32)</code>, <code>ReLU</code> and <code>Linear(32, 10)</code> have in total? A calculator is fine.</p>',
-      reveal: (D, T) => `<p>The first layer has ${T(`${F}.models.0.layers.0.params.1.numel`, 'reveal')} weights and ${T(`${F}.models.0.layers.0.params.0.numel`, 'reveal')} biases. The second layer has ${T(`${F}.models.0.layers.2.params.1.numel`, 'reveal')} weights and ${T(`${F}.models.0.layers.2.params.0.numel`, 'reveal')} biases. <code>ReLU</code> adds none. The total is ${T(`${F}.models.0.total`, 'reveal')}.</p>`,
+      answer: `${F}.models.4.total`, tolerance: 0.5,
+      prompt: () => '<p>A <code>Linear(in, out)</code> has <code>in × out</code> weights and <code>out</code> biases. How many parameters do <code>Linear(784, 64)</code>, <code>ReLU</code> and <code>Linear(64, 10)</code> have in total? A calculator is fine.</p>',
+      reveal: (D, T) => `<p>The first layer has ${T(`${F}.models.4.layers.0.params.1.numel`, 'reveal')} weights and ${T(`${F}.models.4.layers.0.params.0.numel`, 'reveal')} biases. The second layer has ${T(`${F}.models.4.layers.2.params.1.numel`, 'reveal')} weights and ${T(`${F}.models.4.layers.2.params.0.numel`, 'reveal')} biases. <code>ReLU</code> adds none. The total is ${T(`${F}.models.4.total`, 'reveal')}.</p>`,
     },
     {
       kind: 'quiz', id: 'c-mismatch', purpose: 'check', type: 'choice', title: 'Check yourself',
@@ -145,11 +146,11 @@ public:
         { html: 'In the forward pass, when it reaches the second <code>Linear</code>.', correct: true, feedback: () => 'Right. The two sizes first meet when the second layer multiplies its input.' },
         { html: 'In <code>backward()</code>, when the gradients do not fit.', feedback: () => 'The forward pass fails first, so there is no graph to run backward.' },
       ],
-      reveal: (D) => { const l = model(D, 'mismatch').layers.find((x) => x.what); return `<p>The message is ${err(l.exception, l.what)}.</p>`; },
+      reveal: (D) => { const l = model(D, 'mismatch').layers.find((x) => x.what); return `<p>The forward pass stops at the second <code>Linear</code>, and the constructor did not check the sizes. The message is ${err(l.exception, l.what)}. Select <code>wrong sizes</code> in the first viewer to see it.</p>`; },
     },
     {
       kind: 'text',
-      html: () => '<section class="md"><p>The next lesson, <a href="../torc-pitfalls/">Common errors in TorC programs</a>, collects the errors that TorC programs meet most often.</p></section>',
+      html: () => '<section class="md"><p>The next page, <a href="../torc-pitfalls/">Common errors in TorC programs</a>, collects the errors that TorC programs meet most often.</p></section>',
     },
   ],
 };

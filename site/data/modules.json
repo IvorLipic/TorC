@@ -62,6 +62,20 @@
       "sequential_parameters_count":4,
       "sequential_exception":"ShapeError",
       "sequential_what":"matmul inner dimensions must match, got (8, 32) and (64, 10)"
+    },
+    {
+      "id":"wide",
+      "input_shape":[8,784],
+      "layers":[
+        {"label":"Linear(784, 64)","params":[{"name":"bias","shape":[64],"numel":64},{"name":"weight","shape":[64,784],"numel":50176}],"out_shape":[8,64]},
+        {"label":"ReLU","params":[],"out_shape":[8,64]},
+        {"label":"Linear(64, 10)","params":[{"name":"bias","shape":[10],"numel":10},{"name":"weight","shape":[10,64],"numel":640}],"out_shape":[8,10]}
+      ],
+      "total":50890,
+      "tensors":4,
+      "sequential_parameters_total":50890,
+      "sequential_parameters_count":4,
+      "sequential_out_shape":[8,10]
     }
   ],
   "orders":[
