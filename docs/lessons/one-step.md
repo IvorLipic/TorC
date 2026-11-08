@@ -20,7 +20,8 @@ gradient (`src/optim.cpp`). A parameter entry whose gradient is exactly zero doe
   spacing); the weight to the one 0.5099 → 0.5125; to the three 0.4185 → 0.4164. Every update is bit-exact
   (`checks.every_update_exact`). 3,937 of 26,506 parameters change (15 %): weights from black pixels and through neurons that ReLU
   turned off get the gradient zero (the test checks the upper bound from the zero pattern).
-- After: the one 0.7985, the three 0.1561, loss 0.2250.
+- After: the one 0.7985, the three 0.1561, loss 0.2250. Scores after the step (`after.scores`): the one rises by 0.631, the three falls by 0.347, and the wrong scores of 4, 6 and 7 rise a little; every wrong probability falls. 41 parameters with a nonzero gradient do not change, because lr × gradient is below their float32 spacing (`changed_detail`).
+- Chain rule (`chain`): second-layer neuron 1 gets 0.5099 × (−0.3935) + 0.4185 × 0.3154 + the rest = −0.0724; first-layer neuron 15 gets 0.2858 + 0.1494 + 0.1354 (from second-layer neurons 23, 20, 0) + 0.1685 for the rest = 0.7391. The producer checks each sum against the recorded gradient.
 - The real run: 9,380 AdamW steps of 128 images (`full_run`).
 
 ## Expected (mathematics)
@@ -33,10 +34,11 @@ None.
 
 ## Deviations from the brief
 - The brief says "one test digit"; the trace uses a training image, because a training step on a test image contradicts C2.
-- The brief says "the gradient of one chosen pixel weight, traced back along its path"; the page shows that weight (section 3)
-  and also two output weights and a bias, so that the learner does the last step on the rival weight.
+- The brief says "the gradient of one chosen pixel weight, traced back along its path"; the page traces it back through the first-layer
+  neuron (section 3, the three largest parts plus the rest) and also shows two output weights; the learner computes the new value of
+  the rival weight (gradient and step).
 - The step uses plain SGD with lr 0.001 and a batch of one, not the AdamW of the real run; the page says so in the setup.
 
 ## Lesson status
-New 2026-11, `template: 3`. Widget: `site/js/widgets/one-step-widgets.js` (nine stages). Tests: `site/test/one-step.test.mjs`.
-Not done: pedagogy review, cold read, human think-aloud, screen reader.
+New 2026-11, `template: 3`; revised after the independent review, the pedagogy review and the cold read (H2-H4 and the medium items). Widget: `site/js/widgets/one-step-widgets.js` (eleven stages). Tests: `site/test/one-step.test.mjs`.
+Not done: a second review round, human think-aloud, screen reader.

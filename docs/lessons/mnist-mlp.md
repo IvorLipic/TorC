@@ -21,9 +21,14 @@ in `docs/library-audit/v0.1.0-findings.md`).
   images, 6.9 on the validation images (validation lower). After pass 20: 1.6 and 2.8 (whole numbers on the page: 2 and 3). The
   training curve keeps falling; the validation curve falls more slowly (its loss is roughly flat from about pass 12). A small gap:
   overfitting a little, as a degree (C10).
-- Final network of the main run (all 60,000 images), measured once on the test set: 9,666 of 10,000 (3 mistakes per 100). The
-  page shows no per-epoch test curve.
-- Three seed sets (C5): 96.66 %, 96.66 %, 96.51 % on the test set, so 3 mistakes per 100 for each.
+- The validation run reads the test set once, after training: 9,661 of 10,000 (3 mistakes per 100); the page quotes this. The main
+  run (the pad network, all 60,000 images) and the seed runs measured the test set after every epoch (`epochs[].test_accuracy`,
+  `test_correct_by_epoch`); the page says so, binds none of those values, and chooses nothing with them. Its final 9,666 is the
+  confusion matrix.
+- Three seed sets (C5): 96.66 %, 96.66 %, 96.51 % on the test set; the page shows the range as fractions 0.9651 to 0.9666 (no trace
+  field holds mistakes per 100 with one decimal, and `mnist-seeds.json` is not this lesson’s producer).
+- At epoch 1 the validation images have fewer mistakes (6.9) than the 5,000 training images (8.1); different images, so the
+  counts differ a little by chance. The validation curve is flat over the last five epochs and rises from epoch 18 (2.6) to 20 (2.8).
 - Confusion matrix (test set, shown only to look, nothing chosen with it): the largest off-diagonal count is a four read as a nine
   (19); a nine as a four is 9. Nines go wrong most as eights (14), fours (9) and sevens (9). The nine has the lowest per-digit
   accuracy (958 / 1,009 = 0.9495). The first of the 24 recorded mistakes (test image 115) is a four read as a nine.
@@ -41,7 +46,7 @@ are `T.human(…, 'per100')`, 100 minus the whole percent.
 None in the parts used here (see the data note above for the converter).
 
 ## Lesson status
-Rewritten 2026-11 as a `template: 3` lesson, "Reading handwritten digits with a network" (brief §6, §7, C2, C5, D9). Widgets:
-`digit-widgets.js` (digit pad and weights gallery, unchanged) and `mnist-widgets.js` (training vs validation curves, confusion
+Rewritten 2026-11 as a `template: 3` lesson, revised after the three review gates (H1 and the medium items), "Reading handwritten digits with a network" (brief §6, §7, C2, C5, D9). Widgets:
+`digit-widgets.js` (digit pad and weights gallery; two additive pad options, `markWrong` and `torcNote`, off by default for the other callers) and `mnist-widgets.js` (training vs validation curves, confusion
 matrix with the grid of mistakes). Tests: `site/test/mnist-mlp.test.mjs`. The home-page code is compiled by the snippet check
-(compile only). Not done: pedagogy review, cold read, human think-aloud, screen reader, a real touch device.
+(compile only). Not done: a second review round, human think-aloud, screen reader, a real touch device.

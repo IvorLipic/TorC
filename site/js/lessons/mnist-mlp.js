@@ -52,13 +52,13 @@ export default {
     <p>${term('mnist', 'MNIST')} is a well-known ${term('data-set')} of handwritten digits. It has ${T(`${F}.setup.train_samples`, 'setup')} images for ${term('training')} and ${T(`${F}.setup.test_samples`, 'setup')} test images, each with its digit.</p>
     <p>An image is a grid of ${T(`${F}.setup.image_side`, 'setup')} by ${T(`${F}.setup.image_side`, 'setup')} ${term('pixel', 'pixels')}. Each pixel has a grey value from zero for black to ${T(`${F}.setup.pixel_max`, 'setup')} for white. TorC divides it by ${T(`${F}.setup.pixel_max`, 'setup')}, so every input is between zero and one.</p>
     <p>One grid of values is a ${term('channel')}. A colour photo has three channels, for red, green and blue. An MNIST image has one grey channel.</p>
-    <p>The network gets the ${T(`${F}.setup.pixels`, 'setup')} grey values of an image as one long row of numbers.</p>`),
+    <p>The network gets the ${T(`${F}.setup.pixels`, 'setup')} grey values as one long row of numbers.</p>`),
     },
     {
       kind: 'quiz', id: 'how-many', purpose: 'predict', type: 'choice',
       prompt: '<p>The network trains until it reads almost all its training images correctly. How many mistakes per hundred new images do you expect?</p>',
       options: [
-        { html: 'None, because it learned each digit.', feedback: 'This belief says that right on the training images means right everywhere. New handwriting still fools it.' },
+        { html: 'None, because it learned each digit.', feedback: 'New handwriting still fools it.' },
         { html: 'A few, a little more than on its training images.', correct: true, feedback: 'Yes.' },
         { html: 'About half, because it only memorized its images.', feedback: 'This is the belief that a large network only memorizes. It does much better.' },
       ],
@@ -68,25 +68,25 @@ export default {
       kind: 'text',
       html: (D, T) => sec('model', '1 · The network', `
     <p>The network has three ${term('layer', 'layers')} of ${term('neuron', 'neurons')}. The first two have ${T(`${F}.layers.0.weight_shape.0`, 'setup')} neurons each, with ${term('relu', 'ReLU')}. The last layer gives ten scores, one for each digit. ${term('softmax', 'Softmax')} turns them into ${term('probability', 'probabilities')}, and the most probable digit is the answer.</p>
-    <p>Layers of neurons one after the other make a multilayer perceptron, or MLP. This one has ${T.anchor('mlp_parameters')} parameters, as you counted in the lesson on <a href="../linear-layer/">the layer</a>.</p>
-    ${realLine(MODEL_CODE, 'This is the digit network in TorC. Each line adds one layer, from the pixel values to the ten scores.')}
+    <p>Such a network is a multilayer perceptron, or MLP. It has ${T.anchor('mlp_parameters')} parameters, as you counted in the lesson on <a href="../linear-layer/">the layer</a>.</p>
+    ${realLine(MODEL_CODE, 'This is the digit network in TorC. Each Linear line is one layer of neurons, and a ReLU line sits between two layers.')}
     <p>The ${term('loss')} is the ${term('cross-entropy', 'cross-entropy')}, and the ${term('optimizer')} is AdamW. Each step uses a ${term('batch')} of ${T(`${F}.setup.batch_size`, 'setup')} images. Training goes through all training images ${T(`${F}.setup.epochs`, 'setup')} times, once per ${term('epoch')}.</p>`),
     },
     {
       kind: 'widget', id: 'pad', className: 'widget', label: 'Interactive: draw a digit and see the probability of each digit',
-      mount: (host, D) => mountDigitPad(host, D),
+      mount: (host, D) => mountDigitPad(host, D, { markWrong: true, torcNote: false }),
       tasks: () => [
         { do: 'Press Clear and draw a digit small, in a corner.',
           see: 'The small image shows what the network reads. The page scales your digit and moves it to the middle, as MNIST does.' },
-        { do: 'Press the last four buttons.',
+        { do: 'Press the buttons with a red edge.',
           see: 'The network reads these test images wrongly. Each looks a little like the digit that it chose.' },
       ],
     },
     {
       kind: 'text',
-      html: () => sec('weights', '2 · What the first layer looks for', `
-    <p>Each neuron of the first layer has one ${term('weight')} for each pixel. So its weights make an image with the grid of a digit.</p>
-    <p>Amber is a positive weight, so ink there raises the neuron. Blue is a negative weight, so ink there lowers it. Dark is a weight near zero.</p>
+      html: (D, T) => sec('weights', '2 · What the first layer looks for', `
+    <p>Each neuron of the first layer has one ${term('weight')} for each pixel. So its weights make an image of ${T(`${F}.setup.image_side`, 'setup')} by ${T(`${F}.setup.image_side`, 'setup')} squares.</p>
+    <p>Amber is a positive weight, so ink there raises the neuron. Blue is a negative weight, so ink there lowers it.</p>
     <p>Do not expect digits. A neuron reacts to pieces of strokes, and the next layers combine the pieces.</p>`),
     },
     {
@@ -96,7 +96,7 @@ export default {
         { do: 'Look at the middle of a few images.',
           see: 'Neighbouring pixels there often share a colour. They form patches and parts of strokes.' },
         { do: 'Compare the middle of an image with its edge.',
-          see: 'The edges look more speckled. Few digits have ink there, so these weights matter for few images.' },
+          see: `The edges look more speckled. Few digits have ink there, so these weights rarely get a ${term('gradient')}. The next lesson shows why.` },
       ],
     },
     {
@@ -104,36 +104,37 @@ export default {
       html: (D, T) => sec('memorize', '3 · Learned, or only memorized?', `
     <p>In the lesson on <a href="../generalization/">new data</a>, a curve fitted the noise of its ten points. This network has far more parameters. Does it only memorize its training images?</p>
     <p>To find out, TorC trains the same network again on ${T(`${V}.train_samples`, 'setup')} training images. It keeps the last ${T(`${V}.validation_samples`, 'setup')} apart as the ${term('validation-set', 'validation set')}.</p>
-    <p>After each epoch, it counts the mistakes on ${T(`${V}.train_subset_samples`, 'setup')} of its training images and on the validation images.</p>`),
+    <p>After each epoch, it counts the mistakes on the validation images. It also counts them on the first ${T(`${V}.train_subset_samples`, 'setup')} training images, as many as in the validation set.</p>`),
     },
     {
       kind: 'widget', id: 'train-validation', className: 'widget', label: 'Interactive: mistakes per hundred images after each epoch, on training images and on validation images',
       mount: (host, D) => mountTrainValidation(host, D),
       tasks: () => [
-        { do: 'Set the slider to the first epoch.',
-          see: 'The network makes even fewer mistakes on the validation images than on its training images.' },
-        { do: 'Move the slider to the last epoch.',
-          see: 'The training curve keeps falling. The validation curve falls more slowly, so a small gap opens.' },
+        { do: 'Set the slider to the first epoch, then the tenth, then the last.',
+          see: 'At first the two curves are close. Later the training curve is lower, and the gap between them grows slowly.' },
+        { do: 'Look at the validation curve over the last few epochs.',
+          see: 'It flattens and even rises a little, while the training curve keeps falling.' },
       ],
     },
     {
       kind: 'text',
       html: (D, T) => plain(`
     <p>After the last epoch, the network makes about ${per100(T, `${V}.epochs.${LAST}.train_subset.accuracy`)} mistakes per hundred training images and about ${per100(T, `${V}.epochs.${LAST}.validation.accuracy`)} per hundred validation images. The gap is small, so the network ${term('overfitting', 'overfits')} only a little. It has many parameters, but also many images.</p>
-    <p>The network of the digit pad trains on all training images. TorC measures it once on the ${term('test-set', 'test set')}, at the end. It makes about ${per100(T, `${F}.final.test_accuracy`)} mistakes per hundred test images.</p>
-    <p>A run starts from random values. We trained the network from three random starts, and each made about ${per100(T, `${S}.mlp.min_accuracy`)} mistakes per hundred test images.</p>`),
+    <p>The two sets hold different images, so their counts differ a little by chance. The gap that opens later is what counts.</p>
+    <p>After training, this run reads the ${term('test-set', 'test set')} once. It makes about ${per100(T, `${V}.final_test.accuracy`)} mistakes per hundred test images.</p>
+    <p>The network of the digit pad trains on all training images. From three random starts, it read between ${T(`${S}.mlp.min_accuracy`, 'contrast', { sig: 4 })} and ${T(`${S}.mlp.max_accuracy`, 'contrast', { sig: 4 })} of the test images correctly. These runs also measured the test images after each epoch, but this course chooses nothing with those counts.</p>`),
     },
     {
       kind: 'text',
       html: () => sec('confusion', '4 · Which digits it mixes up', `
     <p>A ${term('confusion-matrix', 'confusion matrix')} counts the answers of the network for each true digit. Below it is a heat map. Each row is a true digit, and each column is an answer. Green squares are right answers. Amber squares are mistakes, brighter for more images.</p>
-    <p>The counts come from the test images. We only look at them, and we choose nothing with them.</p>`),
+    <p>We only look at these test counts, and we choose nothing with them.</p>`),
     },
     {
       kind: 'widget', id: 'confusion', className: 'widget', label: 'Interactive: the confusion matrix of the test images and the first mistakes',
       mount: (host, D) => mountConfusion(host, D),
       tasks: () => [
-        { do: 'Before you look, guess the most common mistake. Then find the brightest amber square.',
+        { do: 'Find the brightest amber square, and select it.',
           see: 'It is a four read as a nine. A nine read as a four is less common.' },
         { do: 'Press one of the images below the squares.',
           see: 'The ring moves to the square of its pair.' },
@@ -153,15 +154,15 @@ export default {
     {
       kind: 'quiz', id: 'nines', purpose: 'check', type: 'numeric', title: 'Your turn',
       answer: `${F}.test_per_class.accuracy.${MINE}`, tolerance: 0.002,
-      prompt: (D, T) => `<p>Row nine holds ${T(`${F}.test_per_class.total.${MINE}`, 'setup')} test images of a nine, and its diagonal square counts ${T(`${F}.confusion.matrix.${MINE}.${MINE}`, 'setup')}. What fraction of the nines does the network read correctly? A calculator is fine.</p>`,
-      reveal: (D, T) => `${worked(`<p>${T(`${F}.confusion.matrix.${MINE}.${MINE}`, 'worked')} / ${T(`${F}.test_per_class.total.${MINE}`, 'worked')} = ${T(`${F}.test_per_class.accuracy.${MINE}`, 'worked')}</p>`)}<p>No other digit has a lower fraction.</p>`,
+      prompt: '<p>Now find row nine in the matrix above. Add up its squares to get all the test images of a nine. What fraction of them does the network read correctly? A calculator is fine.</p>',
+      reveal: (D, T) => `${worked(`<p>${T(`${F}.confusion.matrix.${MINE}.${MINE}`, 'worked')} / ${T(`${F}.test_per_class.total.${MINE}`, 'worked')} = ${T(`${F}.test_per_class.accuracy.${MINE}`, 'worked')}</p>`)}<p>Nines are the hardest row.</p>`,
     },
     {
       kind: 'quiz', id: 'letters', purpose: 'transfer', type: 'choice',
       prompt: '<p>A network like this one learns handwritten capital letters. Which pair will it mix up most often?</p>',
       options: [
         { html: 'O and Q', correct: true, feedback: 'Yes. A Q is an O with one short stroke more.' },
-        { html: 'O and L, because both letters are common', feedback: 'Common letters do not look alike. Similar pixels give similar scores.' },
+        { html: 'O and L, because both letters are common', feedback: 'Common letters do not look alike.' },
         { html: `Every pair equally often, because each letter is its own ${term('class')}`, feedback: 'Letters with similar pixels still get similar scores.' },
       ],
       reveal: '<p>Letters that share most of their pixels get similar scores.</p>',
@@ -170,7 +171,7 @@ export default {
       kind: 'quiz', id: 'steps', purpose: 'cumulative', from: 'training-loop', type: 'numeric',
       answer: `${F}.settings.steps_per_epoch`, tolerance: 0.3,
       prompt: (D, T) => `<p>Training takes the ${T(`${F}.settings.train_samples`, 'setup')} training images in batches of ${T(`${F}.settings.batch_size`, 'setup')}. How many training steps does one epoch take? A calculator is fine.</p>`,
-      reveal: (D, T) => `<p>A last, smaller batch takes the images that are left, so one epoch takes ${T(`${F}.settings.steps_per_epoch`, 'reveal')} steps. All ${T(`${F}.settings.epochs`, 'reveal')} epochs take ${T(`${F}.settings.steps`, 'reveal')} steps.</p>`,
+      reveal: (D, T) => `<p>If your answer has a fraction, round it up. A last, smaller batch takes the images that are left, so one epoch takes ${T(`${F}.settings.steps_per_epoch`, 'reveal')} steps. All ${T(`${F}.settings.epochs`, 'reveal')} epochs take ${T(`${F}.settings.steps`, 'reveal')} steps.</p>`,
     },
     {
       kind: 'explain', id: 'memorize',

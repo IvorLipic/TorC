@@ -60,6 +60,8 @@ const CSS = `
 .mw-cell{stroke:var(--bg);stroke-width:1}
 .mw-sel{fill:none;stroke:var(--fg);stroke-width:2.5}
 .mw-ax{fill:var(--muted);font-size:12px}
+.mw-n{fill:#111;font-size:12px;pointer-events:none}
+.mw-n.d{fill:#fff;font-size:10px;font-weight:600}
 .mw-axt{fill:var(--muted);font-size:12px;font-weight:600}
 .mw-key{display:flex;flex-wrap:wrap;gap:.2rem 1.2rem;font-size:.82rem;color:var(--muted);margin:.3rem 0 .4rem}
 .mw-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:6px;max-width:44rem;margin:.6rem 0 0}
@@ -103,7 +105,7 @@ export function mountTrainValidation(host, D) {
     p.dot(pass, C.train[i], { class: 'mw-dtrain', layer: 'dots' });
     p.dot(pass, C.validation[i], { class: 'mw-dval', layer: 'dots' });
   };
-  const plot = createPlot(plotHost, { width: 640, height: 300, x: [1, last], y: [0, top], xLabel: 'epoch (one pass through the training images)', yLabel: 'mistakes per 100 images', ariaLabel: 'Mistakes per 100 images after each epoch, on training images and on validation images', margin: { r: 20 }, onResize: (p) => draw(p) });
+  const plot = createPlot(plotHost, { width: 640, height: 300, x: [1, last], y: [0, top], xLabel: 'epoch', yLabel: 'mistakes per 100 images', ariaLabel: 'Mistakes per 100 images after each epoch, on training images and on validation images', margin: { r: 20 }, onResize: (p) => draw(p) });
   srTable(frame, { caption: 'Mistakes per 100 images after each epoch', columns: ['epoch', 'training images', 'validation images'], rows: C.passes.map((x, i) => [x, sig2(C.train[i]), sig2(C.validation[i])]), fmt: String });
   const update = (announce) => {
     const i = pass - 1;
@@ -145,11 +147,14 @@ export function mountConfusion(host, D) {
   for (let t = 0; t < 10; t++) for (let p = 0; p < 10; p++) {
     const n = mat[t][p];
     // right answers in one muted green; mistakes in amber, brighter for more images (a linear scale, so the largest count stands out)
-    const fill = t === p ? 'rgba(131,193,103,.45)' : n === 0 ? 'var(--panel2)' : `rgba(227,179,65,${(0.1 + 0.9 * (n / maxOff)).toFixed(3)})`;
+    // the diagonal is a strong green, so the right answers read as by far the largest counts
+    const fill = t === p ? 'rgb(83,150,62)' : n === 0 ? 'var(--panel2)' : `rgba(227,179,65,${(0.1 + 0.9 * (n / maxOff)).toFixed(3)})`;
     const r = svg('rect', { class: 'mw-cell', x: L + p * S, y: Tp + t * S, width: S, height: S, fill });
     r.addEventListener('click', () => select(t, p, true));
     cells.push(r);
     root.append(r);
+    // every count that is not zero is written in its square (smaller for the four-digit counts of the diagonal)
+    if (n > 0) root.append(svg('text', { class: `mw-n${t === p ? ' d' : ''}`, x: L + p * S + S / 2, y: Tp + t * S + S / 2 + 4, 'text-anchor': 'middle', 'aria-hidden': 'true' }, String(n)));
   }
   const ring = svg('rect', { class: 'mw-sel', width: S, height: S });
   root.append(ring);
@@ -164,7 +169,7 @@ export function mountConfusion(host, D) {
   });
   const grid = el('div', { class: 'mw-grid', role: 'group', 'aria-label': 'The first mistakes in the test images' }, ...tiles);
   const frame = el('div', { class: 'mw' }, root,
-    el('div', { class: 'mw-key', 'aria-hidden': 'true' }, el('span', {}, 'green: right answers'), el('span', {}, 'amber: mistakes, brighter for more images'), el('span', {}, 'dark: no image')),
+    el('div', { class: 'mw-key', 'aria-hidden': 'true' }, el('span', {}, 'green: right answers, the largest counts'), el('span', {}, 'amber: mistakes, brighter for more images'), el('span', {}, 'dark: no image')),
     read, say,
     el('p', { class: 'mw-lbl' }, 'The first mistakes in the test images. Under each image, the true digit comes first, then the network’s answer.'), grid);
   host.replaceChildren(frame);
@@ -181,6 +186,7 @@ export function mountConfusion(host, D) {
     grid.classList.toggle('dim', t !== p);
     if (announce) say.textContent = read.textContent;
   }
+  root.addEventListener('focus', () => { say.textContent = `${read.textContent} Use the arrow keys to move between squares.`; });
   root.addEventListener('keydown', (e) => {
     const k = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] }[e.key];
     if (!k) return;

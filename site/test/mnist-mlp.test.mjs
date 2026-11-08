@@ -116,20 +116,38 @@ test('the validation run (C2): held-out images, small gap, the predict reveal an
   assert.ok(C.train.at(-1) < C.train[9] && C.train[9] < C.train[0]);
   assert.ok(C.train[9] - C.train.at(-1) > C.validation[9] - C.validation.at(-1));
   assert.ok(C.validation.at(-1) - C.train.at(-1) > 0.5, 'a gap opens');
-  assert.ok(C.validation[0] < C.train[0]);
+  assert.ok(C.validation[0] < C.train[0], 'the validation curve starts lower');
+  assert.ok(C.train[9] < C.validation[9], 'by the tenth epoch the training curve is lower');
+  assert.ok(C.validation.at(-1) - C.train.at(-1) > C.validation[9] - C.train[9], 'the gap grows slowly');
+  // "it flattens and even rises a little" over the last few epochs, "while the training curve keeps falling"
+  assert.ok(C.validation.at(-1) > C.validation.at(-3), 'the validation curve rises from epoch 18 to 20');
+  assert.ok(Math.abs(C.validation.at(-1) - C.validation.at(-6)) < 0.5, 'flat over the last five epochs');
+  assert.ok(C.train.at(-1) < C.train.at(-6) - 0.5);
+  // "as many as in the validation set"
+  assert.equal(V.train_subset_samples, V.validation_samples);
   C.train.forEach((v, i) => assert.ok(Math.abs(v - 100 * (1 - V.epochs[i + 1].train_subset.accuracy)) < 1e-9));
 });
 
-test('the test set once, and three random starts (C5)', () => {
-  assert.equal(data.final.test_correct, data.confusion.correct);
-  assert.equal(data.final.test_samples, data.setup.test_samples);
-  assert.equal(per100(data.final.test_accuracy), 3);
-  assert.equal(seeds.mlp.runs.length, 3);
-  assert.equal(seeds.mlp.runs[0].test_correct, data.final.test_correct, 'seed set 1 is the run of the page');
-  assert.equal(per100(seeds.mlp.min_accuracy), per100(seeds.mlp.max_accuracy), 'each start made about the same number of mistakes');
-  assert.equal(per100(seeds.mlp.min_accuracy), per100(data.final.test_accuracy));
-  // the page shows no per-epoch test curve (C2): no binding to epochs[].test_*
+test('the test set: the validation run reads it once, after training; the other runs recorded it per epoch (C2, C5)', () => {
+  // "After training, this run reads the test set once": the validation run has no test value per epoch, only final_test
+  assert.equal(V.final_test.total, data.setup.test_samples);
+  assert.match(V.note, /The test set is measured once, after training\./);
+  for (const e of V.epochs) assert.deepEqual(Object.keys(e).filter((k) => /test/.test(k)), [], `epoch ${e.epoch} has no test value`);
+  assert.equal(per100(V.final_test.accuracy), 3);
+  assert.match(html, /data-trace="files\.mnist-mlp\.validation_run\.final_test\.accuracy"/);
+  // "These runs also recorded the test result after each epoch": the main run and the seed runs did
+  assert.ok(data.epochs.every((e) => typeof e.test_accuracy === 'number'));
+  assert.ok(seeds.mlp.runs.every((r) => r.test_correct_by_epoch.length === data.setup.epochs + 1));
+  // "this course chooses nothing with those numbers": the page binds no per-epoch test value
   assert.doesNotMatch(html, /data-trace="files\.mnist-mlp\.epochs\./);
+  assert.doesNotMatch(html, /test_correct_by_epoch/);
+  // three random starts: the range the page shows, and "changes the result only a little"
+  assert.equal(seeds.mlp.runs.length, 3);
+  assert.equal(seeds.mlp.runs[0].test_correct, data.final.test_correct, 'seed set 1 is the network of the digit pad');
+  assert.equal(seeds.mlp.min_accuracy, Math.min(...seeds.mlp.runs.map((r) => r.test_accuracy)));
+  assert.equal(seeds.mlp.max_accuracy, Math.max(...seeds.mlp.runs.map((r) => r.test_accuracy)));
+  assert.ok(seeds.mlp.max_accuracy - seeds.mlp.min_accuracy < 0.002);
+  assert.equal(data.final.test_correct, data.confusion.correct, 'the confusion matrix is the final network of the pad');
 });
 
 test('the confusion matrix: sums, diagonal, the most common mistake and the rare pairs the quiz feedback names', () => {

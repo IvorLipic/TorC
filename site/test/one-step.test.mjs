@@ -66,8 +66,7 @@ test('the backward pass: probability minus one for the right score, the probabil
   assert.equal(outRival.path.class, 3);
   close(outTrue.grad, outTrue.path.unit_post * outTrue.path.score_grad, 1e-6);
   close(outRival.grad, outRival.path.unit_post * outRival.path.score_grad, 1e-6);
-  assert.ok(Math.abs(outRival.grad - 2.117) < 0.01, 'the tolerance covers 6.714 × 0.3154');
-  assert.ok(outRival.grad > 0 && outRival.after < outRival.before, 'positive gradient, smaller weight');
+    assert.ok(outRival.grad > 0 && outRival.after < outRival.before, 'positive gradient, smaller weight');
   close(bias.grad, O.forward.p_true - 1, 1e-5, 'the bias gets the gradient of its score');
   // section 3: the first-layer weight from the brightest pixel; position counts from zero
   const px = first.path;
@@ -78,16 +77,42 @@ test('the backward pass: probability minus one for the right score, the probabil
   close(px.unit_grad, O.backward.hidden1_pre_grad[px.unit], 1e-7);
 });
 
-test('"A black pixel gets the gradient zero, a neuron that is off passes none": at most that many parameters change', () => {
+test('"A black pixel gets the gradient zero, a neuron that is off passes none, a few changes are too small": about 15 % change', () => {
   const x = O.image.pixels, f = O.forward, g1 = O.backward.hidden1_pre_grad, g2 = O.backward.hidden2_pre_grad;
   // a neuron that ReLU sets to zero passes no gradient back
   f.hidden1.post.forEach((v, i) => { if (v === 0) assert.equal(g1[i], 0); });
   f.hidden2.post.forEach((v, i) => { if (v === 0) assert.equal(g2[i], 0); });
   const nz = (a) => a.filter((v) => v !== 0).length;
   const upper = nz(x) * nz(g1) + nz(g1) + nz(f.hidden1.post) * nz(g2) + nz(g2) + nz(f.hidden2.post) * 10 + 10;
-  assert.ok(O.changed_parameters <= upper && O.changed_parameters > 0.9 * upper, `${O.changed_parameters} of at most ${upper}`);
+  const C = O.changed_detail;
+  assert.ok(C.nonzero_grad <= upper, `${C.nonzero_grad} of at most ${upper}`);
+  assert.equal(C.nonzero_grad - C.unchanged_with_nonzero_grad, O.changed_parameters, 'every other nonzero gradient changes its parameter');
+  assert.ok(C.unchanged_with_nonzero_grad > 0 && C.unchanged_with_nonzero_grad < 0.02 * C.nonzero_grad, 'a few changes are too small to store');
   assert.ok(nz(x) < 0.25 * x.length, 'most pixels are black');
   assert.equal(Math.round(humanValue('pct', O.changed_parameters, O.setup.parameters)), 15);
+  // "one of the brightest pixels": the brightest grey value is shared
+  assert.ok(x.filter((v) => v === Math.max(...x)).length > 1);
+});
+
+test('the chain rule for two hidden neurons (section 3 and the widget): weights times later gradients, summed, times the ReLU slope', () => {
+  const C = O.chain, k2 = outTrue.path.unit;
+  assert.equal(C.second.unit, k2, 'the most active neuron of the second layer');
+  assert.equal(C.first.unit, first.path.unit, 'the first-layer neuron of the named weight');
+  for (const [L, n, Wl, gNext, gHere] of [[C.second, 10, M.layers[2], O.backward.scores_grad, O.backward.hidden2_pre_grad], [C.first, 32, M.layers[1], O.backward.hidden2_pre_grad, O.backward.hidden1_pre_grad]]) {
+    assert.equal(L.terms.length, n);
+    L.terms.forEach((t, o) => {
+      assert.equal(t.to, o);
+      assert.equal(Math.fround(t.weight), Math.fround(Wl.weight[o * 32 + L.unit]), 'the trained weight, before the step');
+      assert.equal(Math.fround(t.grad), Math.fround(gNext[o]));
+    });
+    assert.equal(L.relu_slope, 1, 'the neuron is on');
+    close(L.sum, gHere[L.unit], 1e-5, 'the sum is the recorded gradient');
+    const ranked = L.ranked.map((o) => Math.abs(L.terms[o].product));
+    for (let i = 1; i < ranked.length; i++) assert.ok(ranked[i] <= ranked[i - 1]);
+    close(L.rest_after_3 + L.ranked.slice(0, 3).reduce((s, o) => s + L.terms[o].product, 0), L.grad, 1e-5, 'three largest parts plus the rest');
+  }
+  close(C.first.grad, first.path.unit_grad, 1e-7);
+  assert.equal(C.first.ranked[0], stages(D)[6].highlight[0], 'the widget names the largest part');
 });
 
 test('the step: new = old - lr × gradient exactly, and the size of the step is lr × gradient', () => {
@@ -98,28 +123,43 @@ test('the step: new = old - lr × gradient exactly, and the size of the step is 
   }
   assert.ok(outTrue.lr_times_grad < 0 && outTrue.after > outTrue.before, 'subtracting a negative number adds, so the weight grows');
   assert.equal(T.text('files.one-step.weights.1.lr_times_grad'), '-0.002642');
+  // the "your turn" quiz: the tolerance tells the new value from the old one, and accepts a gradient rounded to 2.117 or 2.118
+  const q = lesson.sections.find((s) => s.id === 'rival');
+  assert.ok(Math.abs(outRival.before - outRival.after) > 3 * q.tolerance);
+  for (const g of [2.117, 2.118]) assert.ok(Math.abs(outRival.before - O.setup.lr * g - outRival.after) < q.tolerance, String(g));
 });
 
-test('after the step: the one rises clearly but stays below one, the three falls (the predict and section 5)', () => {
-  assert.ok(O.after.p_true > O.forward.p_true + 0.1 && O.after.p_true < 0.9);
-  assert.ok(O.after.p_rival < O.forward.p_rival);
-  assert.equal(O.after.p_rival, O.after.probabilities[3]);
-  assert.equal(O.after.predicted, 1);
+test('after the step: the one rises clearly but stays below one; its score rises most; every wrong probability falls', () => {
+  const A = O.after, F0 = O.forward;
+  assert.ok(A.p_true > F0.p_true + 0.1 && A.p_true < 0.9);
+  assert.equal(A.p_rival, A.probabilities[3]);
+  assert.equal(A.predicted, 1);
   assert.ok(O.changed_parameters > 1000, 'thousands of changes');
+  assert.equal(A.scores.length, 10);
+  const d = A.scores.map((s, j) => s - F0.scores[j]);
+  assert.equal(Math.max(...d), d[1], 'the score of the one rose much more than any other');
+  assert.ok(d[1] > 3 * Math.max(...d.filter((_, j) => j !== 1)));
+  assert.ok(d[3] < 0, 'the step lowered the score of the three');
+  assert.deepEqual(d.map((v, j) => (j !== 1 && v > 0 ? j : -1)).filter((j) => j >= 0), [4, 6, 7], 'a few other wrong scores rose a little');
+  A.probabilities.forEach((p, j) => { if (j !== 1) assert.ok(p < F0.probabilities[j], `digit ${j}`); });
+  assert.ok(outRival.grad > 0 && outRival.after < outRival.before, 'positive gradient, smaller weight');
 });
 
 test('the widget stages: every readout comes from the trace', () => {
   const S = stages(D);
-  assert.equal(S.length, 9);
+  assert.equal(S.length, 11);
   assert.match(S[0].text, new RegExp(`grey value is ${first.path.pixel_255}, so its input is ${s3(first.path.pixel_value)}\\.`));
   assert.match(S[1].text, new RegExp(`so ${O.forward.hidden1.post.filter((v) => v === 0).length} neurons are off\\. Neuron ${first.path.unit} has the value ${s3(first.path.unit_post)}\\.`));
   assert.match(S[4].text, /The one gets 0\.606, and the three gets 0\.315\./);
-  assert.match(S[5].text, /The one gets its probability minus one, −0\.394\./);
-  assert.match(S[8].text, /the one gets 0\.799 in place of 0\.606\. The three gets 0\.156 in place of 0\.315\./);
-  assert.deepEqual(S[8].values, O.after.probabilities);
-  assert.deepEqual(S[8].compare, O.forward.probabilities);
+  assert.match(S[5].text, /The one gets −0\.394, and the three gets 0\.315\./);
+  assert.match(S[6].text, new RegExp(`Neuron ${O.chain.first.ranked[0]} gets ${s3(O.backward.hidden2_pre_grad[O.chain.first.ranked[0]])}\\.`));
+  assert.match(S[7].text, new RegExp(`Neuron ${first.path.unit} gets ${s3(first.path.unit_grad)}\\.`));
+  assert.match(S[9].text, /The weight to the one goes from 0\.5099 to 0\.5125\. The weight to the three goes from 0\.4185 to 0\.4164\./);
+  assert.match(S[10].text, /the one gets 0\.799 in place of 0\.606\. The three gets 0\.156 in place of 0\.315\./);
+  assert.deepEqual(S[10].values, O.after.probabilities);
+  assert.deepEqual(S[10].compare, O.forward.probabilities);
+  close(bias.grad, O.backward.scores_grad[1], 1e-7, 'the bias gets the gradient of its score');
   assert.equal(s3(-0.39352), '−0.394');
-  assert.match(S[7].text, /The weight to the one goes from 0\.5099 to 0\.5125\. The weight to the three goes from 0\.4185 to 0\.4164\./);
 });
 
 test('the capstone: every main-path lesson before this one is linked, in course order', () => {

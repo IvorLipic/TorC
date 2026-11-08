@@ -446,6 +446,14 @@ One real training step of the final MLP (weights read from `mnist-mlp.json`) on 
 - `after` = `{probabilities[10], predicted, p_true, p_rival, loss}`: the same image after the step. `changed_parameters`: how many of the
   26506 numbers `step()` changed. `derived` = `{p_true_change, loss_change, loss_check (= -ln p_true), note}`. `checks` =
   `{weights_reproduce_mnist_mlp_logits, modules_one_at_a_time_equal_sequential, every_update_exact, p_true_rose}`.
+Added for the review (additive, after the keys above): `after.scores[10]` (the ten scores after the step; the score of the true digit
+rises most, a few wrong scores rise a little, every wrong probability falls); `changed_detail` = `{nonzero_grad, unchanged_with_nonzero_grad,
+note}` (a parameter changes only when its gradient is not zero, and a few nonzero `lr × grad` are below the float32 spacing of the
+parameter, so `changed_parameters = nonzero_grad − unchanged_with_nonzero_grad`); `chain` = `{note, second, first}`: the chain rule for
+the most active second-layer neuron (`second`, from the ten scores) and for the first-layer neuron of `first_layer` (`first`, from the 32
+second-layer neurons), each `{unit, terms[]{to, weight, grad, product}, sum (double), relu_slope, grad (recorded), ranked[] (term
+indices by |product|, largest first), rest_after_2, rest_after_3 (the sum without the largest two / three terms, derived in double)}`,
+with the weights before the step. The producer checks `sum × relu_slope` against the recorded gradient.
 Producer: `tools/trace/trace_one_step.cpp`.
 
 ## `shift.json` (kind `shift`, lesson `convolution`; C8)
