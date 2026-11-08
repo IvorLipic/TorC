@@ -31,7 +31,7 @@ export default {
     {
       kind: 'text',
       html: () => `${STYLE}<section class="hero"><h1>Modules</h1>
-    <p class="lead">In TorC, a ${term('model')} is a module. This page shows how a module holds its ${term('parameter', 'parameters')} and how <code>Sequential</code> joins modules. It also gives the rule for calling a module again.</p></section>`,
+    <p class="lead">In TorC, a ${term('model')} is a module. Here you see how a module holds its ${term('parameter', 'parameters')} and how <code>Sequential</code> joins modules. You also learn the rule for calling a module again.</p></section>`,
     },
     {
       kind: 'quiz', id: 'p-first', purpose: 'predict', type: 'choice', title: 'Before you read on',

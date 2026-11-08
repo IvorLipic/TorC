@@ -108,13 +108,14 @@ test('momentum: mu 0.9; its loss rises at some steps, ends far below plain SGD, 
   assert.ok(!mom.runs[4].diverged && mom.runs[4].final_loss < sweepOf(SW, 'sgd').best.final_loss);
   // the wrong option "it blows up" is wrong at a safe rate
   for (const r of mom.runs.slice(0, 5)) assert.equal(r.diverged, false);
-  // the numbers of section 2: 0.137 at lr 0.03 against plain SGD's best 1.175; momentum's own limit at 0.1; its best rate 0.01
+  // section 2: momentum's own limit at 0.1; its best rate 0.01
   assert.equal(SW.lrs[5], 0.1);
   assert.ok(mom.runs[5].diverged, 'momentum blows up at 0.1 too');
   assert.ok(mom.best.lr < sweepOf(SW, 'sgd').best.lr, "momentum's best rate is lower than plain SGD's");
   const html = renderLesson(lesson, D).map((p) => p.html).join('\n');
-  assert.match(html, /data-trace="files\.optimizers\.sweep\.optimizers\.1\.runs\.4\.final_loss"/);
-  assert.match(html, /data-trace="files\.optimizers\.sweep\.optimizers\.0\.best\.final_loss"/);
+  // the two final losses are compared in words, not shown bare (a bare loss has no unit, R2); the widget prints them
+  assert.match(html.replace(/<[^>]+>/g, ''), /Momentum still ended lower than plain SGD at its best rate\./);
+  assert.doesNotMatch(html, /data-trace="files\.optimizers\.sweep\.optimizers\.1\.runs\.4\.final_loss"/);
 });
 
 test('Adam: the first step moves each parameter by about lr, plain SGD by lr times the gradient', () => {

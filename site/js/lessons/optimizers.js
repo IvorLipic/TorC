@@ -51,7 +51,7 @@ export default {
     },
     {
       kind: 'text', setup: true,
-      html: (D, T) => { const c = D.files.optimizers.valley.curvature; return sec('valley', 'The narrow valley again', `
+      html: (D, T) => { const c = D.files.optimizers.valley.curvature; return sec('valley', 'Another narrow valley', `
     <p>The ${term('loss')} L depends on two parameters, w₁ and w₂:</p>
     ${eq(`L = \\tfrac{1}{2}\\,(w_1^2 + ${c[1]}\\,w_2^2)`, 'The loss of the narrow valley')}
     <p>It is almost flat along w₁ and steep along w₂, with the lowest point at w₁ = w₂ = ${T(`${F}.valley.surface.w1.45`, 'setup')}. So the ${term('gradient')} is large across the valley and small along its floor. Every run starts at w₁ = ${T(`${SW}.start.0`, 'setup')} and w₂ = ${T(`${SW}.start.1`, 'setup')}.</p>
@@ -87,7 +87,7 @@ export default {
       kind: 'text',
       html: (D, T) => sec('stable', '2 · Momentum and larger learning rates', `
     <p>A loss that rises for a step can look like a failure. Here it is the swing across the valley, and the loss falls again.</p>
-    <p>At ${lrOf(T, LR_BIG)}, plain SGD blew up. Momentum ended at ${T(`${SW}.optimizers.${O_MOM}.runs.${LR_BIG}.final_loss`, 'contrast')}, below plain SGD at its best rate (${T(`${SW}.optimizers.${O_SGD}.best.final_loss`, 'contrast')}). Momentum has a limit too. At ${lrOf(T, LR_HUGE)}, it blew up as well.</p>
+    <p>At ${lrOf(T, LR_BIG)}, plain SGD blew up. Momentum still ended lower than plain SGD at its best rate. Momentum has a limit too. At ${lrOf(T, LR_HUGE)}, it blew up as well.</p>
     <p>Its own best rate, ${T(`${SW}.optimizers.${O_MOM}.best.lr`, 'setup')}, is lower than that of plain SGD, because the kept steps add up to longer steps.</p>`),
     },
     {

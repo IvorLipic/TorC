@@ -156,7 +156,7 @@ export default {
     },
     {
       kind: 'text',
-      html: (D) => `<section class="gn">${inTorc('the polynomial and the three sets', `<p>The program of this page gives the powers of <code>x</code> to <code>${esc(D.files.generalization.settings.model)}</code>, a ${term('layer')} with one weight for each power and a bias. This code makes the sets and the optimizer:</p>
+      html: (D) => `<section class="gn">${inTorc('The polynomial and the three sets', `<p>The program of this page gives the powers of <code>x</code> to <code>${esc(D.files.generalization.settings.model)}</code>, a ${term('layer')} with one weight for each power and a bias. This code makes the sets and the optimizer:</p>
     <pre class="gn-code" tabindex="0" role="group" aria-label="The data loaders and the optimizer of this lesson in TorC"><code>${esc(code(D))}</code></pre>`)}</section>`,
     },
     {

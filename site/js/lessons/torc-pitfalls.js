@@ -37,7 +37,7 @@ export default {
     {
       kind: 'text',
       html: () => `${STYLE}<section class="hero"><h1>Common errors in TorC programs</h1>
-    <p class="lead">Some mistakes in a TorC program give an error message, and some give no message at all. This page shows both kinds, with the real TorC message where there is one.</p></section>`,
+    <p class="lead">Some mistakes in a TorC program give an error message, and some give no message at all. Here you meet both kinds, with the real TorC message where there is one.</p></section>`,
     },
     {
       kind: 'quiz', id: 'p-twice', purpose: 'predict', type: 'choice', title: 'Before you read on',
