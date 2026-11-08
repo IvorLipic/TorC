@@ -7,6 +7,7 @@ import { makeModel, trainingLoop } from '../optim.js';
 import { injectStyle, SHARED_CSS, logChart, fmt, fitWidth, onResize } from './sgd-ui.js';
 
 export const ITERATIONS = 10;
+const sig3 = (v) => String(Number(v.toPrecision(3)));   // a loss with 3 significant figures
 
 const CSS = `
 .sgd-loop label.chk{display:inline-flex;gap:.5rem;align-items:center;cursor:pointer}
@@ -29,7 +30,7 @@ export function mountLoopTimeline(host, D) {
   const root = el('div', { class: 'sgd-w sgd-loop' },
     el('div', { class: 'sgd-ctl' }, el('label', { class: 'chk', for: 'sgd-zg' }, chk, el('span', {}, 'call ', el('code', {}, 'optimizer.zero_grad()'), ' every iteration'))),
     el('div', { class: 'sgd-grid' },
-      el('div', {}, el('h3', { class: 'sub' }, 'W.grad that step() reads'), barsHost),
+      el('div', {}, el('h3', { class: 'sub' }, 'Stored gradient of W, as step() reads it'), barsHost),
       el('div', {}, el('h3', { class: 'sub' }, 'Loss (log scale). The dashed line is the other loop.'), lossHost)),
     read);
   host.append(root);
@@ -39,8 +40,8 @@ export function mountLoopTimeline(host, D) {
     const W = fitWidth(barsHost, 280, 460, 420), H = Math.round(W * 0.55), m = { l: 52, r: 10, t: 12, b: 38 };
     const R = Math.ceil(Math.max(...[...withZ, ...noZ].map((r) => Math.abs(r.gw))) / 10) * 10;
     const sel = zero ? withZ : noZ, other = zero ? noZ : withZ;
-    const p = createPlot(barsHost, { width: W, height: H, x: [0.4, N + 0.6], y: [-R, R], xLabel: 'iteration', yLabel: 'W.grad', margin: m, responsive: false,
-      ariaLabel: `Gradient of W read by step() in each iteration, ${zero ? 'with' : 'without'} zero_grad(): ${sel.map((r) => fmt(r.gw)).join(', ')}.` });
+    const p = createPlot(barsHost, { width: W, height: H, x: [0.4, N + 0.6], y: [-R, R], xLabel: 'iteration', yLabel: 'gradient of W', margin: m, responsive: false,
+      ariaLabel: `Stored gradient of W read by step() in each iteration, ${zero ? 'with' : 'without'} zero_grad(): ${sel.map((r) => fmt(r.gw)).join(', ')}.` });
     p.axes({ xTicks: Array.from({ length: N }, (_, i) => i + 1), yTicks: ticks([-R, R], 4) });
     const layer = p.layer('bars'), bw = 0.62;
     const rect = (i, v, cls) => { const y0 = p.sy(0), y1 = p.sy(v); return svg('rect', { class: cls, x: p.sx(i - bw / 2), y: Math.min(y0, y1), width: p.sx(i + bw / 2) - p.sx(i - bw / 2), height: Math.max(Math.abs(y1 - y0), 0.5) }); };
@@ -54,9 +55,9 @@ export function mountLoopTimeline(host, D) {
     logChart(lossHost, {
       series: [{ values: other.map((r) => r.loss), cls: 'lc-ghost' }, { values: sel.map((r) => r.loss), cls: 'lc-main', dots: true }],
       range: [...withZ, ...noZ].map((r) => r.loss), x0: 1, n: N - 1, xLabel: 'iteration',
-      ariaLabel: `Loss at each iteration ${zero ? 'with' : 'without'} zero_grad(): ${fmt(sel[0].loss)} first, ${fmt(sel.at(-1).loss)} at iteration ${N}.`,
+      ariaLabel: `Loss at each iteration ${zero ? 'with' : 'without'} zero_grad(): ${sig3(sel[0].loss)} first, ${sig3(sel.at(-1).loss)} at iteration ${N}.`,
     });
-    read.innerHTML = `<span><b>loss at iteration ${N}</b> ${fmt(sel.at(-1).loss)}</span>`;
+    read.innerHTML = `<span><b>loss at iteration ${N}, lower is better</b> ${sig3(sel.at(-1).loss)}</span>`;
   }
   chk.addEventListener('change', () => { zero = chk.checked; render(); });
   const ac = new AbortController();

@@ -47,7 +47,11 @@ W2 = (1.5, −2), t = 2, both neurons on, the second output weight negative; `W1
 gets its own gradient from TorC (3, 3, 1). `accumulation` = `{w 3, after_first_backward, after_second_backward_same_loss,
 after_new_forward_and_backward, has_grad_after_zero_grad}` for L = w·w: 6, then 6 (a second `backward()` on the same loss does
 nothing, because `backward_with_grad` clears the root's tape), then 12 (a new forward pass and its `backward()` add to the stored
-gradient), then `false` after `zero_grad()`. Unchanged by the
+gradient), then `false` after `zero_grad()`. `lifetime[]` (appendix `torc-pitfalls`) = `{id, code, exception, what?, grad?}` for
+`named` (works, `grad` 6), `temporary` (`sum(mul(w, w))`), `model-temporary` (`mse(layer(x), t)`), `model-named` (works) and `local`
+(a tracked Variable made inside a function): the three failing cases throw `TorcError` "autograd graph input expired before
+backward(); keep all graph Variables alive". `unused_parameter` = `{start 3, lr, used_grad, used_has_grad, unused_has_grad, used_after, unused_after}`: two
+parameters, a loss built from one of them, `backward()` and `SGD::step()`; the other has no gradient and `step()` skips it. Unchanged by the
 refactor except for the envelope (`library` changed from the string `"torc"` to the object above).
 
 ## `why-gradients.json` (kind `why`, lesson `why-gradients`)
@@ -161,10 +165,13 @@ No scenes. `example` = `{shape, numel, values, index[{i, j, flat, value}]}` for 
 `Tensor::operator[]`). `reshape` = `{shape, values, changing_the_copy_changes_a, error}`. `broadcast[]` = `{id, b{shape, values},
 sum}` where `sum` is `{shape, values, exception:"none"}` or `{exception, what}`. `broadcast_shapes[]` = `{x, y, result | exception,
 what}` from `broadcast_shape`. `reductions[]` = `{op: sum|mean|max, axis: 0|1, result}`; `whole` = `{sum, mean, max}`;
-`reduce_error` (axis 2) and `reduce_negative_axis` (axis -1). `matmul` = `{transpose, a_at, at_a, a_a, batched, batched_both}`, each a
+`reduce_error` (axis 2) and `reduce_negative_axis` (axis -1). `matmul` = `{transpose, a_at, at_a, a_a, batched_a_shape, batched, batched_both}`, each a
 result or an error: `batched` is `(4, 2, 3)` holding 1..24 times `aᵀ`, `batched_both` is `(2, 1, 2, 3)` holding 1..12 times `(3, 3, 2)`
 holding 1..18 (both operands have batch dimensions). `check_sum` = `{x_shape, sum0_shape}` for the check question (`x` of shape
-`(4, 5)`). Producer: `tools/trace/trace_tensors.cpp`. Everything is library output except `flat` (`i*3 + j`, confirmed by a self-check
+`(4, 5)`). Added for the appendix rewrite: `matmul_2x2` = `{p, q, c}` for `[[1, 2], [3, 4]]` times `[[5, 6], [7, 8]]` (`c` a result);
+`image` = `{shape (3, 2, 2), numel, values, index[{c, i, j, flat, value}], reductions[{op, axis 0|1|2, result}], sum}`, a made-up
+colour image of shape (channels, height, width); `index_errors[]` = `{call, exception, what}` for `a[2, 0]`, `a[0, 3]` and `a[1]`.
+Producer: `tools/trace/trace_tensors.cpp`. Everything is library output except `flat` (`i*3 + j`, confirmed by a self-check
 against `a.data()`) and `changing_the_copy_changes_a` (a comparison done by the producer).
 
 ## `nonlinearity.json` (kind `nonlinearity`, lesson `nonlinearity`)
@@ -193,10 +200,15 @@ Added for the v3 hinge builder (appended keys, nothing else changed):
 
 ## `modules.json` (kind `modules`, lesson `modules`)
 
-`models[]` = `{id: mlp|mnist|no-relu|mismatch, input_shape, layers[{label, params[{name, shape, numel}] (sorted by name),
+`models[]` = `{id: mlp|mnist|no-relu|mismatch|wide, input_shape, layers[{label, params[{name, shape, numel}] (sorted by name),
 out_shape | exception, what | out:"not reached"}], total, tensors, sequential_parameters_total, sequential_parameters_count,
 sequential_out_shape | sequential_exception, sequential_what}`. `orders[]` = `{id, code, exception, what?}` for three orders of
-forward and backward calls. No weight value is recorded. Producer: `tools/trace/trace_modules.cpp`.
+forward and backward calls. No weight value is recorded. `parameter_order` = `{linear_names, linear_shapes, sequential_shapes,
+sequential_named_count, linear_named_count}`: the order in which `named_parameters()` and `parameters()` list one `Linear(3, 2)` and the
+784-32-10 `Sequential` (the order inside one module is the standard library's, stdlib-dependent; a Sequential's own
+`named_parameters()` is empty, count 0). `custom_module[]` = `{id: local|cached, exception, what?, scale_has_grad?, shift_has_grad?}`: a module of our
+own with two operations whose product is kept in a local Variable (backward throws "autograd graph input expired…") or in
+`forward_cache_` (backward works). Producer: `tools/trace/trace_modules.cpp`.
 
 ## `losses.json` (kind `losses`, lesson `losses`)
 

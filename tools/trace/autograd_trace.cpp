@@ -7,6 +7,10 @@
 // to this output; prose numbers are bound to it by tests.
 #include "trace_util.hpp"
 
+#include "torc/nn/linear.hpp"
+#include "torc/nn/losses.hpp"
+#include "torc/optim.hpp"
+
 using namespace torc;
 using trace::Graph;
 using trace::Scene;
@@ -141,6 +145,69 @@ int main() {
         acc.set("w", 3.0f).set("after_first_backward", first).set("after_second_backward_same_loss", same_loss_again)
             .set("after_new_forward_and_backward", new_forward).set("has_grad_after_zero_grad", w.has_grad());
         doc.set("accumulation", std::move(acc));
+    }
+    // Graph lifetime: every tracked Variable of the graph must still exist when backward() runs. Five ways to build a loss; each
+    // record has the code, the exception (or "none") and, when backward worked, the gradient of w (or of the first weight).
+    {
+        trace::J cases = trace::J::array();
+        auto rec = [&](const char* id, const char* code, const trace::Caught& c, double grad) {
+            trace::J e = trace::J::object();
+            e.set("id", id).set("code", code).set("exception", c.type);
+            if (c.type != "none") e.set("what", c.what); else if (std::isfinite(grad)) e.set("grad", grad);
+            cases.push(std::move(e));
+        };
+        {   // every Variable has a name
+            Variable w(Tensor({3.0f}, {1}), true);
+            Variable sq = mul(w, w);
+            Variable L = sum(sq);
+            auto c = trace::catch_call([&] { L.backward(); });
+            rec("named", "Variable sq = mul(w, w);\nVariable L = sum(sq);\nL.backward();", c, w.grad().data()[0]);
+        }
+        {   // the product is a temporary that dies at the end of the statement
+            Variable w(Tensor({3.0f}, {1}), true);
+            Variable L = sum(mul(w, w));
+            auto c = trace::catch_call([&] { L.backward(); });
+            rec("temporary", "Variable L = sum(mul(w, w));\nL.backward();", c, NAN);
+        }
+        {   // a model call inside the loss expression: its output is a temporary
+            nn::Linear layer(2, 1, 0.1f, 1);
+            nn::MSELoss mse;
+            const Variable x(Tensor({1.0f, 2.0f, 3.0f, 4.0f}, {2, 2}), false), t(Tensor({1.0f, 2.0f}, {2, 1}), false);
+            Variable L = mse(layer(x), t);
+            auto c = trace::catch_call([&] { L.backward(); });
+            rec("model-temporary", "Variable L = mse(layer(x), t);\nL.backward();", c, NAN);
+        }
+        {   // the same, with the model output named
+            nn::Linear layer(2, 1, 0.1f, 1);
+            nn::MSELoss mse;
+            const Variable x(Tensor({1.0f, 2.0f, 3.0f, 4.0f}, {2, 2}), false), t(Tensor({1.0f, 2.0f}, {2, 1}), false);
+            Variable out = layer(x);
+            Variable L = mse(out, t);
+            auto c = trace::catch_call([&] { L.backward(); });
+            rec("model-named", "Variable out = layer(x);\nVariable L = mse(out, t);\nL.backward();", c, NAN);
+        }
+        {   // a tracked Variable made inside a function dies when the function returns
+            Variable w(Tensor({3.0f}, {1}), true);
+            auto make_loss = [&w]() { Variable scale(Tensor({2.0f}, {1}), true); return mul(w, scale); };
+            Variable L = make_loss();
+            auto c = trace::catch_call([&] { L.backward(); });
+            rec("local", "Variable make_loss(const Variable& w) {\n    Variable scale(Tensor({2.0f}, {1}), true);\n    return mul(w, scale);\n}\nVariable L = make_loss(w);\nL.backward();", c, NAN);
+        }
+        doc.set("lifetime", std::move(cases));
+    }
+    // A parameter that is not part of the graph of the loss gets no gradient, so step() skips it (appendix torc-pitfalls).
+    {
+        Variable used(Tensor({3.0f}, {1}), true), unused(Tensor({3.0f}, {1}), true);
+        optim::SGD opt({&used, &unused}, 0.1f);
+        Variable sq = mul(used, used);
+        Variable L = sum(sq);
+        L.backward();
+        const float used_grad = used.grad().data()[0];
+        opt.step();
+        trace::J o = trace::J::object();
+        o.set("start", 3.0f).set("lr", 0.1f).set("used_grad", used_grad).set("used_has_grad", used.has_grad()).set("unused_has_grad", unused.has_grad())
+            .set("used_after", used.data().data()[0]).set("unused_after", unused.data().data()[0]);
+        doc.set("unused_parameter", std::move(o));
     }
     std::fputs(doc.dump().c_str(), stdout);
     return 0;

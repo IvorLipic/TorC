@@ -122,6 +122,7 @@ int main() {
         .set("a_at", result_or_error([&] { return a.matmul(at); }))                         // (2, 3)(3, 2) -> (2, 2)
         .set("at_a", result_or_error([&] { return at.matmul(a); }))                         // (3, 2)(2, 3) -> (3, 3)
         .set("a_a", result_or_error([&] { return a.matmul(a); }))                           // inner sizes 3 and 2: error
+        .set("batched_a_shape", shape_json({4, 2, 3}))
         .set("batched", result_or_error([&] { return trace::make_tensor({4, 2, 3}, iota(24)).matmul(at); }))  // (4, 2, 3)(3, 2)
         .set("batched_both", result_or_error([&] {                                         // (2, 1, 2, 3)(3, 3, 2) -> (2, 3, 2, 2)
             return trace::make_tensor({2, 1, 2, 3}, iota(12)).matmul(trace::make_tensor({3, 3, 2}, iota(18)));
@@ -132,11 +133,57 @@ int main() {
     J check_sum = J::object();
     check_sum.set("x_shape", shape_json(x45.shape())).set("sum0_shape", shape_json(x45.sum(0).shape()));
 
+    // ---- v3 additions (appendix rewrite): a 2 x 2 product, a 3-D image, index errors --------------------------------------
+    // p times q: small numbers, so the reader can follow one entry by hand
+    const Tensor p22({1.f, 2.f, 3.f, 4.f}, {2, 2}), q22({5.f, 6.f, 7.f, 8.f}, {2, 2});
+    J matmul_2x2 = J::object();
+    matmul_2x2.set("p", trace::tensor_json(p22)).set("q", trace::tensor_json(q22)).set("c", result_or_error([&] { return p22.matmul(q22); }));
+
+    // a tiny colour image of shape (channels, height, width) = (3, 2, 2); the brightness values are made up
+    const Tensor img({9.f, 7.f, 5.f, 3.f,   8.f, 6.f, 4.f, 2.f,   7.f, 5.f, 3.f, 1.f}, {3, 2, 2});
+    J img_index = J::array();
+    for (int c = 0; c < 3; ++c)
+        for (int i = 0; i < 2; ++i)
+            for (int j = 0; j < 2; ++j) {
+                const float v = img[c, i, j];
+                const int flat = (c * 2 + i) * 2 + j;
+                ok = ok && img.data()[flat] == v;
+                J e = J::object();
+                e.set("c", c).set("i", i).set("j", j).set("flat", flat).set("value", v);
+                img_index.push(std::move(e));
+            }
+    J img_red = J::array();
+    for (int axis : {0, 1, 2}) {
+        for (const char* op : {"sum", "mean", "max"}) {
+            J e = J::object();
+            e.set("op", op).set("axis", axis).set("result", result_or_error([&] {
+                return std::string(op) == "sum" ? img.sum(axis) : std::string(op) == "mean" ? img.mean(axis) : img.max(axis);
+            }));
+            img_red.push(std::move(e));
+        }
+    }
+    J image = J::object();
+    image.set("shape", shape_json(img.shape())).set("numel", img.numel()).set("values", trace::jarr(trace::values_of(img)))
+        .set("index", std::move(img_index)).set("reductions", std::move(img_red)).set("sum", img.sum());
+
+    // index and reshape errors (a counts from 0)
+    J index_errors = J::array();
+    auto ierr = [&](const char* call, const std::function<void()>& f) {
+        auto c = trace::catch_call(f);
+        J e = J::object();
+        e.set("call", call).set("exception", c.type).set("what", c.what);
+        index_errors.push(std::move(e));
+    };
+    ierr("a[2, 0]", [&] { (void)a[2, 0]; });
+    ierr("a[0, 3]", [&] { (void)a[0, 3]; });
+    ierr("a[1]", [&] { (void)a[1]; });
+
     J doc = trace::envelope("tensors", "tensors", "tools/trace/trace_tensors.cpp");
     doc.set("example", std::move(example)).set("reshape", std::move(reshape)).set("broadcast", std::move(broadcast))
         .set("broadcast_shapes", std::move(pairs)).set("reductions", std::move(reductions)).set("whole", std::move(whole))
         .set("reduce_error", std::move(red_error)).set("reduce_negative_axis", std::move(red_negative)).set("matmul", std::move(matmul))
-        .set("check_sum", std::move(check_sum));
+        .set("check_sum", std::move(check_sum)).set("matmul_2x2", std::move(matmul_2x2)).set("image", std::move(image))
+        .set("index_errors", std::move(index_errors));
     std::fputs(doc.dump().c_str(), stdout);
     if (!ok) { std::cerr << "trace_tensors: row-major self-check failed\n"; return 1; }
     return 0;

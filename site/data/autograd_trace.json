@@ -116,5 +116,18 @@
   ],
   "net_counts":{"inputs":2,"hidden":2,"outputs":1,"parameters":9},
   "reuse_uses":{"x":3,"mul_first":3,"mul_second":3,"add":1},
-  "accumulation":{"w":3,"after_first_backward":6,"after_second_backward_same_loss":6,"after_new_forward_and_backward":12,"has_grad_after_zero_grad":false}
+  "accumulation":{"w":3,"after_first_backward":6,"after_second_backward_same_loss":6,"after_new_forward_and_backward":12,"has_grad_after_zero_grad":false},
+  "lifetime":[
+    {"id":"named","code":"Variable sq = mul(w, w);\nVariable L = sum(sq);\nL.backward();","exception":"none","grad":6},
+    {"id":"temporary","code":"Variable L = sum(mul(w, w));\nL.backward();","exception":"TorcError","what":"autograd graph input expired before backward(); keep all graph Variables alive"},
+    {"id":"model-temporary","code":"Variable L = mse(layer(x), t);\nL.backward();","exception":"TorcError","what":"autograd graph input expired before backward(); keep all graph Variables alive"},
+    {"id":"model-named","code":"Variable out = layer(x);\nVariable L = mse(out, t);\nL.backward();","exception":"none"},
+    {
+      "id":"local",
+      "code":"Variable make_loss(const Variable& w) {\n    Variable scale(Tensor({2.0f}, {1}), true);\n    return mul(w, scale);\n}\nVariable L = make_loss(w);\nL.backward();",
+      "exception":"TorcError",
+      "what":"autograd graph input expired before backward(); keep all graph Variables alive"
+    }
+  ],
+  "unused_parameter":{"start":3,"lr":0.100000001,"used_grad":6,"used_has_grad":true,"unused_has_grad":false,"used_after":2.4000001,"unused_after":3}
 }
