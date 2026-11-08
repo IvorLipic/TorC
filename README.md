@@ -27,8 +27,11 @@ tools/trace/run.sh                         # regenerate site/data/*.json from th
 tools/trace/run.sh --check                 # fail if the committed JSON is stale (also run in CI)
 ```
 
-Current lesson: **Backprop lab** — step through forward and backward passes, see the rule and the same rule with real numbers
-at every node, and edit the inputs to watch gradients respond. More lessons are planned; see [ROADMAP.md](ROADMAP.md).
+The course (curriculum v3, for the high-school graduate) has 17 main-path lessons in 6 parts, from "What does it mean for a machine
+to learn?" to reading handwritten digits with a CNN and an epilogue on ChatGPT. An appendix, "Using TorC" (tensors, modules,
+common errors, the symbols, a glossary), serves programmers. The **Backprop lab** is a free playground. The v3 rework lives on the
+work branch `claude/trusting-archimedes-kjzrto` until the owner merges it into `web` after the human reader tests. The live site
+still shows the older course. Status and open items are in [ROADMAP.md](ROADMAP.md).
 
 ## Contributing / working agreements
 

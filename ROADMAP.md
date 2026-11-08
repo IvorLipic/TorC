@@ -66,47 +66,61 @@ Lessons 09 to 13 had an independent review on 2026-10-20; its findings are fixed
 device for the digit pads. TorC findings for `main` are in `docs/library-audit/v0.1.0-findings.md`.
 
 ## M5 — Curriculum v3 (the pedagogy rework; brief `docs/pedagogy-review.md`, contract `docs/v3-implementation.md`)
+Status (2026-11-08): phases A to C are done; phase D, the human tests and the merge into `web` are open.
 Goal: the best resource for the high-school graduate of decision 13. All approval items of brief section 12 were granted on
 2026-10-29 (decisions 13-23). Work happens on the work branch `claude/trusting-archimedes-kjzrto` (decision 20). Lessons are
 referred to by id. Defect and error ids (D1-D20, C1-C10) are in the brief, sections 5 and 11.
 
-### Phase A — Quick fixes (safe on `web`)
-- [x] Copy the brief to the repository as `docs/pedagogy-review.md` (done on the work branch; it reaches `web` with the merge)
-- [ ] Fix D1-D6, D10-D15, D17, D19, D20 (D6 by removing its text), and the wording parts of C4, C7, C9 and C10
-- [ ] Add the LaTeX-escape grep test and the next-lesson test (the closing line matches `neighbors()`)
-- [ ] If C10 changes the `code` of `generalization`, update its `SPEC` in `tools/snippets/check.mjs` and run the snippet check
-- [ ] `node --test site/test/`, `tools/prose/check.sh`, `node tools/check_site.mjs` pass; pages checked at 1366 x 768 and 390 x 844
-- [ ] Push to `web`
+### Phase A — Quick fixes (safe on `web`) — done on `web`
+- [x] Copy the brief to the repository as `docs/pedagogy-review.md` (`3c7fa0c` on `web`)
+- [x] Fix D1-D6, D10-D15, D17, D19, D20 (D6 by removing its text), and the wording parts of C4, C7, C9 and C10 (`280036c`, merged by `9bcb2e4`)
+- [x] The LaTeX-escape grep test and the next-lesson test (in `280036c`)
+- [x] `generalization` `SPEC` in `tools/snippets/check.mjs` updated where C10 changed the `code`
+- [x] `node --test site/test/`, `tools/prose/check.sh`, `node tools/check_site.mjs` pass; independent-review findings fixed (`2fba6b0`)
+- [x] Pushed to `web`. The TorC pin bump to `38785db` (TorC PR #6) is `fa1ea01` on `web`
 
-### Phase B — Decisions, docs, machinery and the vertical slice
-- [x] Record the approved decisions (13-23 in `docs/decisions.md`)
+### Phase B — Decisions, docs, machinery and the vertical slice — done on the work branch
+- [x] Record the approved decisions (13-23 in `docs/decisions.md`; 24 records the naming rules from the reviews)
 - [x] Update `docs/content-plan.md` sections 1 and 2, `docs/authoring.md` policy sections, `CLAUDE.md` and `.claude/agents/`
-      (`pedagogy-reviewer`, `cold-reader`, `independent-reviewer` dimension 8)
-- [ ] `quiz` and `explain` kinds, the `questions` and `answer` sections, progress store v2 (`torc:v2`, v1 migration)
-- [ ] Role-tagged `T()`, `T.human`, `T.anchor` and the prose formatter (also fixes D8 and D9); `site/anchors.json` and `tools/anchors.mjs`
-- [ ] Blocks: `worked`, `inTorc`, `realLine`, `analogy`, `chatgpt`, `refresher`, `term`, `sym`, `loopDiagram`; glossary and notation guide
-- [ ] Part kinds (`lab`, `appendix`); home page with promise and demo first, the code behind a toggle (decision 16)
-- [ ] Writing linter: banned tics, label colons, widget and UI strings (D15)
-- [ ] New and changed trace programs for the slice (`steep` bowl, nudge data, the hand-fitting dataset)
-- [ ] Vertical slice: `what-is-learning`, `why-gradients`, `sgd-step`, each with its module, widgets, tests and `docs/lessons/<id>.md`
-- [ ] `pedagogy-reviewer` and `cold-reader` run on the slice, then at least 3 human readers from the target group
-- [ ] Adjust the rules in the brief and `docs/authoring.md` from what the readers show, then continue
+      (`pedagogy-reviewer`, `cold-reader`, `independent-reviewer` dimension 8; `da2094b`)
+- [x] Machinery: template 3, `quiz`, `explain` and `answer` kinds, progress store v2 (`torc:v2`, v1 migration), role-tagged `T()`,
+      `T.human`, `T.anchor`, the prose formatter, `site/anchors.json`, blocks (`worked`, `inTorc`, `realLine`, `analogy`, `chatgpt`,
+      `refresher`, `term`, `sym`, `loopDiagram`), part kinds (`lab`, `appendix`), v3 tests (`6cd01f3`, merged `c8746f7`)
+- [x] Notation guide, glossary of 61 terms, ten maths refreshers, the `notation` and `glossary` pages (`74a4ca6`, `622312f`, merged `03f60f4`)
+- [x] Vertical slice: `what-is-learning`, `why-gradients`, `sgd-step`, each with module, widgets, tests and `docs/lessons/<id>.md`
+- [x] `pedagogy-reviewer` and `cold-reader` ran on the slice
+- [ ] At least 3 human readers from the target group (owner-only, not done)
+- [ ] Adjust the rules in the brief and `docs/authoring.md` from what the readers show (waits for the readers)
 
-### Phase C — The rest of the main path, part by part (each part: its traces, its C-fixes, a human test before it merges into `web`)
-- [ ] Part `networks`: `linear-layer`, `nonlinearity`, `classification`, `losses`, `backprop`, `deep-nets`
-- [ ] Part `training`: `training-loop`, `optimizers`, `generalization`
-- [ ] Part `images`: `mnist-mlp`, `one-step`, `convolution`, `mnist-cnn`
-- [ ] Part `next`: `from-digits-to-chatgpt` (conceptual, with cited sources)
-- [ ] Appendix `using-torc`: `tensors`, `modules`, `torc-pitfalls`, `notation`, `glossary`
-- [ ] Defects D7 (with `modules`), D16 (graph labs at phone width, with `backprop`), D18 (with `optimizers`)
-- [ ] Remove the legacy kinds `tldr`, `predict`, `check` once every main-path lesson is `template: 3`
+### Phase C — The rest of the main path and the appendix — done on the work branch
+Each lesson passed three agent gates: the `independent-reviewer`, the `pedagogy-reviewer` and the `cold-reader`. The appendix pages
+had two gates and no cold reader, because they are for TorC users. The cold reader is a smoke test, not evidence of learning.
+- [x] Part `networks`: `linear-layer` (`3ac3830`), `nonlinearity` (`ccb645b`), `classification` (`10d6082`), `losses` (`832ea66`), `backprop` (`b3ba26c`), `deep-nets` (`417a1f9`)
+- [x] Part `training`: `training-loop` (`66bb181`), `optimizers` (`9ecdf19`), `generalization` (`b246885`)
+- [x] Part `images`: `mnist-mlp` (`463e71c`), `one-step` (`e813db5`), `convolution` (`d2cbbd3`), `mnist-cnn` (`a7f02d9`)
+- [x] Part `next`: `from-digits-to-chatgpt` (`edf4a88`; conceptual, with cited sources)
+- [x] Appendix `using-torc`: `tensors` (`d88051d`), `modules` (`67cb7b1`), `torc-pitfalls` (`793b530`), `notation`, `glossary`
+- [x] Defects D7 (with `modules`), D16 (graph labs at phone width, with `backprop`), D18 (with `optimizers`)
+- [~] Legacy kinds `tldr`, `predict`, `check`: the main path and the appendix are all `template: 3`, but the kinds stay in
+      `site/js/core/sections.js` because the Backprop lab (exempt) still uses them. Not removed.
 
-### Phase D — Spacing and polish
+### Phase D — Spacing and polish — not done
 - [ ] End-of-part reviews and cumulative checks
-- [ ] Light theme (rewrite the shells with `--write-shells`; raise the minimum caption size in widgets)
-- [ ] Firefox and Safari
+- [ ] Light theme (the shells are still `color-scheme: dark`; rewrite the shells with `--write-shells`; raise the minimum caption size in widgets)
+- [ ] Firefox and Safari (only Chromium has been available)
 - [ ] A real screen reader
 - [ ] The digit pad on a touch device
+
+### Not done, owner-only
+- [ ] The human think-aloud tests, 3 to 5 readers from the target group per part (`CLAUDE.md`, "Verification")
+- [ ] Merge of the work branch `claude/trusting-archimedes-kjzrto` into `web`. The owner decides, after the human tests
+
+### Known open items
+- A TorC library bug, recorded in `docs/library-audit/v0.1.0-findings.md`: `conv2d` accepts an input smaller than the kernel when the
+  size numerator is negative. It awaits a fix branch on `main`, then a pin bump here.
+- The cited sources of the conceptual pages (the epilogue `from-digits-to-chatgpt`, the refreshers, the backprop cost principle)
+  could not be fetched in this environment. They are marked "verify before quoting" in their lesson notes (`docs/lessons/`).
+- Pin a release tag when TorC tags one that includes PR #6 (see "Open decisions").
 
 ### Acceptance criteria (per lesson; brief section 12)
 - [ ] A human reader from the target group can answer the lesson's opening question in their own words afterwards
