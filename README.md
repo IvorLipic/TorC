@@ -16,7 +16,7 @@ data in most operations.
 
 | Area | What it contains |
 | --- | --- |
-| Tensors (`torc::Tensor`) | `float32` tensors. `add`, `sub`, `mul` and `div` with NumPy-style broadcasting. `sum`, `mean`, `max` and `min` over the whole tensor or one axis. `matmul` (2D and batched), `conv2d`, `transpose`, `slice`, `reshape`/`view`, `exp`, `log`, `sqrt` and `softmax`. |
+| Tensors (`torc::Tensor`) | `float32` tensors. `add`, `sub`, `mul` and `div` with NumPy-style broadcasting. `sum`, `mean`, `max` and `min` over the whole tensor or one axis. `matmul` (2D and batched), `conv2d`, `transpose`, `slice`, `reshape`/`view`, `exp`, `log`, `sqrt` and `softmax`. Scalar overloads, unary `-`, multi-dimensional indexing `t[i, j]`, `operator==` and printing with `operator<<`. |
 | Autograd (`torc::Variable`) | Reverse-mode automatic differentiation. Each result keeps a tape, which is a record of the operations that made it. Operations are free functions such as `torc::mul(a, b)`. `detach()`, `Variable::set_grad_enabled()` and `Variable::NoGradGuard` stop the recording. |
 | Layers (`torc::nn`) | `Module`, `Sequential`, `Linear`, `Conv2d`, `Flatten`, `ReLU`, `Sigmoid`, `Softmax` |
 | Losses (`torc::nn`) | `MSELoss`, `CrossEntropyLoss` |
@@ -32,12 +32,13 @@ the gradients with numerical estimates from finite differences.
 - A tracked `Variable` is a `Variable` that records gradients. Keep every tracked `Variable` alive
   until `backward()` returns. The tape keeps only pointers to them, so `backward()` throws
   `TorcError` if one is gone. Write `Variable prod = torc::mul(a, b); Variable y = torc::sum(prod);`.
-  Do not write `torc::sum(torc::mul(a, b))`. A module keeps its own intermediate values alive, so
-  `model(x)` is safe.
+  Do not write `torc::sum(torc::mul(a, b))`. A module keeps its own intermediate values alive until
+  the next call of the same module. Call `backward()` before you call that module again.
 - Call `backward()` on a result with one element, or give it an explicit output gradient.
 - `nn::MSELoss` throws `ShapeError` when the input shape and the target shape are different. This
   is a change on `main` after version 0.1.0. Version 0.1.0 broadcast the two shapes.
 - `reshape`, `view`, `transpose` and `slice` copy the data. They are not free views.
+- `slice` takes one contiguous range per axis. TorC has no gather by a list of indices.
 
 ## A short example
 
@@ -198,7 +199,9 @@ target_link_libraries(my_app PRIVATE torc::torc)
 ```
 
 Build it with the same `cmake` commands as above, without `CMAKE_PREFIX_PATH`. In this mode,
-TorC does not build its tests or examples, so CMake does not download GoogleTest.
+TorC does not build its tests or examples, so CMake does not download GoogleTest. `TORC_NATIVE_ARCH`
+is also off. Add `set(TORC_NATIVE_ARCH ON)` before `FetchContent_MakeAvailable`, or pass
+`-DTORC_NATIVE_ARCH=ON`, to use the AVX2 code.
 
 Configure your project with `-DCMAKE_BUILD_TYPE=Release`. The library uses its optimization flags
 (`-O3`, `-funroll-loops`) only in a Release build. The tag `v0.1.0` does not contain the changes
@@ -242,7 +245,8 @@ request. Each job configures and builds from an empty build directory.
   library.
 - [EXAMPLES.md](EXAMPLES.md): how to run the training examples, and how to get the MNIST data.
 - [docs/DESIGN.md](docs/DESIGN.md): the design decisions and the reasons for them.
-- [docs/AUTOGRAD.md](docs/AUTOGRAD.md): the tape and the backward algorithm.
+- [docs/AUTOGRAD.md](docs/AUTOGRAD.md): the tape and the backward algorithm. Its section
+  "Common Pitfalls" lists the mistakes that are easy to make.
 - [docs/BENCHMARKS.md](docs/BENCHMARKS.md): the benchmark results and how to run them.
 - [ROADMAP.md](ROADMAP.md): the milestones, with their finished and open work.
 - [CHANGELOG.md](CHANGELOG.md): the changes in each version.

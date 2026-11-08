@@ -1,6 +1,6 @@
 # benchmarks/bench_torch.py
 # Micro-benchmarks for the torc-vs-torch comparison in README.md / docs/BENCHMARKS.md.
-# Mirrors the shapes used in benchmarks/bench_tensor.cpp. torch is pinned to a single
+# Runs a subset of the shapes in benchmarks/bench_tensor.cpp. torch is pinned to a single
 # thread so the numbers are comparable to torc's single-threaded AVX2 path.
 import statistics
 import time
