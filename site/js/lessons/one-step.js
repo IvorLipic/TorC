@@ -16,7 +16,7 @@ const W = (i, rest) => `${F}.weights.${i}.${rest}`;
 export const FIRST = 0, TRUE = 1, RIVAL = 2;
 const sec = (id, title, body) => `<section class="os1" aria-labelledby="os1-${id}"><h2 id="os1-${id}">${title}</h2>${body}</section>`;
 const a = (id, text) => `<a href="../${id}/">${text}</a>`;
-const p3 = (T, path) => T(path, 'contrast', { sig: 3 });
+const p4 = (T, path) => T(path, 'contrast', { sig: 4 });
 // the three largest parts of the first-layer neuron's gradient, as trace paths (the trace ranks them)
 const topParts = (D) => D.files['one-step'].chain.first.ranked.slice(0, 3).map((k) => `${F}.chain.first.terms.${k}`);
 
@@ -48,9 +48,9 @@ export default {
     {
       kind: 'text', setup: true,
       html: (D, T) => sec('setup', 'One image, one step', `
-    <p>Take the trained digit network of the ${a('mnist-mlp', 'last lesson')}. You give it one more ${term('training')} step on one training image, an image of the digit one.</p>
+    <p>Take the trained digit network of the ${a('mnist-mlp', 'last lesson')}. You give it one more ${term('training')} step on a training image of the digit one.</p>
     <p>The real training used AdamW and a ${term('batch')} of ${T(`${F}.full_run.batch_size`, 'setup')} images per step. This step uses plain ${term('gradient-descent', 'gradient descent')} on one image, with the ${term('learning-rate', 'learning rate')} ${T(`${F}.setup.lr`, 'setup')}. We chose both, so that you can check every number.</p>
-    <p>Before the step, the network reads the image as a one. It gives the one the ${term('probability')} ${T(`${F}.forward.p_true`, 'setup', { sig: 3 })}.</p>`),
+    <p>Before the step, the network reads the image as a one. It gives the one the ${term('probability')} ${T(`${F}.forward.p_true`, 'setup')}.</p>`),
     },
     {
       kind: 'quiz', id: 'after', purpose: 'predict', type: 'choice',
@@ -60,7 +60,7 @@ export default {
         { html: 'It rises clearly, but it stays below one.', correct: true, feedback: 'Yes.' },
         { html: 'It jumps to one, because the step removes the mistake.', feedback: `A step moves each number a little way against its ${term('gradient')}. It does not solve for the right answer.` },
       ],
-      reveal: (D, T) => `<p>For this one image and our learning rate, it rises to ${T(`${F}.after.p_true`, 'reveal', { sig: 3 })}.</p>`,
+      reveal: (D, T) => `<p>For this image and our learning rate, it rises to ${T(`${F}.after.p_true`, 'reveal')}.</p>`,
     },
     {
       kind: 'text',
@@ -109,7 +109,7 @@ export default {
     {
       kind: 'text',
       html: (D, T) => sec('step', '4 · The step', `
-    <p>Plain gradient descent replaces each ${term('parameter')} <code>w</code> by <code>w</code> − lr × gradient. The step size is lr × gradient.</p>
+    <p>Plain gradient descent replaces each ${term('parameter')} <code>w</code> by <code>w</code> − lr × gradient.</p>
     <p>Before the step, the weight to the score of the one has the value ${T(W(TRUE, 'before'), 'setup')}.</p>
     ${worked(`<p>lr × gradient = ${T(`${F}.setup.lr`, 'worked')} × (${T(W(TRUE, 'grad'), 'worked')}) = ${T(W(TRUE, 'lr_times_grad'), 'worked')}</p>
     <p>new <code>w</code> = ${T(W(TRUE, 'before'), 'worked')} − (${T(W(TRUE, 'lr_times_grad'), 'worked')}) = <strong>${T(W(TRUE, 'after'), 'worked')}</strong></p>`)}
@@ -120,7 +120,7 @@ export default {
       kind: 'text',
       html: (D, T) => sec('rival', '5 · More than the right answer', `
     <p>Many people think that training only pushes the right answer up. But the score of the three had a positive gradient. So its weight from the most active neuron got smaller, and its score fell.</p>
-    <p>A few other wrong scores rose a little. But the score of the one rose much more, so the probability of every wrong digit fell. The probability of the one rose from ${p3(T, `${F}.forward.p_true`)} to ${p3(T, `${F}.after.p_true`)}.</p>
+    <p>A few other wrong scores rose a little. But the score of the one rose much more, so the probability of every wrong digit fell. The probability of the one rose from ${p4(T, `${F}.forward.p_true`)} to ${p4(T, `${F}.after.p_true`)}.</p>
     <p>A step that helps one image can hurt others. So the real training averages the gradient over a batch.</p>`),
     },
     {
@@ -129,11 +129,11 @@ export default {
     <p>Each part of this step comes from an earlier lesson:</p>
     <ul>
     <li>The loop of data, ${term('model')}, loss and adjust step comes from ${a('what-is-learning', 'the first lesson')}.</li>
-    <li>The layers, the neurons and ReLU come from ${a('linear-layer', 'the neuron and the layer')}, and softmax from ${a('losses', 'the lesson on the loss')}.</li>
+    <li>The layers and neurons come from ${a('linear-layer', 'the neuron and the layer')}, ReLU from ${a('nonlinearity', 'the lesson on curves')}, and softmax from ${a('losses', 'the lesson on the loss')}.</li>
     <li>The gradients come from ${a('why-gradients', 'the gradient')} and ${a('backprop', 'the backward pass')}.</li>
     <li>The step against the gradient comes from ${a('sgd-step', 'gradient descent')}.</li>
     </ul>
-    <p>The real run added more. It started from random weights, as in ${a('deep-nets', 'deep networks')}. It used batches and ${term('epoch', 'epochs')} from ${a('training-loop', 'the training loop')}, and the ${term('optimizer')} AdamW from ${a('optimizers', 'the lesson after it')}. A ${term('validation-set', 'validation set')} checked it, as in ${a('generalization', 'an earlier lesson')}.</p>
+    <p>The real run started from random weights, as in ${a('deep-nets', 'deep networks')}. It used batches and ${term('epoch', 'epochs')} from ${a('training-loop', 'the training loop')}, and the ${term('optimizer')} AdamW from ${a('optimizers', 'the lesson after it')}. A separate run with a ${term('validation-set', 'validation set')}, as in ${a('generalization', 'an earlier lesson')}, showed that this training ${term('overfitting', 'overfits')} only a little.</p>
     <p>One epoch took ${T(`${F}.full_run.steps_per_epoch`, 'setup')} steps, and the run had ${T(`${F}.full_run.epochs`, 'setup')} epochs. So it took a step like this one ${T(`${F}.full_run.steps`, 'setup')} times.</p>`),
     },
     {
