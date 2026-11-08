@@ -33,6 +33,7 @@ Status legend: `[x]` done · `[~]` in progress · `[ ]` planned. The detailed cu
 - [x] Automated accessibility audit (axe-core 4.10, WCAG 2.1 A/AA + best practice) clean on every page at 1366 and 390 px; keyboard walk of every page
 - [ ] Outside cold reader per lesson (definition-of-done item 6), a pass with a real screen reader, Firefox/Safari check (only Chromium available here)
 - [x] `TORC_REF` bumped to `38785db` (TorC `main` after PR #5 and PR #6: `MSELoss` throws `ShapeError` for unequal shapes); only the MSE-mismatch trace entries changed
+- [x] `TORC_REF` bumped to `41d6338` (TorC PR #7: `conv2d` throws when the kernel is larger than the padded input); only `library.ref` and the `conv.json` `too-small` message changed
 - [ ] Pin a release tag again when TorC tags one that includes PR #6 (`docs/decisions.md`, Open)
 
 ## M3.5 — Concise lessons (owner review: less prose, fewer numbers and features; decisions 7-9)
@@ -116,8 +117,8 @@ had two gates and no cold reader, because they are for TorC users. The cold read
 - [ ] Merge of the work branch `claude/trusting-archimedes-kjzrto` into `web`. The owner decides, after the human tests
 
 ### Known open items
-- A TorC library bug, recorded in `docs/library-audit/v0.1.0-findings.md`: `conv2d` accepts an input smaller than the kernel when the
-  size numerator is negative. It awaits a fix branch on `main`, then a pin bump here.
+- Fixed 2026-11-08: the `conv2d` bug recorded in `docs/library-audit/v0.1.0-findings.md` (a kernel larger than the padded input
+  passed with stride > 1). PR #7 fixed it on `main` (`41d6338`), and the site is pinned to that commit.
 - The cited sources of the conceptual pages (the epilogue `from-digits-to-chatgpt`, the refreshers, the backprop cost principle)
   could not be fetched in this environment. They are marked "verify before quoting" in their lesson notes (`docs/lessons/`).
 - Pin a release tag when TorC tags one that includes PR #6 (see "Open decisions").

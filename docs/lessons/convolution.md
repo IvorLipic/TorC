@@ -2,16 +2,16 @@
 
 Not shipped. Library symbols, and what is observed, expected and suspected.
 
-## Library symbols (TorC `38785db`, `main` = v0.1.0 + PR #5 + PR #6)
+## Library symbols (TorC `41d6338`, `main` = v0.1.0 + PR #5 + PR #6 + PR #7)
 `Tensor::conv2d(weight, stride, padding)` (`src/tensor.cpp`): NCHW input, weight `(C_out, C_in, KH, KW)`, zero padding, output
-size `(H + 2P - K) / S + 1` with C++ integer division. For a numerator of 0 or more this rounds down, as ⌊ ⌋ does. For a
-negative numerator it rounds toward zero, so an input smaller than the kernel can pass the `H_out <= 0` check (2 × 2 input, 3 × 3
-kernel, stride 2, padding 0 gives 1 × 1; see `docs/library-audit/v0.1.0-findings.md`). No lesson uses such a call, cross-correlation (the kernel is not flipped), no bias. `torc::conv2d(Variable, Variable, stride,
+size `(H + 2P - K) / S + 1` with C++ integer division. It first throws when `H + 2P < KH` or `W + 2P < KW`, so the numerator
+is 0 or more and the division rounds down, as ⌊ ⌋ does. (Before PR #7 a negative numerator could round toward zero and pass;
+see `docs/library-audit/v0.1.0-findings.md`.) Cross-correlation (the kernel is not flipped), no bias. `torc::conv2d(Variable, Variable, stride,
 padding)` (`src/autograd.cpp`) with autograd: the weight gradient is `db[...] += a[...] * g` over every batch item and every
 output position, so a kernel weight gets the sum of the gradients of all its uses (the cumulative quiz). `nn::Conv2d(in, out,
 kernel, stride = 1, padding = 0, init_std = 0, seed)`: Kaiming normal weights, zero bias, `forward` = `conv2d` +
 `reshape(bias, {1, C_out, 1, 1})` broadcast. `nn::Flatten`: `(B, ...)` to `(B, product)`. Errors: `conv2d input channels {} must
-match weight channels {}`, `conv2d output dims must be positive, ...`.
+match weight channels {}`, `conv2d kernel {}x{} is larger than the padded input {}x{} (input {}x{}, padding {})`.
 
 ## Observed
 - `tools/trace/trace_conv.cpp` → `site/data/conv.json`: the 5 × 5 example (columns 0, 0, 4, 4, 4, centre pixel 8) with the kernel
@@ -38,9 +38,9 @@ so the map changes. With stride 1 every whole-pixel move is a multiple (the tran
 not by a TorC run). A model that ends in Flatten → Linear is not shift-invariant, because the linear layer has a weight per cell.
 
 ## Suspected discrepancy
-`conv2d` accepts an input smaller than the kernel when the size numerator is negative but larger than `-stride` (recorded in
-`docs/library-audit/v0.1.0-findings.md`; a fix belongs on `main`). The lesson's ⌊ ⌋ rule and every example on the page use
-non-negative numerators, where TorC and the rule agree.
+None at `41d6338`. Before PR #7, `conv2d` accepted a kernel larger than the padded input when the size numerator was negative
+but larger than `-stride` (recorded in `docs/library-audit/v0.1.0-findings.md`). The lesson's ⌊ ⌋ rule and every example on
+the page use non-negative numerators, where TorC and the rule agree at both refs.
 
 ## Lesson status
 Rewritten as `template: 3` on 2026-11-01 (branch `part5-cnn`; brief §6, §7, C8, D14). Questions, a predict on the parameter count
