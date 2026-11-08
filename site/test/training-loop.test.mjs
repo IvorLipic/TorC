@@ -9,7 +9,7 @@ import { buildD, makeT, anchorValues } from '../js/core/trace.js';
 import { renderLesson, findUnboundNums, boundNums } from '../js/core/sections.js';
 import { readJson, course } from './helpers.mjs';
 import lesson, { LOOP, STEPS_32 } from '../js/lessons/training-loop.js';
-import { loaderState, compareView, valueAt, typicalMiss, sig } from '../js/widgets/training-widgets.js';
+import { loaderState, loopOrders, compareView, valueAt, typicalMiss, sig } from '../js/widgets/training-widgets.js';
 import { spreadLabels } from '../js/widgets/curve-labels.js';
 
 const data = readJson('data/training.json');
@@ -57,18 +57,29 @@ test('every epoch of every loader gives each sample exactly once; batch 10 takes
   for (const r of data.runs) r.epochs.forEach((e, i) => assert.equal(e.steps, i * Math.ceil(N / r.batch_size)), 'an epoch is many steps');
 });
 
-test('loaderState follows the buttons of the batch viewer through two epochs', () => {
-  const l = data.loaders.find((x) => x.batch_size === 10 && x.shuffle);
-  const s0 = loaderState(l, 0, 0);
+test('the batch viewer: the orders the training loop sees (reset() before each epoch), batch 10, counted as batches taken', () => {
+  const L = data.loop_orders;
+  assert.equal(L.batch_size, 10);
+  assert.equal(L.epochs.length, 3);
+  // the first training epoch is the order after one reset(), the same as the gradient widget and the loaders' second epoch
+  assert.deepEqual(L.epochs[0], GE.batches.map((b) => b.indices));
+  assert.deepEqual(L.epochs[0], data.loaders.find((l) => l.batch_size === 10 && l.shuffle).epochs[1]);
+  for (const ep of L.epochs) assert.deepEqual(ep.flat().slice().sort((a, b) => a - b), ALL);
+  assert.notDeepEqual(L.epochs[0], L.epochs[1], 'a new order each epoch');
+  const off = loopOrders(data, false);
+  off.forEach((ep) => assert.deepEqual(ep.flat(), ALL, 'no shuffle keeps the order'));
+  assert.deepEqual(off[0].map((b) => b.length), Array(10).fill(10));
+  const on = loopOrders(data, true);
+  const s0 = loaderState(on, 0, 0);
   assert.equal(s0.batches, 10);
   assert.ok(s0.hasNext);
   assert.deepEqual(s0.current, []);
-  const s2 = loaderState(l, 0, 2);
-  assert.deepEqual(s2.current, l.epochs[0][1]);
-  assert.deepEqual([...s2.used].sort((a, b) => a - b), l.epochs[0][0].slice().sort((a, b) => a - b));
-  assert.equal(loaderState(l, 0, 10).hasNext, false, 'the epoch is over after ten presses');
-  assert.equal(loaderState(l, 0, 10).steps, 10);
-  assert.equal(loaderState(l, 1, 3).steps, 13, 'steps count on into the next epoch');
+  const s2 = loaderState(on, 0, 2);
+  assert.deepEqual(s2.current, on[0][1]);
+  assert.deepEqual([...s2.used].sort((a, b) => a - b), on[0][0].slice().sort((a, b) => a - b));
+  assert.equal(loaderState(on, 0, 10).hasNext, false, 'the epoch is over after ten presses');
+  assert.equal(loaderState(on, 0, 10).steps, 10, 'one epoch is ten steps');
+  assert.equal(loaderState(on, 1, 3).steps, 13, 'steps count on into the next epoch');
 });
 
 // ---- the batch gradient as an estimate ------------------------------------------------------------------------------------
@@ -91,8 +102,11 @@ test('the estimate claims: close to the full gradient but never equal; the avera
   assert.equal(GE.range.gb_max, Math.max(...gbs));
   // "it points roughly the same way" / "roughly downhill": every batch gradient has the signs of the full gradient
   for (const b of GE.batches) assert.ok(Math.sign(b.gw) === Math.sign(GE.full.gw) && Math.sign(b.gb) === Math.sign(GE.full.gb));
-  // "none sits on the star" (in the widget's units, a dot of radius 5 on a range of about 3)
-  for (const b of GE.batches) assert.ok(Math.hypot(b.gw - GE.full.gw, b.gb - GE.full.gb) > 0.05);
+  // "most sit far from it": all but one dot lie more than 0.4 away (the star spans about 0.1 in the widget's units)
+  const far = GE.batches.filter((b) => Math.hypot(b.gw - GE.full.gw, b.gb - GE.full.gb) > 0.4).length;
+  assert.ok(far >= GE.batches.length - 1, `${far} far`);
+  // "it can be far off": the range of the batch gradients for w is wider than the full gradient itself
+  assert.ok(GE.range.gw_max - GE.range.gw_min > Math.abs(GE.full.gw));
   // "the ring of the average sits on the star", and the wrong option "ten times smaller" is refuted
   assert.ok(near(GE.mean.gw, GE.full.gw, 1e-6) && near(GE.mean.gb, GE.full.gb, 1e-6));
   assert.ok(near(GE.mean.gw, gws.reduce((a, v) => a + v, 0) / gws.length, 1e-9));
@@ -144,6 +158,9 @@ test('equal steps: after 30 steps the two batch sizes miss by about the same; th
 });
 
 test('equal samples: 3000 samples are 300 steps of batch 10 and 30 of batch 100, and the small batches miss far less', () => {
+  // both sizes use the same learning rate (the page says it, chosen by us), and equal epochs are equal samples (the friend quiz)
+  assert.equal(BC.lr, data.setup.lr);
+  assert.equal(data.setup.epochs * N, BC.equal_samples[0].samples);
   const E = BC.equal_samples[0];
   assert.equal(E.samples, 3000);
   assert.equal(E.results[0].batch_size, 10);
@@ -172,7 +189,8 @@ test('each size has a cost: the batch gradient is noisy (batch 10 runs differ by
 test('the noise: the learned line is close to 3 and 1, its typical miss is about that of the true line, and the loss stops falling', () => {
   const last = run(10).epochs[30];
   assert.ok(Math.abs(last.weight - data.setup.true_weight) < 0.01 && Math.abs(last.bias - data.setup.true_bias) < 0.02);
-  assert.equal(r2(typicalMiss(last.loss)), '0.09');
+  assert.equal(sig(typicalMiss(last.loss), 1), '0.09');
+  assert.equal(sig(typicalMiss(data.true_line_loss), 1), '0.09', 'and so does the true line');
   assert.ok(Math.abs(typicalMiss(last.loss) - typicalMiss(data.true_line_loss)) < 0.002);
   const L = BC.runs.find((r) => r.batch_size === 10 && r.seed === 7).loss;
   assert.ok(Math.abs(L[300] - L[200]) < 0.01 * L[300], 'the loss has stopped falling');

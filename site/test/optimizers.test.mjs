@@ -108,6 +108,13 @@ test('momentum: mu 0.9; its loss rises at some steps, ends far below plain SGD, 
   assert.ok(!mom.runs[4].diverged && mom.runs[4].final_loss < sweepOf(SW, 'sgd').best.final_loss);
   // the wrong option "it blows up" is wrong at a safe rate
   for (const r of mom.runs.slice(0, 5)) assert.equal(r.diverged, false);
+  // the numbers of section 2: 0.137 at lr 0.03 against plain SGD's best 1.175; momentum's own limit at 0.1; its best rate 0.01
+  assert.equal(SW.lrs[5], 0.1);
+  assert.ok(mom.runs[5].diverged, 'momentum blows up at 0.1 too');
+  assert.ok(mom.best.lr < sweepOf(SW, 'sgd').best.lr, "momentum's best rate is lower than plain SGD's");
+  const html = renderLesson(lesson, D).map((p) => p.html).join('\n');
+  assert.match(html, /data-trace="files\.optimizers\.sweep\.optimizers\.1\.runs\.4\.final_loss"/);
+  assert.match(html, /data-trace="files\.optimizers\.sweep\.optimizers\.0\.best\.final_loss"/);
 });
 
 test('Adam: the first step moves each parameter by about lr, plain SGD by lr times the gradient', () => {
@@ -120,6 +127,8 @@ test('Adam: the first step moves each parameter by about lr, plain SGD by lr tim
   assert.equal(adam.lr, sgd.lr);
   const q = lesson.sections.find((s) => s.id === 'first-step');
   assert.equal(q.options.findIndex((o) => o.correct), 0);
+  // the prompt does not state Adam's rule before the reveal
+  assert.doesNotMatch(typeof q.prompt === 'function' ? q.prompt(D, T) : q.prompt, /divid|typical size/);
 });
 
 test('AdamW: a zero-gradient weight is multiplied by 1 − lr·λ = 0.99 per step; step() skips a parameter with no gradient', () => {
@@ -130,9 +139,13 @@ test('AdamW: a zero-gradient weight is multiplied by 1 − lr·λ = 0.99 per ste
   for (const run of [adam, adamw]) run.steps.slice(0, -1).forEach((s) => { assert.equal(s.w_has_grad, true); assert.equal(s.w2_grad, 0); assert.equal(s.u_has_grad, false); });
   adam.steps.forEach((s) => { assert.equal(s.w2, 3); assert.equal(s.u, 3); });
   adamw.steps.forEach((s, k) => { close(s.w2, 3 * f ** k, 1e-5, `adamw w2 step ${k}`); assert.equal(s.u, 3, 'no gradient, no leak'); });
-  const q = lesson.sections.find((s) => s.id === 'decay-2');
-  close(T.num(q.answer), adamw.steps[1].w2 * f, 1e-6, 'your turn');
-  assert.ok(q.tolerance < Math.abs(adamw.steps[1].w2 - adamw.steps[2].w2), 'the tolerance does not accept the old value');
+  // "Your turn": after fifty steps, 3 · 0.99^50; the tolerance does not accept a value after 49 or 51 steps
+  const q = lesson.sections.find((s) => s.id === 'decay-50');
+  assert.equal(adamw.steps[50].step, 50);
+  close(T.num(q.answer), 3 * f ** 50, 1e-5, 'your turn');
+  assert.ok(q.tolerance < Math.abs(adamw.steps[50].w2 - adamw.steps[49].w2));
+  // the analogy's limit: a fixed part each step, so the weight never reaches exactly zero
+  adamw.steps.forEach((s) => assert.ok(s.w2 > 0));
 });
 
 test('which optimizer is best: Adam lowest on the valley, plain SGD lowest on the round bowl, Adam worse than SGD at SGD\'s rate', () => {
@@ -146,8 +159,11 @@ test('which optimizer is best: Adam lowest on the valley, plain SGD lowest on th
   // "plain SGD reaches the lowest point within a few steps"
   const k = raceRun(B.race, 'sgd').path.findIndex((q) => q.loss < FLOOR);
   assert.ok(k > 0 && k <= 5, `below the floor at step ${k}`);
-  // Adam at the best rate of plain SGD ends higher than plain SGD (the valley)
-  assert.ok(sweepOf(SW, 'adam').runs[3].final_loss > sweepOf(SW, 'sgd').runs[3].final_loss);
+  // "the best rate of Adam is much larger than that of plain SGD", and only the learning rate changed in the sweep
+  for (const [sw] of [[SW], [B.sweep]]) assert.ok(sweepOf(sw, 'adam').best.lr >= 4 * sweepOf(sw, 'sgd').best.lr);
+  close(sweepOf(SW, 'momentum').momentum, 0.9, 1e-6, 'mu fixed');
+  close(sweepOf(SW, 'adamw').weight_decay, 0.01, 1e-6, 'decay fixed');
+  for (const r of data.race) assert.equal(r.momentum, sweepOf(SW, r.id).momentum);
   // the transfer feedback: on the round bowl, plain SGD beat Adam
   assert.ok(final(B.race, 'sgd') < final(B.race, 'adam'));
 });
@@ -164,7 +180,7 @@ test('every number in the prose is bound to the trace, with no hand-typed digits
   try { raw = renderLesson(lesson, D).map((p) => p.html).join('\n'); } finally { globalThis.katex = saved; }
   const left = raw.replace(/<style[\s\S]*?<\/style>/g, '').replace(/<span class="num"[^>]*>[^<]*<\/span>/g, '').replace(/<pre[\s\S]*?<\/pre>/g, '')
     .replace(/<code[^>]*>[\s\S]*?<\/code>/g, '').replace(/<svg[\s\S]*?<\/svg>/g, '').replace(/<h2[^>]*>\s*\d\s·/g, '<h2>')
-    .replace(/<[^>]+>/g, ' ').replace(/[₀-₉]/g, '').replace(/(^|\s)1 −/g, ' ').match(/[^\s]*\d[^\s]*/g) ?? [];
+    .replace(/<[^>]+>/g, ' ').replace(/“[^”]*”/g, ' ').replace(/[₀-₉]/g, '').replace(/(^|\s)1 −/g, ' ').match(/[^\s]*\d[^\s]*/g) ?? [];
   assert.deepEqual(left, []);
   // the valley formula shows the recorded curvature, and the page never claims that one optimizer is always best
   assert.match(raw, /w_2\^2/);

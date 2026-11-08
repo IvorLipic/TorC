@@ -1,14 +1,14 @@
 // widgets/training-widgets.js — the widgets of the lesson training-loop. Each one shows only what TorC recorded (data/training.json,
 // tools/trace/trace_training.cpp):
 //
-//   mountBatchViewer(host, D)       a data loader over the 100 samples: batch size 10 or 32, shuffle off or on. "Next batch" takes the
-//                                   next recorded batch, "Next epoch" starts the second recorded epoch (a new order when shuffle is on)
+//   mountBatchViewer(host, D)       a data loader over the 100 samples, batch size 10, shuffle off or on: "Next batch" takes the next
+//                                   batch, "Next epoch" starts the next one, in the orders the training loop saw (`loop_orders`)
 //   mountGradientEstimate(host, D)  the gradient of each batch of 10 (first epoch of training, seed 7) as a dot in the plane
 //                                   (gradient for w, gradient for b), next to the gradient on all 100 samples, and their average
 //   mountBatchCompare(host, D)      the typical miss on all 100 samples after each step: batch 10 (three shuffled orders) against
 //                                   batch 100, by steps or by samples seen; and batch 10 in sorted order against shuffled order
 //
-// Pure helpers (exported for the tests): loaderState, typicalMiss, sig, compareView. The module touches the DOM only in mount*.
+// Pure helpers (exported for the tests): loopOrders, loaderState, typicalMiss, sig, compareView, valueAt. The module touches the DOM only in mount*.
 import { el, svg } from '../core/dom.js';
 import { createPlot, srTable } from './plot.js';
 import { spreadLabels } from './curve-labels.js';
@@ -67,9 +67,17 @@ export function sig(v, n = 2) {
 export const typicalMiss = (loss) => Math.sqrt(loss);
 
 // ======================================================================================================================
-// The state of a recorded loader after `taken` batches of `epoch` (0 or 1). Exported for tests.
-export function loaderState(loader, epoch, taken) {
-  const batches = loader.epochs[epoch];
+// The batch orders of the training loop: batch 10, with shuffle the recorded orders of the loop's first epochs (`loop_orders`, which
+// calls reset() before each epoch), without shuffle the samples in their order. Exported for tests.
+export function loopOrders(R, shuffle) {
+  if (shuffle) return R.loop_orders.epochs;
+  const bs = R.loop_orders.batch_size, n = R.setup.samples;
+  const one = Array.from({ length: Math.ceil(n / bs) }, (_, b) => Array.from({ length: Math.min(bs, n - b * bs) }, (_, i) => b * bs + i));
+  return R.loop_orders.epochs.map(() => one);
+}
+// The state of a loader after `taken` batches of `epoch` (counted from 0 here; the widget shows counts from 1). Exported for tests.
+export function loaderState(epochs, epoch, taken) {
+  const batches = epochs[epoch];
   const used = new Set(batches.slice(0, Math.max(0, taken - 1)).flat());
   const current = taken > 0 ? batches[taken - 1] : [];
   return { batches: batches.length, hasNext: taken < batches.length, used, current, steps: epoch * batches.length + taken };
@@ -77,40 +85,38 @@ export function loaderState(loader, epoch, taken) {
 
 export function mountBatchViewer(host, D) {
   injectStyles();
-  const R = D.files.training, N = R.setup.samples;
-  const epochsRecorded = R.loaders[0].epochs.length;
-  let bs = 10, shuffle = false, epoch = 0, taken = 0, over = false;
-  const loader = () => R.loaders.find((l) => l.batch_size === bs && l.shuffle === shuffle);
+  const R = D.files.training, N = R.setup.samples, BS = R.loop_orders.batch_size;
+  let shuffle = false, epoch = 0, taken = 0, over = false;
+  const epochs = () => loopOrders(R, shuffle);
   const restart = (msg) => { epoch = 0; taken = 0; over = false; draw(msg); };
-  const sizes = presets('Batch size', [...new Set(R.loaders.map((l) => l.batch_size))].map((b) => [b, String(b)]), (k) => { bs = k; restart(`Batch size ${k}. Back to the start of epoch 1.`); });
   const order = presets('Shuffle', [[false, 'off'], [true, 'on']], (k) => { shuffle = k; restart(`Shuffle ${k ? 'on' : 'off'}. Back to the start of epoch 1.`); });
   const nextBtn = el('button', { type: 'button', class: 'btn small primary' }, 'Next batch');
   const epochBtn = el('button', { type: 'button', class: 'btn small' }, 'Next epoch');
   const againBtn = el('button', { type: 'button', class: 'btn small' }, 'Start again');
-  nextBtn.addEventListener('click', () => { const s = loaderState(loader(), epoch, taken); if (s.hasNext) taken += 1; else over = true; draw(); });
-  epochBtn.addEventListener('click', () => { if (epoch + 1 < epochsRecorded) { epoch += 1; taken = 0; over = false; draw(); } });
+  nextBtn.addEventListener('click', () => { const s = loaderState(epochs(), epoch, taken); if (s.hasNext) taken += 1; else over = true; draw(); });
+  epochBtn.addEventListener('click', () => { if (epoch + 1 < epochs().length) { epoch += 1; taken = 0; over = false; draw(); } });
   againBtn.addEventListener('click', () => restart('Back to the start of epoch 1.'));
   const cells = Array.from({ length: N }, (_, i) => el('div', { class: 'tl-cell' }, String(i)));
   const grid = el('div', { class: 'tl-grid', 'aria-hidden': 'true' }, ...cells);
   const status = el('p', { class: 'tl-status', 'aria-live': 'polite' });
   const batch = el('p', { class: 'tl-batch' });
-  const note = el('p', { class: 'tl-note' }, `The squares are the ${N} samples, numbered from 0. The bright squares are the batch of the current step.`);
+  const note = el('p', { class: 'tl-note' }, `The squares are the ${N} samples, numbered from 0. The bright squares are the batch of the current step. Each batch holds ${BS} samples.`);
   host.replaceChildren(el('div', { class: 'tl' },
-    el('div', { class: 'tl-ctl' }, sizes.root, order.root),
+    el('div', { class: 'tl-ctl' }, order.root),
     el('div', { class: 'tl-calls', role: 'group', 'aria-label': 'Loader buttons' }, nextBtn, epochBtn, againBtn),
     grid, status, batch, note));
 
   function draw(msg) {
-    sizes.set(bs); order.set(shuffle);
-    const s = loaderState(loader(), epoch, taken);
+    order.set(shuffle);
+    const E = epochs(), s = loaderState(E, epoch, taken);
     const cur = new Set(s.current);
     cells.forEach((c, i) => { c.className = `tl-cell${cur.has(i) ? ' cur' : s.used.has(i) ? ' used' : ''}`; });
-    const where = `Epoch ${epoch + 1}, batch ${taken} of ${s.batches}. Steps so far: ${s.steps}.`;
-    const end = over ? (epoch + 1 < epochsRecorded ? ` Epoch ${epoch + 1} is over. Every sample was in one batch. Press Next epoch.` : ' This epoch is over too. This viewer has two epochs.') : '';
+    const where = `Epoch ${epoch + 1}. Batches taken: ${taken} of ${s.batches}. Steps so far: ${s.steps}.`;
+    const end = over ? (epoch + 1 < E.length ? ` Epoch ${epoch + 1} is over. Every sample was in one batch. Press Next epoch.` : ` This epoch is over too. This viewer has ${E.length} epochs.`) : '';
     status.textContent = `${msg ? `${msg} ` : ''}${where}${end}`;
-    batch.textContent = taken > 0 ? `This batch holds ${s.current.length} samples: ${s.current.join(', ')}.` : 'No batch yet. Press Next batch.';
+    batch.textContent = taken > 0 ? `This batch holds the samples ${s.current.join(', ')}.` : 'No batch yet. Press Next batch.';
     nextBtn.disabled = over;
-    epochBtn.disabled = epoch + 1 >= epochsRecorded;
+    epochBtn.disabled = epoch + 1 >= E.length;
   }
   draw();
   return { draw };
@@ -199,8 +205,10 @@ const TCLS = { b10: 'tl-t10', b100: 'tl-t100', sort: 'tl-tsort' };
 const TICKS = { steps: [0, 25, 50, 75, 100], samples: [0, 1000, 2000, 3000], sorted: [0, 20, 40, 60] };
 const START_AT = { steps: 10, samples: 1000, sorted: 1 };   // where the marker starts in each view (not an answer of a task)
 
+let seq = 0;
 export function mountBatchCompare(host, D) {
   injectStyles();
+  const uid = `tl${++seq}`;
   const R = D.files.training, floor = typicalMiss(R.true_line_loss);
   let view = 'steps', at = START_AT.steps, plot = null;
   const views = presets('Compare', [['steps', 'Same number of steps'], ['samples', 'Same number of samples'], ['sorted', 'Sorted or shuffled']], (k) => {
@@ -209,9 +217,9 @@ export function mountBatchCompare(host, D) {
     build();
     mark(`Showing ${k === 'steps' ? 'the same number of steps' : k === 'samples' ? 'the same number of samples' : 'sorted against shuffled order'}.`);
   });
-  const slider = el('input', { type: 'range', id: 'tl-at', min: 0, max: 100, step: 1, value: at });
+  const slider = el('input', { type: 'range', id: `${uid}-at`, min: 0, max: 100, step: 1, value: at });
   slider.addEventListener('input', () => { at = Number(slider.value); mark(); });
-  const label = el('label', { for: 'tl-at', class: 'tl-lbl' }, 'after');
+  const label = el('label', { for: `${uid}-at`, class: 'tl-lbl' }, 'after');
   const box = el('div');
   const read = el('p', { class: 'tl-read', 'aria-live': 'polite' });
   host.replaceChildren(el('div', { class: 'tl' }, el('div', { class: 'tl-ctl' }, views.root), el('div', { class: 'tl-ctl' }, el('div', { class: 'tl-field' }, label, slider)), box, read,

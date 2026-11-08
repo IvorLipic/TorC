@@ -68,7 +68,11 @@ The batch-32 run stays in the trace for the "Your turn" quiz (4 steps per epoch)
 Rewritten as `template: 3` on 2026-11-01 (branch `part4-train`): widgets `training-widgets.js` (batch viewer, batch gradients,
 batch-size comparison with three views) and `curve-labels.js` (direct curve labels). The `code` in `course.json` is the five-line
 loop of the page; `tools/snippets/check.mjs` runs it and checks that it lands at w 3.0023, b 1.0134 with the gradients cleared.
-Earlier history: published 2026-10-20. Widgets: `training-widgets.js` (batch viewer, training curves). Tests: `site/test/training-loop.test.mjs`.
+Review fixes 2026-11-08 (three gates): equal epochs are equal samples here, so the page compares per step (a tie)
+and per sample (batch 10 wins); the transfer quiz asks what was held equal; both sizes use lr 0.1, chosen and not tuned, and a larger
+batch can often take a larger rate (not tried); "average out" holds at the same w and b for equal batches; the batch viewer uses the
+loop's orders (`loop_orders`, reset() before every epoch), batch 10 only, and counts batches taken; the loop's comments sit on their
+own lines; one name for the noise. Earlier history: published 2026-10-20. Widgets: `training-widgets.js` (batch viewer, training curves). Tests: `site/test/training-loop.test.mjs`.
 Both code blocks were compiled and run against v0.1.0. Checked: Node tests, `check_site`, `tools/prose/check.sh`, Chromium at both
 widths, axe-core clean. Independent review 2026-10-20 (no blockers). Fixed after it: section 4 said the true line's loss is the lowest loss, but the
 fitted line is a little below it on the training samples (the page now says so, and a test checks the sign); "update" and

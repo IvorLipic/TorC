@@ -1,9 +1,10 @@
 // widgets/optimizer-widgets.js — the race of the lesson optimizers. It shows only what TorC recorded (data/optimizers.json,
 // tools/trace/trace_optimizers.cpp): each optimizer at its own best learning rate from the sweep (`race`, `bowl.race`, brief C4).
 //
-//   mountOptimizerRace(host, D, { ids, problems })   a map of the loss (contour lines from the recorded loss grid) with the path of
-//        each optimizer up to the chosen step, and a plot of the loss against the step (log axis), each curve labelled on the plot
-//        (brief D18, no table). `ids` picks the optimizers (default all four), `problems` the problems ('valley', 'bowl').
+//   mountOptimizerRace(host, D, { ids, problems, pickPath, note })   a map of the loss (contour lines from the recorded loss grid)
+//        with the path of each optimizer up to the chosen step, and a plot of the loss against the step (log axis), each curve
+//        labelled on the plot (brief D18, no table). `ids` picks the optimizers (default all four), `problems` the problems
+//        ('valley', 'bowl'), `pickPath` lets the reader pick the one path the map shows, `note` adds the sweep result at lr 0.03.
 //
 // Pure helpers (exported for the tests): raceOf, LEVELS, logLoss, FLOOR. The module touches the DOM only in mount*.
 import { el, svg } from '../core/dom.js';
@@ -75,10 +76,10 @@ function marker(p, shape, x, y, cls, layer) {
 }
 
 let seq = 0;
-export function mountOptimizerRace(host, D, { ids = RUNS.map((r) => r[0]), problems = ['valley', 'bowl'] } = {}) {
+export function mountOptimizerRace(host, D, { ids = RUNS.map((r) => r[0]), problems = ['valley', 'bowl'], pickPath = false, note = false } = {}) {
   injectStyles();
   const O = D.files.optimizers, last = O.valley.steps, uid = `or${++seq}`;
-  let problem = problems[0], k = 0, map = null, lossPlot = null, labelG = null;
+  let problem = problems[0], k = 0, map = null, lossPlot = null, labelG = null, shown = pickPath ? ids[0] : null;
   const pick = problems.length > 1 ? (() => {
     const btns = problems.map((pr) => el('button', { type: 'button', class: 'btn small', 'aria-pressed': 'false', onclick: () => { problem = pr; k = 0; slider.value = 0; build(); mark(`${PROBLEM[pr]}. Back to step 0.`); } }, PROBLEM[pr]));
     return { root: el('div', { class: 'or-presets', role: 'group', 'aria-label': 'Problem' }, el('span', { class: 'or-lbl', 'aria-hidden': 'true' }, 'Problem'), ...btns), set: () => btns.forEach((b, i) => b.setAttribute('aria-pressed', String(problems[i] === problem))) };
@@ -86,11 +87,20 @@ export function mountOptimizerRace(host, D, { ids = RUNS.map((r) => r[0]), probl
   const slider = el('input', { type: 'range', id: `${uid}-step`, min: 0, max: last, step: 1, value: k });
   const label = el('label', { for: `${uid}-step`, class: 'or-lbl' }, 'after step 0');
   slider.addEventListener('input', () => { k = Number(slider.value); mark(); });
+  // buttons for keyboard and touch users, so the race can be stepped without fifty presses of an arrow key
+  const go = (d, text) => el('button', { type: 'button', class: 'btn small', onclick: () => { k = Math.max(0, Math.min(last, k + d)); slider.value = k; mark(); } }, text);
+  const steps = el('div', { class: 'or-presets', role: 'group', 'aria-label': 'Steps' }, go(-10, '−10 steps'), go(1, '+1 step'), go(10, '+10 steps'));
+  // in the full race the map shows one path at a time (four paths tangle on a phone); the loss plot shows all of them
+  const paths = pickPath ? (() => {
+    const btns = RUNS.filter((r) => ids.includes(r[0])).map(([id, name]) => el('button', { type: 'button', class: 'btn small', 'aria-pressed': 'false', onclick: () => { shown = id; paths.set(); mark(`The map shows the path of ${name}.`); } }, name));
+    return { root: el('div', { class: 'or-presets', role: 'group', 'aria-label': 'Path on the map' }, el('span', { class: 'or-lbl', 'aria-hidden': 'true' }, 'Path on the map'), ...btns), set: () => btns.forEach((b, i) => b.setAttribute('aria-pressed', String(RUNS.filter((r) => ids.includes(r[0]))[i][0] === shown))) };
+  })() : null;
   const mapBox = el('div'), lossBox = el('div');
   const read = el('p', { class: 'or-read', 'aria-live': 'polite' });
   const rates = el('p', { class: 'or-cap' });
   host.replaceChildren(el('div', { class: 'or' },
-    el('div', { class: 'or-ctl' }, ...(pick ? [pick.root] : []), el('div', { class: 'or-field' }, label, slider)),
+    el('div', { class: 'or-ctl' }, ...(pick ? [pick.root] : []), el('div', { class: 'or-field' }, label, slider), steps),
+    ...(paths ? [el('div', { class: 'or-ctl' }, paths.root)] : []),
     el('div', { class: 'or-plots' },
       el('div', {}, mapBox, el('p', { class: 'or-cap' }, 'The map. Each thin line joins points of equal loss. The ring is the lowest point.')),
       el('div', {}, lossBox, el('p', { class: 'or-cap' }, 'The loss after each step. Each grid line up is a hundred times higher.'))),
@@ -127,6 +137,12 @@ export function mountOptimizerRace(host, D, { ids = RUNS.map((r) => r[0]), probl
     const R = raceOf(O, problem, ids);
     sr.update(R[0].run.path.map((_, i) => [i, ...R.map((r) => r.run.path[i].loss)]));
     rates.textContent = `Each optimizer runs at its own best learning rate here: ${R.map((r) => `${r.name} ${num(r.run.lr)}`).join(', ').replace(/, ([^,]*)$/, ' and $1')}.`;
+    if (note) {   // the sweep at a larger rate (the lesson's section on momentum and larger learning rates)
+      const sw = (id) => O.sweep.optimizers.find((o) => o.id === id), at = O.sweep.lrs.indexOf(0.03);
+      rates.textContent += ` In the sweep at lr ${num(O.sweep.lrs[at])}, plain SGD blew up, and momentum ended at ${num(sw('momentum').runs[at].final_loss)}.`;
+    }
+    sr.table.querySelector('caption').textContent = `${PROBLEM[problem]}: loss after each step`;
+    paths?.set();
   }
 
   function mark(msg) {
@@ -135,12 +151,13 @@ export function mountOptimizerRace(host, D, { ids = RUNS.map((r) => r[0]), probl
     lossPlot.clear('curves'); lossPlot.clear('live'); labelG.replaceChildren();
     for (const r of R) {
       const pts = r.run.path.slice(0, k + 1);
+      const onMap = !shown || shown === r.id;
       if (pts.length > 1) {
-        map.curve(pts.map((q) => [q.w1, q.w2]), { class: r.cls, layer: 'paths' });
+        if (onMap) map.curve(pts.map((q) => [q.w1, q.w2]), { class: r.cls, layer: 'paths' });
         lossPlot.curve(pts.map((q, i) => [i, logLoss(q.loss)]), { class: r.cls, layer: 'curves' });
       }
       const q = r.run.path[k];
-      marker(map, r.shape, q.w1, q.w2, `or-mk or-m-${r.cls.slice(3)}`, 'live');
+      if (onMap) marker(map, r.shape, q.w1, q.w2, `or-mk or-m-${r.cls.slice(3)}`, 'live');
       marker(lossPlot, r.shape, k, logLoss(q.loss), `or-mk or-m-${r.cls.slice(3)}`, 'live');
     }
     // labels: on the loss plot, right of the current points (the right margin holds them); spread so they never collide

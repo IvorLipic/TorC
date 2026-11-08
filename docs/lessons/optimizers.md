@@ -55,7 +55,11 @@ claim a general ranking. The race map of the bowl uses non-equal axis scales, so
 ## Lesson status
 Rewritten as `template: 3` on 2026-11-02 (branch `part4-train`): two instances of the race widget (`optimizer-widgets.js`: plain
 SGD and momentum on the valley; all four on two problems with a map and a loss-vs-step plot on a log axis, curves labelled on the
-plot, no table). The `code` in `course.json` is unchanged. Earlier history: published 2026-10-20. Widget: `optimizer-widgets.js` (optimizer race, contour lines from the recorded loss grid). Tests:
+plot, no table). The `code` in `course.json` is unchanged. Review fixes 2026-11-08 (three gates): the leak's limit is conceptual (a fixed part per step never reaches zero);
+TorC's rule (no gradient = skipped, a zero gradient still decays) is said in the main text, because the palette (two analogies) is full;
+the Adam paragraph names only m, s and ε; section 2 gives 0.14 at lr 0.03 against plain SGD's best 1.2 and momentum's own limit at 0.1;
+the sweep settings that stayed fixed are named; the map shows one picked path in the full race; step buttons; the decay quiz asks for
+the value after 50 steps. Earlier history: published 2026-10-20. Widget: `optimizer-widgets.js` (optimizer race, contour lines from the recorded loss grid). Tests:
 `site/test/optimizers.test.mjs`. The code lines were compiled and run against v0.1.0. Checked: Node tests, `check_site`,
 `tools/prose/check.sh`, Chromium at both widths, axe-core clean.
 Independent review 2026-10-20 (no blockers; fixed: the gradient fields of the decay runs were read after `zero_grad()` and

@@ -28,15 +28,21 @@ const rmse = (T, path) => T.human(path, 'rmse');
 // The training loop as it runs in tools/trace/trace_training.cpp (batch 10, shuffled, 30 epochs); also the `code` of this lesson
 // in course.json (tools/snippets/check.mjs compiles and runs it, the test checks that the two are equal).
 export const LOOP = `for (int epoch = 0; epoch < 30; ++epoch) {
-  loader.reset();                // a new order
+  // a new random order
+  loader.reset();
   while (loader.has_next()) {
     auto [xb, tb] = loader.next_batch();
     Variable x(xb, false), t(tb, false);
-    Variable y = model(x);       // 1. predict
-    Variable L = loss_fn(y, t);  // 2. the loss
-    L.backward();                // 3. gradients
-    opt.step();                  // 4. the step
-    opt.zero_grad();             // 5. clear
+    // 1. predict
+    Variable y = model(x);
+    // 2. the loss of this batch
+    Variable L = loss_fn(y, t);
+    // 3. the gradients
+    L.backward();
+    // 4. change the parameters
+    opt.step();
+    // 5. clear the gradients
+    opt.zero_grad();
   }
 }`;
 
@@ -69,8 +75,8 @@ export default {
     {
       kind: 'text', setup: true,
       html: (D, T) => sec('points', 'One hundred points near a line', `
-    <p>We made ${N(T)} samples with a short program. Each one has an input x and a ${term('target')} t = ${T(`${F}.setup.true_weight`, 'setup')}x + ${T(`${F}.setup.true_bias`, 'setup')}, plus a small random error, the noise.</p>
-    <p>The ${term('model')} is a line, y = w·x + b, as for the taxi rides. Its ${term('weight')} w and its ${term('bias')} b are the ${term('parameter', 'parameters')}, and both start at ${T(`${GE}.at.w`, 'setup')}. The ${term('loss')} L is the ${term('mean-squared-error', 'mean squared error')} of the ${term('prediction', 'predictions')} y.</p>
+    <p>We made ${N(T)} samples with a short program. Each one has an input x and a ${term('target')} t = ${T(`${F}.setup.true_weight`, 'setup')}x + ${T(`${F}.setup.true_bias`, 'setup')}, plus a small random number, the noise.</p>
+    <p>The ${term('model')} is a line, y = w·x + b. Its ${term('weight')} w and its ${term('bias')} b are the ${term('parameter', 'parameters')}, and both start at ${T(`${GE}.at.w`, 'setup')}. The ${term('loss')} L is the mean of the squared misses of the ${term('prediction', 'predictions')} y.</p>
     <p>At the start, the typical miss, the square root of the loss, is about ${rmse(T, `${BC}.runs.0.loss.0`)}.</p>`),
     },
     {
@@ -78,10 +84,10 @@ export default {
       prompt: (D, T) => `<p>Take ${B10(T)} of the ${N(T)} samples at random, and compute the ${term('gradient')} for w from them. How does it compare with the gradient from all ${N(T)}?</p>`,
       options: [
         { html: 'It is the same number.', feedback: 'Another random choice gives other samples, so the number changes.' },
-        { html: 'It is close, but a little different for each random choice.', correct: true, feedback: 'A few random samples give a rough picture of all of them.' },
+        { html: 'It points roughly the same way, but it can be far off.', correct: true, feedback: 'Ten samples give only a rough picture.' },
         { html: 'It is about ten times smaller, because it uses ten times fewer samples.', feedback: 'The loss is a mean, so fewer samples do not shrink it.' },
       ],
-      reveal: (D, T) => `<p>For all ${N(T, 'reveal')} samples, the gradient for w is ${T(`${GE}.full.gw`, 'reveal')}. Ten random groups gave values from ${T(`${GE}.range.gw_min`, 'reveal')} to ${T(`${GE}.range.gw_max`, 'reveal')}.</p>`,
+      reveal: (D, T) => `<p>For all ${N(T, 'reveal')} samples, the gradient for w is ${T(`${GE}.full.gw`, { role: 'reveal', sig: 2 })}. Ten random groups gave values from ${T(`${GE}.range.gw_min`, { role: 'reveal', sig: 2 })} to ${T(`${GE}.range.gw_max`, { role: 'reveal', sig: 2 })}.</p>`,
     },
     {
       kind: 'text',
@@ -89,108 +95,105 @@ export default {
     <p>A ${term('batch')} is a small group of samples that one step uses. Its size is the batch size B. TorC's data loader hands out the batches.</p>
     <p>One pass through all the samples is an ${term('epoch')}, so an epoch has many steps:</p>
     ${worked(`<p>${T(`${F}.setup.samples`, 'worked')} samples ÷ ${T(`${loader(D, 10)}.batch_size`, 'worked')} samples per batch = ${T(`${run(D, 10)}.epochs.1.steps`, 'worked')} steps in one epoch</p>`)}
-    <p>Before each epoch, the loader can shuffle, which puts the samples in a new random order.</p>`),
+    <p>Before each epoch, the loader can shuffle the samples into a new random order.</p>`),
     },
     {
       kind: 'widget', id: 'batches', className: 'widget', label: 'Interactive: a data loader hands out batches of the samples',
       mount: (host, D) => mountBatchViewer(host, D),
-      tasks: (D, T) => [
-        { do: `With batch size ${B10(T)}, press Next batch until the epoch is over.`, see: 'Each press is one step. One epoch takes many steps.' },
+      tasks: () => [
+        { do: 'Press Next batch until the epoch is over.', see: 'Each press is one step, and one epoch takes many.' },
       ],
     },
     {
       kind: 'quiz', id: 'steps-32', purpose: 'check', type: 'numeric', title: 'Your turn',
       answer: STEPS_32, tolerance: 0.5,
-      prompt: (D, T) => `<p>The loader has ${N(T)} samples and a batch size of ${T(`${loader(D, 32)}.batch_size`, 'setup')}. How many steps does one epoch take?</p>`,
-      reveal: (D, T) => `<p>Three batches of ${T(`${loader(D, 32)}.batch_size`, 'reveal')} leave a few samples for a smaller last batch. So one epoch takes ${T(`${run(D, 32)}.epochs.1.steps`, 'reveal')} steps.</p>`,
+      prompt: (D, T) => `<p>Another loader has ${N(T)} samples, a batch size of ${T(`${loader(D, 32)}.batch_size`, 'setup')}, and a smaller last batch for the rest. How many steps does one epoch take?</p>`,
+      reveal: (D, T) => `<p>Three batches of ${T(`${loader(D, 32)}.batch_size`, 'reveal')} leave a few samples for the smaller last batch. So one epoch takes ${T(`${run(D, 32)}.epochs.1.steps`, 'reveal')} steps.</p>`,
     },
     {
       kind: 'text',
       html: () => sec('estimate', '2 · A batch gives an estimate of the gradient', `
-    <p>Each step of ${term('gradient-descent', 'gradient descent')} uses the gradient of one batch. It is an estimate of the gradient of all the samples, so it points roughly downhill, but not exactly.</p>
-    <p>Over one epoch, the batch gradients average out to the gradient of all the samples, because the batches are equally large. And a batch costs much less to compute.</p>
+    <p>Each step of ${term('gradient-descent', 'gradient descent')} uses the gradient of one batch. It is an estimate of the gradient of all the samples. It points roughly downhill, but it can be far off.</p>
+    <p>At the same w and b, the ten batch gradients average to the gradient of all the samples, because the batches are equal in size. So over many steps, estimates that are too high and too low partly cancel. And a batch costs much less to compute.</p>
     <p>This method is ${term('stochastic-gradient-descent', 'stochastic gradient descent')}, or SGD, where stochastic means random.</p>`),
     },
     {
       kind: 'widget', id: 'scatter', className: 'widget', label: 'Interactive: the gradient of each batch next to the gradient of all samples',
       mount: (host, D) => mountGradientEstimate(host, D),
       tasks: () => [
-        { do: 'Press Next batch until all ten dots show.', see: 'The dots scatter around the star, and none sits on it.' },
-        { do: 'Press “Show the average of the dots”.', see: 'The ring of the average sits on the star.' },
+        { do: 'Press Next batch until all ten dots show. Then press “Show the average of the dots”.', see: 'The dots scatter around the star, and most sit far from it. Their average sits on the star.' },
       ],
     },
     {
       kind: 'text',
       html: () => sec('shuffle', '3 · Why the loader shuffles', `
-    <p>Why shuffle? Suppose that the samples are sorted by x, with no shuffle. The first batches then hold only the leftmost points, and each step pulls the line toward them. So the miss on all the samples grows at first.</p>
-    <p>A random order makes each batch a fair mix of the samples. A new order in each epoch gives new batches, so their errors do not repeat.</p>`),
+    <p>Why shuffle? Suppose that the loader keeps the samples sorted by x. The first batches then hold only the leftmost points, and each step pulls the line toward them. So the miss on all the samples grows at first.</p>
+    <p>A random order makes each batch a fair mix. A new order in each epoch gives new batches, so the estimates are not off the same way twice.</p>`),
     },
     {
       kind: 'quiz', id: 'batch-size', purpose: 'predict', type: 'choice',
       prompt: (D, T) => `<p>One run uses batches of ${B10(T)}. Another uses batches of ${B100(T)}, all the samples. Both start from the same line. After ${T(`${ES}.steps`, 'setup')} steps each, which line misses less?</p>`,
       options: [
-        { html: (D, T) => `The run with batches of ${B100(T)}, by far, because its steps used more samples.`, feedback: 'Its gradient is more exact, but a batch of ten points almost the same way.' },
+        { html: (D, T) => `The run with batches of ${B100(T)}, by far, because its steps used more samples.`, feedback: 'Its gradient is exact. But over many steps, the too high and too low estimates of the small batches partly cancel.' },
         { html: (D, T) => `The run with batches of ${B10(T)}, by far, because small batches learn better.`, feedback: 'Small batches are not better per step.' },
-        { html: 'Both lines miss by about the same amount.', correct: true, feedback: 'Per step, both runs make about the same progress here.' },
+        { html: 'Both miss by about the same amount.', correct: true, feedback: 'Per step, both make about the same progress here.' },
       ],
-      reveal: (D, T) => `<p>In three random orders, the small batches miss by about ${rmse(T, `${ES}.summary.${SUM10}.min`)} to ${rmse(T, `${ES}.summary.${SUM10}.max`)}. The large batches miss by about ${rmse(T, `${ES}.summary.${SUM100}.min`)}, but they read ten times more samples.</p>`,
+      reveal: (D, T) => `<p>Both sizes miss by about ${rmse(T, `${ES}.summary.${SUM100}.min`)}, in all three random orders. But the large batches read ten times more samples.</p>`,
     },
     {
       kind: 'widget', id: 'compare', className: 'widget', label: 'Interactive: the typical miss of two batch sizes, by steps and by samples seen',
       mount: (host, D) => mountBatchCompare(host, D),
       tasks: (D, T) => [
-        { do: `Choose “Same number of steps” and move the marker to ${T(`${ES}.steps`, 'setup')} steps.`, see: 'The two curves almost cover each other.' },
-        { do: `Choose “Same number of samples” and move the marker to ${T(`${EQ}.samples`, 'setup')} samples.`, see: `Batch ${B10(T)} took ten times more steps and misses far less.` },
-        { do: 'Choose “Sorted or shuffled” and look at the first steps.', see: 'In sorted order, the miss grows at first. In shuffled order, it falls at once.' },
+        { do: `Choose “Same number of steps” and move the marker to ${T(`${ES}.steps`, 'setup')}.`, see: 'The two curves almost cover each other.' },
+        { do: `Choose “Same number of samples” and move it to ${T(`${EQ}.samples`, 'setup')}.`, see: `Batch ${B10(T)} took ten times more steps and misses far less.` },
+        { do: 'Choose “Sorted or shuffled” and look at the first steps.', see: 'Sorted, the miss grows at first. Shuffled, it falls at once.' },
       ],
     },
     {
       kind: 'text',
-      html: (D, T) => sec('fair', '4 · A fair comparison of batch sizes', `
-    <p>After equal epochs, the small batches win only because they take ten times more steps. After equal steps, both missed by about the same amount. After equal samples, the small batches took more steps:</p>
+      html: (D, T) => sec('fair', '4 · Which batch size is better?', `
+    <p>Both sizes used the same ${term('learning-rate', 'learning rate')}, ${T(`${BC}.lr`, 'setup')}, chosen by us and not tuned. After equal steps, they missed by about the same amount. After equal samples, the small batches took more steps:</p>
     ${worked(`<p>${T(`${EQ}.samples`, 'worked')} ÷ ${T(`${BC}.batch_sizes.0`, 'worked')} = ${T(`${EQ}.results.${RES10}.steps`, 'worked')} steps, and ${T(`${EQ}.samples`, 'worked')} ÷ ${T(`${BC}.batch_sizes.1`, 'worked')} = ${T(`${EQ}.results.${RES100}.steps`, 'worked')} steps</p>`)}
-    <p>Then the small batches miss by about ${rmse(T, `${EQ}.summary.${SUM10}.max`)}, and the large ones by about ${rmse(T, `${EQ}.summary.${SUM100}.max`)}.</p>
-    <p>So each size has a cost. A small batch needs more steps for the same samples, and its gradient is noisier. A large batch reads more samples per step. Each random order gives slightly different numbers, so we ran three.</p>`),
+    <p>Then the small batches miss by about ${rmse(T, `${EQ}.summary.${SUM10}.max`)}, and the large ones by about ${rmse(T, `${EQ}.summary.${SUM100}.max`)}. So the better size depends on what you count. A small batch costs less per step, but its gradient is noisier. A large batch can often use a larger learning rate, untried here. Each random order gives slightly different numbers, so we ran three.</p>`),
     },
     {
       kind: 'quiz', id: 'friend', purpose: 'transfer', type: 'choice',
-      prompt: '<p>A friend trains a model twice for the same number of epochs. Ten times smaller batches end lower, so your friend says that small batches are better. What do you answer?</p>',
+      prompt: '<p>A friend trains a model twice for the same number of epochs. The run with ten times smaller batches ends lower. Your friend calls small batches better. What did this comparison hold equal?</p>',
       options: [
-        { html: 'The small batches took ten times more steps. Compare at equal steps, too.', correct: true, feedback: 'Equal epochs give the small batches more steps.' },
-        { html: 'Your friend is right, because a small batch gives a more exact gradient.', feedback: 'A small batch gives the less exact gradient.' },
-        { html: 'Your friend is right, because the loss is lower.', feedback: 'The extra steps alone can explain the lower loss.' },
+        { html: 'The number of samples seen.', correct: true, feedback: 'Each epoch reads every sample once, so equal epochs mean equal samples.' },
+        { html: 'The number of steps.', feedback: 'With ten times smaller batches, each epoch takes ten times more steps.' },
+        { html: 'Nothing, so the result means nothing.', feedback: 'It held the samples equal.' },
       ],
-      reveal: '<p>Compare at equal steps and at equal samples.</p>',
+      reveal: '<p>Per sample, the small batches won, because they took ten times more steps.</p>',
     },
     {
       kind: 'text',
       html: (D, T) => sec('loop', '5 · The loop in TorC', `
-    <p>Every model in this course trains with a loop like this:</p>
-    ${realLine(LOOP, 'Each pass of the inner loop is one step with one batch. The numbered lines are the model, the loss and the adjust step.')}
-    ${inTorc('Why the loop clears the gradients', `<p>TorC adds every new gradient to the stored one. Inside one backward pass, that sums the gradients of a value with several uses. So between steps, the loop must clear them with <code>opt.zero_grad()</code>.</p>
-    ${worked(`<p>At the start, <code>L.backward()</code> stores ${T(`${AC}.first.gw`, 'worked')} for w. After one step, a new forward pass and <code>L.backward()</code> give ${T(`${AC}.second_with_zero_grad.gw`, 'worked')}. Without <code>zero_grad()</code>, TorC stores ${T(`${AC}.first.gw`, 'worked')} + (${T(`${AC}.second_with_zero_grad.gw`, 'worked')}) = ${T(`${AC}.second_without_zero_grad.gw`, 'worked')}.</p>`)}
-    <p>The next step would use this sum, which is about twice too long.</p>`)}`),
+    <p>Every model here trains with this loop. Its last line clears the gradients, because TorC would otherwise add the next gradients to the old ones.</p>
+    ${realLine(LOOP, 'The outer loop counts the epochs. The inner loop runs once per batch, and each pass is one step. Its first two lines take the batch and hand it to TorC, with no gradients for the data (false).')}
+    ${inTorc('Why the loop clears the gradients', `<p>TorC stores a gradient with each parameter and adds each new gradient to it. So the loop clears them with <code>opt.zero_grad()</code>.</p>
+    <p>Without it, the gradient stored after the second pass is the sum of both passes. The next step would then be about twice too large.</p>`)}`),
     },
     {
       kind: 'text',
       html: (D, T) => sec('noise', '6 · The noise that no line removes', `
     <p>Take the run with batches of ${B10(T)} after ${T(`${EQ}.results.${RES10}.steps`, 'setup')} steps. Its line has w = ${T(`${run(D, 10)}.epochs.30.weight`, 'contrast', { sig: 4 })} and b = ${T(`${run(D, 10)}.epochs.30.bias`, 'contrast', { sig: 4 })}. The true values are ${T(`${F}.setup.true_weight`, 'setup')} and ${T(`${F}.setup.true_bias`, 'setup')}.</p>
-    <p>Its typical miss is about ${rmse(T, `${run(D, 10)}.epochs.30.loss`)}. The true line itself misses by about ${rmse(T, `${F}.true_line_loss`)}, because of the noise. No line removes that noise, so the loss stops falling there.</p>`),
+    <p>The line misses a sample by about ${T.human(`${run(D, 10)}.epochs.30.loss`, 'rmse', { sig: 1 })}, and so does the true line, because of the noise. So the loss stops falling there. The learned line even fits a little of it.</p>`),
     },
     {
       kind: 'quiz', id: 'one-step', purpose: 'cumulative', from: 'sgd-step', type: 'numeric',
       answer: `${GE}.batches.0.step.w`, tolerance: 0.005,
-      prompt: (D, T) => `<p>The line starts at w = ${T(`${GE}.at.w`, 'setup')}. The first batch gives the gradient ${T(`${GE}.batches.0.gw`, 'setup')} for w, and the ${term('learning-rate', 'learning rate')} is ${T(`${GE}.lr`, 'setup')}. What is w after one step?</p>`,
+      prompt: (D, T) => `<p>The line starts at w = ${T(`${GE}.at.w`, 'setup')}. The first batch gives the gradient ${T(`${GE}.batches.0.gw`, 'setup')} for w, and the learning rate is ${T(`${GE}.lr`, 'setup')}. What is w after one step?</p>`,
       reveal: (D, T) => `<p>The step subtracts ${T(`${GE}.lr`, 'reveal')} × (${T(`${GE}.batches.0.gw`, 'reveal')}). So w goes up to ${T(`${GE}.batches.0.step.w`, 'reveal')}.</p>`,
     },
     {
       kind: 'explain', id: 'why-batches',
       prompt: '<p>Explain why a step can use a small batch and not all the samples.</p>',
-      model: '<p>The gradient of a random batch is close to that of all the samples. So each step still goes roughly downhill, for much less work.</p>',
+      model: '<p>A random batch has a gradient close to that of all the samples, so each step still goes roughly downhill, at a much smaller cost.</p>',
     },
     {
       kind: 'answer',
-      html: (D, T) => `<p>No. Each step can use a small random batch, whose gradient is a cheap estimate of the gradient of all the samples. Per step, batches of ${B10(T)} and ${B100(T)} learned about equally here. Per sample, the small batches learned faster, with noisier steps. The program repeats five lines that predict, measure the loss, find the gradients, step and clear.</p>`,
+      html: (D, T) => `<p>No. Each step can use a small random batch, whose gradient is a cheap estimate of the gradient of all the samples. At our learning rate, batches of ${B10(T)} and ${B100(T)} learned about equally per step. Per sample, the small batches learned faster, with noisier steps. The loop repeats five lines, from the prediction to clearing the gradients.</p>`,
       next: () => '<p>Can a better rule for the step move faster through a narrow valley?</p>',
     },
   ],

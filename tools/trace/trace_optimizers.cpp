@@ -13,10 +13,10 @@
 //    TorC's sum() threw NumericalError; final_loss is then null and the exception is recorded), and `best` is the lr with the
 //    lowest final loss among the runs that did not diverge.
 //    `race`: the four optimizers, each at its own best lr, with the full path in the format of valley.runs.
-// 6. (v3) `race_surface`: the valley's loss on a wider grid than valley.surface, for the map of the race.
 // 5. (v3, brief C4) `bowl`: a second problem, the round bowl L = 2 w1^2 + 2 w2^2 (curvature 4 in both directions), from the same
 //    start and with the same 50 steps, lr grid, optimizers and rules as 4. It holds its own `sweep` and `race` in the formats of
 //    4., and a loss grid for the contour lines. On it, every direction is equally steep.
+// 6. (v3) `race_surface`: the valley's loss on a wider grid than valley.surface, for the map of the race.
 // Everything is library output, except `derived` (plain arithmetic) and the choice of `best` (a comparison of recorded losses).
 #include "trace_util.hpp"
 

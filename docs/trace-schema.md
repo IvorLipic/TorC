@@ -248,11 +248,14 @@ v3 additions for the `training-loop` lesson, appended keys only:
 - `sorted_order` = `{batch_size 10, steps 300, order, sorted_indices[100], sorted_loss[301], shuffled_seed 7, shuffled_loss[301]}`:
   the loop of `batch_compare` on a `TensorDataset` with the samples sorted by x (smallest first) and no shuffle, next to the shuffled
   run with seed 7 (equal to `batch_compare.runs[batch 10, seed 7].loss`). `loss[k]` is `nn::MSELoss` on all 100 samples after `k` steps.
-  Observed: in sorted order the loss rises during the first three steps, because the first batches hold only the smallest x.
+  Observed: in sorted order the loss rises during the first two steps (and is still above the start after three), because the
+  first batches hold only the smallest x.
 - `accumulate` = `{at, samples, lr, first, second_with_zero_grad, second_without_zero_grad, same_loss_twice}`, each `{gw, gb}` on
   all 100 samples from `w = b = 0`: the gradient after the first `L.backward()`; after `opt.step()`, `opt.zero_grad()`, a new forward
   pass and `L.backward()`; the same without `zero_grad()` (TorC adds the new gradient to the stored one, a self-check confirms the
   sum); and after calling `L.backward()` twice on the same `L` (the second call changes nothing, because `backward()` clears the tape).
+- `loop_orders` = `{batch_size 10, shuffle true, seed 7, epochs[3][10][10]}`: the sample indices of each batch in the first three
+  epochs of the training loop, which calls `reset()` before every epoch (so `epochs[0]` = `loaders[batch 10, shuffle].epochs[1]`).
 
 ## `optimizers.json` (kind `optimizers`, lesson `optimizers`)
 

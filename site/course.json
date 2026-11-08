@@ -262,7 +262,7 @@
             "batch gradients",
             "batch-size comparison"
           ],
-          "code": "for (int epoch = 0; epoch < 30; ++epoch) {\n  loader.reset();                // a new order\n  while (loader.has_next()) {\n    auto [xb, tb] = loader.next_batch();\n    Variable x(xb, false), t(tb, false);\n    Variable y = model(x);       // 1. predict\n    Variable L = loss_fn(y, t);  // 2. the loss\n    L.backward();                // 3. gradients\n    opt.step();                  // 4. the step\n    opt.zero_grad();             // 5. clear\n  }\n}"
+          "code": "for (int epoch = 0; epoch < 30; ++epoch) {\n  // a new random order\n  loader.reset();\n  while (loader.has_next()) {\n    auto [xb, tb] = loader.next_batch();\n    Variable x(xb, false), t(tb, false);\n    // 1. predict\n    Variable y = model(x);\n    // 2. the loss of this batch\n    Variable L = loss_fn(y, t);\n    // 3. the gradients\n    L.backward();\n    // 4. change the parameters\n    opt.step();\n    // 5. clear the gradients\n    opt.zero_grad();\n  }\n}"
         },
         {
           "id": "optimizers",

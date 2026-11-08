@@ -24,6 +24,7 @@
 //    (a TensorDataset in x order), 300 steps, the loss on all 100 samples after every step, next to the shuffled run with seed 7.
 //    `accumulate`: on all 100 samples from w = b = 0, the gradient TorC stores after a second forward pass and L.backward(), with
 //    and without zero_grad() in between (one opt.step() between the two passes), and L.backward() called twice on the same L.
+//    `loop_orders`: the batch orders of the first three training epochs (batch 10, shuffled, reset() before each epoch).
 // Everything is library output, except `derived` (plain arithmetic) and the min/max/mean summaries (plain arithmetic on it).
 #include "trace_util.hpp"
 
@@ -353,6 +354,20 @@ int main() {
             .set("sorted_indices", trace::jarr(order)).set("sorted_loss", trace::jarr(sorted_curve))
             .set("shuffled_seed", static_cast<int>(LOADER_SEED)).set("shuffled_loss", trace::jarr(shuffled_curve));
     }
+    // the batch orders that the training loop sees: reset() before every epoch, so the first training epoch is the order after one
+    // reset() (loaders[batch 10, shuffle].epochs[1]); three epochs, batch 10, shuffled with the loader seed
+    J loop_orders = J::object();
+    {
+        data::DataLoader l(index_ds, 10, true, LOADER_SEED);
+        J eps = J::array();
+        for (int e = 0; e < 3; ++e) {
+            l.reset();
+            J batches = J::array();
+            while (l.has_next()) batches.push(trace::jarr(indices_of(l.next_batch().first)));
+            eps.push(std::move(batches));
+        }
+        loop_orders.set("batch_size", 10).set("shuffle", true).set("seed", static_cast<int>(LOADER_SEED)).set("epochs", std::move(eps));
+    }
     J accumulate = J::object();
     {
         auto [xa, ya] = dataset.get_batch(0, dataset.len());
@@ -409,7 +424,8 @@ int main() {
     doc.set("setup", std::move(setup)).set("data", std::move(data)).set("loaders", std::move(loaders))
         .set("exhausted", std::move(exhausted)).set("runs", std::move(runs)).set("no_reset", std::move(no_reset))
         .set("true_line_loss", true_line_loss).set("derived", std::move(derived)).set("batch_compare", std::move(batch_compare))
-        .set("sorted_order", std::move(sorted_order)).set("accumulate", std::move(accumulate));
+        .set("sorted_order", std::move(sorted_order)).set("accumulate", std::move(accumulate))
+        .set("loop_orders", std::move(loop_orders));
     std::fputs(doc.dump().c_str(), stdout);
     if (!seed7_ok) { std::cerr << "trace_training: batch_compare with seed 7 does not reproduce the runs after 30 epochs\n"; return 1; }
     if (!ok) { std::cerr << "trace_training: the index loader and the data loader disagree on the batch order\n"; return 1; }
