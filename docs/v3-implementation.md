@@ -37,7 +37,9 @@ The owner approved every approval item of brief §12 as the brief recommends:
 ## Machinery API (the contract every lesson uses)
 
 A lesson opts into the v3 rules with `template: 3` in its module. Lessons without it keep the old rules until they are
-migrated. At the end every lesson on the main path is `template: 3`, and the old kinds (`tldr`, `predict`, `check`) are removed.
+migrated. Status on 2026-11-08: every main-path lesson and every appendix page is `template: 3`. The old kinds (`tldr`, `predict`,
+`check`) were not removed. They stay in `site/js/core/sections.js` for the Backprop lab (`backprop-lab`), which is exempt from the
+v3 template as a free playground. (Earlier text: "the old kinds are removed" once every main-path lesson is migrated. Superseded.)
 
 ### Lesson module
 

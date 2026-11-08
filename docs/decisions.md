@@ -59,7 +59,7 @@ Lightweight decision log. Newest at the bottom of each section.
 
 15. **A concept layer, "In TorC" panels and an appendix** (owner approval 2026-10-29, `docs/pedagogy-review.md` R6, sections 2 and
     6). The concept text is completable without reading C++. Four or five "this is the real line" moments stay on the main path
-    (`loss.backward()`, the `SGD::step` update line, a `Sequential` model, the five-line training loop, the digit model). Other TorC
+    (`L.backward()`, the `SGD::step` update line, a `Sequential` model, the five-line training loop, the digit model). Other TorC
     code, library facts and error strings go in a collapsed "In TorC" panel. TorC engineering moves to the appendix part
     `using-torc` (`tensors`, `modules`, `torc-pitfalls`, plus the notation guide and the glossary), which sits outside the lesson
     order like the labs. No lesson id is removed. Supersedes the content plan's tensors-first order and the rule that every lesson
@@ -118,6 +118,14 @@ Lightweight decision log. Newest at the bottom of each section.
     loss is translated into a human unit (`T.human`), at most 2 numbers stand in a sentence outside worked blocks, and at most 10 in
     a lesson outside the `worked`, `setup` and `reveal` roles. Supersedes the budget "at most 25 numbers bound in the text" and the
     4-significant-figure display of prose numbers. The honesty rule of `CLAUDE.md` (numbers come from `tools/trace`) stands.
+
+24. **Course-wide naming rules from the lesson reviews** (2026-11-08, found in the three-gate reviews of the main-path lessons and
+    written down in `docs/authoring.md` "Writing rules"; recorded from the reviews, not a new owner approval, so the owner may revise them). **Parameters** are all
+    the numbers training changes, **weights** multiply inputs and **biases** are added, and a count such as 26,506 is always
+    "parameters". Softmax gives **probabilities**, never "shares" (except the labelled analogy). A **neuron**, never "unit", also in
+    a hidden layer. The loss is `L` and the call is `L.backward()` (decision 15 quoted it as `loss.backward()`; corrected). The
+    **typical miss** is the square root of the MSE, shown with `T.human(path, 'rmse')`. Supersedes the mixed names of the old
+    lessons. Decision 14 stands.
 
 ## Open
 - Pin policy: pin a release tag (preferred) and bump via PR. `v0.1.0` was pinned until 2026-10-29. The pin is now the commit
