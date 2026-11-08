@@ -230,7 +230,7 @@ At this size, elementwise add is faster than in PyTorch. `matmul` is 3.3 to 5.2 
 ## Continuous integration
 
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on each push to `main` and on each pull
-request. Each job configures and builds from an empty build directory.
+request. Each job configures and builds from an empty build directory. The jobs use a read-only token and no secrets.
 
 - **Build and test:** Clang 18 Release, Clang 18 Release with `-DTORC_NATIVE_ARCH=OFF`, and GCC 14
   Release. Each job then runs `ctest --output-on-failure`.
