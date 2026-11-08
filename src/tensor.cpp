@@ -313,11 +313,13 @@ Tensor Tensor::conv2d(const Tensor& weight, int stride, int padding) const {
     if (padding < 0)
         throw ShapeError(std::format("conv2d padding must be >= 0, got {}", padding));
 
+    // Check before dividing: C++ integer division truncates toward zero, so a negative numerator with stride > 1
+    // would round up to 0 and yield a 1-wide output instead of an error.
+    if (H + 2 * padding < KH || W + 2 * padding < KW)
+        throw ShapeError(std::format("conv2d kernel {}x{} is larger than the padded input {}x{} (input {}x{}, padding {})",
+                                     KH, KW, H + 2 * padding, W + 2 * padding, H, W, padding));
     int H_out = (H + 2 * padding - KH) / stride + 1;
     int W_out = (W + 2 * padding - KW) / stride + 1;
-    if (H_out <= 0 || W_out <= 0)
-        throw ShapeError(std::format("conv2d output dims must be positive, got {}x{} from input {}x{} weight {}x{} stride {} padding {}",
-                                     H_out, W_out, H, W, KH, KW, stride, padding));
 
     std::vector<int> out_shape = {N, C_out, H_out, W_out};
     Tensor out(out_shape);

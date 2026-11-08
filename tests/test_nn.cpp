@@ -1317,6 +1317,12 @@ TEST(Conv2d, ForwardMatchesTensorConv2d) {
     EXPECT_TRUE(out.data() == expected);
 }
 
+TEST(Conv2d, KernelLargerThanPaddedInputThrows) {
+    Conv2d conv(1, 1, 3, 2, 0, 0.0f, 42);
+    Variable input(Tensor({1.0f, 1.0f, 1.0f, 1.0f}, {1, 1, 2, 2}), false);
+    EXPECT_THROW((void)conv(input), torc::ShapeError);
+}
+
 TEST(Conv2d, ForwardWithBatchedInput) {
     Conv2d conv(1, 2, 3, 1, 0, 0.0f, 42);
     Tensor input_data({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f,
