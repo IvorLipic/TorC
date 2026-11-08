@@ -1520,6 +1520,13 @@ TEST(Conv2dAutograd, ForwardMatchesTensorConv2d) {
     EXPECT_TRUE(out.data() == expected);
 }
 
+TEST(Conv2dAutograd, KernelLargerThanPaddedInputThrows) {
+    // stride 2 used to round the negative numerator up and return a 1x1 output
+    Variable input(Tensor({1.0f, 1.0f, 1.0f, 1.0f}, {1, 1, 2, 2}), true);
+    Variable weight(Tensor({1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f}, {1, 1, 3, 3}), true);
+    EXPECT_THROW((void)torc::conv2d(input, weight, 2, 0), torc::ShapeError);
+}
+
 TEST(Conv2dAutograd, GradCheckStride1Padding0) {
     Tensor input_data({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f,
                        9.0f, 10.0f, 11.0f, 12.0f, 13.0f, 14.0f, 15.0f, 16.0f}, {1, 1, 4, 4});

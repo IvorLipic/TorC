@@ -752,8 +752,10 @@ based on `param->grad()`. This matches PyTorch's separation of `nn.Module` and `
   / `src/tensor.cpp` — naive direct convolution (not im2col+matmul), matching the project's
   "naive but correct first" philosophy. Input is `{N, C_in, H, W}`, weight is `{C_out, C_in, KH, KW}`,
   output is `{N, C_out, H_out, W_out}` where `H_out = (H + 2*padding - KH) / stride + 1` (same for W).
-  Shape validation throws `ShapeError` for rank mismatches, channel mismatches, non-positive stride/padding,
-  or non-positive output dimensions.
+  Shape validation throws `ShapeError` for rank mismatches, channel mismatches, `stride < 1`, `padding < 0`,
+  or a kernel larger than the padded input (`H + 2*padding < KH` or `W + 2*padding < KW`). This check runs
+  before the division: integer division truncates toward zero, so checking the result afterwards missed
+  some cases with `stride > 1`.
 - `torc::conv2d(const Variable& input, const Variable& weight, int stride, int padding)` added as a
   free function in `include/torc/autograd.hpp` / `src/autograd.cpp`. Backward reuses the forward index
   loops, zero-filling two output buffers (`dInput` and `dWeight`) and scatter-accumulating into them —

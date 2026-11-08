@@ -53,7 +53,8 @@ public:
 
     // 2D convolution. input: {N, C_in, H, W}. weight: {C_out, C_in, KH, KW}.
     // output: {N, C_out, H_out, W_out} where H_out = (H + 2*padding - KH)/stride + 1 (same for W).
-    // Throws ShapeError for rank mismatches, channel mismatches, or non-positive output dims.
+    // Throws ShapeError for rank mismatches, channel mismatches, stride < 1, padding < 0, or a kernel
+    // larger than the padded input (H + 2*padding < KH or W + 2*padding < KW).
     [[nodiscard]] Tensor conv2d(const Tensor& weight, int stride, int padding) const;
 
     [[nodiscard]] Tensor transpose(std::vector<int> axes) const;
