@@ -1,84 +1,213 @@
-# torc
+# TorC
 
-A minimal, from-scratch C++ tensor library. Naive `float32`-only storage with elementwise
-operations and a tape-based autograd system, built on CMake with GoogleTest-based unit tests.
+TorC is a small C++23 library for tensors and automatic differentiation. With it, you can build and
+train small neural networks on a CPU. It is for learners and developers who want to read how a deep
+learning library works, in code that is short enough to study.
 
-## Documentation
+> **Learn with TorC Learn:** [TorC Learn](https://ivorlipic.github.io/TorC/) is an interactive
+> course that uses this library. Its source is on the
+> [`web`](https://github.com/IvorLipic/TorC/tree/web) branch.
 
-- **[AGENTS.md](AGENTS.md)** — orientation: project layout, build targets, conventions, known issues
-- **[ROADMAP.md](ROADMAP.md)** — milestone checklist, what's done and what's next
-- **[docs/DESIGN.md](docs/DESIGN.md)** — architecture decisions and the rationale behind them
-- **[docs/AUTOGRAD.md](docs/AUTOGRAD.md)** — the autograd tape structure and backward algorithm
-- **[docs/BENCHMARKS.md](docs/BENCHMARKS.md)** — CPU benchmark suite, including a PyTorch comparison
-
-## Examples
-
-See **[EXAMPLES.md](EXAMPLES.md)** for end-to-end training scripts, including MNIST MLP and
-MNIST CNN.
+In code and in CMake, the library has the name `torc`. TorC is a reference implementation for
+learning, not a replacement for PyTorch. It uses `float32` only, runs on the CPU, and copies tensor
+data in most operations.
 
 ## Features
 
-### Tensor
-- `torc::Tensor` with explicit-shape construction and initializer-list construction
-- Elementwise `add`, `sub`, `mul`, `div` with NumPy-style broadcasting
-- Scalar overloads for all four elementwise ops
-- Unary negation (`operator-()`)
-- Elementwise exponential (`exp()`)
-- Elementwise natural logarithm (`log()`)
-- Elementwise square root (`sqrt()`)
-- Whole-tensor softmax (`softmax()`) with an axis-aware overload (`softmax(axis)`); the
-  `nn::Softmax` module defaults to the last axis, while `CrossEntropyLoss` uses its own stable
-  row-wise log-sum-exp implementation
-- `operator==` for value + shape equality (exact bitwise/value comparison; use approximate/tolerance-based comparison for computed results)
-- Pretty-printing (`operator<<`) for shape and data
-- Raw pointer data access
-- Shape inspection and element count
-- Reductions: `sum()`, `mean()`, `max()`, `min()` (whole-tensor and axis-wise)
-- `reshape()` / `view()` for changing shape — note this currently copies the underlying
-  storage on every call (not a zero-cost stride trick); see `docs/AUTOGRAD.md`'s Common
-  Pitfalls for why that matters if you're implementing backward for either
-- Multi-dimensional indexing (`operator[](i, j, ...)`)
-- `transpose()` for permuting dimensions
-- Slicing (`slice()`) for contiguous-range sub-tensors (no arbitrary-index gather yet)
-- `matmul()` for 2D and batched matrix multiplication with batch broadcasting
+| Area | What it contains |
+| --- | --- |
+| Tensors (`torc::Tensor`) | `float32` tensors. `add`, `sub`, `mul` and `div` with NumPy-style broadcasting. `sum`, `mean`, `max` and `min` over the whole tensor or one axis. `matmul` (2D and batched), `conv2d`, `transpose`, `slice`, `reshape`/`view`, `exp`, `log`, `sqrt` and `softmax`. |
+| Autograd (`torc::Variable`) | Reverse-mode automatic differentiation. Each result keeps a tape, which is a record of the operations that made it. Operations are free functions such as `torc::mul(a, b)`. `detach()`, `Variable::set_grad_enabled()` and `Variable::NoGradGuard` stop the recording. |
+| Layers (`torc::nn`) | `Module`, `Sequential`, `Linear`, `Conv2d`, `Flatten`, `ReLU`, `Sigmoid`, `Softmax` |
+| Losses (`torc::nn`) | `MSELoss`, `CrossEntropyLoss` |
+| Optimizers (`torc::optim`) | `SGD` with momentum, `Adam`, `AdamW` |
+| Data (`torc::data`) | `TensorDataset`, `SyntheticRegression`, `CSVDataset`, `MNISTDataset`, and a `DataLoader` that makes batches and can shuffle them |
+| Errors | `TorcError` and its subclasses `ShapeError`, `NumericalError` and `IndexError` |
 
-### Autograd
-- `torc::Variable`: tape-based autograd wrapping `Tensor`, with `requires_grad`/`has_grad`
-  tracking
-- Backward pass via topological sort over the tape (not recursion) — see
-  [docs/AUTOGRAD.md](docs/AUTOGRAD.md) for the full algorithm and why
-- Ops are free functions (`torc::add(a, b)`, etc.), never `Variable` methods
-- Implemented so far: scalar ops (`add_scalar`, `sub_scalar`, `mul_scalar`, `div_scalar`,
-  `neg_scalar`), tensor-tensor elementwise ops with broadcasting backward (`add`, `sub`,
-  `mul`, `div`, `neg`), reduction ops backward (`sum`, `mean`, whole-tensor and axis-wise),
-  `max`/`min` backward with argmax tracking (whole-tensor and axis-wise), `matmul` backward
-  (2D + batched, including batch-broadcast cases), view-op backward (`transpose`,
-  `reshape`/`view`, `slice`), `detach()` / `set_grad_enabled(bool)`, unary
-  transcendental ops (`exp`, `log`, `sqrt`) with backward and gradient checks, and guarded
-  in-place ops (`Tensor::fill` / `Variable::fill` throws `TorcError` on tracked
-  Variables) — each with gradient checks against central finite differences where applicable
-- **Known constraint:** the tape holds raw, non-owning pointers to the `Variable`s in a graph,
-  paired with weak lifetime tokens. Backward detects destroyed tracked ancestors and throws
-  `TorcError`, but does not keep them alive; every tracked `Variable` must still outlive
-  `backward()` on any of that graph's outputs. See `docs/DESIGN.md`.
+The tests check the gradients against hand-computed values. For most operations, they also compare
+the gradients with numerical estimates from finite differences.
 
-### Milestone 5 - Basic ML (in progress)
-- `nn::Module` base class with `forward()` hook and parameter registration
-- `nn::Sequential` container for chaining modules
-- `nn::Linear` layer with weight/bias parameters and autograd support
-- Activation modules: `nn::ReLU`, `nn::Sigmoid`, `nn::Softmax`
-- Loss functions: `nn::MSELoss`, `nn::CrossEntropyLoss`
-- Optimizers: `optim::SGD` with momentum, `optim::Adam`, `optim::AdamW`
-- Data loaders: `data::TensorDataset`, `data::SyntheticRegression`, `data::CSVDataset`, `data::MNISTDataset`, and `data::DataLoader` with batching and shuffling
-- End-to-end examples: MNIST MLP (`examples/mnist_mlp/mnist_mlp.cpp`) and MNIST CNN
-  (`examples/mnist_cnn/mnist_cnn.cpp`)
+### Rules to know before you start
 
-## Benchmark (vs PyTorch)
+- A tracked `Variable` is a `Variable` that records gradients. Keep every tracked `Variable` alive
+  until `backward()` returns. The tape keeps only pointers to them, so `backward()` throws
+  `TorcError` if one is gone. Write `Variable prod = torc::mul(a, b); Variable y = torc::sum(prod);`.
+  Do not write `torc::sum(torc::mul(a, b))`. A module keeps its own intermediate values alive, so
+  `model(x)` is safe.
+- Call `backward()` on a result with one element, or give it an explicit output gradient.
+- `nn::MSELoss` throws `ShapeError` when the input shape and the target shape are different. This
+  is a change on `main` after version 0.1.0. Version 0.1.0 broadcast the two shapes.
+- `reshape`, `view`, `transpose` and `slice` copy the data. They are not free views.
 
-`torc` is a naive, single-threaded, `float32`-only implementation — it is not meant to compete
-with production frameworks. The table below places it side-by-side with PyTorch (CPU,
-single-threaded) on the same machine and Release builds, so you can see where the naive path
-stands.
+## A short example
+
+This program fits a straight line to four points. It uses a `Linear` layer, the mean squared error
+loss and gradient descent.
+
+```cpp
+#include <iostream>
+#include <torc/nn/linear.hpp>
+#include <torc/nn/losses.hpp>
+#include <torc/optim.hpp>
+
+int main() {
+    using torc::Tensor;
+    using torc::Variable;
+
+    // Four points on the line y = 2x + 1, one feature per row.
+    Variable x(Tensor({0.0f, 1.0f, 2.0f, 3.0f}, {4, 1}), false);
+    Variable y(Tensor({1.0f, 3.0f, 5.0f, 7.0f}, {4, 1}), false);
+
+    torc::nn::Linear model(1, 1, 0.0f, /*seed=*/42);  // pred = x @ W.T + b
+    torc::nn::MSELoss loss_fn;
+    torc::optim::SGD optimizer(model.parameters(), /*lr=*/0.05f);
+
+    for (int step = 0; step < 500; ++step) {
+        Variable pred = model(x);           // shape (4, 1), same as y
+        Variable loss = loss_fn(pred, y);   // mean squared error
+        optimizer.zero_grad();
+        loss.backward();                    // gradients of W and b
+        optimizer.step();                   // W -= lr * dW, b -= lr * db
+    }
+
+    const auto& params = model.named_parameters();
+    std::cout << "weight = " << params.at("weight").data().data()[0]
+              << ", bias = " << params.at("bias").data().data()[0] << "\n";
+}
+```
+
+To build it, use one of the CMake projects in
+[Use TorC from another CMake project](#use-torc-from-another-cmake-project). The program prints a
+weight close to 2 and a bias close to 1. Our clang-18 Release build printed
+`weight = 2, bias = 0.999998`.
+
+For longer programs (linear regression, an MNIST MLP and an MNIST CNN), see
+[EXAMPLES.md](EXAMPLES.md).
+
+## Requirements
+
+- CMake 3.20 or later.
+- A C++23 compiler: GCC 14 or later, Clang 18 or later, or MSVC 19.36 or later. The code uses
+  deducing `this` and `std::format`. GCC 13 cannot compile it.
+- Git and network access to build the tests or the benchmarks. CMake downloads GoogleTest and
+  Google Benchmark with `FetchContent`.
+- Optional: OpenMP. The option `-DUSE_OPENMP=ON` runs some large elementwise and reduction loops
+  in parallel.
+
+The CI tests Clang 18 and GCC 14 on Ubuntu 24.04. No CI job tests MSVC or macOS.
+
+## Build and test
+
+```bash
+git clone https://github.com/IvorLipic/TorC.git
+cd TorC
+cmake -S . -B build -DCMAKE_CXX_COMPILER=clang++-18 -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j4
+ctest --test-dir build --output-on-failure
+```
+
+Replace `clang++-18` with your C++23 compiler, for example `g++-14`. If your default compiler
+supports C++23, you can remove that option.
+
+The build makes the static library, the example programs and one GoogleTest program,
+`torc_tests`. CTest runs that program as the test `TorcTests`. It contains the suites in
+`tests/test_tensor.cpp`, `tests/test_autograd.cpp`, `tests/test_nn.cpp` and `tests/test_data.cpp`.
+
+With a multi-configuration generator such as Visual Studio, add `--config Release` to the build
+command and `-C Release` to the `ctest` command.
+
+### CMake options
+
+| Option | Default | Effect |
+| --- | --- | --- |
+| `TORC_BUILD_TESTS` | ON in a top-level build, else OFF | Build `torc_tests`. Only this option downloads GoogleTest. |
+| `TORC_BUILD_EXAMPLES` | ON in a top-level build, else OFF | Build the example programs. |
+| `TORC_INSTALL` | ON in a top-level build, else OFF | Make the `cmake --install` and package-config rules. |
+| `TORC_NATIVE_ARCH` | ON in a top-level build, else OFF | Compile Release builds of the library with `-march=native` (`/arch:AVX2` on MSVC). |
+| `BUILD_BENCHMARKS` | OFF | Build `torc_benchmarks`. This downloads Google Benchmark. |
+| `USE_OPENMP` | OFF | Run some large elementwise and reduction loops in parallel with OpenMP. |
+
+A top-level build is a build of this repository itself. A build through `add_subdirectory` or
+`FetchContent` is not a top-level build.
+
+`TORC_NATIVE_ARCH` turns on the AVX2 code in `src/simd_ops.hpp` and in the `matmul` inner loop.
+With `-DTORC_NATIVE_ARCH=OFF`, the library uses scalar loops. The binary then runs on any CPU that
+the compiler targets by default, but `matmul` and the elementwise operations are slower. Use
+`-DTORC_NATIVE_ARCH=OFF` when you install a build that other computers will use.
+
+## Install
+
+```bash
+cmake -S . -B build-install -DCMAKE_CXX_COMPILER=clang++-18 -DCMAKE_BUILD_TYPE=Release \
+  -DTORC_BUILD_TESTS=OFF -DTORC_BUILD_EXAMPLES=OFF -DTORC_NATIVE_ARCH=OFF \
+  -DCMAKE_INSTALL_PREFIX="$HOME/torc-install"
+cmake --build build-install -j4
+cmake --install build-install
+```
+
+The install step copies the static library, the public headers in `include/torc/`, the files
+`torcConfig.cmake` and `torcConfigVersion.cmake`, and `LICENSE` into the prefix.
+
+## Use TorC from another CMake project
+
+The target `torc::torc` gives your program the include directories and the C++23 requirement.
+Complete projects for both methods below are in
+[`examples/consume/find_package/`](examples/consume/find_package/) and
+[`examples/consume/fetchcontent/`](examples/consume/fetchcontent/).
+
+### With an installed copy and `find_package`
+
+Put this `CMakeLists.txt` next to your `main.cpp`:
+
+```cmake
+cmake_minimum_required(VERSION 3.20)
+project(my_app LANGUAGES CXX)
+
+find_package(torc 0.1 CONFIG REQUIRED)
+
+add_executable(my_app main.cpp)
+target_link_libraries(my_app PRIVATE torc::torc)
+```
+
+Then tell CMake where you installed TorC:
+
+```bash
+cmake -S . -B build -DCMAKE_CXX_COMPILER=clang++-18 -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_PREFIX_PATH="$HOME/torc-install"
+cmake --build build
+./build/my_app
+```
+
+`find_package(torc 0.1)` accepts versions 0.1.x only, because a new 0.x minor version can change
+the API.
+
+### With `FetchContent`
+
+```cmake
+cmake_minimum_required(VERSION 3.20)
+project(my_app LANGUAGES CXX)
+
+include(FetchContent)
+FetchContent_Declare(torc
+    GIT_REPOSITORY https://github.com/IvorLipic/TorC.git
+    GIT_TAG        v0.1.0)   # a release tag or a commit SHA
+FetchContent_MakeAvailable(torc)
+
+add_executable(my_app main.cpp)
+target_link_libraries(my_app PRIVATE torc::torc)
+```
+
+Build it with the same `cmake` commands as above, without `CMAKE_PREFIX_PATH`. In this mode,
+TorC does not build its tests or examples, so CMake does not download GoogleTest.
+
+Configure your project with `-DCMAKE_BUILD_TYPE=Release`. The library uses its optimization flags
+(`-O3`, `-funroll-loops`) only in a Release build. The tag `v0.1.0` does not contain the changes
+under "Unreleased" in [CHANGELOG.md](CHANGELOG.md).
+
+## Performance
+
+TorC runs on one thread by default and uses simple algorithms. The table compares it with PyTorch
+on one CPU thread. The two libraries ran on the same machine with Release builds.
 
 | Operation | Shape | torc (µs) | torch 2.11 (µs) | torc / torch |
 |-----------|-------|-----------|-----------------|--------------|
@@ -91,123 +220,39 @@ stands.
 | Softmax | [16384] | 265 | 39.8 | 6.7× |
 | Transpose 2D | [256, 256] | 424 | 4.4 | 96× |
 
-Measured single-threaded on the same reference machine, Release builds. `torc` numbers come from
-Google Benchmark (`-DBUILD_BENCHMARKS=ON`); torch numbers from `benchmarks/bench_torch.py`
-(`torch.set_num_threads(1)`). Full tables and methodology are in
-**[docs/BENCHMARKS.md](docs/BENCHMARKS.md)**.
-
-How to read it: elementwise ops are already competitive — `torc`'s `simd` fast path beats eager
-PyTorch dispatch at this size — while `matmul` trails by ~3–5× and `softmax`/`transpose` by more.
-The `transpose` gap is the most telling: `torch.t()` is a zero-copy view, whereas `torc` still
-copies storage on every `transpose`/`reshape`/`view` (see `docs/DESIGN.md`'s memory-model notes
-and the project's known issues).
-
-## Requirements
-
-- CMake 3.20+
-- A C++23 compiler: GCC 14+, Clang 18+, or MSVC 19.36+ (the code uses deducing-`this`
-  and `std::format`, which require recent compiler versions)
-- Git (for fetching GoogleTest when `TORC_BUILD_TESTS=ON`, and Google Benchmark with `BUILD_BENCHMARKS=ON`)
-- Optional: OpenMP (enable with `-DUSE_OPENMP=ON` for parallelized elementwise/reduction ops)
-
-## Build
-
-```bash
-cmake -S . -B build
-cmake --build build --config Release
-```
-
-For benchmarks (includes the `torc_benchmarks` target):
-
-```bash
-cmake -S . -B build -DBUILD_BENCHMARKS=ON
-cmake --build build --config Release
-```
-
-### CMake options
-
-| Option | Default | Effect |
-| --- | --- | --- |
-| `TORC_BUILD_TESTS` | ON if top-level, else OFF | Build `torc_tests` (fetches GoogleTest only when ON) |
-| `TORC_BUILD_EXAMPLES` | ON if top-level, else OFF | Build the example executables |
-| `TORC_INSTALL` | ON if top-level, else OFF | Generate `cmake --install` and package-config rules |
-| `TORC_NATIVE_ARCH` | ON if top-level, else OFF | Release builds of the library use `-march=native` (`/arch:AVX2` on MSVC) |
-| `BUILD_BENCHMARKS` | OFF | Build `torc_benchmarks` (fetches Google Benchmark) |
-| `USE_OPENMP` | OFF | Parallelize elementwise/reduction ops with OpenMP |
-
-`TORC_NATIVE_ARCH` is what turns on the AVX2 code paths (`src/simd_ops.hpp` and the `matmul`
-inner loop are guarded by the compiler's `__AVX2__` macro). With `-DTORC_NATIVE_ARCH=OFF` the
-library is compiled without any ISA flag, so those paths fall back to scalar loops: the result
-runs on any CPU the compiler's baseline targets, but `matmul` and the elementwise ops are slower.
-It defaults to ON only when torc is the top-level project (developer and benchmark builds), so
-copies consumed via `add_subdirectory`/FetchContent are portable and reproducible across machines
-by default; pass `-DTORC_NATIVE_ARCH=ON` to opt in. Also pass `-DTORC_NATIVE_ARCH=OFF` when
-installing from a top-level build that will be redistributed.
-
-## Using torc from another CMake project
-
-Either install it and use `find_package`:
-
-```bash
-cmake -S . -B build -DCMAKE_INSTALL_PREFIX=/opt/torc
-cmake --build build && cmake --install build
-```
-
-```cmake
-find_package(torc 0.1 CONFIG REQUIRED)          # add -DCMAKE_PREFIX_PATH=/opt/torc; 0.1.x only
-add_executable(app main.cpp)
-target_link_libraries(app PRIVATE torc::torc)   # brings the include dirs and the C++23 requirement
-```
-
-or fetch it directly (tests and examples, and therefore GoogleTest, are off by default when torc
-is not the top-level project):
-
-```cmake
-include(FetchContent)
-FetchContent_Declare(torc
-    GIT_REPOSITORY https://github.com/IvorLipic/TorC.git
-    GIT_TAG        v0.1.0)                       # a release tag (or a commit SHA)
-FetchContent_MakeAvailable(torc)
-target_link_libraries(app PRIVATE torc::torc)
-```
-
-Complete runnable projects live in `examples/consume/find_package/` and
-`examples/consume/fetchcontent/`. Consumers need a C++23 compiler (Clang 18+ or GCC 14+) and
-CMake 3.20+.
-
-- Consumers choose their own `CMAKE_BUILD_TYPE`: the library's `-O3`/`-funroll-loops` flags (and
-  `-march=native` when enabled) apply only in `Release`, so FetchContent consumers should
-  configure with `-DCMAKE_BUILD_TYPE=Release` (torc only forces Release as a top-level project).
-- Tracked `Variable`s must outlive `backward()` (see the known constraint under Autograd above).
-  That is why the consumer examples bind intermediates to named variables
-  (`Variable prod = torc::mul(a, b); Variable y = torc::sum(prod);`) instead of nesting
-  temporaries like `torc::sum(torc::mul(a, b))`, which throws `TorcError` at `backward()`.
-
-## Run tests
-
-```bash
-ctest --test-dir build --output-on-failure -C Release
-```
-
-Tests use [GoogleTest](https://github.com/google/googletest), fetched automatically via CMake
-`FetchContent`. The `TorcTests` target covers `tests/test_tensor.cpp` (Tensor),
-`tests/test_autograd.cpp` (Variable / autograd), `tests/test_nn.cpp` (`nn::Module` /
-`nn::Sequential`), and `tests/test_data.cpp` (`data::TensorDataset` / `data::DataLoader`).
+At this size, elementwise add is faster than in PyTorch. `matmul` is 3.3 to 5.2 times slower.
+`transpose` shows the largest difference, because `torch.t()` makes a view and TorC copies the data.
+[docs/BENCHMARKS.md](docs/BENCHMARKS.md) has the full tables and the method.
 
 ## Continuous integration
 
-`.github/workflows/ci.yml` runs on every push to `main` and every pull request (Ubuntu 24.04,
-read-only token, no secrets). Each job configures and builds from scratch:
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on each push to `main` and on each pull
+request. Each job configures and builds from an empty build directory.
 
-- **build + test**: clang-18 Release (default flags, including `-march=native`), clang-18 Release
-  with `-DTORC_NATIVE_ARCH=OFF`, and gcc-14 Release, each followed by `ctest --output-on-failure`.
-- **consumer smoke test**: `cmake --install` to a prefix, then build and run
-  `examples/consume/find_package` against it and `examples/consume/fetchcontent`, checking the
-  printed gradients.
-- **sanitizers**: clang-18 Debug with `-fsanitize=address,undefined` (UBSan reports abort the test).
+- **Build and test:** Clang 18 Release, Clang 18 Release with `-DTORC_NATIVE_ARCH=OFF`, and GCC 14
+  Release. Each job then runs `ctest --output-on-failure`.
+- **Consumer test:** the job installs TorC to a prefix. Then it builds and runs the
+  `find_package` and `FetchContent` projects in `examples/consume/` and checks their output.
+- **Sanitizers:** Clang 18 Debug with AddressSanitizer and UndefinedBehaviorSanitizer. A sanitizer
+  report stops the test.
 
-GCC 13 cannot build the library (C++23 deducing-this), so it is not in the matrix.
+## Learn more
+
+- [TorC Learn](https://ivorlipic.github.io/TorC/): the interactive course that uses this
+  library.
+- [EXAMPLES.md](EXAMPLES.md): how to run the training examples, and how to get the MNIST data.
+- [docs/DESIGN.md](docs/DESIGN.md): the design decisions and the reasons for them.
+- [docs/AUTOGRAD.md](docs/AUTOGRAD.md): the tape and the backward algorithm.
+- [docs/BENCHMARKS.md](docs/BENCHMARKS.md): the benchmark results and how to run them.
+- [ROADMAP.md](ROADMAP.md): the milestones, with their finished and open work.
+- [CHANGELOG.md](CHANGELOG.md): the changes in each version.
+
+## Contributing
+
+Read [AGENTS.md](AGENTS.md) before you change the code. It gives the project layout, the build
+targets, the conventions and the known issues. Each new operation needs tests in `tests/`,
+including a gradient check for each differentiable operation.
 
 ## License
 
-Distributed under the MIT License. See [LICENSE](LICENSE) for details.
+TorC uses the MIT License. See [LICENSE](LICENSE).
