@@ -13,6 +13,10 @@
 //    TorC's sum() threw NumericalError; final_loss is then null and the exception is recorded), and `best` is the lr with the
 //    lowest final loss among the runs that did not diverge.
 //    `race`: the four optimizers, each at its own best lr, with the full path in the format of valley.runs.
+// 5. (v3, brief C4) `bowl`: a second problem, the round bowl L = 2 w1^2 + 2 w2^2 (curvature 4 in both directions), from the same
+//    start and with the same 50 steps, lr grid, optimizers and rules as 4. It holds its own `sweep` and `race` in the formats of
+//    4., and a loss grid for the contour lines. On it, every direction is equally steep.
+// 6. (v3) `race_surface`: the valley's loss on a wider grid than valley.surface, for the map of the race.
 // Everything is library output, except `derived` (plain arithmetic) and the choice of `best` (a comparison of recorded losses).
 #include "trace_util.hpp"
 
@@ -34,13 +38,16 @@ const std::vector<float> HALF_CURV = {0.5f, 50.0f};    // L = sum(c * w * w): cu
 
 // The ops are written out where they are used: every intermediate Variable must live until backward() (TorC's tape holds raw
 // pointers to them), so a helper that returns only the loss would leave the graph with expired inputs.
-float valley_at(float w1, float w2) {
+const std::vector<float> BOWL_HALF_CURV = {2.0f, 2.0f};  // the round bowl: curvature 4 in both directions
+
+float loss_at(float w1, float w2, const std::vector<float>& half_curv) {
     Variable::NoGradGuard ng;
-    const Variable w(trace::make_tensor({2}, {w1, w2}), false), c(trace::make_tensor({2}, HALF_CURV), false);
+    const Variable w(trace::make_tensor({2}, {w1, w2}), false), c(trace::make_tensor({2}, half_curv), false);
     Variable sq = mul(w, w);
     Variable cs = mul(c, sq);
     return sum(cs).data().data()[0];
 }
+float valley_at(float w1, float w2) { return loss_at(w1, w2, HALF_CURV); }
 
 J point(const Variable& w, float loss) {
     J p = J::object();
@@ -134,11 +141,11 @@ struct SweepRun {
     trace::Caught error{"none", ""};
 };
 
-SweepRun sweep_run(const Kind& k, float lr, const std::vector<float>& start) {
+SweepRun sweep_run(const Kind& k, float lr, const std::vector<float>& start, const std::vector<float>& half_curv) {
     Variable w(trace::make_tensor({2}, start), true);
     AnyOpt opt;
     auto keep = k.make(w, lr, opt);
-    const Variable c(trace::make_tensor({2}, HALF_CURV), false);
+    const Variable c(trace::make_tensor({2}, half_curv), false);
     SweepRun r;
     try {
         for (int s = 0; s <= STEPS; ++s) {
@@ -231,18 +238,16 @@ int main() {
     J decay_setup = J::object();
     decay_setup.set("lr", 0.1).set("weight_decay", 0.1).set("target", 2).set("start", trace::jarr(std::vector<float>{0.0f, 3.0f, 3.0f}));
 
-    // ---- 4. learning-rate sweep and a race at each optimizer's best lr (C4) -----------------------------------------------------
+    // ---- 4. learning-rate sweep and a race at each optimizer's best lr (C4); 5. the same on the round bowl ----------------------
     const std::vector<double> SWEEP_LRS = {0.001, 0.003, 0.01, 0.019, 0.03, 0.1, 0.2, 0.3, 1.0, 3.0};
-    J sweep = J::object();
-    J race = J::array();
-    {
+    auto sweep_problem = [&](const std::vector<float>& half_curv, J& sweep, J& race) {
         J per = J::array();
         for (const Kind& k : kinds()) {
             J runs_j = J::array();
             double best_lr = -1.0;
             float best_loss = std::numeric_limits<float>::infinity();
             for (double lrd : SWEEP_LRS) {
-                const SweepRun R = sweep_run(k, static_cast<float>(lrd), start);
+                const SweepRun R = sweep_run(k, static_cast<float>(lrd), start, half_curv);
                 const std::vector<float>& L = R.losses;
                 const bool completed = R.error.type == "none" && L.size() == static_cast<size_t>(STEPS + 1);
                 const float fin = L.back();
@@ -262,7 +267,7 @@ int main() {
                 .set("best", [&] { J b = J::object(); b.set("lr", best_lr).set("final_loss", best_loss); return b; }());
             per.push(std::move(o));
             // the race: the same optimizer at its best lr, the full path
-            const SweepRun R = sweep_run(k, static_cast<float>(best_lr), start);
+            const SweepRun R = sweep_run(k, static_cast<float>(best_lr), start, half_curv);
             const std::vector<float>& L = R.losses;
             const auto& ws = R.ws;
             J path = J::array();
@@ -277,10 +282,51 @@ int main() {
             race.push(std::move(rr));
         }
         sweep.set("lrs", trace::jarr(SWEEP_LRS)).set("start", trace::jarr(start)).set("steps", STEPS)
-            .set("start_loss", valley_at(start[0], start[1]))
+            .set("start_loss", loss_at(start[0], start[1], half_curv))
             .set("diverged_rule", "final loss above the start loss, or the run did not finish its 50 steps (TorC threw; final_loss is then null)")
             .set("best_rule", "the lr with the lowest final loss among the runs that did not diverge")
             .set("optimizers", std::move(per));
+    };
+    J sweep = J::object();
+    J race = J::array();
+    sweep_problem(HALF_CURV, sweep, race);
+    // the valley's loss on a wider grid for the race map: the Adam and AdamW paths at their best lr overshoot to w1 = 1.8 and
+    // w2 = -0.6, outside valley.surface. w1 = -4.5 .. 2.5 (step 0.1), w2 = -0.7 .. 0.7 (step 0.025)
+    J race_surface = J::object();
+    {
+        J g1 = J::array(), g2 = J::array(), grid = J::array();
+        std::vector<float> w1s, w2s;
+        for (int i = 0; i <= 70; ++i) w1s.push_back(static_cast<float>(i - 45) / 10.0f);
+        for (int j = 0; j <= 56; ++j) w2s.push_back(static_cast<float>(j - 28) / 40.0f);
+        for (float v : w1s) g1.push(v);
+        for (float v : w2s) g2.push(v);
+        for (float b : w2s) {
+            J row = J::array();
+            for (float a : w1s) row.push(valley_at(a, b));
+            grid.push(std::move(row));
+        }
+        race_surface.set("w1", std::move(g1)).set("w2", std::move(g2)).set("order", "loss[j][i] at (w1[i], w2[j])").set("loss", std::move(grid));
+    }
+    J bowl = J::object();
+    {
+        J bsweep = J::object(), brace = J::array();
+        sweep_problem(BOWL_HALF_CURV, bsweep, brace);
+        // the loss on a grid: w1 = -4.5 .. 3 (step 0.125), w2 = -3 .. 3 (step 0.1); the Adam and AdamW paths swing out to w2 = -2.6
+        J g1 = J::array(), g2 = J::array(), grid = J::array();
+        std::vector<float> w1s, w2s;
+        for (int i = 0; i <= 60; ++i) w1s.push_back(static_cast<float>(i - 36) / 8.0f);
+        for (int j = 0; j <= 60; ++j) w2s.push_back(static_cast<float>(j - 30) / 10.0f);
+        for (float v : w1s) g1.push(v);
+        for (float v : w2s) g2.push(v);
+        for (float b : w2s) {
+            J row = J::array();
+            for (float a : w1s) row.push(loss_at(a, b, BOWL_HALF_CURV));
+            grid.push(std::move(row));
+        }
+        J surface = J::object();
+        surface.set("w1", std::move(g1)).set("w2", std::move(g2)).set("order", "loss[j][i] at (w1[i], w2[j])").set("loss", std::move(grid));
+        bowl.set("curvature", trace::jarr(std::vector<float>{2 * BOWL_HALF_CURV[0], 2 * BOWL_HALF_CURV[1]})).set("start", trace::jarr(start))
+            .set("steps", STEPS).set("sweep", std::move(bsweep)).set("race", std::move(brace)).set("surface", std::move(surface));
     }
 
     J derived = J::object();
@@ -290,7 +336,7 @@ int main() {
     J doc = trace::envelope("optimizers", "optimizers", "tools/trace/trace_optimizers.cpp");
     doc.set("valley", std::move(valley)).set("first_step", std::move(first)).set("decay_setup", std::move(decay_setup))
         .set("decay", std::move(decay)).set("derived", std::move(derived))
-        .set("sweep", std::move(sweep)).set("race", std::move(race));
+        .set("sweep", std::move(sweep)).set("race", std::move(race)).set("bowl", std::move(bowl)).set("race_surface", std::move(race_surface));
     std::fputs(doc.dump().c_str(), stdout);
     return 0;
 }

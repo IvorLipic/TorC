@@ -26,6 +26,7 @@
 
 #include "torc/optim.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <iostream>
 
@@ -152,13 +153,64 @@ int main() {
     auto params = m->seq.parameters();
     std::vector<Tensor> all_before;
     for (Variable* p : params) all_before.push_back(p->data());
+    std::vector<Tensor> all_grads;
+    for (Variable* p : params) all_grads.push_back(p->grad());
+
+    // v3 addition: how the gradient of a hidden neuron comes from the gradients after it (the chain rule, layer by layer), with the
+    // weights before the step. For the most active second-layer neuron k2: the sum over the ten scores of (its weight to the score
+    // x the score's gradient), times the ReLU slope; for the first-layer neuron `unit`: the same sum over the 32 second-layer
+    // neurons. Sums in double (the library sums in float32 inside matmul, so they agree to float precision; checked below).
+    J chain = J::object();
+    bool chain_ok = true;
+    {
+        auto link = [&](const Tensor& Wn, int out_n, int in_n, int j, const Tensor& gout, const Tensor& pre, const Tensor& recorded) {
+            J terms = J::array();
+            double s = 0.0;
+            std::vector<std::pair<double, int>> size;   // |product|, index: the largest terms first
+            for (int o = 0; o < out_n; ++o) {
+                const float wv = Wn.data()[o * in_n + j], gv = gout.data()[o];
+                s += static_cast<double>(wv) * gv;
+                size.emplace_back(std::fabs(static_cast<double>(wv) * gv), o);
+                J t = J::object();
+                t.set("to", o).set("weight", wv).set("grad", gv).set("product", wv * gv);
+                terms.push(std::move(t));
+            }
+            std::stable_sort(size.begin(), size.end(), [](const auto& x, const auto& y) { return x.first > y.first; });
+            J ranked = J::array();
+            for (const auto& [mag, o] : size) ranked.push(o);
+            // the sum of all terms except the largest two / three (derived, double), for a worked line that shows the largest terms
+            double rest2 = s, rest3 = s;
+            for (int r = 0; r < 3; ++r) {
+                const int o = size[r].second;
+                const double pr = static_cast<double>(Wn.data()[o * in_n + j]) * gout.data()[o];
+                if (r < 2) rest2 -= pr;
+                rest3 -= pr;
+            }
+            const int slope = pre.data()[j] > 0.0f ? 1 : 0;
+            const float g = recorded.data()[j];
+            chain_ok = chain_ok && std::fabs(s * slope - g) <= 1e-5 * (1.0 + std::fabs(g));
+            J o = J::object();
+            o.set("unit", j).set("terms", std::move(terms)).set("sum", s).set("relu_slope", slope).set("grad", g)
+                .set("ranked", std::move(ranked)).set("rest_after_2", rest2).set("rest_after_3", rest3);
+            return o;
+        };
+        const Tensor W2 = l2.named_parameters().at("weight").data(), W3v = W3.data();
+        chain.set("note", "the gradient of a hidden neuron = (sum over the next layer of its weight to that neuron x that neuron's gradient) x the ReLU slope; weights before the step")
+            .set("second", link(W3v, 10, 32, k2, dz, h2.data(), dh2))
+            .set("first", link(W2, 32, 32, unit, dh2, h1.data(), dh1));
+    }
 
     // 3. one SGD step
     optim::SGD opt(params, LR);
     opt.step();
-    int changed = 0, total = 0;
+    int changed = 0, total = 0, nonzero_grad = 0, unchanged_nonzero = 0;
     for (size_t i = 0; i < params.size(); ++i)
-        for (int k = 0; k < params[i]->data().numel(); ++k, ++total) changed += params[i]->data().data()[k] != all_before[i].data()[k];
+        for (int k = 0; k < params[i]->data().numel(); ++k, ++total) {
+            const bool moved = params[i]->data().data()[k] != all_before[i].data()[k], nz = all_grads[i].data()[k] != 0.0f;
+            changed += moved;
+            nonzero_grad += nz;
+            unchanged_nonzero += nz && !moved;
+        }
 
     J weights = J::array();
     bool all_exact = true;
@@ -178,12 +230,14 @@ int main() {
 
     // 4. the same image after the step
     Tensor prob_after(std::vector<int>{1, 10});
+    std::vector<float> scores_after;
     float loss_after;
     int pred_after;
     {
         Variable::NoGradGuard ng;
         Variable z2 = m->seq(Variable(xb, false));
         prob_after = z2.data().softmax(1);
+        scores_after = vals(z2.data());
         loss_after = loss_fn(z2, Variable(yb, false)).data().data()[0];
         pred_after = tmn::argmax10(z2.data().data());
     }
@@ -216,7 +270,8 @@ int main() {
     bwd.set("scores_grad", trace::jarr(vals(dz))).set("hidden1_pre_grad", trace::jarr(vals(dh1))).set("hidden2_pre_grad", trace::jarr(vals(dh2)));
     J aft = J::object();
     aft.set("probabilities", trace::jarr(vals(prob_after))).set("predicted", pred_after).set("p_true", prob_after.data()[label])
-        .set("p_rival", prob_after.data()[rival]).set("loss", loss_after);
+        .set("p_rival", prob_after.data()[rival]).set("loss", loss_after)
+        .set("scores", trace::jarr(scores_after));   // v3 addition: the ten scores after the step (some wrong scores rise)
     J derived = J::object();
     derived.set("p_true_change", static_cast<double>(prob_after.data()[label]) - p_true)
         .set("loss_change", static_cast<double>(loss_after) - loss.data().data()[0])
@@ -225,12 +280,16 @@ int main() {
     J checks = J::object();
     checks.set("weights_reproduce_mnist_mlp_logits", reproduced).set("modules_one_at_a_time_equal_sequential", same_as_sequential)
         .set("every_update_exact", all_exact).set("p_true_rose", prob_after.data()[label] > p_true);
-    if (!same_as_sequential || !all_exact) { std::cerr << "trace_one_step: a self-check failed\n"; return 1; }
+    if (!same_as_sequential || !all_exact || !chain_ok) { std::cerr << "trace_one_step: a self-check failed\n"; return 1; }
 
     J out = trace::envelope("one-step", "one-step", "tools/trace/trace_one_step.cpp");
     out.set("setup", std::move(setup)).set("full_run", std::move(full)).set("image", std::move(image)).set("forward", std::move(fwd))
         .set("backward", std::move(bwd)).set("weights", std::move(weights)).set("after", std::move(aft))
-        .set("changed_parameters", changed).set("derived", std::move(derived)).set("checks", std::move(checks));
+        .set("changed_parameters", changed).set("derived", std::move(derived)).set("checks", std::move(checks))
+        // v3 additions: why only some parameters change, and the chain rule for two hidden neurons
+        .set("changed_detail", J::object().set("nonzero_grad", nonzero_grad).set("unchanged_with_nonzero_grad", unchanged_nonzero)
+                                         .set("note", "a parameter changes only when its gradient is not zero; a few nonzero lr x gradient are below the float32 spacing of the parameter"))
+        .set("chain", std::move(chain));
     std::fputs(out.dump().c_str(), stdout);
     return 0;
 }

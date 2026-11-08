@@ -1,16 +1,17 @@
-// widgets/training-widgets.js — the two widgets of the lesson training-loop. Both show only what TorC recorded
-// (data/training.json, tools/trace/trace_training.cpp):
+// widgets/training-widgets.js — the widgets of the lesson training-loop. Each one shows only what TorC recorded (data/training.json,
+// tools/trace/trace_training.cpp):
 //
-//   mountBatchViewer(host, D)     a DataLoader over 100 samples: batch size 10 or 32, with or without shuffle. The buttons call
-//                                 next_batch() and reset() on the recorded batches of two epochs, and show the error TorC
-//                                 throws after the last batch.
-//   mountTrainingCurves(host, D)  three training runs that differ only in the batch size: the loss on all samples after each
-//                                 epoch (log scale), and the loss of the true line
+//   mountBatchViewer(host, D)       a data loader over the 100 samples, batch size 10, shuffle off or on: "Next batch" takes the next
+//                                   batch, "Next epoch" starts the next one, in the orders the training loop saw (`loop_orders`)
+//   mountGradientEstimate(host, D)  the gradient of each batch of 10 (first epoch of training, seed 7) as a dot in the plane
+//                                   (gradient for w, gradient for b), next to the gradient on all 100 samples, and their average
+//   mountBatchCompare(host, D)      the typical miss on all 100 samples after each step: batch 10 (three shuffled orders) against
+//                                   batch 100, by steps or by samples seen; and batch 10 in sorted order against shuffled order
 //
-// The module touches the DOM only in mount*.
+// Pure helpers (exported for the tests): loopOrders, loaderState, typicalMiss, sig, compareView, valueAt. The module touches the DOM only in mount*.
 import { el, svg } from '../core/dom.js';
-import { fmt } from '../ops/texutil.js';
 import { createPlot, srTable } from './plot.js';
+import { spreadLabels } from './curve-labels.js';
 
 const CSS = `
 .tl{background:var(--panel);border:1px solid var(--border);border-radius:var(--r);padding:.8rem 1rem 1rem;margin:14px 0}
@@ -18,133 +19,261 @@ const CSS = `
 .tl-presets{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .tl-lbl{color:var(--muted);font-size:.9rem;margin-right:.2rem}
 .tl .btn[aria-pressed=true]{border-color:var(--fwd);color:var(--fwd);background:rgba(88,196,221,.1)}
-.tl .btn[aria-disabled=true]{opacity:.45;cursor:default}
+.tl .btn:disabled{opacity:.45;cursor:default}
 .tl-calls{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 .6rem}
-.tl-calls .btn{font-family:ui-monospace,monospace}
 .tl-grid{display:grid;grid-template-columns:repeat(10,minmax(0,2.1rem));gap:3px;max-width:100%}
 .tl-cell{font:.72rem ui-monospace,monospace;text-align:center;padding:.22rem 0;border-radius:4px;border:1px solid var(--border);background:var(--panel2);color:var(--muted)}
 .tl-cell.used{opacity:.35}
 .tl-cell.cur{border-color:var(--fwd);background:rgba(88,196,221,.25);color:var(--fg);font-weight:700}
-.tl-status{font:.92rem ui-monospace,monospace;margin:.6rem 0 0}
-.tl-status b{color:var(--muted);font-weight:600;margin-right:.3rem}
-.tl-batch{font:.85rem ui-monospace,monospace;color:#c4ccd5;margin:.3rem 0 0;overflow-wrap:anywhere}
-.tl-err{border:1px solid var(--bwd);border-radius:8px;padding:.45rem .7rem;font:.88rem ui-monospace,monospace;color:#ffb3ab;background:#2b1513;margin:.5rem 0 0;overflow-wrap:anywhere}
+.tl-status{font-size:.95rem;margin:.6rem 0 0}
+.tl-batch{font-size:.88rem;color:var(--muted);margin:.3rem 0 0;overflow-wrap:anywhere}
 .tl-note{font-size:.85rem;color:var(--muted);margin:.4rem 0 0}
-.tl-field{display:flex;gap:.5rem;align-items:center}
-.tl-field input[type=range]{width:12rem;accent-color:var(--fwd)}
-.tl-key{display:flex;flex-wrap:wrap;gap:.2rem 1.2rem;font-size:.82rem;color:var(--muted);margin:.2rem 0 0}
-.tl-read{display:grid;grid-template-columns:auto auto auto auto auto;gap:.1rem 1rem;font:.85rem ui-monospace,monospace;margin:.5rem 0 0;width:max-content;max-width:100%}
-.tl-read b{color:var(--muted);font-weight:600}
-.tl-b100{stroke:var(--ok);stroke-width:2.2;stroke-dasharray:2 4;fill:none;stroke-linecap:round}
-.tl-b32{stroke:var(--warn);stroke-width:2.2;stroke-dasharray:8 4;fill:none}
-.tl-b10{stroke:var(--fwd);stroke-width:2.5;fill:none}
-.tl-floor{stroke:var(--muted);stroke-width:1.2;stroke-dasharray:3 3}
-.tl-dot{stroke:var(--bg);stroke-width:1.5}
-.tl-d10{fill:var(--fwd)}
-.tl-d32{fill:var(--warn)}
-.tl-d100{fill:var(--ok)}
-@media(max-width:560px){.tl-read{grid-template-columns:auto auto auto;font-size:.8rem}.tl-read .wide{display:none}}
+.tl-field{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}
+.tl-field input[type=range]{width:12rem;max-width:60vw;accent-color:var(--fwd)}
+.tl-read{font-size:.92rem;margin:.5rem 0 0}
+.tl-c10{stroke:var(--fwd);stroke-width:1.6;fill:none}
+.tl-c100{stroke:var(--warn);stroke-width:2.6;fill:none;stroke-dasharray:8 4}
+.tl-csort{stroke:var(--bwd);stroke-width:2.4;fill:none;stroke-dasharray:3 3}
+.tl-floor{stroke:var(--muted);stroke-width:1.2;stroke-dasharray:2 4}
+.tl-mark{stroke:var(--fg);stroke-width:1;stroke-dasharray:3 3;opacity:.6}
+.tl-t10{fill:var(--fwd);font-size:12px;font-weight:600}
+.tl-t100{fill:var(--warn);font-size:12px;font-weight:600}
+.tl-tsort{fill:var(--bwd);font-size:12px;font-weight:600}
+.tl-tfloor{fill:var(--muted);font-size:11px}
+.tl-dot{fill:var(--fwd);stroke:var(--bg);stroke-width:1.5}
+.tl-dot.cur{fill:var(--fg);stroke:var(--fwd);stroke-width:2.5}
+.tl-star{fill:var(--warn);stroke:var(--bg);stroke-width:1.5}
+.tl-avg{fill:none;stroke:var(--ok);stroke-width:2.5}
+.tl-tstar{fill:var(--warn);font-size:12px;font-weight:600}
+.tl-tavg{fill:var(--ok);font-size:12px;font-weight:600}
 `;
 function injectStyles() {
   if (typeof document === 'undefined' || document.getElementById('tl-styles')) return;
   document.head.append(el('style', { id: 'tl-styles' }, CSS));
 }
+// A toggle group: each button keeps its fixed label and carries aria-pressed.
 function presets(label, items, pick) {
   const btns = items.map(([key, text]) => el('button', { type: 'button', class: 'btn small', 'aria-pressed': 'false', onclick: () => pick(key) }, text));
   return { root: el('div', { class: 'tl-presets', role: 'group', 'aria-label': label }, el('span', { class: 'tl-lbl', 'aria-hidden': 'true' }, label), ...btns), set: (key) => btns.forEach((b, i) => b.setAttribute('aria-pressed', String(items[i][0] === key))) };
 }
 
-// The state of a recorded loader after `taken` calls of next_batch() in `epoch` (0 or 1). Exported for tests.
-export function loaderState(loader, epoch, taken) {
-  const batches = loader.epochs[epoch];
-  const used = new Set(batches.slice(0, Math.max(0, taken - 1)).flat());
-  const current = taken > 0 ? batches[taken - 1] : [];
-  return { batches: batches.length, hasNext: taken < batches.length, used, current };
+// v with n significant figures, with the minus sign U+2212 (widget readouts use 2-3 figures, docs/authoring.md "Widgets")
+export function sig(v, n = 2) {
+  if (!Number.isFinite(v)) return String(v);
+  const s = String(Number(Math.abs(v).toPrecision(n)));
+  return v < 0 && Number(s) !== 0 ? `−${s}` : s;
 }
+// the typical miss: the square root of the mean squared miss (the loss), in the unit of the targets
+export const typicalMiss = (loss) => Math.sqrt(loss);
 
 // ======================================================================================================================
+// The batch orders of the training loop: batch 10, with shuffle the recorded orders of the loop's first epochs (`loop_orders`, which
+// calls reset() before each epoch), without shuffle the samples in their order. Exported for tests.
+export function loopOrders(R, shuffle) {
+  if (shuffle) return R.loop_orders.epochs;
+  const bs = R.loop_orders.batch_size, n = R.setup.samples;
+  const one = Array.from({ length: Math.ceil(n / bs) }, (_, b) => Array.from({ length: Math.min(bs, n - b * bs) }, (_, i) => b * bs + i));
+  return R.loop_orders.epochs.map(() => one);
+}
+// The state of a loader after `taken` batches of `epoch` (counted from 0 here; the widget shows counts from 1). Exported for tests.
+export function loaderState(epochs, epoch, taken) {
+  const batches = epochs[epoch];
+  const used = new Set(batches.slice(0, Math.max(0, taken - 1)).flat());
+  const current = taken > 0 ? batches[taken - 1] : [];
+  return { batches: batches.length, hasNext: taken < batches.length, used, current, steps: epoch * batches.length + taken };
+}
+
 export function mountBatchViewer(host, D) {
   injectStyles();
-  const R = D.files.training, N = R.setup.samples;
-  let bs = 32, shuffle = false, epoch = 0, taken = 0, error = false;
-  const restart = () => { epoch = 0; taken = 0; error = false; draw(); };
-  const sizes = presets('Batch size', [[10, '10'], [32, '32']], (k) => { bs = k; restart(); });
-  const order = presets('Shuffle', [[false, 'off'], [true, 'on']], (k) => { shuffle = k; restart(); });
-  const nextBtn = el('button', { type: 'button', class: 'btn small' }, 'next_batch()');
-  const resetBtn = el('button', { type: 'button', class: 'btn small' }, 'reset()');
-  nextBtn.addEventListener('click', () => { const s = loaderState(loader(), epoch, taken); if (s.hasNext) { taken += 1; error = false; } else error = true; draw(); });
-  resetBtn.addEventListener('click', () => { if (epoch === 0) { epoch = 1; taken = 0; error = false; draw(); } });
+  const R = D.files.training, N = R.setup.samples, BS = R.loop_orders.batch_size;
+  let shuffle = false, epoch = 0, taken = 0, over = false;
+  const epochs = () => loopOrders(R, shuffle);
+  const restart = (msg) => { epoch = 0; taken = 0; over = false; draw(msg); };
+  const order = presets('Shuffle', [[false, 'off'], [true, 'on']], (k) => { shuffle = k; restart(`Shuffle ${k ? 'on' : 'off'}. Back to the start of epoch 1.`); });
+  const nextBtn = el('button', { type: 'button', class: 'btn small primary' }, 'Next batch');
+  const epochBtn = el('button', { type: 'button', class: 'btn small' }, 'Next epoch');
+  const againBtn = el('button', { type: 'button', class: 'btn small' }, 'Start again');
+  nextBtn.addEventListener('click', () => { const s = loaderState(epochs(), epoch, taken); if (s.hasNext) taken += 1; else over = true; draw(); });
+  epochBtn.addEventListener('click', () => { if (epoch + 1 < epochs().length) { epoch += 1; taken = 0; over = false; draw(); } });
+  againBtn.addEventListener('click', () => restart('Back to the start of epoch 1.'));
   const cells = Array.from({ length: N }, (_, i) => el('div', { class: 'tl-cell' }, String(i)));
   const grid = el('div', { class: 'tl-grid', 'aria-hidden': 'true' }, ...cells);
-  const status = el('p', { class: 'tl-status' });
+  const status = el('p', { class: 'tl-status', 'aria-live': 'polite' });
   const batch = el('p', { class: 'tl-batch' });
-  const err = el('p', { class: 'tl-err', hidden: true });
-  const note = el('p', { class: 'tl-note' });
-  const seed = el('p', { class: 'tl-note' }, `This loader uses the seed ${R.setup.loader_seed}. A loader without a seed gets a new random order each time the program runs.`);
-  const live = el('div', { 'aria-live': 'polite' }, status, err);   // the list of up to 32 indices is not read out on each click
+  const note = el('p', { class: 'tl-note' }, `The squares are the ${N} samples, numbered from 0. The bright squares are the batch of the current step. Each batch holds ${BS} samples.`);
   host.replaceChildren(el('div', { class: 'tl' },
-    el('div', { class: 'tl-ctl' }, sizes.root, order.root),
-    el('div', { class: 'tl-calls', role: 'group', 'aria-label': 'Calls on the loader' }, nextBtn, resetBtn),
-    grid, live, batch, note, seed));
-  const loader = () => R.loaders.find((l) => l.batch_size === bs && l.shuffle === shuffle);
-  const loaderEpochs = R.loaders[0].epochs.length;                   // epochs and batches are counts here, so they start at 1
+    el('div', { class: 'tl-ctl' }, order.root),
+    el('div', { class: 'tl-calls', role: 'group', 'aria-label': 'Loader buttons' }, nextBtn, epochBtn, againBtn),
+    grid, status, batch, note));
 
-  function draw() {
-    sizes.set(bs); order.set(shuffle);
-    const s = loaderState(loader(), epoch, taken);
+  function draw(msg) {
+    order.set(shuffle);
+    const E = epochs(), s = loaderState(E, epoch, taken);
     const cur = new Set(s.current);
     cells.forEach((c, i) => { c.className = `tl-cell${cur.has(i) ? ' cur' : s.used.has(i) ? ' used' : ''}`; });
-    status.innerHTML = `<span><b>epoch</b> ${epoch + 1} of ${loaderEpochs}</span> <span><b>batches taken</b> ${taken} of ${s.batches}</span> <span><b>has_next()</b> ${s.hasNext}</span>`;
-    batch.textContent = taken > 0 ? `Batch ${taken} holds ${s.current.length} samples: ${s.current.join(', ')}.` : 'No batch yet. Call next_batch().';
-    err.hidden = !error;
-    err.textContent = error ? `${R.exhausted.exception}: ${R.exhausted.what}` : '';
-    resetBtn.setAttribute('aria-disabled', String(epoch === 1));
-    note.textContent = epoch === 1 ? 'The trace records two epochs. Change the batch size or the shuffle setting to start again.' : '';
+    const where = `Epoch ${epoch + 1}. Batches taken: ${taken} of ${s.batches}. Steps so far: ${s.steps}.`;
+    const end = over ? (epoch + 1 < E.length ? ` Epoch ${epoch + 1} is over. Every sample was in one batch. Press Next epoch.` : ` This epoch is over too. This viewer has ${E.length} epochs.`) : '';
+    status.textContent = `${msg ? `${msg} ` : ''}${where}${end}`;
+    batch.textContent = taken > 0 ? `This batch holds the samples ${s.current.join(', ')}.` : 'No batch yet. Press Next batch.';
+    nextBtn.disabled = over;
+    epochBtn.disabled = epoch + 1 >= E.length;
   }
   draw();
   return { draw };
 }
 
 // ======================================================================================================================
-const RUNS = [[10, 'tl-b10', 'solid line: batch size 10'], [32, 'tl-b32', 'dashed line: batch size 32'], [100, 'tl-b100', 'dotted line: batch size 100']];
-const LOG = [Math.log10(0.005), Math.log10(5)];
-const decade = (d) => String(Number((10 ** d).toPrecision(1)));
-
-export function mountTrainingCurves(host, D) {
+export function mountGradientEstimate(host, D) {
   injectStyles();
-  const R = D.files.training, E = R.setup.epochs;
-  const run = (bs) => R.runs.find((r) => r.batch_size === bs);
-  let k = 5;
-  const input = el('input', { type: 'range', id: 'tl-epoch', min: 0, max: E, step: 1, value: k });
-  input.addEventListener('input', () => { k = Number(input.value); mark(); });
+  const G = D.files.training.batch_compare.gradient_estimate, B = G.batches;
+  let shown = 0, avg = false;
+  const nextBtn = el('button', { type: 'button', class: 'btn small primary' }, 'Next batch');
+  const avgBtn = el('button', { type: 'button', class: 'btn small' }, 'Show the average of the dots');
+  const resetBtn = el('button', { type: 'button', class: 'btn small' }, 'Reset');
+  nextBtn.addEventListener('click', () => { if (shown < B.length) { shown += 1; mark(); } });
+  avgBtn.addEventListener('click', () => { if (shown === B.length) { avg = true; mark(); } });
+  resetBtn.addEventListener('click', () => { shown = 0; avg = false; mark('The dots are cleared.'); });
   const box = el('div');
-  const key = el('div', { class: 'tl-key', 'aria-hidden': 'true' }, ...RUNS.map(([, , t]) => el('span', {}, t)), el('span', {}, 'thin line: the loss of the true line'));
-  const read = el('div', { class: 'tl-read', 'aria-live': 'polite' });
-  host.replaceChildren(el('div', { class: 'tl' },
-    el('div', { class: 'tl-ctl' }, el('div', { class: 'tl-field' }, el('label', { for: 'tl-epoch', class: 'tl-lbl' }, 'after epoch'), input)), box, key, read));
-  srTable(host, { columns: ['epoch', ...RUNS.map(([bs]) => `loss, batch size ${bs}`)], rows: run(10).epochs.map((e, i) => [e.epoch, ...RUNS.map(([bs]) => run(bs).epochs[i].loss)]), caption: 'Loss on all samples after each epoch' });
-
+  const read = el('p', { class: 'tl-read', 'aria-live': 'polite' });
+  host.replaceChildren(el('div', { class: 'tl' }, el('div', { class: 'tl-calls', role: 'group', 'aria-label': 'Batch buttons' }, nextBtn, avgBtn, resetBtn), box, read,
+    el('p', { class: 'tl-note' }, 'Each dot is the gradient of one batch of 10 samples at w = 0 and b = 0. Its position across is the gradient for w, and its height is the gradient for b.')));
+  srTable(host, { columns: ['batch', 'gradient for w', 'gradient for b'], rows: [...B.map((b, i) => [i + 1, b.gw, b.gb]), ['all samples', G.full.gw, G.full.gb]], caption: 'The gradient of each batch and of all samples' });
+  const lo = Math.floor(Math.min(G.range.gw_min, G.range.gb_min) * 2) / 2 - 0.25;
   const paint = (pl) => {
-    pl.axes({ xTicks: [0, 5, 10, 15, 20, 25, 30].filter((t) => t <= E), yTicks: [-2, -1, 0], yFmt: decade });
-    pl.layer('curves').append(svg('line', { class: 'tl-floor', x1: pl.sx(0), x2: pl.sx(E), y1: pl.sy(Math.log10(R.true_line_loss)), y2: pl.sy(Math.log10(R.true_line_loss)) }));
-    for (const [bs, cls] of RUNS) pl.curve(run(bs).epochs.map((e) => [e.epoch, Math.log10(e.loss)]), { class: cls, layer: 'curves' });
-    pl.layer('live');
+    pl.axes({ xTicks: [-3, -2, -1, 0].filter((t) => t >= lo), yTicks: [-3, -2, -1, 0].filter((t) => t >= lo), fmt: (t) => sig(t) });
+    pl.layer('dots'); pl.layer('marks');
     mark();
   };
-  const p = createPlot(box, { width: 640, height: 290, x: [0, E], y: LOG, xLabel: 'epoch', yLabel: 'loss (log scale)', ariaLabel: '', onResize: paint });
+  const p = createPlot(box, { width: 420, height: 380, x: [lo, 0.5], y: [lo, 0.5], xLabel: 'gradient for w', yLabel: 'gradient for b', ariaLabel: '', onResize: paint, margin: { r: 12 } });
 
-  function mark() {
-    p.clear('live');
-    for (const [bs] of RUNS) {
-      const e = run(bs).epochs[k];
-      p.dot(e.epoch, Math.log10(e.loss), { class: `tl-dot tl-d${bs}`, r: 5, layer: 'live' });
+  function mark(msg) {
+    p.clear('dots'); p.clear('marks');
+    B.slice(0, shown).forEach((b, i) => p.dot(b.gw, b.gb, { class: `tl-dot${i === shown - 1 && !avg ? ' cur' : ''}`, r: i === shown - 1 && !avg ? 7 : 5, layer: 'dots' }));
+    // the star: the gradient on all samples
+    const sx = p.sx(G.full.gw), sy = p.sy(G.full.gb), r = 8;
+    const star = Array.from({ length: 10 }, (_, k) => { const a = -Math.PI / 2 + (k * Math.PI) / 5, q = k % 2 ? r * 0.45 : r; return `${(sx + q * Math.cos(a)).toFixed(1)},${(sy + q * Math.sin(a)).toFixed(1)}`; }).join(' ');
+    p.layer('marks').append(svg('polygon', { class: 'tl-star', points: star }));
+    p.text(G.full.gw, G.full.gb, 'all 100 samples', { class: 'tl-tstar', dx: 11, dy: -10, layer: 'marks' });
+    if (avg) {
+      p.layer('marks').append(svg('circle', { class: 'tl-avg', cx: p.sx(G.mean.gw), cy: p.sy(G.mean.gb), r: 12 }));
+      p.text(G.mean.gw, G.mean.gb, 'average of the dots', { class: 'tl-tavg', dx: 15, dy: 18, layer: 'marks' });
     }
-    input.setAttribute('aria-valuetext', `after epoch ${k}`);
-    p.root.setAttribute('aria-label', `Loss after each epoch for batch sizes 10, 32 and 100, on a log scale. After epoch ${k}: ${RUNS.map(([bs]) => `batch size ${bs}, loss ${fmt(run(bs).epochs[k].loss)}`).join('. ')}.`);
-    read.replaceChildren(
-      el('b', {}, 'batch size'), el('b', {}, 'steps'), el('b', {}, 'loss'), el('b', { class: 'wide' }, 'weight'), el('b', { class: 'wide' }, 'bias'),
-      ...RUNS.flatMap(([bs]) => { const e = run(bs).epochs[k]; return [el('span', {}, String(bs)), el('span', {}, String(e.steps)), el('span', {}, fmt(e.loss)), el('span', { class: 'wide' }, fmt(e.weight)), el('span', { class: 'wide' }, fmt(e.bias))]; }));
+    nextBtn.disabled = shown >= B.length;
+    avgBtn.disabled = shown < B.length || avg;
+    const full = `All 100 samples give ${sig(G.full.gw)} for w and ${sig(G.full.gb)} for b.`;
+    let text;
+    if (avg) text = `The average of the ten dots is ${sig(G.mean.gw)} for w and ${sig(G.mean.gb)} for b. ${full}`;
+    else if (shown === 0) text = 'No batch yet. Press Next batch.';
+    else { const b = B[shown - 1]; text = `Batch ${shown} of ${B.length} gives ${sig(b.gw)} for w and ${sig(b.gb)} for b. ${full}`; }
+    read.textContent = `${msg ? `${msg} ` : ''}${text}`;
+    p.root.setAttribute('aria-label', `The gradients of ${shown} of ${B.length} batches as dots, and the gradient of all samples as a star. ${text}`);
   }
   paint(p);
   return { mark };
+}
+
+// ======================================================================================================================
+// The three views of the comparison, as data for the plot: curves of [x, typical miss] and the slider range. Exported for tests.
+export function compareView(R, view) {
+  const C = R.batch_compare, S = R.sorted_order;
+  const runs = (bs) => C.runs.filter((r) => r.batch_size === bs);
+  const miss = (loss, upTo, perStep = 1) => loss.slice(0, upTo + 1).map((l, k) => [k * perStep, typicalMiss(l)]);
+  if (view === 'steps') {
+    const n = 100;
+    return { xLabel: 'steps', xMax: n, step: 1, unit: 'steps', curves: [
+      ...runs(10).map((r) => ({ key: 'b10', seed: r.seed, pts: miss(r.loss, n) })),
+      { key: 'b100', pts: miss(runs(100)[0].loss, n) }] };
+  }
+  if (view === 'samples') {
+    const n = C.equal_samples[0].samples;
+    return { xLabel: 'samples seen', xMax: n, step: 100, unit: 'samples', curves: [
+      ...runs(10).map((r) => ({ key: 'b10', seed: r.seed, pts: miss(r.loss, n / 10, 10) })),
+      { key: 'b100', pts: miss(runs(100)[0].loss, n / 100, 100) }] };
+  }
+  const n = 60;
+  return { xLabel: 'steps', xMax: n, step: 1, unit: 'steps', curves: [
+    { key: 'b10', seed: S.shuffled_seed, pts: miss(S.shuffled_loss, n) },
+    { key: 'sort', pts: miss(S.sorted_loss, n) }] };
+}
+// the value of a curve at x (the last recorded point at or before x)
+export const valueAt = (pts, x) => { let v = pts[0][1]; for (const [px, py] of pts) if (px <= x + 1e-9) v = py; return v; };
+
+const NAMES = { b10: 'batch 10', b100: 'batch 100', sort: 'batch 10, sorted' };
+const LABEL = { steps: { b10: 'batch 10 (three orders)', b100: 'batch 100' }, samples: { b10: 'batch 10 (three orders)', b100: 'batch 100' }, sorted: { b10: 'batch 10, shuffled', sort: 'batch 10, sorted' } };
+const CLS = { b10: 'tl-c10', b100: 'tl-c100', sort: 'tl-csort' };
+const TCLS = { b10: 'tl-t10', b100: 'tl-t100', sort: 'tl-tsort' };
+const TICKS = { steps: [0, 25, 50, 75, 100], samples: [0, 1000, 2000, 3000], sorted: [0, 20, 40, 60] };
+const START_AT = { steps: 10, samples: 1000, sorted: 1 };   // where the marker starts in each view (not an answer of a task)
+
+let seq = 0;
+export function mountBatchCompare(host, D) {
+  injectStyles();
+  const uid = `tl${++seq}`;
+  const R = D.files.training, floor = typicalMiss(R.true_line_loss);
+  let view = 'steps', at = START_AT.steps, plot = null;
+  const views = presets('Compare', [['steps', 'Same number of steps'], ['samples', 'Same number of samples'], ['sorted', 'Sorted or shuffled']], (k) => {
+    view = k;
+    at = START_AT[k];
+    build();
+    mark(`Showing ${k === 'steps' ? 'the same number of steps' : k === 'samples' ? 'the same number of samples' : 'sorted against shuffled order'}.`);
+  });
+  const slider = el('input', { type: 'range', id: `${uid}-at`, min: 0, max: 100, step: 1, value: at });
+  slider.addEventListener('input', () => { at = Number(slider.value); mark(); });
+  const label = el('label', { for: `${uid}-at`, class: 'tl-lbl' }, 'after');
+  const box = el('div');
+  const read = el('p', { class: 'tl-read', 'aria-live': 'polite' });
+  host.replaceChildren(el('div', { class: 'tl' }, el('div', { class: 'tl-ctl' }, views.root), el('div', { class: 'tl-ctl' }, el('div', { class: 'tl-field' }, label, slider)), box, read,
+    el('p', { class: 'tl-note' }, 'The height of a curve is the typical miss of the line on all 100 samples, the square root of the loss. Lower is better.')));
+  const sr = srTable(host, { columns: ['x', 'curve', 'typical miss'], rows: [], caption: 'Typical miss after each step' });
+
+  // the x range changes with the view, so each view gets a new plot; paint() draws it again on resize
+  function build() {
+    const v = compareView(R, view);
+    views.set(view);
+    slider.max = v.xMax; slider.step = v.step; slider.value = at;
+    plot?.destroy();
+    box.replaceChildren();
+    plot = createPlot(box, { width: 640, height: 300, x: [0, v.xMax], y: [0, 2], xLabel: v.xLabel, yLabel: 'typical miss', ariaLabel: '', margin: { r: 16 }, onResize: paint });
+    paint(plot);
+  }
+  function paint(pl) {
+    const v = compareView(R, view), xs = v.xMax;
+    pl.axes({ xTicks: TICKS[view], yTicks: [0, 0.5, 1, 1.5, 2], fmt: (t) => (t >= 1000 ? t.toLocaleString('en-US') : sig(t, 2)) });
+    pl.line(0, floor, xs, floor, { class: 'tl-floor', layer: 'curves' });
+    // the floor label sits where no curve runs: at the right end in the samples view, at the left end in the other two
+    const right = view === 'samples';
+    pl.text(right ? xs : 0, floor, `the true line: ${sig(floor)}`, { class: 'tl-tfloor', anchor: right ? 'end' : 'start', dx: right ? -4 : 6, dy: -6, layer: 'curves' });
+    for (const c of v.curves) pl.curve(c.pts, { class: CLS[c.key], layer: 'curves' });
+    // one label per kind of curve, near the left, moved apart if they would collide
+    const kinds = [...new Set(v.curves.map((c) => c.key))];
+    const lx = xs * (view === 'sorted' ? 0.12 : 0.1);
+    const want = kinds.map((k) => pl.sy(valueAt(v.curves.find((c) => c.key === k).pts, lx)) - 10);
+    const ys = spreadLabels(want, { gap: 16, min: pl.plotArea.t + 12, max: pl.plotArea.t + pl.plotArea.h - 6 });
+    kinds.forEach((k, i) => pl.layer('labels').append(svg('text', { class: TCLS[k], x: pl.sx(lx) + 6, y: ys[i] }, LABEL[view][k])));
+    sr.update(v.curves.flatMap((c) => c.pts.filter((_, i) => i % 10 === 0).map(([x, y]) => [x, `${NAMES[c.key]}${c.seed ? `, order ${c.seed}` : ''}`, y])));
+    pl.layer('live');
+    mark();
+  }
+
+  function mark(msg) {
+    const v = compareView(R, view);
+    plot.clear('live');
+    plot.line(at, 0, at, 2, { class: 'tl-mark', layer: 'live' });
+    const vals = (key) => v.curves.filter((c) => c.key === key).map((c) => valueAt(c.pts, at));
+    for (const c of v.curves) plot.dot(at, valueAt(c.pts, at), { class: TCLS[c.key], r: 3.5, layer: 'live' });
+    const range = (a) => { const lo = sig(Math.min(...a)), hi = sig(Math.max(...a)); return lo === hi ? lo : `${lo} to ${hi}`; };
+    let text;
+    if (view === 'sorted') text = `After ${at} steps of batch 10, the line misses by ${range(vals('sort'))} in sorted order and by ${range(vals('b10'))} in shuffled order.`;
+    else {
+      const s100 = view === 'samples' ? Math.floor(at / 100) : at, s10 = view === 'samples' ? at / 10 : at;
+      text = `After ${view === 'samples' ? `${at.toLocaleString('en-US')} samples` : `${at} steps`}, batch 10 (${s10} steps) misses by ${range(vals('b10'))}. Batch 100 (${s100} steps) misses by ${range(vals('b100'))}.`;
+    }
+    const where = view === 'samples' ? `after ${at.toLocaleString('en-US')} samples` : `after ${at} steps`;
+    slider.setAttribute('aria-valuetext', where);
+    label.textContent = where;
+    read.textContent = `${msg ? `${msg} ` : ''}${text}`;
+    plot.root.setAttribute('aria-label', `Typical miss on all samples, by ${v.xLabel}. ${text}`);
+  }
+  build();
+  return { mark: () => mark() };
 }

@@ -251,6 +251,24 @@ arithmetic on the recorded losses. Observed: batch 100 gives the same loss for e
 max are equal. `gradient_estimate` = `{at{w, b}, batch_size 10, seed 7, full{gw, gb}, batches[10]{gw, gb}}`: at `w = b = 0`, the
 gradient from `backward()` on all 100 samples and on each batch of the first shuffled epoch (the batch gradient as an estimate).
 
+v3 additions for the `training-loop` lesson, appended keys only:
+- `gradient_estimate.batches[i]` gains `indices` (the samples of the batch; they equal `loaders[batch 10, shuffle].epochs[1]`,
+  because the loader is reset once before its first epoch, as in the training loop) and `step` = `{w, b}` after one `optim::SGD`
+  step (lr 0.1) from `w = b = 0` on that batch alone. `gradient_estimate.lr`, `gradient_estimate.mean` = `{gw, gb}` (the mean of the
+  ten batch gradients, plain arithmetic; it equals `full` up to float rounding, because each batch holds 10 of the 100 samples) and
+  `gradient_estimate.range` = `{gw_min, gw_max, gb_min, gb_max}`.
+- `sorted_order` = `{batch_size 10, steps 300, order, sorted_indices[100], sorted_loss[301], shuffled_seed 7, shuffled_loss[301]}`:
+  the loop of `batch_compare` on a `TensorDataset` with the samples sorted by x (smallest first) and no shuffle, next to the shuffled
+  run with seed 7 (equal to `batch_compare.runs[batch 10, seed 7].loss`). `loss[k]` is `nn::MSELoss` on all 100 samples after `k` steps.
+  Observed: in sorted order the loss rises during the first two steps (and is still above the start after three), because the
+  first batches hold only the smallest x.
+- `accumulate` = `{at, samples, lr, first, second_with_zero_grad, second_without_zero_grad, same_loss_twice}`, each `{gw, gb}` on
+  all 100 samples from `w = b = 0`: the gradient after the first `L.backward()`; after `opt.step()`, `opt.zero_grad()`, a new forward
+  pass and `L.backward()`; the same without `zero_grad()` (TorC adds the new gradient to the stored one, a self-check confirms the
+  sum); and after calling `L.backward()` twice on the same `L` (the second call changes nothing, because `backward()` clears the tape).
+- `loop_orders` = `{batch_size 10, shuffle true, seed 7, epochs[3][10][10]}`: the sample indices of each batch in the first three
+  epochs of the training loop, which calls `reset()` before every epoch (so `epochs[0]` = `loaders[batch 10, shuffle].epochs[1]`).
+
 ## `optimizers.json` (kind `optimizers`, lesson `optimizers`)
 
 `valley` = `{curvature [1, 100], start [-4, 0.4], steps 50, runs[], surface}`: the loss `sum(c·w·w)` with `c = [0.5, 50]` on one
@@ -274,6 +292,12 @@ v3 additions (brief C4), appended after the keys above:
   that did not diverge (the sweep is coarse: one run per lr).
 - `race[]` = `{id, optimizer, lr, momentum, weight_decay, final_loss, path[51]{w1, w2, loss}}`: each optimizer at its own `best.lr`,
   with the path in the format of `valley.runs[].path`.
+- `bowl` = `{curvature [4, 4], start, steps 50, sweep, race[], surface}`: a second problem, the round bowl `L = 2·w1² + 2·w2²`
+  (equally steep in every direction), with the same start, lr grid, optimizers and rules as `sweep` and `race` above, in their formats.
+  `surface` = `{w1[61] (-4.5 .. 3), w2[61] (-3 .. 3), order, loss[61][61]}`. Observed: plain SGD at its best lr (0.2) reaches a loss
+  of exactly 0 in float32; Adam, AdamW and momentum at their best lr end above it. On the valley, Adam ends lowest.
+- `race_surface` = `{w1[71] (-4.5 .. 2.5), w2[57] (-0.7 .. 0.7), order, loss[57][71]}`: the valley's loss on a wider grid than
+  `valley.surface`, for the map of the race (Adam and AdamW at lr 1 overshoot to w1 = 1.8 and w2 = -0.6).
 
 ## `generalization.json` (kind `generalization`, lesson `generalization`)
 
@@ -458,6 +482,14 @@ One real training step of the final MLP (weights read from `mnist-mlp.json`) on 
 - `after` = `{probabilities[10], predicted, p_true, p_rival, loss}`: the same image after the step. `changed_parameters`: how many of the
   26506 numbers `step()` changed. `derived` = `{p_true_change, loss_change, loss_check (= -ln p_true), note}`. `checks` =
   `{weights_reproduce_mnist_mlp_logits, modules_one_at_a_time_equal_sequential, every_update_exact, p_true_rose}`.
+Added for the review (additive, after the keys above): `after.scores[10]` (the ten scores after the step; the score of the true digit
+rises most, a few wrong scores rise a little, every wrong probability falls); `changed_detail` = `{nonzero_grad, unchanged_with_nonzero_grad,
+note}` (a parameter changes only when its gradient is not zero, and a few nonzero `lr × grad` are below the float32 spacing of the
+parameter, so `changed_parameters = nonzero_grad − unchanged_with_nonzero_grad`); `chain` = `{note, second, first}`: the chain rule for
+the most active second-layer neuron (`second`, from the ten scores) and for the first-layer neuron of `first_layer` (`first`, from the 32
+second-layer neurons), each `{unit, terms[]{to, weight, grad, product}, sum (double), relu_slope, grad (recorded), ranked[] (term
+indices by |product|, largest first), rest_after_2, rest_after_3 (the sum without the largest two / three terms, derived in double)}`,
+with the weights before the step. The producer checks `sum × relu_slope` against the recorded gradient.
 Producer: `tools/trace/trace_one_step.cpp`.
 
 ## `shift.json` (kind `shift`, lesson `convolution`; C8)

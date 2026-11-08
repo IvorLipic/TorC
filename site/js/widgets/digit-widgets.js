@@ -111,6 +111,7 @@ const CSS = `
 .dw-btns{display:flex;flex-wrap:wrap;gap:6px;margin:.6rem 0 0}
 .dw-btns .btn{font-family:ui-monospace,monospace}
 .dw .btn[aria-pressed=true]{border-color:var(--fwd);color:var(--fwd);background:rgba(88,196,221,.1)}
+.dw .btn.dw-wrong{border-color:var(--bwd);border-width:2px}
 .dw-gal{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:6px;max-width:44rem}
 .dw-row>.dw-gal{flex:1 1 14rem;min-width:0}
 .dw-tile{display:flex;flex-direction:column;align-items:center;gap:2px;font:.72rem ui-monospace,monospace;color:var(--muted)}
@@ -129,7 +130,10 @@ function paintGray(canvas, pixels) {   // 784 values 0..255 onto a 28 x 28 canva
 
 // ======================================================================================================================
 // opts.simple: plain words for the first page of the course (what-is-learning), with no terms that the page has not defined yet
-export function mountDigitPad(host, D, { file = 'mnist-mlp', forward: fwd = forward, simple = false } = {}) {
+// opts.markWrong (mnist-mlp): a test image that TorC reads wrongly gets a red edge and says so in its label. opts.torcNote = false
+// drops the sentence that compares the page's answer with the one TorC recorded. Both are off by default, so every caller keeps
+// the pad it had.
+export function mountDigitPad(host, D, { file = 'mnist-mlp', forward: fwd = forward, simple = false, markWrong = false, torcNote = true } = {}) {
   injectStyles();
   const M = D.files[file], layers = M.layers, N = 280;
   const pct = (v) => `${Math.round(100 * v)}%`;
@@ -139,7 +143,8 @@ export function mountDigitPad(host, D, { file = 'mnist-mlp', forward: fwd = forw
   const read = el('p', { class: 'dw-read' });                  // follows the drawing: not a live region
   const say = el('p', { class: 'sr', 'aria-live': 'polite' }); // announced on a click and at the end of a stroke
   const clear = el('button', { type: 'button', class: 'btn small' }, 'Clear');
-  const samples = M.shown.map((s) => el('button', { type: 'button', class: 'btn small', 'aria-pressed': 'false', 'aria-label': simple ? `A handwritten ${s.label}` : `Test image ${s.index}, label ${s.label}` }, `#${s.index}`));
+  const wrong = (s) => markWrong && argmax(s.logits) !== s.label;
+  const samples = M.shown.map((s) => el('button', { type: 'button', class: `btn small${wrong(s) ? ' dw-wrong' : ''}`, 'aria-pressed': 'false', 'aria-label': simple ? `A handwritten ${s.label}` : `Test image ${s.index}, label ${s.label}${wrong(s) ? ', read wrongly' : ''}` }, `#${s.index}`));
   host.replaceChildren(el('div', { class: 'dw' },
     el('div', { class: 'dw-btns', role: 'group', 'aria-label': simple ? 'Handwritten digits' : 'Test images' }, clear, ...samples),
     el('div', { class: 'dw-row' }, pad,
@@ -155,7 +160,7 @@ export function mountDigitPad(host, D, { file = 'mnist-mlp', forward: fwd = forw
     bars.replaceChildren(...p.flatMap((v, d) => [el('span', {}, String(d)), el('div', { class: `dw-bar${d === top ? ' top' : ''}`, style: `width:${(100 * v).toFixed(1)}%` }), el('span', {}, simple ? pct(v) : v.toFixed(3))]));
     if (simple) read.textContent = (recorded ? `This handwritten digit is a ${recorded.label}. ` : '') + `The model reads ${top}, and it is ${pct(p[top])} sure.`;
     else read.textContent = recorded
-      ? `Test image ${recorded.index}, label ${recorded.label}. The model reads ${top}, with probability ${p[top].toFixed(3)}. TorC also reads ${argmax(recorded.logits)}.`
+      ? `Test image ${recorded.index}, label ${recorded.label}. The model reads ${top}, with probability ${p[top].toFixed(3)}.${torcNote ? ` TorC also reads ${argmax(recorded.logits)}.` : ''}`
       : `The model reads ${top}, with probability ${p[top].toFixed(3)}.`;
     if (announce) say.textContent = read.textContent;
   }
