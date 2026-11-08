@@ -122,7 +122,7 @@ export default {
     <p>After the last epoch, the network makes about ${per100(T, `${V}.epochs.${LAST}.train_subset.accuracy`)} mistakes per hundred training images and about ${per100(T, `${V}.epochs.${LAST}.validation.accuracy`)} per hundred validation images. The gap is small, so the network ${term('overfitting', 'overfits')} only a little. It has many parameters, but also many images.</p>
     <p>The two sets hold different images, so their counts differ a little by chance. The gap that opens later is what counts.</p>
     <p>After training, this run reads the ${term('test-set', 'test set')} once. It makes about ${per100(T, `${V}.final_test.accuracy`)} mistakes per hundred test images.</p>
-    <p>The network of the digit pad trains on all training images. From three random starts, it read between ${T(`${S}.mlp.min_accuracy`, 'contrast', { sig: 4 })} and ${T(`${S}.mlp.max_accuracy`, 'contrast', { sig: 4 })} of the test images correctly. These runs also measured the test images after each epoch, but this course chooses nothing with those counts.</p>`),
+    <p>The network of the digit pad trains on all training images. From three random starts, it made between ${T(`${S}.mlp.min_mistakes_per100`, 'contrast')} and ${T(`${S}.mlp.max_mistakes_per100`, 'contrast')} mistakes per hundred test images. These runs also measured the test images after each epoch, but this course chooses nothing with those counts.</p>`),
     },
     {
       kind: 'text',

@@ -23,7 +23,9 @@
     ],
     "min_accuracy":0.9651,
     "max_accuracy":0.9666,
-    "mean_accuracy":0.9661
+    "mean_accuracy":0.9661,
+    "min_mistakes_per100":3.3399999999999985,
+    "max_mistakes_per100":3.490000000000004
   },
   "cnn":{
     "model":"CNN",
@@ -35,7 +37,9 @@
     ],
     "min_accuracy":0.9753,
     "max_accuracy":0.9794,
-    "mean_accuracy":0.9772333333333333
+    "mean_accuracy":0.9772333333333333,
+    "min_mistakes_per100":2.059999999999995,
+    "max_mistakes_per100":2.4700000000000055
   },
   "derived":{"cnn_min_minus_mlp_max":0.0087,"cnn_always_ahead":true,"seed_set_1":{"mlp_mistakes":334,"cnn_mistakes":206,"fewer_mistakes":128,"percent_of_mlp_mistakes_avoided":38.32335329341317}}
 }

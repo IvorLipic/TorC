@@ -147,6 +147,10 @@ test('the test set: the validation run reads it once, after training; the other 
   assert.equal(seeds.mlp.min_accuracy, Math.min(...seeds.mlp.runs.map((r) => r.test_accuracy)));
   assert.equal(seeds.mlp.max_accuracy, Math.max(...seeds.mlp.runs.map((r) => r.test_accuracy)));
   assert.ok(seeds.mlp.max_accuracy - seeds.mlp.min_accuracy < 0.002);
+  // the prose gives the range as mistakes per hundred: the best run makes the fewest
+  assert.ok(Math.abs(seeds.mlp.min_mistakes_per100 - 100 * (1 - seeds.mlp.max_accuracy)) < 1e-9);
+  assert.ok(Math.abs(seeds.mlp.max_mistakes_per100 - 100 * (1 - seeds.mlp.min_accuracy)) < 1e-9);
+  assert.match(html, /data-trace="files\.mnist-seeds\.mlp\.min_mistakes_per100"/);
   assert.equal(data.final.test_correct, data.confusion.correct, 'the confusion matrix is the final network of the pad');
 });
 

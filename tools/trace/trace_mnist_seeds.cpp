@@ -10,7 +10,8 @@
 // Keys:
 //   setup   {seed_sets: [{id, layer_seeds[3], loader_seed, source}], note}
 //   mlp/cnn {settings {epochs, lr, batch_size, optimizer}, runs: [{seed_set, test_correct_by_epoch[epochs + 1] (epoch 0 = before
-//           training), test_correct, test_accuracy}], min_accuracy, max_accuracy, mean_accuracy (derived over the 3 runs)}
+//           training), test_correct, test_accuracy}], min_accuracy, max_accuracy, mean_accuracy (derived over the 3 runs),
+//           min_mistakes_per100, max_mistakes_per100 (100 * (1 - accuracy) of the best and the worst run, for the prose)}
 //   derived {cnn_min_minus_mlp_max, cnn_always_ahead, seed_set_1{mlp_mistakes, cnn_mistakes, fewer_mistakes,
 //           percent_of_mlp_mistakes_avoided}}: the smallest CNN accuracy minus the largest MLP accuracy, and for seed set 1 how many
 //           of the MLP's test mistakes the CNN avoids (plain arithmetic)
@@ -75,7 +76,9 @@ J model_json(const char* name, int epochs, double lr, const std::vector<std::vec
     J o = J::object();
     o.set("model", name).set("settings", std::move(settings)).set("runs", std::move(runs))
         .set("min_accuracy", *std::min_element(acc.begin(), acc.end())).set("max_accuracy", *std::max_element(acc.begin(), acc.end()))
-        .set("mean_accuracy", mean);
+        .set("mean_accuracy", mean)
+        .set("min_mistakes_per100", 100.0 * (1.0 - *std::max_element(acc.begin(), acc.end())))
+        .set("max_mistakes_per100", 100.0 * (1.0 - *std::min_element(acc.begin(), acc.end())));
     return o;
 }
 
