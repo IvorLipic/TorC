@@ -953,6 +953,42 @@ TEST(TensorConv2d, NegativeOutputDimThrows) {
     EXPECT_THROW(input.conv2d(weight, 1, 0), torc::ShapeError);
 }
 
+// A kernel larger than the padded input has no valid position. With stride > 1, C++ integer division rounds the
+// negative numerator (H + 2P - K) toward zero, so the output-size formula alone gave 1 instead of 0.
+TEST(TensorConv2d, KernelLargerThanPaddedInputThrowsWithStride2) {
+    Tensor input({1.0f, 1.0f, 1.0f, 1.0f}, {1, 1, 2, 2});
+    Tensor weight({1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f}, {1, 1, 3, 3});
+    EXPECT_THROW(input.conv2d(weight, 2, 0), torc::ShapeError);
+    EXPECT_THROW(input.conv2d(weight, 3, 0), torc::ShapeError);
+}
+
+TEST(TensorConv2d, KernelWiderThanPaddedInputThrows) {
+    // height fits (4 >= 3), width does not (2 < 3)
+    Tensor input({1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f}, {1, 1, 4, 2});
+    Tensor weight({1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f}, {1, 1, 3, 3});
+    EXPECT_THROW(input.conv2d(weight, 2, 0), torc::ShapeError);
+}
+
+TEST(TensorConv2d, KernelLargerThanInputMessageNamesTheSizes) {
+    Tensor input({1.0f, 1.0f, 1.0f, 1.0f}, {1, 1, 2, 2});
+    Tensor weight({1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f}, {1, 1, 3, 3});
+    try {
+        (void)input.conv2d(weight, 2, 0);
+        FAIL() << "expected ShapeError";
+    } catch (const torc::ShapeError& e) {
+        EXPECT_STREQ(e.what(), "conv2d kernel 3x3 is larger than the padded input 2x2 (input 2x2, padding 0)");
+    }
+}
+
+TEST(TensorConv2d, PaddingMakesRoomForTheKernel) {
+    // 2x2 input, 3x3 kernel, padding 1: padded input is 4x4, so the kernel fits; stride 2 gives (4 - 3) / 2 + 1 = 1
+    Tensor input({1.0f, 1.0f, 1.0f, 1.0f}, {1, 1, 2, 2});
+    Tensor weight({1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f}, {1, 1, 3, 3});
+    Tensor out = input.conv2d(weight, 2, 1);
+    EXPECT_EQ(out.shape(), std::vector<int>({1, 1, 1, 1}));
+    EXPECT_FLOAT_EQ(out.data()[0], 4.0f);
+}
+
 TEST(TensorConv2d, InvalidStrideThrows) {
     Tensor input({1.0f, 2.0f, 3.0f, 4.0f}, {1, 1, 2, 2});
     Tensor weight({1.0f}, {1, 1, 1, 1});

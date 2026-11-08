@@ -19,6 +19,15 @@ All notable changes to `torc` are recorded here. The format follows
   code that relied on broadcasting must reshape one operand first. This replaces the unreleased
   fix that had corrected the broadcast gradient.
 
+### Fixed
+- `conv2d` (`Tensor::conv2d`, `torc::conv2d` and `nn::Conv2d`) now throws `ShapeError` when the
+  kernel is larger than the padded input (`conv2d kernel 3x3 is larger than the padded input 2x2
+  (input 2x2, padding 0)`). In 0.1.0 the check ran after the integer division in the output-size
+  formula, which truncates toward zero, so with `stride > 1` a negative numerator became 0 and the
+  call returned a 1-wide output from a kernel that hung past the input edge, with the missing
+  positions read as zeros (no out-of-bounds access): a `2x2` input, `3x3` kernel, stride 2,
+  padding 0 returned a `1x1` result. With stride 1 it already threw.
+
 ## [0.1.0] - 2026-10-13
 
 First packaged version of the library (tag `v0.1.0`).
