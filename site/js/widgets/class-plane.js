@@ -148,7 +148,7 @@ export function mountClassPlane(host, D, { hidden: h0 = 0, step: s0 = null } = {
   const hint = el('p', { class: 'hint cp-hint' }, 'Orange shading means that the model says orange, and blue shading means blue. A deeper colour means that the model is more sure. The white line is the boundary, where the model is undecided. Circles are orange points, and squares are blue points.');
   host.replaceChildren(el('div', { class: 'cp' }, controls, plotBox, read, hint, status));
   const { lo, hi } = files.grid;
-  const p = createPlot(plotBox, { width: 440, height: 440, x: [lo, hi], y: [lo, hi], xLabel: 'x', yLabel: 'y', margin: { l: 40, r: 12, t: 10, b: 36 }, ariaLabel: '', onResize: () => paint() });
+  const p = createPlot(plotBox, { width: 440, height: 440, x: [lo, hi], y: [lo, hi], xLabel: 'x₀', yLabel: 'x₁', margin: { l: 40, r: 12, t: 10, b: 36 }, ariaLabel: '', onResize: () => paint() });
 
   function paint() {
     const cp = checkpointFor(files, hidden, step);
