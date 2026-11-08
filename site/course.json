@@ -408,7 +408,7 @@
             "first-layer kernels and feature maps",
             "digit pad"
           ],
-          "code": "using std::make_unique;\n// (B, 1, 28, 28) becomes (B, 8, 14, 14)\nmodel.add(make_unique<nn::Conv2d>(1, 8, 3, 2, 1));\nmodel.add(make_unique<nn::ReLU>());\n// (B, 8, 14, 14) becomes (B, 16, 7, 7)\nmodel.add(make_unique<nn::Conv2d>(8, 16, 3, 2, 1));\nmodel.add(make_unique<nn::ReLU>());\nmodel.add(make_unique<nn::Flatten>());\n// 9,098 parameters\nmodel.add(make_unique<nn::Linear>(16 * 7 * 7, 10));"
+          "code": "using std::make_unique;\n// (B, 1, 28, 28) becomes (B, 8, 14, 14)\nmodel.add(make_unique<nn::Conv2d>(1, 8, 3, 2, 1));\nmodel.add(make_unique<nn::ReLU>());\n// (B, 8, 14, 14) becomes (B, 16, 7, 7)\nmodel.add(make_unique<nn::Conv2d>(8, 16, 3, 2, 1));\nmodel.add(make_unique<nn::ReLU>());\n// (B, 16, 7, 7) becomes (B, 784)\nmodel.add(make_unique<nn::Flatten>());\n// 784 cells give 10 scores\nmodel.add(make_unique<nn::Linear>(16 * 7 * 7, 10));"
         }
       ]
     },

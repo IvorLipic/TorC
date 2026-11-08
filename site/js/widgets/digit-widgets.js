@@ -129,7 +129,9 @@ function paintGray(canvas, pixels) {   // 784 values 0..255 onto a 28 x 28 canva
 
 // ======================================================================================================================
 // opts.simple: plain words for the first page of the course (what-is-learning), with no terms that the page has not defined yet
-export function mountDigitPad(host, D, { file = 'mnist-mlp', forward: fwd = forward, simple = false } = {}) {
+// opts.name ('The model' by default) names the network in the readout; opts.echoTorc = false drops the sentence that repeats TorC's
+// own reading of a test image (the page's forward pass always agrees with it, as the tests check)
+export function mountDigitPad(host, D, { file = 'mnist-mlp', forward: fwd = forward, simple = false, name = 'The model', echoTorc = true } = {}) {
   injectStyles();
   const M = D.files[file], layers = M.layers, N = 280;
   const pct = (v) => `${Math.round(100 * v)}%`;
@@ -155,8 +157,8 @@ export function mountDigitPad(host, D, { file = 'mnist-mlp', forward: fwd = forw
     bars.replaceChildren(...p.flatMap((v, d) => [el('span', {}, String(d)), el('div', { class: `dw-bar${d === top ? ' top' : ''}`, style: `width:${(100 * v).toFixed(1)}%` }), el('span', {}, simple ? pct(v) : v.toFixed(3))]));
     if (simple) read.textContent = (recorded ? `This handwritten digit is a ${recorded.label}. ` : '') + `The model reads ${top}, and it is ${pct(p[top])} sure.`;
     else read.textContent = recorded
-      ? `Test image ${recorded.index}, label ${recorded.label}. The model reads ${top}, with probability ${p[top].toFixed(3)}. TorC also reads ${argmax(recorded.logits)}.`
-      : `The model reads ${top}, with probability ${p[top].toFixed(3)}.`;
+      ? `Test image ${recorded.index}, label ${recorded.label}. ${name} reads ${top}, with probability ${p[top].toFixed(3)}.${echoTorc ? ` TorC also reads ${argmax(recorded.logits)}.` : ''}`
+      : `${name} reads ${top}, with probability ${p[top].toFixed(3)}.`;
     if (announce) say.textContent = read.textContent;
   }
   function fromPad(announce = true) {
@@ -221,7 +223,9 @@ export function mountWeightsGallery(host, D) {
 }
 
 // ======================================================================================================================
-export function mountCnnMaps(host, D) {
+// opts.kernelLabels: name each tile "kernel n" (each map comes from one kernel) instead of "channel n", and say that the maps are
+// shown after the bias and ReLU
+export function mountCnnMaps(host, D, { kernelLabels = false } = {}) {
   injectStyles();
   const M = D.files['mnist-cnn'], L = M.layers[0], [cout, , k] = L.weight_shape;
   let pick = 0;
@@ -229,13 +233,13 @@ export function mountCnnMaps(host, D) {
   const img = el('canvas', { class: 'dw-seen', width: 28, height: 28, role: 'img' });
   const tiles = Array.from({ length: cout }, (_, c) => {
     const kc = el('canvas', { width: k, height: k, 'aria-hidden': 'true' }), mc = el('canvas', { width: 14, height: 14, 'aria-hidden': 'true' });
-    return { kc, mc, root: el('div', { class: 'dw-tile' }, kc, mc, el('span', {}, `channel ${c}`)) };
+    return { kc, mc, root: el('div', { class: 'dw-tile' }, kc, mc, el('span', {}, kernelLabels ? `kernel ${c}` : `channel ${c}`)) };
   });
   const gal = el('div', { class: 'dw-gal', role: 'img' }, ...tiles.map((t) => t.root));
   host.replaceChildren(el('div', { class: 'dw' },
     el('div', { class: 'dw-btns', role: 'group', 'aria-label': 'Test images' }, ...btns),
     el('div', { class: 'dw-row' }, el('div', { class: 'dw-side' }, el('span', { class: 'dw-lbl' }, 'input'), img), gal),
-    el('div', { class: 'dw-key', 'aria-hidden': 'true' }, el('span', {}, 'top of each pair: the 3 × 3 kernel (amber positive, blue negative)'), el('span', {}, 'bottom: its 14 × 14 feature map after relu (brighter is larger, and each map has its own scale)'))));
+    el('div', { class: 'dw-key', 'aria-hidden': 'true' }, el('span', {}, 'top of each pair: the 3 × 3 kernel (amber positive, blue negative)'), el('span', {}, kernelLabels ? 'bottom: its 14 × 14 feature map after the bias and ReLU (brighter is larger, and each map has its own scale)' : 'bottom: its 14 × 14 feature map after relu (brighter is larger, and each map has its own scale)'))));
   // the kernels
   tiles.forEach((t, c) => {
     const w = L.weight.slice(c * k * k, (c + 1) * k * k), m = Math.max(...w.map(Math.abs)) || 1;

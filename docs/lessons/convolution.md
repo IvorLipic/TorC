@@ -4,8 +4,9 @@ Not shipped. Library symbols, and what is observed, expected and suspected.
 
 ## Library symbols (TorC `38785db`, `main` = v0.1.0 + PR #5 + PR #6)
 `Tensor::conv2d(weight, stride, padding)` (`src/tensor.cpp`): NCHW input, weight `(C_out, C_in, KH, KW)`, zero padding, output
-size `(H + 2P - K) / S + 1` with C++ integer division (the numerator is never negative for a valid call, so it rounds down;
-a non-positive size throws), cross-correlation (the kernel is not flipped), no bias. `torc::conv2d(Variable, Variable, stride,
+size `(H + 2P - K) / S + 1` with C++ integer division. For a numerator of 0 or more this rounds down, as ⌊ ⌋ does. For a
+negative numerator it rounds toward zero, so an input smaller than the kernel can pass the `H_out <= 0` check (2 × 2 input, 3 × 3
+kernel, stride 2, padding 0 gives 1 × 1; see `docs/library-audit/v0.1.0-findings.md`). No lesson uses such a call, cross-correlation (the kernel is not flipped), no bias. `torc::conv2d(Variable, Variable, stride,
 padding)` (`src/autograd.cpp`) with autograd: the weight gradient is `db[...] += a[...] * g` over every batch item and every
 output position, so a kernel weight gets the sum of the gradients of all its uses (the cumulative quiz). `nn::Conv2d(in, out,
 kernel, stride = 1, padding = 0, init_std = 0, seed)`: Kaiming normal weights, zero bias, `forward` = `conv2d` +
@@ -19,6 +20,8 @@ match weight channels {}`, `conv2d output dims must be positive, ...`.
   6280. New for v3 (additive): `derived.layers[2]`, the steps of the size rule (28 + 2 − 3 = 27, 27 / 2 = 13.5, 13, 14; and
   14 + 2 − 3 = 13, 6.5, 6, 7) and of the parameter count (8 × (1·9 + 1) = 80; 16 × (8·9 + 1) = 1168). Plain arithmetic in the
   producer, checked there against the library's shapes and counts. A full `run.sh` (2026-11-01) changed only `conv.json`.
+  Review round 1 (2026-11-08) added `weights` per layer (72, the predict's "forgot the bias" option) and `derived.stride_one`
+  (14 × 14, K 3, S 1, P 1 gives 14, run by the library: the learner's step).
 - `tools/trace/trace_shift.cpp` → `site/data/shift.json` (C8): on all 10,000 test images moved by whole pixels with zero fill.
   3 px right: MLP 5390 (53.9 %), CNN 7653 (76.5 %); unmoved 9666 and 9794. The CNN falls with every move in every direction but
   stays above the MLP. 4 px down: MLP 14.7 %, CNN 28.9 %. The first-layer maps of test image 0 (a 7) moved 2 px right equal the
@@ -35,7 +38,9 @@ so the map changes. With stride 1 every whole-pixel move is a multiple (the tran
 not by a TorC run). A model that ends in Flatten → Linear is not shift-invariant, because the linear layer has a weight per cell.
 
 ## Suspected discrepancy
-None.
+`conv2d` accepts an input smaller than the kernel when the size numerator is negative but larger than `-stride` (recorded in
+`docs/library-audit/v0.1.0-findings.md`; a fix belongs on `main`). The lesson's ⌊ ⌋ rule and every example on the page use
+non-negative numerators, where TorC and the rule agree.
 
 ## Lesson status
 Rewritten as `template: 3` on 2026-11-01 (branch `part5-cnn`; brief §6, §7, C8, D14). Questions, a predict on the parameter count
@@ -48,3 +53,10 @@ of its gradients), an explain prompt and The answer. Palette: the stencil analog
 Deviation: the brief's second predict ("what happens to the maps after a 2 px move?") became the first task of the moved-map
 widget, because a quiz there did not fit the 1,400-word budget. Widgets: `conv-widgets.js` (sliding window), new
 `shift-widgets.js` (moved maps, accuracy on moved images). Tests: `site/test/convolution.test.mjs`.
+
+Review round 1 (2026-11-08, pedagogy, independent review, cold read): section 5 now uses moves of one and two strides (2 px:
+maps move one cell, CNN 91 %; 4 px: two cells, CNN 54 %), so the fall cannot be blamed on a non-whole stride (H1). The
+accuracy widget draws percentage points lost against no move, and the 98 % sentence is gone, so `mnist-cnn`'s first prediction
+is not pre-answered (H2). The small example describes the drawn weights (middle row twice), the second edge that padding makes,
+counting from zero and "feature map" instead of "output"; the predict has the 72 option; the learner's step is a new case
+(stride 1); the stencil's limit is its own (a signed sum, not yes or no); the In TorC code equals the checked course.json code.

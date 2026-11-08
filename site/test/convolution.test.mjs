@@ -34,7 +34,7 @@ test('the prose about the small example: dark on the left, bright on the right, 
     if (x < 2) assert.equal(v[y * n + x], 0);
     else if (!(x === 2 && y === 2)) assert.equal(v[y * n + x], 4);
   }
-  assert.ok(v[12] > 4, 'one pixel in the middle is brighter');
+  assert.equal(v[12], 2 * v[4], 'one pixel in the middle is twice as bright');
   const k = data.example.kernel.values;
   for (let r = 0; r < 3; r++) { assert.ok(k[r * 3] > 0); assert.equal(k[r * 3 + 1], 0); assert.ok(k[r * 3 + 2] < 0); }
   assert.equal(k[3], 2 * k[0], 'the middle row counts twice');
@@ -43,8 +43,12 @@ test('the prose about the small example: dark on the left, bright on the right, 
   // task 1: the top row of the first setting: the first two large and negative, the last small
   const top = data.example.runs[0].output.values.slice(0, 3);
   assert.ok(top[0] < 0 && top[1] < 0 && Math.abs(top[2]) * 3 < Math.min(-top[0], -top[1]), JSON.stringify(top));
-  // task 2: stride 2, padding 1 gives the 3 x 3 output that the task names
+  // task 2: stride 2, padding 1 gives the 3 x 3 map that the task names, with a second edge (far from zero) in its right column
+  // where the zero border meets the bright side; the second setting (stride 1, padding 1) gives 5 x 5
   assert.deepEqual([data.example.runs[2].stride, data.example.runs[2].padding], [2, 1]);
+  const r2 = data.example.runs[2].output.values;
+  for (let i = 0; i < 3; i++) assert.ok(r2[i * 3 + 2] >= 12, `second edge, row ${i}`);
+  assert.deepEqual([data.example.runs[1].stride, data.example.runs[1].padding, data.example.runs[1].output.shape[2]], [1, 1, 5]);
   assert.equal(data.example.runs[0].stride, 1, 'the first setting moves one pixel at a time');
 });
 
@@ -61,12 +65,22 @@ test('the size rule and the parameter count, step by step (derived in trace_conv
     assert.equal(d.side_out, outSize(d.side_in, d.kernel, d.stride, d.padding));
     assert.equal(d.kernel_area, d.kernel * d.kernel);
     assert.equal(d.weights_per_kernel, d.in_channels * d.kernel_area);
+    assert.equal(d.weights, d.out_channels * d.weights_per_kernel);
     assert.equal(d.parameters_per_kernel, d.weights_per_kernel + 1);
     assert.equal(d.parameters, d.out_channels * d.parameters_per_kernel);
     assert.equal(d.parameters, c.parameters);
     assert.deepEqual([d.out_channels, d.in_channels, d.kernel, d.kernel], c.params.find((p) => p.name === 'weight').shape);
   }
   assert.ok(!Number.isInteger(a.quotient) && !Number.isInteger(b.quotient), 'both worked examples really round down');
+  // the predict's slip (forgetting the bias) and the learner's step (stride 1, padding 1 keeps the size)
+  assert.equal(a.weights, data.cnn[0].parameters - a.out_channels);
+  const so = data.derived.stride_one;
+  assert.deepEqual([so.side_in, so.kernel, so.stride, so.padding], [14, 3, 1, 1]);
+  assert.equal(so.numerator, so.side_in + 2 * so.padding - so.kernel);
+  assert.equal(so.quotient, so.numerator / so.stride);
+  assert.equal(so.side_out, outSize(so.side_in, so.kernel, so.stride, so.padding));
+  assert.equal(so.side_out, so.side_in, 'the reveal: the map keeps the size of its input');
+  assert.equal(a.parameters_per_kernel, 10, 'The answer says ten parameters per kernel');
   assert.equal(b.side_in, a.side_out, 'the second layer reads the maps of the first');
   assert.equal(b.in_channels, a.out_channels, 'the next layer reads the maps like an image with that many channels');
   // the CNN in total, and "about a third" of the MLP
@@ -83,7 +97,7 @@ test('errors: the channel mismatch of the In TorC panel', () => {
   const e = Object.fromEntries(data.errors.map((x) => [x.id, x]));
   assert.equal(e.channels.what, 'conv2d input channels 3 must match weight channels 1');
   assert.equal(e.channels.exception, 'ShapeError');
-  assert.match(html(), /ShapeError: conv2d input channels 3 must match weight channels 1/);
+  // the page no longer quotes the error (word budget); docs/lessons/convolution.md keeps it
 });
 
 test("the moved feature maps: the port gives TorC's maps for the original and the moved image (C8)", () => {
@@ -110,6 +124,13 @@ test("the moved feature maps: the port gives TorC's maps for the original and th
     if (px % S.stride === 0) assert.ok(R.exact.d < 1e-6, `${px} px moves by ${px / S.stride} cells`);
     else assert.ok(R.still > 0.5 && R.oneCell > 0.5, `${px} px changes the maps`);
   }
+  // task 1: the default kernel (the brightest map); its leftmost bright column moves one column right at a move of 2 px
+  const R0 = shiftReport(layers, S.pixels, 0, S.stride);
+  let best = -1, ch = 0;
+  for (let k = 0; k < c; k++) { const m = Math.max(...R0.base.slice(k * h * w, (k + 1) * h * w)); if (m > best) { best = m; ch = k; } }
+  const leftmost = (maps) => { const m = maps.slice(ch * h * w, (ch + 1) * h * w), top = Math.max(...m); for (let j = 0; j < w; j++) for (let i = 0; i < h; i++) if (m[i * w + j] > 0.05 * top) return j; return -1; };
+  const R2 = shiftReport(layers, S.pixels, 2, S.stride);
+  assert.equal(leftmost(R2.moved), leftmost(R2.base) + 1, 'one more dark column');
   // shiftPixels moves right and down with zero fill
   assert.deepEqual(shiftPixels([1, 2, 3, 4], 1, 0, 2), [0, 1, 0, 3]);
   assert.deepEqual(shiftPixels([1, 2, 3, 4], 0, -1, 2), [3, 4, 0, 0]);
@@ -132,27 +153,35 @@ test('the accuracy on moved test images (shift.json, all 10,000 test images): th
     assert.ok(A.cnn[d][s].accuracy < A.cnn[d][0].accuracy, `the CNN loses digits when moved ${s} px ${d}: not shift-invariant`);
     assert.ok(A.cnn[d][s].accuracy > A.mlp[d][s].accuracy, `the CNN copes better, ${s} px ${d}`);
   }
-  // "both are far below their values without a move" (3 px right)
-  assert.ok(A.cnn.right[3].accuracy < A.cnn.right[0].accuracy - 0.15 && A.mlp.right[3].accuracy < A.mlp.right[0].accuracy - 0.3);
-  // "both networks now read most test images wrongly; the CNN reads fewer than a third correctly" (4 px down)
-  assert.ok(A.mlp.down[4].accuracy < 0.5 && A.cnn.down[4].accuracy < 1 / 3);
-  // the brief's numbers for 3 px right (MLP 53.9 %, CNN 76.5 %), as the page rounds them
-  assert.equal(T.human('files.shift.accuracy.mlp.right.3.accuracy', 'pct').replace(/<[^>]+>/g, ''), '54%');
-  assert.equal(T.human('files.shift.accuracy.cnn.right.3.accuracy', 'pct').replace(/<[^>]+>/g, ''), '77%');
-  // the widget's lines are the recorded points, in percent
-  const s = shiftSeries(shift, 'right');
-  assert.deepEqual(s.map((x) => x.label), ['MLP', 'CNN']);
-  assert.deepEqual(s[1].points.map(([x]) => x), shift.setup.shifts);
-  assert.ok(Math.abs(s[1].points[3][1] - 100 * A.cnn.right[3].accuracy) < 1e-9);
+  // section 5 (H1): moves of one and two strides, at which the first maps move exactly (tested above), still cost the CNN
+  assert.deepEqual([shift.setup.shifts[2], shift.setup.shifts[4]], [2, 4]);
+  assert.equal(T.human('files.shift.accuracy.cnn.right.2.accuracy', 'pct').replace(/<[^>]+>/g, ''), '91%');
+  assert.equal(T.human('files.shift.accuracy.cnn.right.4.accuracy', 'pct').replace(/<[^>]+>/g, ''), '54%');
+  // the widget draws percentage points lost against no move (H2: no absolute comparison of the two models on this page)
+  const sr = shiftSeries(shift, 'right'), sd = shiftSeries(shift, 'down');
+  assert.deepEqual(sr.map((x) => x.label), ['MLP', 'CNN']);
+  assert.deepEqual(sr[1].points.map(([x]) => x), shift.setup.shifts);
+  assert.ok(Math.abs(sr[1].points[3][1] - 100 * (A.cnn.right[0].accuracy - A.cnn.right[3].accuracy)) < 1e-9);
+  for (const k of [0, 1]) assert.equal(sr[k].points[0][1], 0);
+  for (let i = 1; i < shift.setup.shifts.length; i++) {
+    assert.ok(sr[0].points[i][1] > sr[1].points[i][1], `"the MLP loses even more" and "the CNN line stays lower", ${i} px right`);
+    for (const k of [0, 1]) assert.ok(sd[k].points[i][1] > sr[k].points[i][1], `"both lines climb higher" for down, ${i} px`);
+  }
+  for (const k of [0, 1]) assert.ok(sr[k].points[2][1] > 0 && sr[k].points[4][1] > 0, 'both lose points at both moves');
 });
 
 test('the page states C8 honestly: the map moves exactly for whole strides, and the CNN is not shift-invariant', () => {
   const h = html();
   assert.match(h, /This holds exactly only for whole strides\./);
-  assert.match(h, /So the CNN copes better, but it is not immune to the move\./);
-  assert.match(h, /TorC does not flip the kernel/);
+  assert.match(h, /So the maps moved exactly, but the answer still fell\./);
+  assert.doesNotMatch(h, /the CNN reads <span[^>]*>98%/, 'no absolute comparison with the MLP (H2)');
+  assert.match(h, /TorC does not flip it, so each weight sits on the pixel that it multiplies\./);
   assert.doesNotMatch(h, /does not care where/i);
-  assert.match(h, /Where it breaks\.<\/strong> The feature map moves with the image, but the final answer of a network can still change\./);
+  assert.match(h, /Where it breaks\.<\/strong> A stencil only shows yes or no\. A kernel gives a sum with a sign\./);
+  // the In TorC code is the course.json code, which the snippet check compiles and runs
+  const entry = course().parts.flatMap((p) => p.lessons).find((l) => l.id === 'convolution');
+  const esc = (t) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  assert.ok(h.includes(`<code>${esc(entry.code)}</code>`), 'the panel shows the checked snippet');
   // D14: the code block has its comments on their own lines, and the batch is B
   const code = h.match(/<pre class="cv-code"[\s\S]*?<\/pre>/)[0];
   for (const line of code.replace(/<[^>]+>/g, '').split('\n')) assert.ok(line.trim().startsWith('//') || !line.includes('//'), line);

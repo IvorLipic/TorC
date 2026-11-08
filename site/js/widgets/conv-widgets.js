@@ -2,7 +2,7 @@
 // tools/trace/trace_conv.cpp):
 //
 //   mountSlidingWindow(host, D)   a 5 x 5 input with zero padding, a 3 x 3 kernel and the output for three settings of stride and
-//                                 padding; pick an output to see its window and its nine products
+//                                 padding; pick a cell of the feature map to see its window and its nine products
 //   mountFeatureMaps(host, D)     an MNIST digit and the feature maps of two edge kernels, before or after relu
 //
 // The products in the first widget are recomputed here from the recorded input and kernel; the tests check that their sum is
@@ -79,7 +79,7 @@ export function mountSlidingWindow(host, D) {
     const kCells = E.kernel.values.map((v) => el('div', { class: 'cw-cell', 'aria-hidden': 'true' }, String(v)));
     const outCells = R.output.values.map((v, idx) => {
       const i = Math.floor(idx / out), j = idx % out;
-      const b = el('button', { type: 'button', class: 'cw-cell', 'aria-label': `output row ${i}, column ${j}: ${fmt(v)}` }, fmt(v));
+      const b = el('button', { type: 'button', class: 'cw-cell', 'aria-label': `feature map row ${i}, column ${j}: ${fmt(v)}` }, fmt(v));
       b.addEventListener('click', () => { sel = [i, j]; mark(); });
       b.addEventListener('focus', () => { sel = [i, j]; mark(); });
       return b;
@@ -88,14 +88,14 @@ export function mountSlidingWindow(host, D) {
     row.replaceChildren(
       mat(p ? `input with padding ${p}` : 'input', inCells, m, 'The input'),
       mat('kernel', kCells, k, 'The kernel'),
-      mat(`output ${out} × ${out}`, outCells, out, 'The output. Select a value to see its window.'));
+      mat(`feature map ${out} × ${out}`, outCells, out, 'The feature map. Select a cell to see its window.'));
     function mark() {
       inCells.forEach((c) => c.classList.remove('cw-win'));
       outCells.forEach((c) => c.classList.remove('sel'));
       const [i, j] = sel, w = windowAt(E.input.values, n, E.kernel.values, k, R.stride, p, i, j);
       w.cells.forEach((c) => inCells[c].classList.add('cw-win'));
       outCells[i * out + j].classList.add('sel');
-      read.textContent = `Output (${i}, ${j}) = ${w.products.map(([v, wt]) => `${v}·${wt < 0 ? `(${wt})` : wt}`).join(' + ')} = ${fmt(w.sum)}.`;
+      read.textContent = `Cell (${i}, ${j}) = ${w.products.map(([v, wt]) => `${v}·${wt < 0 ? `(${wt})` : wt}`).join(' + ')} = ${fmt(w.sum)}.`;
     }
     mark();
   }

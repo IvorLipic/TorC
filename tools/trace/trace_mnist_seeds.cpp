@@ -11,7 +11,9 @@
 //   setup   {seed_sets: [{id, layer_seeds[3], loader_seed, source}], note}
 //   mlp/cnn {settings {epochs, lr, batch_size, optimizer}, runs: [{seed_set, test_correct_by_epoch[epochs + 1] (epoch 0 = before
 //           training), test_correct, test_accuracy}], min_accuracy, max_accuracy, mean_accuracy (derived over the 3 runs)}
-//   derived {cnn_min_minus_mlp_max}: the smallest CNN accuracy minus the largest MLP accuracy (plain arithmetic)
+//   derived {cnn_min_minus_mlp_max, cnn_always_ahead, seed_set_1{mlp_mistakes, cnn_mistakes, fewer_mistakes,
+//           percent_of_mlp_mistakes_avoided}}: the smallest CNN accuracy minus the largest MLP accuracy, and for seed set 1 how many
+//           of the MLP's test mistakes the CNN avoids (plain arithmetic)
 // MNIST comes from MNIST_DIR (tools/trace/run.sh sets it).
 #include "trace_mnist.hpp"
 
@@ -120,6 +122,13 @@ int main() {
     for (size_t i = 0; i < SEEDS.size(); ++i) { mlp_max = std::max(mlp_max, mlp[i].back()); cnn_min = std::min(cnn_min, cnn[i].back()); }
     J derived = J::object();
     derived.set("cnn_min_minus_mlp_max", static_cast<double>(cnn_min - mlp_max) / n).set("cnn_always_ahead", cnn_min > mlp_max);
+    // seed set 1 (the runs of mnist-mlp.json / mnist-cnn.json): how many of the MLP's test mistakes the CNN avoids (added for the
+    // v3 lesson mnist-cnn; plain arithmetic on the recorded counts)
+    const int mlp_wrong = n - mlp[0].back(), cnn_wrong = n - cnn[0].back();
+    J first = J::object();
+    first.set("mlp_mistakes", mlp_wrong).set("cnn_mistakes", cnn_wrong).set("fewer_mistakes", mlp_wrong - cnn_wrong)
+        .set("percent_of_mlp_mistakes_avoided", 100.0 * (mlp_wrong - cnn_wrong) / mlp_wrong);
+    derived.set("seed_set_1", std::move(first));
 
     J o = trace::envelope("mnist-seeds", "mnist-cnn", "tools/trace/trace_mnist_seeds.cpp");
     o.set("setup", std::move(setup)).set("mlp", std::move(m)).set("cnn", std::move(c)).set("derived", std::move(derived));

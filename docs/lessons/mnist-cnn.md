@@ -42,3 +42,11 @@ large), a cumulative quiz from `generalization` (choosing with the test set), an
 bridge to `from-digits-to-chatgpt`. The next-lesson link appears when the epilogue is published (`neighbors()` skips planned
 lessons). The misconception "more parameters read better" is refuted by the predict and the comparison. Tests:
 `site/test/mnist-cnn.test.mjs`.
+
+Review round 1 (2026-11-08): the 4/9 question now asks whether one run's difference (19 against 14) supports a reason, with
+the 7/2 counts (10 against 20) and the three-start total in the reveal (H3). The transfer feedback states that in the MLP only
+the first layer would grow, 25,120 to 100,384, while 1,056 and 330 stay (H4, tested). The learner's step asks for the share of
+the MLP's mistakes that the CNN avoids (`mnist-seeds.json` `derived.seed_set_1`: 128 of 334, 38 %). The fairness section says
+which way each setting differs. The maps widget names kernels (`kernelLabels`), the tasks name kernels 2, 5 and 7 (tested). The
+recap has a collapsed answer and a lesson link per question, uses the course.json part and lesson titles, and covers
+backpropagation, softmax and cross-entropy, and Adam. The In TorC code equals the checked course.json code.

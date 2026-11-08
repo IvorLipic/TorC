@@ -471,7 +471,8 @@ Each model at the exact settings of its own trace, with 3 seed sets. `setup` = `
 source}, test_samples, note}`: set 1 is the run of `trace_mnist_mlp.cpp` / `trace_mnist_cnn.cpp` (its counts are read from those files),
 sets 2 and 3 (layer seeds 101-103 / 201-203, loader seeds 111 / 211) are trained here, in parallel threads. `mlp`, `cnn` = `{model,
 settings{epochs, lr, batch_size, optimizer}, runs[3]{seed_set, test_correct_by_epoch[epochs + 1], test_correct, test_accuracy},
-min_accuracy, max_accuracy, mean_accuracy}`. `derived` = `{cnn_min_minus_mlp_max, cnn_always_ahead}`. The models keep their own
+min_accuracy, max_accuracy, mean_accuracy}`. `derived` = `{cnn_min_minus_mlp_max, cnn_always_ahead, seed_set_1{mlp_mistakes, cnn_mistakes, fewer_mistakes,
+percent_of_mlp_mistakes_avoided}}` (seed_set_1 added for the v3 lesson `mnist-cnn`, plain arithmetic on the recorded counts). The models keep their own
 settings (20 vs. 5 epochs, lr 5e-4 vs. 1e-3), so the comparison is still not perfectly fair (C9). The values depend on the standard
 library like the training traces. Producer: `tools/trace/trace_mnist_seeds.cpp`.
 
@@ -490,7 +491,8 @@ parameters, params[{name, shape}], kernel?, stride?, padding?}` for the six modu
 `cnn_parameters` is their sum. `dense_compare` = `{label, parameters}` for `Linear(784, 8)`. `errors[]` = `{id: channels|too-small,
 input_shape, weight_shape, exception, what}`. Added for v3 (additive): `derived` = `{note, layers[2]{module, side_in, kernel, stride,
 padding, twice_padding, numerator, quotient, rounded_down, side_out, in_channels, out_channels, kernel_area, weights_per_kernel,
-parameters_per_kernel, parameters}}`, the steps of `floor((H + 2P - K) / S) + 1` and `C_out·(C_in·K·K + 1)` for the two
+weights, parameters_per_kernel, parameters}, stride_one{side_in, kernel, stride, padding, twice_padding, numerator, quotient,
+rounded_down, side_out}}`, the steps of `floor((H + 2P - K) / S) + 1` and `C_out·(C_in·K·K + 1)` for the two
 convolutions of `cnn` (plain arithmetic, checked by the producer against the library). Producer: `tools/trace/trace_conv.cpp`.
 
 ## `mnist-cnn.json` (kind `mnist-cnn`, lesson `mnist-cnn`)

@@ -37,5 +37,5 @@
     "max_accuracy":0.9794,
     "mean_accuracy":0.9772333333333333
   },
-  "derived":{"cnn_min_minus_mlp_max":0.0087,"cnn_always_ahead":true}
+  "derived":{"cnn_min_minus_mlp_max":0.0087,"cnn_always_ahead":true,"seed_set_1":{"mlp_mistakes":334,"cnn_mistakes":206,"fewer_mistakes":128,"percent_of_mlp_mistakes_avoided":38.32335329341317}}
 }

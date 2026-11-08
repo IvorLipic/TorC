@@ -121,8 +121,8 @@ int main() {
                 d.set("module", static_cast<int>(mi)).set("side_in", H).set("kernel", K).set("stride", S).set("padding", P)
                     .set("twice_padding", 2 * P).set("numerator", num).set("quotient", static_cast<double>(num) / S)
                     .set("rounded_down", rounded).set("side_out", side_out).set("in_channels", c_in).set("out_channels", c_out)
-                    .set("kernel_area", K * K).set("weights_per_kernel", c_in * K * K).set("parameters_per_kernel", per_kernel)
-                    .set("parameters", c_out * per_kernel);
+                    .set("kernel_area", K * K).set("weights_per_kernel", c_in * K * K).set("weights", c_out * c_in * K * K)
+                    .set("parameters_per_kernel", per_kernel).set("parameters", c_out * per_kernel);
                 derived_layers.push(std::move(d));
             }
             cnn.push(std::move(e));
@@ -146,10 +146,19 @@ int main() {
     J doc = trace::envelope("conv", "convolution", "tools/trace/trace_conv.cpp");
     doc.set("example", std::move(example)).set("digit", std::move(digit)).set("cnn", std::move(cnn)).set("cnn_parameters", total)
         .set("dense_compare", std::move(compare)).set("errors", std::move(errors));
+    // one more case of the size rule for the lesson's "your turn": a 14 x 14 map, kernel 3, stride 1, padding 1, run by the library
+    J same = J::object();
+    {
+        const int H = 14, K = 3, S = 1, P = 1, num = H + 2 * P - K;
+        const Tensor y = Tensor(std::vector<int>{1, 1, H, H}).conv2d(Tensor(std::vector<int>{1, 1, K, K}), S, P);
+        if (y.shape()[2] != num / S + 1) { std::cerr << "trace_conv: the stride-1 size case disagrees with the library\n"; return 1; }
+        same.set("side_in", H).set("kernel", K).set("stride", S).set("padding", P).set("twice_padding", 2 * P).set("numerator", num)
+            .set("quotient", static_cast<double>(num) / S).set("rounded_down", num / S).set("side_out", y.shape()[2]);
+    }
     J derived = J::object();
     derived.set("note", "Plain arithmetic in the producer (not library output): the steps of floor((H + 2P - K) / S) + 1 and of "
                         "C_out * (C_in * K * K + 1) for each convolution of cnn, checked against the library's shapes and counts.")
-        .set("layers", std::move(derived_layers));
+        .set("layers", std::move(derived_layers)).set("stride_one", std::move(same));
     doc.set("derived", std::move(derived));
     std::fputs(doc.dump().c_str(), stdout);
     return 0;

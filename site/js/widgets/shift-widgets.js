@@ -5,8 +5,10 @@
 //   mountShiftMaps(host, D)       test image 0 moved right by 0 to 4 pixels, and one feature map of the trained CNN's first
 //                                 convolution (after relu) for the original and for the moved image, drawn cell by cell. The
 //                                 readout says whether all eight maps equal the original maps moved by whole cells.
-//   mountShiftAccuracy(host, D)   the share of the 10,000 test images that the MLP and the CNN read correctly, against the move in
-//                                 pixels, for one direction (data/shift.json, measured by TorC on every test image)
+//   mountShiftAccuracy(host, D)   how many percentage points of correctly read test images the MLP and the CNN lose after a move,
+//                                 compared with no move, for one direction (data/shift.json, measured by TorC on all 10,000 test
+//                                 images). Only the loss is drawn, so the page does not show which model is better without a move
+//                                 (the lesson mnist-cnn asks that as a prediction).
 //
 // The maps are computed here with the conv2d port of digit-widgets.js and the weights of data/mnist-cnn.json; the tests compare
 // them with the maps TorC computed (shift.json feature_maps.original, feature_maps.shifted and not_a_multiple). Pure helpers are
@@ -122,7 +124,7 @@ export function mountShiftMaps(host, D) {
   const say = el('p', { class: 'sr', 'aria-live': 'polite' });
   const fig = (canvas, cap) => el('figure', { class: 'sw-fig' }, canvas, typeof cap === 'string' ? el('figcaption', {}, cap) : cap);
   host.replaceChildren(el('div', { class: 'sw' }, pm.root, pc.root,
-    el('div', { class: 'sw-row' }, fig(imgA, 'the original image'), fig(imgB, capB), fig(mapA, 'its feature map'), fig(mapB, 'the feature map of the moved image')),
+    el('div', { class: 'sw-row' }, fig(imgA, 'the original image'), fig(imgB, capB), fig(mapA, 'its feature map, after the bias and ReLU'), fig(mapB, 'the feature map of the moved image')),
     read, say));
   paintGray(imgA, pixels);
   function draw(announce = false) {
@@ -150,7 +152,7 @@ export function mountShiftMaps(host, D) {
 const DIR_WORD = { left: 'to the left', right: 'to the right', up: 'up', down: 'down' };
 export function shiftSeries(shift, dir) {
   const A = shift.accuracy;
-  return ['mlp', 'cnn'].map((m) => ({ id: m, label: m.toUpperCase(), points: A[m][dir].map((e) => [e.shift, 100 * e.accuracy]) }));
+  return ['mlp', 'cnn'].map((m) => ({ id: m, label: m.toUpperCase(), points: A[m][dir].map((e) => [e.shift, 100 * (A[m][dir][0].accuracy - e.accuracy)]) }));
 }
 export function mountShiftAccuracy(host, D) {
   injectStyles();
@@ -162,15 +164,15 @@ export function mountShiftAccuracy(host, D) {
   const read = el('p', { class: 'sw-read' });
   const say = el('p', { class: 'sr', 'aria-live': 'polite' });
   host.replaceChildren(el('div', { class: 'sw' }, pd.root, pm.root, box,
-    el('p', { class: 'hint' }, `Each line shows how many of the ${S.setup.test_samples.toLocaleString('en-US')} test images a network reads correctly after the move. Higher is better.`), read, say));
-  const table = srTable(host, { columns: ['move in pixels', 'MLP correct (%)', 'CNN correct (%)'], rows: [], caption: 'Test images read correctly after a move' });
-  const p = createPlot(box, { width: 600, height: 300, x: [-0.2, shifts[shifts.length - 1] + 0.3], y: [0, 100], xLabel: 'move in pixels', yLabel: 'read correctly (%)', ariaLabel: 'Two lines, for the MLP and the CNN. They show the share of test images read correctly against the size of the move.', margin: { l: 56, r: 12 }, onResize: () => draw() });
+    el('p', { class: 'hint' }, `Each line shows how many percentage points a network loses after the move, on all ${S.setup.test_samples.toLocaleString('en-US')} test images. A fall from 90% to 80% correct is a loss of 10 points. Lower is better.`), read, say));
+  const table = srTable(host, { columns: ['move in pixels', 'MLP points lost', 'CNN points lost'], rows: [], caption: 'Percentage points of correctly read test images lost after a move' });
+  const p = createPlot(box, { width: 600, height: 300, x: [-0.2, shifts[shifts.length - 1] + 0.3], y: [0, 90], xLabel: 'move in pixels', yLabel: 'points lost', ariaLabel: 'Two lines, for the MLP and the CNN. They show how many percentage points of correctly read test images each network loses against the size of the move.', margin: { l: 56, r: 12 }, onResize: () => draw() });
   function draw(announce = false) {
     pd.set(dir); pm.set(px);
     const series = shiftSeries(S, dir);
     p.clear('lines');
     p.root.querySelectorAll('.plot-axes').forEach((g) => g.remove());
-    p.axes({ xTicks: shifts, yTicks: [0, 25, 50, 75, 100] });
+    p.axes({ xTicks: shifts, yTicks: [0, 20, 40, 60, 80] });
     // the label of the higher line goes above its end, the lower one below
     const end = series.map((s) => s.points[s.points.length - 1][1]), hiIdx = end[0] >= end[1] ? 0 : 1;
     series.forEach((s, k) => {
@@ -182,8 +184,8 @@ export function mountShiftAccuracy(host, D) {
     table.update(series[0].points.map(([x, y], i) => [x, Math.round(y * 10) / 10, Math.round(series[1].points[i][1] * 10) / 10]));
     const at = (k) => Math.round(series[k].points[shifts.indexOf(px)][1]);
     read.textContent = px === 0
-      ? `Without a move, the MLP reads ${at(0)}% of the test images correctly, and the CNN reads ${at(1)}%.`
-      : `Moved ${px === 1 ? '1 pixel' : `${px} pixels`} ${DIR_WORD[dir]}, the MLP reads ${at(0)}% of the test images correctly, and the CNN reads ${at(1)}%.`;
+      ? 'Without a move, neither network loses anything. Choose a move.'
+      : `Moved ${px === 1 ? '1 pixel' : `${px} pixels`} ${DIR_WORD[dir]}, the MLP loses ${at(0)} points and the CNN loses ${at(1)} points.`;
     if (announce) say.textContent = read.textContent;
   }
   draw();

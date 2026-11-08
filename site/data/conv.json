@@ -401,6 +401,7 @@
         "out_channels":8,
         "kernel_area":9,
         "weights_per_kernel":9,
+        "weights":72,
         "parameters_per_kernel":10,
         "parameters":80
       },
@@ -419,9 +420,11 @@
         "out_channels":16,
         "kernel_area":9,
         "weights_per_kernel":72,
+        "weights":1152,
         "parameters_per_kernel":73,
         "parameters":1168
       }
-    ]
+    ],
+    "stride_one":{"side_in":14,"kernel":3,"stride":1,"padding":1,"twice_padding":2,"numerator":13,"quotient":13,"rounded_down":13,"side_out":14}
   }
 }

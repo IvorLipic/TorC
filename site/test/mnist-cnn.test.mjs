@@ -46,10 +46,13 @@ test('the pad task: the CNN reads all of the last four test images wrongly', () 
   for (const s of data.shown.slice(16)) assert.notEqual(argmax(s.logits), s.label, `image ${s.index}`);
 });
 
-test('the mistakes: the worked example, the learner step and "about three / two in every hundred"', () => {
+test('the mistakes: the worked example, the learner step (the share of the MLP mistakes that the CNN avoids) and "per hundred"', () => {
   for (const f of [mlp, data]) assert.equal(f.final.test_samples - f.final.test_correct, f.final.test_mistakes);
-  assert.equal(Math.round(mlp.final.test_mistakes / 100), 3);
-  assert.equal(Math.round(data.final.test_mistakes / 100), 2);
+  const s1 = seeds.derived.seed_set_1;
+  assert.deepEqual([s1.mlp_mistakes, s1.cnn_mistakes], [mlp.final.test_mistakes, data.final.test_mistakes]);
+  assert.equal(s1.fewer_mistakes, s1.mlp_mistakes - s1.cnn_mistakes);
+  assert.ok(Math.abs(s1.percent_of_mlp_mistakes_avoided - (100 * s1.fewer_mistakes) / s1.mlp_mistakes) < 1e-9);
+  assert.equal(shown(T('files.mnist-seeds.derived.seed_set_1.percent_of_mlp_mistakes_avoided', { role: 'reveal', sig: 2 })), '38');
   assert.equal(shown(T.human('files.mnist-cnn.final.test_correct', 'per100', { of: 'files.mnist-cnn.final.test_samples' })), '2');
   assert.equal(shown(T.human('files.mnist-mlp.final.test_correct', 'per100', { of: 'files.mnist-mlp.final.test_samples' })), '3');
   assert.equal(data.final.test_correct, data.epochs.at(-1).test_correct);
@@ -63,6 +66,9 @@ test('C9: the comparison is not perfectly fair (epochs and learning rates differ
   assert.notEqual(data.settings.epochs, mlp.settings.epochs);
   assert.notEqual(data.settings.lr, mlp.settings.lr);
   assert.ok(data.settings.epochs < mlp.settings.epochs, 'the CNN wins with fewer epochs');
+  assert.equal(mlp.settings.epochs, 4 * data.settings.epochs, '"four times as many"');
+  assert.equal(mlp.settings.lr, data.settings.lr / 2, '"half the CNN\'s"');
+  assert.deepEqual([mlp.settings.optimizer, data.settings.optimizer], ['optim::AdamW', 'optim::AdamW'], '"Both use the optimizer AdamW"');
   assert.notEqual(data.settings.example.epochs, data.settings.epochs, 'the In TorC panel: the example trains longer than the run');
   assert.ok(data.final.test_correct > mlp.final.test_correct);
 });
@@ -106,10 +112,15 @@ test('the kernel tasks: blue top row and amber below finds top edges; amber left
     if (w.slice(0, 3).every((v) => v < 0) && w.slice(3).reduce((a, b) => a + b, 0) > 0) top.push(k);
     if ([w[0], w[3], w[6]].every((v) => v > 0) && [w[2], w[5], w[8]].every((v) => v < 0)) right.push(k);
   }
-  assert.ok(top.length >= 1, 'a kernel that is blue in its top row and amber below');
-  for (const k of top) assert.ok(edgeCorr(k, 'top') > 0.7, `kernel ${k} follows top edges: ${edgeCorr(k, 'top')}`);
-  assert.equal(right.length, 1, '"the kernel that is amber on the left and blue on the right" is unique');
-  assert.ok(edgeCorr(right[0], 'right') > 0.7, `kernel ${right[0]} follows right edges`);
+  // the page names kernels 2 and 5 (blue top row) and kernel 7 (amber left, blue right), and "three of its eight first kernels"
+  for (const k of [2, 5]) {
+    assert.ok(K(k).slice(0, 3).every((v) => v < 0), `kernel ${k} is blue in its top row`);
+    assert.ok(edgeCorr(k, 'top') > 0.7, `kernel ${k} follows top edges: ${edgeCorr(k, 'top')}`);
+  }
+  assert.deepEqual(top, [2, 5]);
+  assert.deepEqual(right, [7], 'kernel 7 is amber on the left and blue on the right');
+  assert.ok(edgeCorr(7, 'right') > 0.7, 'kernel 7 follows right edges');
+  assert.equal(data.layers[0].weight_shape[0], 8);
   assert.equal(data.shown[1].index, 1, 'the task picks image #1');
 });
 
@@ -132,16 +143,27 @@ test("the pad task: the pad moves a drawing near one side to the centre, as MNIS
   assert.ok(Math.abs(cx / m - 14) < 1.5, `centre of mass ${cx / m}`);
 });
 
-test('the transfer quiz: on images twice as wide and tall, only the linear layer grows, four times', () => {
+test('the transfer quiz: on images twice as wide and tall, only the linear layer grows, four times; in the MLP only the first layer would', () => {
   const s1 = outSize(56, 3, 2, 1), s2 = outSize(s1, 3, 2, 1);
   assert.equal(s2 * s2 * 16, 4 * data.layers[2].weight_shape[1]);
+  // H4: the MLP's layers 784 -> 32 -> 32 -> 10: only the first depends on the number of pixels (25,120 -> 100,384; 1,056 and 330 stay)
+  const params = (l, inputs) => l.weight_shape[0] * inputs + l.bias.length;
+  const [l0, l1, l2] = mlp.layers;
+  assert.deepEqual([params(l0, 784), params(l0, 4 * 784), params(l1, 32), params(l2, 32)], [25120, 100384, 1056, 330]);
   // the kernels' parameter counts depend only on (C_out, C_in, K)
   assert.deepEqual(data.layers.slice(0, 2).map((l) => l.weight.length), [8 * 1 * 9, 16 * 8 * 9]);
 });
 
 test('the review links every part, the answer and the bridge, and no hand-typed digit in the prose', () => {
   const h = html();
-  for (const id of ['what-is-learning', 'why-gradients', 'nonlinearity', 'generalization', 'convolution']) assert.match(h, new RegExp(`href="\\.\\./${id}/"`));
+  // the review: part labels and lesson titles as in course.json
+  const C = course(), titleOf = (id) => C.parts.flatMap((p) => p.lessons).find((l) => l.id === id).title;
+  for (const id of ['what-is-learning', 'why-gradients', 'losses', 'backprop', 'optimizers', 'convolution']) assert.ok(h.includes(`<a href="../${id}/">${titleOf(id)}</a>`), id);
+  const labels = [...h.matchAll(/<li><strong>([\s\S]*?)\.<\/strong>/g)].map((m) => m[1].replace(/<[^>]+>/g, ''));
+  for (const part of ['whole-game', 'gradient', 'networks', 'training', 'images']) assert.ok(labels.includes(C.parts.find((p) => p.id === part).title), part);
+  // the In TorC code is the course.json code, which the snippet check compiles and runs
+  const esc = (t) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  assert.ok(h.includes(`<code>${esc(C.parts.flatMap((p) => p.lessons).find((l) => l.id === 'mnist-cnn').code)}</code>`));
   assert.match(h, /from digits to ChatGPT/);
   const saved = globalThis.katex;
   globalThis.katex = undefined;
@@ -149,6 +171,7 @@ test('the review links every part, the answer and the bridge, and no hand-typed 
   try { raw = renderLesson(lesson, D, { course: course() }).map((p) => p.html).join('\n'); } finally { globalThis.katex = saved; }
   const left = raw.replace(/<style[\s\S]*?<\/style>/g, '').replace(/<svg[\s\S]*?<\/svg>/g, '').replace(/<span class="num"[^>]*>[^<]*<\/span>/g, '')
     .replace(/<pre[\s\S]*?<\/pre>/g, '').replace(/<code[^>]*>[\s\S]*?<\/code>/g, '').replace(/<h2[^>]*>\s*\d\s·/g, '<h2>')
+    .replace(/kernel [257]\b/g, 'kernel')   // the kernel numbers that the kernel test checks
     .replace(/<[^>]+>/g, ' ').match(/[^\s]*\d[^\s]*/g) ?? [];
   assert.deepEqual(left, []);
 });
