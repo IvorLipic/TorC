@@ -74,7 +74,7 @@ function head([x1, y1, x2, y2]) {
 
 export function loopDiagram(active) {
   if (!LOOP_ACTIVE.includes(active)) throw new Error(`loopDiagram("${active}"): use one of ${LOOP_ACTIVE.join(', ')}`);
-  const aria = 'The training loop. The data goes into the model, the loss measures how wrong the model is, and the adjust step changes the weights. '
+  const aria = 'The training loop. The data goes into the model, the loss measures how wrong the model is, and the adjust step changes the numbers in the model. '
     + `Then the loop repeats. This lesson is about ${LOOP_NAME[active]}.`;
   const nodes = LOOP_PARTS.map((p) => {
     const [x, y] = POS[p], on = active === 'all' || active === p;

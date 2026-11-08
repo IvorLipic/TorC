@@ -31,7 +31,7 @@ export function mountLoopTimeline(host, D) {
     el('div', { class: 'sgd-ctl' }, el('label', { class: 'chk', for: 'sgd-zg' }, chk, el('span', {}, 'call ', el('code', {}, 'optimizer.zero_grad()'), ' every iteration'))),
     el('div', { class: 'sgd-grid' },
       el('div', {}, el('h3', { class: 'sub' }, 'Stored gradient of W, as step() reads it'), barsHost),
-      el('div', {}, el('h3', { class: 'sub' }, 'Loss (log scale). The dashed line is the other loop.'), lossHost)),
+      el('div', {}, el('h3', { class: 'sub' }, 'Loss on a log axis, where each labelled line is a power of ten. The dashed line is the other loop.'), lossHost)),
     read);
   host.append(root);
 

@@ -98,12 +98,12 @@ function startDemo() {
   <div class="home-top">
     <section class="hero home-hero" aria-labelledby="home-h">
       <h1 id="home-h">How a machine learns</h1>
-      <p class="lead">This course explains how a machine learns from examples. You start with one gradient, a number that tells a model how to improve. You finish with a network that reads handwritten digits. At the end, you see how ChatGPT learns with the same method, on a much larger scale.</p>
+      <p class="lead">This course explains how a machine learns from examples. You start by fitting a line to a few points by hand. You finish by following how TorC trains a network that reads handwritten digits. At the end, you see how ChatGPT learns with the same method, on a much larger scale.</p>
       <div class="hero-actions"><span id="start"></span><span class="hint" id="progress"></span></div>
     </section>
     <section class="demo" aria-labelledby="demo-h">
       <h2 id="demo-h">Draw a digit</h2>
-      <p class="demo-text">Draw a digit from 0 to 9 in the black square. A network that TorC trained reads your drawing and shows the probability of each digit. The buttons show handwritten digits that the network did not see in training. Later in the course, you build and train this network yourself.</p>
+      <p class="demo-text">Draw a digit from 0 to 9 in the black square. A network that TorC trained reads your drawing and shows the probability of each digit. The buttons show handwritten digits that the network did not see in training. Later in the course, you follow step by step how TorC trained this network.</p>
       <div id="demo-pad" class="demo-pad"><p class="hint">The page is loading the network.</p></div>
     </section>
     <section class="before" aria-labelledby="before-h">
@@ -123,7 +123,7 @@ function startDemo() {
   <section class="appendix" id="appendix" aria-labelledby="appendix-h"></section>
   <section class="labs" id="labs" aria-labelledby="labs-h"></section>
 </main>
-<footer><p>Tests check every number on these pages against real runs of TorC. The TorC code of each lesson compiles and runs with the TorC release that the site uses. Only this browser stores your progress. <a href="https://github.com/IvorLipic/TorC">Source</a>.</p></footer>`;
+<footer><p>Tests check every TorC number on these pages against real runs of TorC. Pages about ideas beyond TorC say so and cite their sources. The TorC code of each lesson compiles and runs with the TorC release that the site uses. Only this browser stores your progress. <a href="https://github.com/IvorLipic/TorC">Source</a>.</p></footer>`;
   renderProgress(course);
   renderLists(course, '');
   $('#filter').addEventListener('input', (e) => renderLists(course, e.target.value));
