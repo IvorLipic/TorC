@@ -114,14 +114,14 @@ export function mountGradientCompare(host, D) {
   input.addEventListener('input', () => { k = Number(input.value); mark(); });
   const box = el('div'), read = el('div', { class: 'lw-read' });   // the slider's aria-valuetext carries the values
   host.replaceChildren(el('div', { class: 'lw' }, el('div', { class: 'lw-ctl' }, el('div', { class: 'lw-field' }, el('label', { for: id, class: 'lw-lbl' }, 'score of the right class (the other score is 0)'), input)), box, read));
-  srTable(host, { columns: ['score of the right class', 'probability of the right class', 'cross-entropy gradient', 'squared miss gradient'], rows: z.map((v, i) => [v, C.p[i], C.ce_grad[i], C.sq_grad[i]]), caption: 'The gradient for the score of the right class, two classes' });
+  srTable(host, { columns: ['score of the right class', 'probability of the right class', 'cross-entropy gradient', 'MSE gradient'], rows: z.map((v, i) => [v, C.p[i], C.ce_grad[i], C.sq_grad[i]]), caption: 'The gradient for the score of the right class, two classes' });
   const paint = (pl) => {
     pl.axes({ xTicks: ticks([-6, 6], 6), yTicks: [-1, -0.75, -0.5, -0.25, 0] });
     pl.layer('curves').append(svg('line', { class: 'lw-zero', x1: pl.sx(-6), x2: pl.sx(6), y1: pl.sy(0), y2: pl.sy(0) }));
     pl.curve(z.map((v, i) => [v, C.ce_grad[i]]), { class: 'lw-ce', layer: 'curves' });
     pl.curve(z.map((v, i) => [v, C.sq_grad[i]]), { class: 'lw-sq', layer: 'curves' });
     pl.text(-5.8, -0.86, 'cross-entropy', { class: 'lw-lab ce', layer: 'curves' });
-    pl.text(-5.8, -0.1, 'squared miss', { class: 'lw-lab sq', layer: 'curves', dy: 4 });
+    pl.text(-5.8, -0.1, 'MSE', { class: 'lw-lab sq', layer: 'curves', dy: 4 });
     pl.layer('live');
   };
   const p = createPlot(box, { width: 640, height: 280, x: [-6, 6], y: [-1.05, 0.08], xLabel: 'score of the right class', yLabel: 'gradient', ariaLabel: '', onResize: (pl) => { paint(pl); mark(); } });
@@ -131,10 +131,10 @@ export function mountGradientCompare(host, D) {
     p.clear('live');
     p.dot(z[k], C.ce_grad[k], { r: 6, layer: 'live' });
     p.dot(z[k], C.sq_grad[k], { class: 'lw-dot2', r: 5, layer: 'live' });
-    const text = `score ${sig3(z[k])}, the other score 0, probability of the right class ${pct(C.p[k])}: cross-entropy gradient ${sig3(C.ce_grad[k])}, squared miss gradient ${sig3(C.sq_grad[k])}`;
+    const text = `score ${sig3(z[k])}, the other score 0, probability of the right class ${pct(C.p[k])}: cross-entropy gradient ${sig3(C.ce_grad[k])}, MSE gradient ${sig3(C.sq_grad[k])}`;
     input.setAttribute('aria-valuetext', text);
     p.root.setAttribute('aria-label', `The gradient of two losses for the score of the right class. At the dots, ${text}.`);
-    read.innerHTML = `<span><b>probability of the right class</b> ${pct(C.p[k])}</span><span><b>gradient, cross-entropy</b> ${sig3(C.ce_grad[k])}</span><span><b>gradient, squared miss</b> ${sig3(C.sq_grad[k])}</span>`;
+    read.innerHTML = `<span><b>probability of the right class</b> ${pct(C.p[k])}</span><span><b>gradient, cross-entropy</b> ${sig3(C.ce_grad[k])}</span><span><b>gradient, MSE</b> ${sig3(C.sq_grad[k])}</span>`;
   }
   mark();
   return { mark, set: (i) => { k = i; input.value = i; mark(); } };

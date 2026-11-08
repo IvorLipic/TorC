@@ -130,7 +130,7 @@ const lesson = {
       html: (D, T) => sec('net', '4 · Blame flows back through a small network', `
     <p>Now take a ${term('neural-network')} with two inputs, a ${term('layer')} of two ${term('neuron', 'neurons')} with ${term('relu', 'ReLU')}, and one output. Its inputs are ${T('net.x.value.0', 'setup')} and ${T('net.x.value.1', 'setup')}. Its ${term('target')} is ${T('net.t.value', 'setup')}, and the miss, prediction minus target, is ${T('net.d.value', 'setup')}.</p>
     <p>Read a value's gradient as its share of the blame for the miss. Its sign says which way to move the value to lower the loss.</p>
-    <p>A neuron gets the gradient of the prediction times its output weight, times the slope of its ReLU. The slope is one here, because both neurons are on. A weight gets the gradient of its neuron times its input.</p>
+    <p>A neuron gets the gradient of the prediction times its output weight, times the gradient of its ReLU. That gradient is one here, because both neurons are on. A weight gets the gradient of its neuron times its input.</p>
     ${worked(`<p>The gradient of the prediction is twice the miss, ${T('net.o.grad', 'worked')}. The second neuron has the output weight ${T('net.W2.value.1', 'worked')}. So its gradient is ${T('net.o.grad', 'worked')} × (${T('net.W2.value.1', 'worked')}) = <strong>${T('net.h.grad.1', 'worked')}</strong>.</p>`)}`),
     },
     {
@@ -168,7 +168,7 @@ const lesson = {
         { html: 'The same as before, because the weights did not change', feedback: 'The path from these weights to the loss is now blocked.' },
         { html: 'A larger one, because this neuron is wrong', feedback: 'A neuron that is off gets no blame, because it passes no gradient back.' },
       ],
-      reveal: '<p>For a negative sum, the slope of ReLU is zero. So the neuron’s gradient is zero, and zero times any input is zero.</p>',
+      reveal: '<p>For a negative sum, the gradient of ReLU is zero. So the neuron’s gradient is zero, and zero times any input is zero.</p>',
     },
     {
       kind: 'quiz', id: 'count', purpose: 'cumulative', from: 'linear-layer', type: 'numeric',

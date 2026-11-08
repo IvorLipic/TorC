@@ -1,7 +1,7 @@
 // Lesson "losses" (Part 3 `networks`, curriculum v3, template 3), title "Softmax and cross-entropy" (brief §6 and §7): softmax
 // turns scores into probabilities that add to one, with exponentials so that every probability is above zero ("shares of 100 %"
 // is the analogy, stated once with its limit); cross-entropy is the surprise at the right class, −ln of its probability (the
-// exp-ln refresher; "log" means ln on this site); why it beats the squared miss for classes (the gradient comparison); ten digits
+// exp-ln refresher; "log" means ln on this site); why it beats the mean squared error for classes (the gradient comparison); ten digits
 // as ten classes, with the equal-scores check ln 10; a ChatGPT aside (no vocabulary size, sources in the footer). MSE is taught in
 // what-is-learning, and the MSE shape pitfall lives in the appendix lesson torc-pitfalls (decision 22), so neither is on this page.
 // Every number comes from data/losses.json through a role-tagged T() (docs/authoring.md "Number roles").
@@ -48,7 +48,7 @@ const lesson = {
       items: () => [
         'How do the scores of three fruits become probabilities?',
         'How wrong is a small probability for the right fruit?',
-        'Why not use the squared miss, as for prices?',
+        `Why not use the ${term('mean-squared-error', 'mean squared error')}, as for prices?`,
       ],
     },
     {
@@ -113,41 +113,41 @@ const lesson = {
     {
       kind: 'text',
       html: (D, T) => sec('ignores', '3 · What the surprise looks at', `
-    <p>Many people think that the loss cares how the wrong classes split the rest. In both “same apple probability” rows the apple gets ${T.human(`${F}.spread.0.loss`, 'prob')}. The surprise is ${T(`${F}.spread.0.loss`, 'contrast')} in one row and ${T(`${F}.spread.1.loss`, 'contrast')} in the other.</p>
+    <p>Many people think that the loss cares how the wrong classes split the rest. In both “same apple probability” rows the apple gets ${T.human(`${F}.spread.0.loss`, 'prob')}. The surprise is the same in both rows, as the widget shows.</p>
     <p>Only the probability of the right class counts. The wrong scores still change it, because they are part of the sum that divides.</p>`),
     },
     {
       kind: 'text',
-      html: () => sec('squared', '4 · The squared miss for classes', `
-    <p>The first lesson used the ${term('mean-squared-error', 'mean squared error')}. For classes, it compares the probabilities with ${term('target')} probabilities, one for the right class and zero for the others. We call it the squared miss.</p>
+      html: () => sec('squared', '4 · The mean squared error for classes', `
+    <p>The first lesson used the mean squared error, or MSE. For classes, it compares the probabilities with ${term('target')} probabilities, one for the right class and zero for the others.</p>
     <p>${term('training', 'Training')} needs the ${term('gradient')} of the loss for every number that feeds it, also for a score. It says how much the loss changes per unit change of the score.</p>`),
     },
     {
       kind: 'quiz', id: 'very-wrong', purpose: 'predict', type: 'choice',
       prompt: '<p>A model with two classes gives the right class a probability near zero. Which loss has the larger gradient for the score of the right class, in size?</p>',
       options: [
-        { html: 'The squared miss, because the miss is as large as it can be.', feedback: 'The miss is large, but it hardly changes when the score changes.' },
+        { html: 'MSE, because the miss is as large as it can be.', feedback: 'The miss is large, but it hardly changes when the score changes.' },
         { html: 'The surprise, because it falls by about one per unit that the score rises.', correct: true, feedback: 'Yes.' },
         { html: 'Both the same, because they measure the same mistake.', feedback: 'They react in different ways to a very wrong model.' },
       ],
-      reveal: (D, T) => `<p>Near zero, the probability hardly moves when the score changes. So the gradient of the squared miss almost vanishes, while the gradient of the surprise stays near minus one.</p>
-    <p>At the score ${T(`${F}.curves.z.0`, 'reveal')}, the squared miss has the gradient ${T(`${F}.curves.sq_grad.0`, 'reveal')}. The surprise has ${T(`${F}.curves.ce_grad.0`, 'reveal')}, which is further from zero. Both are negative, because a higher score lowers both losses.</p>`,
+      reveal: (D, T) => `<p>Near zero, the probability hardly moves when the score changes. So the gradient of MSE almost vanishes, while the gradient of the surprise stays near minus one.</p>
+    <p>At the score ${T(`${F}.curves.z.0`, 'reveal')}, MSE has the gradient ${T(`${F}.curves.sq_grad.0`, 'reveal')}. The surprise has ${T(`${F}.curves.ce_grad.0`, 'reveal')}, which is further from zero. Both are negative, because a higher score lowers both losses.</p>`,
     },
     {
       kind: 'widget', id: 'compare', className: 'widget', label: 'Interactive: the gradient of two losses for the score of the right class',
       mount: (host, D) => mountGradientCompare(host, D),
       tasks: (D, T) => [{
         do: `Move the score of the right class from ${T(`${F}.curves.z.0`, 'setup')} to ${T(`${F}.curves.z.48`, 'setup')}. The other score stays zero.`,
-        see: 'Where the model is very wrong, the cross-entropy gradient stays near minus one. The squared miss gradient is near zero there.',
+        see: 'Where the model is very wrong, the cross-entropy gradient stays near minus one. The MSE gradient is near zero there.',
       }],
     },
     {
       kind: 'text',
-      html: () => sec('why', '5 · Why the surprise beats the squared miss', `
-    <p>With the squared miss, a very wrong model learns slowest.</p>
+      html: () => sec('why', '5 · Why the surprise beats MSE', `
+    <p>With MSE, a very wrong model learns slowest.</p>
     <p>For one photo, TorC’s <code>backward()</code> gives the surprise the gradient “probability minus one” for the score of the right class. You can check this in the widget. So a very wrong model gets a strong push.</p>
-    <p>For prices, the squared miss is a good choice. For classes, you use cross-entropy.</p>
-    ${chatgpt(`A model like ChatGPT scores every word piece that it knows. Softmax gives the probabilities, and then the model chooses one piece. In ${term('pretraining')}, the loss is the surprise at the piece that really came next. Later training uses other methods. This is a concept, not a TorC run.`)}`),
+    <p>For prices, MSE is a good choice. For classes, you use cross-entropy.</p>
+    ${chatgpt(`A model like ChatGPT scores every word piece that it knows. Softmax gives the probabilities, and then the model chooses one piece. In the first stage of its training, the loss is the surprise at the piece that really came next. Later training uses other methods. This is a concept, not a TorC run.`)}`),
     },
     {
       kind: 'quiz', id: 'ten-equal', purpose: 'transfer', type: 'numeric',

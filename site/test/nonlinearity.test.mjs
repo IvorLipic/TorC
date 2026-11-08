@@ -162,7 +162,7 @@ test('the lesson is a v3 lesson that lights the model, softmax and overflow are 
   assert.match(html, /aria-label="Analogy"/);
   const t = rawHtml().replace(/<style[\s\S]*?<\/style>/g, '').replace(/<svg[\s\S]*?<\/svg>/g, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
   assert.match(t, /Nothing sits between the layers, so each layer only multiplies and adds, as in the last lesson\./, 'the predict is fair');
-  assert.match(t, /typical miss, the square root of the mean squared miss/);
+  assert.match(t, /typical miss, the square root of the mean squared error/);
   assert.doesNotMatch(t, /on average|kink|\bunit\b/, 'one name: typical miss, bend, neuron');
   assert.match(t, /This small sigma is not the Σ of sums\./);
   assert.match(t, /letter W\. It goes down, up, down and up again, so it has three bends\./, 'the transfer asks the reverse question');

@@ -132,7 +132,7 @@ test('C2-type honesty: the ChatGPT aside names no vocabulary size, says it is no
   assert.match(aside, /not a TorC run/);
   assert.match(lesson.footer(D, T), /language_understanding_paper\.pdf">Radford et al\. \(2018\)[^<]*section 3\.1/);
   assert.match(lesson.footer(D, T), /arxiv\.org\/abs\/2203\.02155/);
-  assert.match(aside, /pretraining/);
+  assert.match(aside, /first stage of its training/);
   assert.doesNotMatch(aside, /thousand/);
   assert.match(lesson.footer(D, T), /Numbers: TorC/);
   assert.match(html, /log always means ln/);

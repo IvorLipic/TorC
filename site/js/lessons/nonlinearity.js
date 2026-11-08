@@ -55,7 +55,7 @@ export default {
     <p>There are ${T(`${F}.setup.points`, 'setup')} points on the curve <i>t</i> = <i>x</i>². Here <i>t</i> is the ${term('target')}, the value to predict. Their <i>x</i> goes from ${T(`${F}.data.x.0`, 'setup')} to ${T(`${F}.data.x.20`, 'setup')}.</p>
     <p>The ${term('model')} has two layers. The first layer has ${T(`${F}.setup.hidden`, 'setup')} ${term('neuron', 'neurons')}. The second layer has one neuron, and its output is the ${term('prediction')}. Nothing sits between the layers, so each layer only multiplies and adds, as in the last lesson.</p>
     <p>The first layer is a ${term('hidden-layer')}, because its outputs are neither the inputs nor the prediction.</p>
-    <p>${term('training', 'Training')} runs for ${T(`${F}.setup.steps`, 'setup')} steps. Each step changes the ${term('weight', 'weights')} with the ${term('gradient')}, by an improved kind of ${term('gradient-descent')} that a later lesson explains.</p>`),
+    <p>${term('training', 'Training')} runs for ${T(`${F}.setup.steps`, 'setup')} steps. Each step changes the ${term('parameter', 'parameters')} with the ${term('gradient')}, by an improved kind of ${term('gradient-descent')} that a later lesson explains.</p>`),
     },
     {
       kind: 'quiz', id: 'flat', purpose: 'predict', type: 'choice',
@@ -71,7 +71,7 @@ export default {
           feedback: 'Corners need a function between the layers. Here nothing sits there.' },
       ],
       reveal: (D, T) => `<p>After training, the model draws a flat line at ${T(`${END(LIN)}.prediction.${X0}`, 'reveal')}, the average height of the points.</p>
-    <p>Its typical miss, the square root of the mean squared miss, is about ${T.human(`${END(LIN)}.loss`, 'rmse')}.</p>`,
+    <p>Its typical miss, the square root of the ${term('mean-squared-error', 'mean squared error')}, is about ${T.human(`${END(LIN)}.loss`, 'rmse')}.</p>`,
     },
     {
       kind: 'text',
@@ -115,7 +115,7 @@ export default {
       kind: 'text',
       html: (D, T) => sec('hinges', '3 · Each ReLU neuron is a hinge', `
     <p>One hidden neuron with ReLU gives zero on one side of a point and a straight line on the other side. This is a hinge, and the point is its bend.</p>
-    <p>The second layer multiplies each hinge by a weight, adds them, and adds its own bias. So each neuron can bend the sum at its own point. A neuron with a small weight in the second layer changes the sum only a little.</p>
+    <p>The second layer multiplies each hinge by a ${term('weight')}, adds them, and adds its own bias. So each neuron can bend the sum at its own point. A neuron with a small weight in the second layer changes the sum only a little.</p>
     ${analogy('A sum of hinges bends a straight line into a curve.',
     `The sum has straight pieces only. With ${T(`${F}.setup.hidden`, 'setup')} hinges it has at most ${T(`${F}.setup.hidden`, 'setup')} bends, so it only comes close to a smooth curve.`)}
     <p>Many people think that ReLU itself is the curve. But ReLU is two straight pieces with one bend. In the widget, one neuron alone is one hinge, and the curve appears only in the sum.</p>`),

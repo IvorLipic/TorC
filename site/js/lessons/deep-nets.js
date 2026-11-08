@@ -61,8 +61,8 @@ export default {
     {
       kind: 'text',
       html: (D, T) => sec('twins', '1 · Twins stay twins', `
-    <p>The two neurons get the same inputs and have the same weights, so they compute the same output. They have the same output weight, so the backward pass gives them the same ${term('gradient')}. A weight's gradient is its neuron's gradient times its input, so matching weights get equal gradients. So the step keeps them equal.</p>
-    <p>So the layer acts like one neuron forever. With the equal start, the network keeps a typical miss of about ${T.human(`${F}.twins.${TWINS}.long_run.${LAST}.loss`, 'rmse')}, the square root of the mean squared miss. With different starts, it learns all four points.</p>`),
+    <p>The two neurons get the same inputs and weights, so they compute the same output. They have the same output weight, so the backward pass gives them the same ${term('gradient')}. A weight's gradient is its neuron's gradient times its input, so matching weights get equal gradients. So each step keeps them equal, and the layer acts like one neuron forever.</p>
+    <p>With the equal start, the network keeps a typical miss of about ${T.human(`${F}.twins.${TWINS}.long_run.${LAST}.loss`, 'rmse')}, the square root of the ${term('mean-squared-error', 'mean squared error')}. With different starts, it learns all four points.</p>`),
     },
     {
       kind: 'widget', id: 'twins-widget', className: 'widget', label: 'Interactive: two neurons from three starts',
@@ -72,13 +72,13 @@ export default {
           see: 'The two neurons keep the same bars, and the typical miss stops falling.' },
         { do: 'Choose the different start and step again.',
           see: `The neurons move apart, and the ${term('prediction', 'predictions')} reach the ${term('target', 'targets')}.` },
-        { do: 'Choose all zero.', see: 'No weight moves, and the network predicts the same number for every point.' },
+        { do: 'Choose all zero.', see: 'No weight moves, and every point gets the same prediction.' },
       ],
     },
     {
       kind: 'text',
       html: (D, T) => sec('zero', '2 · A tempting idea that is wrong', `
-    <p>Many people start every weight at zero, because zero looks neutral. Then every neuron is a twin of every other, and it gets worse.</p>
+    <p>Many people start every weight at zero, because zero looks neutral. Then every neuron is a twin of every other, which is worse.</p>
     <p>The first-layer weights get a gradient of zero, because the output weights are zero. The output weights get a gradient of zero, because ReLU of zero is zero, so their inputs are zero. So no weight ever changes.</p>
     <p>Only the output bias learns. It moves to the mean of the four targets, so the network predicts ${T(`${F}.twins.${ZEROS}.long_run.${LAST}.prediction.0`, 'contrast')} for every point. The start must be random.</p>`),
     },
@@ -95,9 +95,9 @@ export default {
     {
       kind: 'text',
       html: (D, T) => sec('vanish', '3 · Gradients that fade', `
-    <p>The backward pass multiplies one ratio per layer, by the ${term('chain-rule')}. The sigmoid is steepest in the middle of its S curve, and even there its slope is only ${T(`${F}.setup.sigmoid_max_slope`, 'setup')}. So in this stack each sigmoid layer shrank the gradient.</p>
-    <p>The first layer's gradient is about ${T(`${F}.vanishing.${SIGMOID}.derived.last_over_first_hidden`, 'contrast')} times smaller than the last hidden layer's. With ReLU it is about ${T(`${F}.vanishing.${RELU}.derived.last_over_first_hidden`, 'contrast')} times smaller. ReLU has the slope one for every positive input, so it does not shrink the gradient by itself.</p>
-    <p>These are ${term('vanishing-gradients')}. A layer with almost no gradient barely learns, so more layers do not always learn better. These numbers come from one random start, and another start gives other numbers.</p>`),
+    <p>The backward pass multiplies one ratio per layer, by the ${term('chain-rule')}. The sigmoid is steepest in the middle of its S curve, and even there its gradient is only ${T(`${F}.setup.sigmoid_max_slope`, 'setup')}. So in this stack each sigmoid layer shrank the gradient.</p>
+    <p>The first layer's gradient is about ${T(`${F}.vanishing.${SIGMOID}.derived.last_over_first_hidden`, 'contrast')} times smaller than the last hidden layer's. With ReLU it is about ${T(`${F}.vanishing.${RELU}.derived.last_over_first_hidden`, 'contrast')} times smaller. ReLU has the gradient one for every positive input, so it does not shrink the gradient by itself.</p>
+    <p>These are ${term('vanishing-gradients')}. A layer with almost no gradient barely learns, so more layers do not always learn better. These numbers come from one random start.</p>`),
     },
     {
       kind: 'widget', id: 'vanishing', className: 'widget', label: 'Interactive: the gradient of each layer, sigmoid and ReLU',
@@ -161,12 +161,13 @@ export default {
     {
       kind: 'text',
       html: () => sec('review', 'Part 3 in review', `
-    <p>This lesson ends the part about networks. If a question is hard, go back to its lesson.</p>
+    <p>If a question is hard, go back to its lesson.</p>
     <ul class="dn-review">
-      <li>What does a layer compute? (<a href="../linear-layer/">layers</a>)</li>
-      <li>Why does a network need an ${term('activation-function')}? (<a href="../nonlinearity/">nonlinearity</a>)</li>
-      <li>How do scores become ${term('probability', 'probabilities')}, and how does the loss judge them? (<a href="../losses/">losses</a>)</li>
-      <li>How does ${term('backpropagation')} find every gradient at once? (<a href="../backprop/">backpropagation</a>)</li>
+      <li>What does a layer compute? (<a href="../linear-layer/">The neuron and the layer</a>)</li>
+      <li>Why does a network need an ${term('activation-function')}? (<a href="../nonlinearity/">Activation functions</a>)</li>
+      <li>What bends a ${term('decision-boundary')} between two ${term('class', 'classes')}? (<a href="../classification/">Two classes and the decision boundary</a>)</li>
+      <li>What do ${term('softmax')} and ${term('cross-entropy')} do? (<a href="../losses/">Softmax and cross-entropy</a>)</li>
+      <li>How does ${term('backpropagation')} work? (<a href="../backprop/">How the computer finds every gradient at once</a>)</li>
     </ul>`),
     },
     {
