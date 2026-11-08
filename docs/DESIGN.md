@@ -60,7 +60,10 @@ retain graph nodes: every tracked Variable must still outlive `backward()` for a
 Variable copy construction creates a fresh token. Move construction also gives the destination a
 fresh token and resets the moved-from token, while move assignment preserves the destination
 identity and resets the moved-from token. Edges in a moved Variable's own tape point at its inputs,
-so they move with it, while stale edges to a moved-from object fail deterministically.
+so they move with it, while stale edges to a moved-from object fail deterministically. Known
+limitation: move assignment does not restore a token, so a moved-from Variable that is assigned a
+new tracked value still has an empty token. A later graph that uses it fails in `backward()` with
+the expired-input `TorcError`.
 
 `Variable` data, gradients, flags, and tape are now private, but the non-const `data()` and
 `tape()` accessors still return mutable references. Narrow those accessors before adding version
@@ -811,7 +814,9 @@ Data loading is the thinnest possible wrapper around a dataset, matching PyTorch
     falls back to per-sample `get()` + `stack_samples()`. `TensorDataset`, `MNISTDataset`,
     `SyntheticRegression`, and `CSVDataset` override `gather` to copy directly from their backing
     storage in a single pass, avoiding the three-copy-per-sample cost of the default path when
-    shuffling produces non-contiguous batches.
+    shuffling produces non-contiguous batches. Every index must be less than `len()`: these
+    `gather` overrides copy without a bounds check, so an out-of-range index reads past the
+    storage instead of throwing `IndexError`. `DataLoader` and `get_batch` only pass valid indices.
 - **`data::DataLoader`** takes a `Dataset` and produces batches:
   - `DataLoader(const Dataset& ds, size_t batch_size, bool shuffle = false, unsigned int seed = std::random_device{}())`
   - `std::pair<Tensor, Tensor> next_batch()` — returns `(x_batch, y_batch)` with the batch

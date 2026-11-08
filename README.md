@@ -146,6 +146,9 @@ cmake --build build-install -j4
 cmake --install build-install
 ```
 
+With a multi-configuration generator such as Visual Studio, add `--config Release` to both the
+`cmake --build` and the `cmake --install` command, so that they use the same configuration.
+
 The install step copies the static library, the public headers in `include/torc/`, the files
 `torcConfig.cmake` and `torcConfigVersion.cmake`, and `LICENSE` into the prefix.
 
@@ -178,6 +181,8 @@ cmake -S . -B build -DCMAKE_CXX_COMPILER=clang++-18 -DCMAKE_BUILD_TYPE=Release \
 cmake --build build
 ./build/my_app
 ```
+
+With a multi-configuration generator, build with `--config Release` and run `./build/Release/my_app`.
 
 `find_package(torc 0.1)` accepts versions 0.1.x only, because a new 0.x minor version can change
 the API.

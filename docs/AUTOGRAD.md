@@ -63,6 +63,13 @@ Variable move construction gives the destination a fresh lifetime token. Move as
 the destination's token. Both reset the moved-from object's token, so existing graph edges to the
 moved-from object fail deterministically instead of observing partially moved state.
 
+Do not assign a new value to a tracked Variable while a result that uses it still needs
+`backward()`. The edges of that result point at the Variable's address, which is still alive, so
+`backward()` follows the new value's tape and computes wrong gradients without an error. For
+example, after `auto out = mul(v, v); v = mul(a, b);`, the call `out.backward()` sends gradients
+into `a` and `b`. A moved-from Variable that receives a new tracked value keeps an empty lifetime
+token, so a graph that uses it fails in `backward()` with `TorcError`.
+
 ### Backward Algorithm: Topological Sort (Not Recursion)
 
 **Critical design decision:** The backward pass uses **topological sort + iterative execution**,

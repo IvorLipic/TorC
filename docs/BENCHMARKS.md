@@ -1,7 +1,7 @@
 # Benchmarks
 
 Baseline measurements for `torc` tensor operations. Generated with
-`cmake -S . -B build -DBUILD_BENCHMARKS=ON && cmake --build build --config Release`.
+`cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_BENCHMARKS=ON && cmake --build build --config Release`.
 
 Run benchmarks:
 
@@ -116,7 +116,7 @@ benchmarked against PyTorch on the same machine, pinned to a single thread.
 Run torc:
 
 ```bash
-cmake -S . -B build -DBUILD_BENCHMARKS=ON
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_BENCHMARKS=ON
 cmake --build build --config Release
 ./build/torc_benchmarks --benchmark_min_time=1s
 ```
