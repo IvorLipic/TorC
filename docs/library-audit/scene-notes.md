@@ -2,10 +2,12 @@
 
 The scenes are now rendered as an interactive site (`site/`), not videos; the plan below still describes what each scene demonstrates.
 The MLP scene uses a batch of two examples (so bias broadcasting and its sum-reduction are visible); its hand-checked values live in
-`visualizations/generated/autograd_trace.json` and are re-verified by `site/test/engine.test.mjs`.
+`site/data/autograd_trace.json` and are re-verified by `site/test/engine.test.mjs`.
 
 Each scene maps to real symbols and a generated, finite-difference-checked output
-(`visualizations/generated/autograd_trace.json`, produced by `visualizations/examples/autograd_trace.cpp`).
+(`site/data/autograd_trace.json`, produced by `tools/trace/autograd_trace.cpp`). Before the branch split, these files were
+`visualizations/generated/autograd_trace.json` and `visualizations/examples/autograd_trace.cpp`. The file also holds a fourth
+scene, `net`, added for the lesson `backprop` (see `docs/trace-schema.md`).
 
 | Scene | Class | Code symbols | Expected math | Mismatch detector |
 |---|---|---|---|---|

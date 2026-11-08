@@ -7,7 +7,8 @@ never edit a file there by hand. This page says what is in each file so a lesson
 Producers, in `tools/trace/`: `trace_util.hpp` (shared: JSON writer, `Graph`, `Scene`/`run_scene`, tensor serialisation, finite-difference
 checker, envelope), `autograd_trace.cpp`, `trace_why.cpp`, `trace_optim.cpp`, `trace_linear.cpp`, `trace_tensors.cpp`, `trace_nonlinear.cpp`, `trace_classification.cpp`, `trace_deep.cpp`, `trace_modules.cpp`, `trace_losses.cpp`, `trace_training.cpp`, `trace_optimizers.cpp`, `trace_generalization.cpp`, `trace_mnist_mlp.cpp`, `trace_conv.cpp`, `trace_mnist_cnn.cpp`, `trace_whole_game.cpp`, `trace_mnist_mistakes.cpp`, `trace_one_step.cpp`, `trace_shift.cpp`,
 `trace_mnist_seeds.cpp` (the MNIST programs share `trace_mnist.hpp`: the two example models, evaluation with a confusion matrix, image
-shifts, and reading trained weights back from a trace file). Behaviour notes per lesson (what the
+shifts, and reading trained weights back from a trace file), and `time_backprop.cpp` (a timing that `run.sh` does not run, see
+`backprop-timing.json`). Behaviour notes per lesson (what the
 numbers mean, derivations, library symbols): `docs/lessons/<lesson>.md`.
 
 ## Conventions
@@ -15,7 +16,7 @@ numbers mean, derivations, library symbols): `docs/lessons/<lesson>.md`.
 - **Envelope** (top of every file, in this order): `schema` = `"torc-trace/1"`; `library` = `{ref, compiler, flags}` (`ref` is the content of
   `TORC_REF`, a release tag such as `"v0.1.0"` or a full commit SHA such as `"38785db59b98a78548b58a16c51a03ec56a65a9d"`; `compiler` e.g. `"clang 18.1.3 (libstdc++ 14)"`; `flags` the build flags, including `-ffp-contract=off`, which the trace build sets for TorC and the producers so that no
   fused multiply-add changes a result on a CPU that has one; the last two are informational and
-  are not compared by the drift check); `generator` = source file of the producer; `kind` = topic (`autograd` | `why` | `optim` | `linear` | `tensors` | `nonlinearity` | `classification` | `deep` | `modules` | `losses` | `training` | `optimizers` | `generalization` | `mnist-mlp` | `conv` | `mnist-cnn` | `whole-game` | `mnist-mistakes` | `one-step` | `shift` | `mnist-seeds`);
+  are not compared by the drift check); `generator` = source file of the producer; `kind` = topic (`autograd` | `why` | `optim` | `linear` | `tensors` | `nonlinearity` | `classification` | `deep` | `modules` | `losses` | `training` | `optimizers` | `generalization` | `mnist-mlp` | `conv` | `mnist-cnn` | `whole-game` | `mnist-mistakes` | `one-step` | `shift` | `mnist-seeds`, and `timing` for `backprop-timing.json`);
   `lesson` = first lesson that uses the file. Everything else is topic data. Unknown keys must be ignored by consumers.
 - **Numbers.** Values the library computed in `float32` are written with 9 significant digits (they round-trip the float32 exactly, so
   `0.1f` appears as `0.100000001`; present them rounded). Values that are configuration or were derived in `double` (learning rates, `h`,
@@ -65,7 +66,7 @@ One weight, one datum: `p = w*x`, `e = p - t`, `L = e*e`, `x = 2`, `t = 6`, so `
 - `probes[]`: same record at `w = 0, 0.1, 1, 1.2, 3, 6, 7.2` (the weights the lesson talks about).
 - `secants[]`: for `h` in `1, 0.5, 0.1, 0.01, 0.001`: `{h, w0, L0, L_h, dL, slope, expected_slope, backward_slope}`. `slope = (L(h)-L(0))/h` with `L` from the real forward
   pass **in float32** (so `h = 0.001` gives `-23.9944`, not the exact `-23.996`: cancellation); `expected_slope = 4h - 24` is derived; `backward_slope = -24`.
-- `nudge`: change of every stage when `w` moves from `0` by `delta = 0.01`: `stages[] = {name, from, before, after, change, local_slope}` for `p`, `e`, `L`
+- `nudge`: change of every stage when `w` moves from `0` by `delta = 0.01` (`w0`, `delta`, and `w1`, the nudged weight in float32): `stages[] = {name, from, before, after, change, local_slope}` for `p`, `e`, `L`
   (local slopes `2, 1, -12` read from the real backward pass as ratios of node gradients), plus `local_slope_product`, `backward_slope`, `predicted_dL`
   (= slope*delta, derived), `actual_dL`, `second_order_term` (derived).
 - `trajectories[]`: for `lr` in `0.05, 0.1, 0.125, 0.25, 0.3`: `{lr, momentum:0, factor (= 1-8*lr, derived), stable_predicted, matches_manual, max_abs_diff_vs_manual, states[9]}`.
@@ -145,7 +146,8 @@ v3 additions (brief §6 `sgd-step`, the c-zero check of §7, D13), appended afte
 - `init_stats[]`: for each `(in, out, seed, init_std)`: `{weight_shape, numel, kaiming_default, expected_std, mean, std, min, max, std_over_expected, histogram{lo,hi,bins,counts,under,over}, bias_all_zero}`
   and, when `numel <= 1024`, `weights{shape,values}` (the actual weights the library drew). `histogram` covers `[-4, +4]` expected stds in 40 bins. `expected_std` is `sqrt(2/in)` for the default or `init_std`.
   **Stdlib-dependent** (see conventions).
-- `signal[]`: for `name` in `kaiming` (library default), `std_0.01`, `std_1.0`: six layers of `Linear(256,256)` + `ReLU` on a `64x256` `N(0,1)` input (input seed 100, weight seeds `200 + layer`).
+- `signal[]`: for `name` in `kaiming` (library default), `std_0.01`, `std_1.0`: six layers of `Linear(256,256)` + `ReLU` on a `64x256` `N(0,1)` input (input seed 100, weight seeds `200 + layer`). The keys `width`, `batch`, `input_seed`, `weight_seeds`
+  and `n_extra_seeds` hold these settings.
   `layers[0..6]`: `{layer, pre_std, post_std, post_mean, post_rms, frac_zero}` (layer 0 is the input itself; `post_std` is the std of the ReLU output over all 16384 values, population std).
   `across_seeds[1..6]`: `{layer, post_std_mean, post_std_min, post_std_max}` over 10 other weight seeds, to say how typical the primary run is. **Stdlib-dependent.**
 - `param_counts[]`: `Linear(784, 32)` (25120, 2 tensors), `MNIST MLP` (26506, 6 tensors), `MNIST CNN` (9098, 6 tensors), each `{name, source, input_shape, layers[{layer, params[{name,shape,numel}], count, output_shape}], total, tensors, sum_of_layers}`;
@@ -378,7 +380,8 @@ backward_over_forward_nograd, backprop_over_nudge, nudging_over_backprop}` for M
 512), one sample, best of 5 rounds. `forward_us` has the gradient record on, `forward_nograd_us` runs under `NoGradGuard` (a nudge),
 `forward_backward_us` includes `zero_grad()`. `backprop_over_nudge` = forward_backward / forward_nograd (one backprop counted in
 nudges); `nudging_over_backprop` = (parameters + 1) · forward_nograd / forward_backward. `derived` = min and max of the ratios over the
-three networks and `largest_over_digit` (25.3). The lesson binds these ratios with one significant figure only.
+three networks (`backward_over_forward_nograd_min|max`, `backprop_over_nudge_min|max`) and `largest_over_digit` (25.3).
+`setup` = `{model, rounds, round_seconds, note}`. The lesson binds these ratios with one significant figure only.
 
 ## `deep.json` (kind `deep`, lesson `deep-nets`)
 

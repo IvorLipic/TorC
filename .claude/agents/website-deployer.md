@@ -14,14 +14,13 @@ model: inherit
 
 ## Requirements
 - Prefer a simple static site unless the repository has a clear reason to use a framework.
-- Support the project URL subpath `/TorC/`; do not assume root hosting. Centralize the base path and test it.
-- Include accessible navigation, responsive layout, clear explanations, code snippets, equation support where appropriate, and playable rendered media.
-- Keep generated video sizes reasonable and avoid committing unnecessary intermediate renders.
+- Support the project URL subpath `/TorC/`; do not assume root hosting. Use relative URLs only, with no `<base>` and nothing root-absolute (see `docs/architecture.md`), and run `node tools/check_site.mjs`, which enforces it.
+- Include accessible navigation, responsive layout, clear explanations, code snippets and equation support where appropriate. Decision 3 in `docs/decisions.md` dropped videos. Build interactive widgets.
 - GitHub Actions must deploy only from the explicitly selected branch. Do not trigger deployment from `main`.
 - Document local development/build steps and required Pages settings.
 
 ## Workflow
-- Begin with a minimal page and one placeholder/approved scene media slot.
-- Confirm base-path handling and a successful local build before polishing the full site.
-- Validate links and media paths, including the deployed `/TorC/` path.
+- Begin with a minimal page and one approved widget.
+- Confirm that the site works under a `/TorC/` prefix server before polishing the full site.
+- Validate links and asset paths, including the deployed `/TorC/` path.
 - Report files changed, commands run, results, and anything not verified.

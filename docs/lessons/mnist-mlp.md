@@ -25,8 +25,8 @@ in `docs/library-audit/v0.1.0-findings.md`).
   run (the pad network, all 60,000 images) and the seed runs measured the test set after every epoch (`epochs[].test_accuracy`,
   `test_correct_by_epoch`); the page says so, binds none of those values, and chooses nothing with them. Its final 9,666 is the
   confusion matrix.
-- Three seed sets (C5): 96.66 %, 96.66 %, 96.51 % on the test set; the page shows the range as fractions 0.9651 to 0.9666 (no trace
-  field holds mistakes per 100 with one decimal, and `mnist-seeds.json` is not this lesson’s producer).
+- Three seed sets (C5): 96.66 %, 96.66 %, 96.51 % on the test set. The page shows the range as mistakes per hundred, 3.3 to 3.5
+  (`mnist-seeds.json` `mlp.min_mistakes_per100` and `mlp.max_mistakes_per100`, added in `14e119d`, role `contrast`).
 - At epoch 1 the validation images have fewer mistakes (6.9) than the 5,000 training images (8.1); different images, so the
   counts differ a little by chance. The validation curve is flat over the last five epochs and rises from epoch 18 (2.6) to 20 (2.8).
 - Confusion matrix (test set, shown only to look, nothing chosen with it): the largest off-diagonal count is a four read as a nine
