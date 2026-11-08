@@ -14,7 +14,8 @@ and the machinery contract, and `docs/decisions.md` (13 onward) records what is 
   tags when the owner has asked for a release. Anything else outward-facing (new repositories, repo settings, other branches): ask.
 - **Work branch (decision 20).** The v3 rework lives on `claude/trusting-archimedes-kjzrto` (the brief's `web-v3`). `web` stays live
   and gets only the Phase A quick fixes and the TorC pin bump, because both are safe and tested. The work branch merges `web`
-  whenever `web` changes. It merges into `web` only when the owner says so, after the human-reader test (see Verification). Never
+  whenever `web` changes. It merges into `web` only when the owner says so. (2026-11-08, decision 25: the owner merged it before
+  the human-reader tests, so readers use the live site. Later fixes go to `web` with the usual checks.) Never
   merge `main` into either branch. Pages deploy only from `web`. Agents work in their own worktrees on local branches; the lead
   integrates.
 

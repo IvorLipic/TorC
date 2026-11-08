@@ -24,7 +24,8 @@ The owner approved every approval item of brief §12 as the brief recommends:
 
 - `web` is live. It gets the Phase A quick fixes and the TorC pin bump (PR #6), because both are safe and tested.
 - `claude/trusting-archimedes-kjzrto` is the work branch. It merges `web` whenever `web` changes. It merges into `web` only when
-  the owner says so, after the human-reader test of brief §10.
+  the owner says so, after the human-reader test of brief §10. Note 2026-11-08: the owner merged it into `web` before the
+  human-reader tests, so that readers use the live site (decision 25).
 - Never merge `main` into either branch. Never force-push `web`.
 - Agents work in their own worktrees on local branches. The lead integrates.
 

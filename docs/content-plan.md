@@ -21,7 +21,7 @@ learning work, and roughly how ChatGPT works. Aged 17 to 19. The reader:
 everything else when you need it, including derivatives and matrices."
 
 **Rules that follow from the persona.**
-- No symbol or term appears before the lesson that introduces it, in course order (tested).
+- No symbol or term appears before the lesson that introduces it, in course order (the symbol order is tested, but the glossary-term order is not).
 - The reader is never asked to differentiate a formula symbolically before `backprop`. Slopes come from nudging a weight: "raise
   `w` by 0.01 and the loss changes by about -0.24, so the gradient is about -24".
 - C++ is depth, not the entry point. The course can be finished without reading C++. "Real library, real numbers" stays visible

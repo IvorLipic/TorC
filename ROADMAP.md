@@ -67,8 +67,8 @@ Lessons 09 to 13 had an independent review on 2026-10-20; its findings are fixed
 device for the digit pads. TorC findings for `main` are in `docs/library-audit/v0.1.0-findings.md`.
 
 ## M5 — Curriculum v3 (the pedagogy rework; brief `docs/pedagogy-review.md`, contract `docs/v3-implementation.md`)
-Status (2026-11-08): phases A to C are done. Phase D and the human tests are open. `web` and the work branch now point at the
-same commit (`ec224ff`), so `web` holds curriculum v3 (see "Not done, owner-only").
+Status (2026-11-08): phases A to C are done. Phase D and the human tests are open. The work branch was merged into `web` on
+2026-11-08 (decision 25), so the live site shows curriculum v3.
 Goal: the best resource for the high-school graduate of decision 13. All approval items of brief section 12 were granted on
 2026-10-29 (decisions 13-23). Work happens on the work branch `claude/trusting-archimedes-kjzrto` (decision 20). Lessons are
 referred to by id. Defect and error ids (D1-D20, C1-C10) are in the brief, sections 5 and 11.
@@ -115,9 +115,8 @@ had two gates and no cold reader, because they are for TorC users. The cold read
 
 ### Not done, owner-only
 - [ ] The human think-aloud tests, 3 to 5 readers from the target group per part (`CLAUDE.md`, "Verification")
-- [ ] Merge of the work branch `claude/trusting-archimedes-kjzrto` into `web`. The owner decides, after the human tests.
-      Note 2026-11-08: the branch `web` already contains the work branch (both at `ec224ff`). `docs/decisions.md` records no owner
-      decision for this, and the human tests are still open.
+- [x] Merge of the work branch `claude/trusting-archimedes-kjzrto` into `web` (2026-11-08, at `ec224ff`). The owner decided to
+      merge before the human tests, so that readers use the live site (decision 25). The human tests are still open.
 
 ### Known open items
 - Fixed 2026-11-08: the `conv2d` bug recorded in `docs/library-audit/v0.1.0-findings.md` (a kernel larger than the padded input

@@ -127,6 +127,11 @@ Lightweight decision log. Newest at the bottom of each section.
     **typical miss** is the square root of the MSE, shown with `T.human(path, 'rmse')`. Supersedes the mixed names of the old
     lessons. Decision 14 stands.
 
+25. **The work branch merges into `web` before the human-reader tests** (owner decision 2026-11-08). The owner's colleagues
+    read the course on the live site, so curriculum v3 must be live first. The work branch was merged into `web` at `ec224ff`.
+    The think-aloud tests of CLAUDE.md now run on the live site. The owner reports their problems in new threads, and fixes go
+    to `web` with the usual checks. Amends decision 20, which held the merge until after the tests.
+
 ## Open
 - Pin policy: pin a release tag (preferred) and bump via PR. `v0.1.0` was pinned until 2026-10-29. The pin is now the commit
   `38785db` on `main` (v0.1.0 + PR #5 + PR #6), because no tag includes the `MSELoss` fix yet. Pin the next tag that does.
