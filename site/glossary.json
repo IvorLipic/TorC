@@ -95,7 +95,7 @@
       "term": "data set",
       "forms": ["data set", "data sets", "dataset", "datasets"],
       "short": "A data set is a collection of samples, and each sample has an input and its target.",
-      "lesson": "what-is-learning"
+      "lesson": "training-loop"
     },
     "decision-boundary": {
       "term": "decision boundary",
@@ -136,7 +136,7 @@
     "gradient-descent": {
       "term": "gradient descent",
       "forms": ["gradient descent"],
-      "short": "Gradient descent improves a model in many small steps, and each step moves the weights downhill on the loss.",
+      "short": "Gradient descent improves a model in many small steps, and each step moves the parameters downhill on the loss.",
       "lesson": "why-gradients"
     },
     "hidden-layer": {
@@ -257,7 +257,7 @@
       "term": "pixel",
       "forms": ["pixel", "pixels"],
       "short": "A pixel is one small square of an image, and its number tells how bright that square is.",
-      "lesson": "mnist-mlp"
+      "lesson": "linear-layer"
     },
     "prediction": {
       "term": "prediction",
@@ -287,7 +287,7 @@
       "term": "sample",
       "forms": ["sample", "samples"],
       "short": "A sample is one item of a data set, for example one image of a digit together with the digit that it shows.",
-      "lesson": "what-is-learning"
+      "lesson": "training-loop"
     },
     "shape": {
       "term": "shape",

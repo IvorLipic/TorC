@@ -2,7 +2,7 @@
 // points (taxi rides). The start w = 0, b = 3 lies off the steep axis of the loss valley (optim.json `off_axis`), so the gradient
 // does not point at the lowest point: the trail bends, zig-zags across the valley or creeps along its floor. The page covers the
 // gradient found by nudging w alone and b alone (a list of two numbers, drawn as an arrow uphill on the contour map), one step for
-// both weights, the SGD::step line, fog in 2D, and why the steep direction sets the largest safe learning rate. Momentum and
+// both parameters, the SGD::step line, fog in 2D, and why the steep direction sets the largest safe learning rate. Momentum and
 // zero_grad are taught later (brief C6). Numbers come from data/optim.json and data/why-gradients.json through T(); widget:
 // descent.js (on contour2d.js and the optimizer port ../optim.js). site/test/sgd-step.test.mjs checks every claim of the prose.
 import { mountDescent, LR_PRESETS } from '../widgets/descent.js';
@@ -59,7 +59,7 @@ export default {
     <ul>${[0, 1, 2].map((i) => `<li>A ride of ${T(`${O}.data.points.${i}.x`, 'setup')} km costs ${T(`${O}.data.points.${i}.t`, 'setup')} euros.</li>`).join('')}</ul>
     <p>Each extra kilometre adds ${T(`${O}.data.true_w`, 'setup')} euros, so the fee is ${T(`${O}.data.true_b`, 'setup')} euro.</p>
     <p>The ${term('model')} is the line <code>y = w·x + b</code>, with <code>x</code> in kilometres. The weight <code>w</code> is the price per kilometre, and the ${term('bias')} <code>b</code> is the fixed fee.</p>
-    <p>The model starts at <code>w</code> = ${T(`${F}.w0`, 'setup')} and <code>b</code> = ${T(`${F}.b0`, 'setup')}. The loss <code>L</code> is the mean of the three squared misses. Its square root, the typical miss, is about ${T.human(`${F}.start.loss`, 'rmse')} euros.</p>`),
+    <p>The model starts at <code>w</code> = ${T(`${F}.w0`, 'setup')} and <code>b</code> = ${T(`${F}.b0`, 'setup')}. The loss <code>L</code> is the ${term('mean-squared-error', 'mean squared error')} of the three rides. Its square root, the typical miss, is about ${T.human(`${F}.start.loss`, 'rmse')} euros.</p>`),
     },
     {
       kind: 'quiz', id: 'method', purpose: 'predict', type: 'choice',
@@ -124,7 +124,7 @@ export default {
     {
       kind: 'text',
       html: () => sec('real', '4 · The line in TorC that takes the step', `
-    <p>An ${term('optimizer')} is the part of a program that changes the parameters with their gradients. TorC's optimizer for plain ${term('gradient-descent')} is ${term('stochastic-gradient-descent', 'SGD')}.</p>
+    <p>An ${term('optimizer')} is the part of a program that changes the parameters with their gradients. TorC has an optimizer for plain ${term('gradient-descent')}.</p>
     ${realLine(STEP_LINE, 'TorC keeps the parameters in groups. This line runs once for each group and changes every number in it. Here each group holds one number, <code>w</code> or <code>b</code>.')}
     <p>The line reads <code>grad</code>, the gradient that <code>L.backward()</code> stored. So the optimizer does not compute the gradient.</p>`),
     },

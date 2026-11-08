@@ -60,7 +60,7 @@ export default {
     {
       kind: 'text', setup: true,
       html: (D, T) => sec('taxi', 'Taxi prices', `
-    <p>In the last lesson, a taxi ride cost a fixed fee plus a price per kilometre. The ${term('gradient')} showed the ${term('model')} how to improve both. This method is ${term('gradient-descent')}.</p>
+    <p>In the last lesson, a taxi ride cost a fixed fee plus a price per kilometre. With ${term('gradient-descent', 'gradient descent')}, the ${term('gradient')} showed the ${term('model')} how to improve both.</p>
     <p>That model had one input, the distance. Our taxi company also charges for waiting and for bags.</p>
     <p>Each kilometre costs ${T(w(0, 0), 'setup')} euros. Each minute of waiting costs ${T(w(0, 1), 'setup')} euro. Each bag costs ${T(w(0, 2), 'setup')} euro. Every ride also pays a fee of ${T(b(0), 'setup')} euro.</p>
     <p>We choose these prices by hand. ${term('training', 'Training')} could find them from data.</p>`),
@@ -123,7 +123,7 @@ export default {
     },
     {
       kind: 'quiz', id: 'w-shape', purpose: 'transfer', type: 'choice',
-      prompt: (D, T) => `<p>A digit image is a square of ${T.anchor('image_side')} by ${T.anchor('image_side')} ${term('pixel', 'pixels')}. Its ${T.anchor('pixels')} pixels are the inputs of the first layer, which has ${T(`${WEIGHT(0)}.shape.0`, 'setup')} neurons. What ${term('shape')} does TorC give its <i>W</i>, as (rows, columns)?</p>`,
+      prompt: (D, T) => `<p>A digit image is a grid of ${T.anchor('image_side')} by ${T.anchor('image_side')} small squares, the ${term('pixel', 'pixels')}. Its ${T.anchor('pixels')} pixels are the inputs of the first layer, which has ${T(`${WEIGHT(0)}.shape.0`, 'setup')} neurons. What ${term('shape')} does TorC give its <i>W</i>, as (rows, columns)?</p>`,
       options: [
         { html: (D, T) => `(${T(`${WEIGHT(0)}.shape.0`, 'setup')}, ${T(`${WEIGHT(0)}.shape.1`, 'setup')})`, correct: true,
           feedback: 'Yes. <i>W</i> has one row per neuron, and each row holds one weight per input.' },

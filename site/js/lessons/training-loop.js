@@ -75,8 +75,8 @@ export default {
     {
       kind: 'text', setup: true,
       html: (D, T) => sec('points', 'One hundred points near a line', `
-    <p>We made ${N(T)} samples with a short program. Each one has an input x and a ${term('target')} t = ${T(`${F}.setup.true_weight`, 'setup')}x + ${T(`${F}.setup.true_bias`, 'setup')}, plus a small random number, the noise.</p>
-    <p>The ${term('model')} is a line, y = w·x + b. Its ${term('weight')} w and its ${term('bias')} b are the ${term('parameter', 'parameters')}, and both start at ${T(`${GE}.at.w`, 'setup')}. The ${term('loss')} L is the mean of the squared misses of the ${term('prediction', 'predictions')} y.</p>
+    <p>A short program made a data set, a collection of ${N(T)} samples. Each sample is an input x with its ${term('target')} t = ${T(`${F}.setup.true_weight`, 'setup')}x + ${T(`${F}.setup.true_bias`, 'setup')}, plus a small random number, the noise.</p>
+    <p>The ${term('model')} is a line, y = w·x + b. Its ${term('weight')} w and its ${term('bias')} b are the ${term('parameter', 'parameters')}, and both start at ${T(`${GE}.at.w`, 'setup')}. The ${term('loss')} L is the ${term('mean-squared-error', 'mean squared error')} of the ${term('prediction', 'predictions')} y.</p>
     <p>At the start, the typical miss, the square root of the loss, is about ${rmse(T, `${BC}.runs.0.loss.0`)}.</p>`),
     },
     {

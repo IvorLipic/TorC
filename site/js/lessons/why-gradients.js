@@ -54,7 +54,7 @@ export default {
         return sec('price', 'The price of a notebook', `
     <p>Two notebooks cost ${T(`${F}.setup.t`, 'setup')} euros. The model has one weight, <code>w</code>, which is its guess of the price of one notebook. Its ${term('prediction')} for two notebooks is ${math(`${x}w`, false)} euros.</p>
     <p>The ${term('loss')} <code>L</code> measures how wrong the prediction is. Here it is the square of the miss, ${math(`L = (${x}w - ${t})^2`, false)}.</p>
-    <p>The model starts with the guess <code>w</code> = ${T(`${F}.probes.0.w`, 'setup')} and misses by ${T(`${F}.nudge.miss_before`, 'setup')} euros. So the loss is ${T(`${F}.nudge.miss_before`, 'setup')} squared, which is ${T(`${F}.probes.0.L`, 'setup')}.</p>
+    <p>The model starts with the guess <code>w</code> = ${T(`${F}.probes.0.w`, 'setup')}, so its prediction is ${T(`${F}.nudge.miss_before`, 'setup')} euros too low. The loss is ${T(`${F}.nudge.miss_before`, 'setup')} squared, which is ${T(`${F}.probes.0.L`, 'setup')}.</p>
     <p>The true price is ${T(`${F}.setup.w_min`, 'setup')} euros. There the miss and the loss are zero.</p>
     ${bowlFigure({ grid: files.grid, start: files.probes[0], wMin: files.setup.w_min, caption: 'The loss for every guess <code>w</code>. This curve is a bowl, and its lowest point is the bottom.' })}
     <p>Here you can divide to find the price. A network for handwritten digits has ${T.anchor('mlp_parameters')} ${term('parameter', 'parameters')} and no such shortcut.</p>`);
@@ -63,7 +63,7 @@ export default {
     {
       kind: 'quiz', id: 'nudge', purpose: 'predict', type: 'numeric',
       answer: `${F}.nudge.stages.2.after`, tolerance: 0.01,
-      prompt: (D, T) => `<p>A nudge is a small change of <code>w</code>. Raise <code>w</code> from ${T(`${F}.nudge.w0`, 'setup')} to ${T(`${F}.nudge.delta`, 'setup')}. The prediction becomes ${T(`${F}.nudge.stages.0.after`, 'setup')} euros, and the miss becomes ${T(`${F}.nudge.miss_after`, 'setup')} euros. What is the new loss? A calculator helps.</p>`,
+      prompt: (D, T) => `<p>A nudge is a small change of <code>w</code>. Raise <code>w</code> from ${T(`${F}.nudge.w0`, 'setup')} to ${T(`${F}.nudge.delta`, 'setup')}. The prediction becomes ${T(`${F}.nudge.stages.0.after`, 'setup')} euros, which is ${T(`${F}.nudge.miss_after`, 'setup')} euros too low. What is the new loss? A calculator helps.</p>`,
       reveal: (D, T) => `<p>The new loss is ${T(`${F}.nudge.miss_after`, 'reveal')}² = ${T(`${F}.nudge.stages.2.after`, 'reveal')}. So the loss changed by about ${T(`${F}.nudge.actual_dL`, { role: 'reveal', sig: 2 })}.</p>
     <p>Did you subtract from the old loss? The loss is the square of the miss, so square the new miss.</p>`,
     },
@@ -120,7 +120,7 @@ export default {
     {
       kind: 'text',
       html: () => sec('fog', '4 · Steps in the fog', `
-    <p>Nobody can draw the loss curve of a large network. Training finds the gradient where it is, takes one step, and repeats.</p>
+    <p>Nobody can draw the loss curve of a large network. Training finds the gradient where it is, takes one step, and repeats. This method is ${term('gradient-descent')}.</p>
     ${analogy('You stand on a hillside in thick fog. You feel which way the ground goes down under your feet, and how steep it is. You cannot see the valley.',
     'A hiker takes shorter steps where the ground is steep. A training step gets longer there, because it is the learning rate times the gradient.')}
 `),

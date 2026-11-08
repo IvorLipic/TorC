@@ -59,7 +59,7 @@
         {
           "id": "sgd-step",
           "title": "Gradient descent with many parameters",
-          "outcome": "You can find the gradient of a loss with two weights by nudging each weight alone. You can explain how one step changes both weights, and why a learning rate that is too large makes the loss grow.",
+          "outcome": "You can find the gradient of a loss with two parameters by nudging each parameter alone. You can explain how one step changes both parameters, and why a learning rate that is too large makes the loss grow.",
           "prereqs": [
             "why-gradients"
           ],
@@ -80,7 +80,7 @@
             "the loss map with fog",
             "three learning rates on the map"
           ],
-          "code": "optim::SGD opt(line.parameters(), /*lr=*/0.05f);\nfor (int step = 1; step <= 10; ++step) {\n    Variable y = line(x);    // the predicted prices, y = w·x + b\n    Variable L = mse(y, t);  // the mean of the squared misses\n    L.backward();            // finds the gradient, one number for w and one for b\n    opt.step();              // w -= lr * (gradient for w), the same for b\n    opt.zero_grad();         // clears the gradients before the next step\n}"
+          "code": "optim::SGD opt(line.parameters(), /*lr=*/0.05f);\nfor (int step = 1; step <= 10; ++step) {\n    Variable y = line(x);    // the predicted prices, y = w·x + b\n    Variable L = mse(y, t);  // the mean squared error\n    L.backward();            // finds the gradient, one number for w and one for b\n    opt.step();              // w -= lr * (gradient for w), the same for b\n    opt.zero_grad();         // clears the gradients (the lesson on the training loop explains why)\n}"
         }
       ]
     },
@@ -159,12 +159,12 @@
           "widgets": [
             "decision boundary playground"
           ],
-          "code": "nn::Sequential model;\n// x and y in, 8 hidden neurons out\nmodel.add(std::make_unique<nn::Linear>(2, 8));\n// each neuron is off on one side of its line\nmodel.add(std::make_unique<nn::ReLU>());\n// 8 neuron outputs in, 2 scores out\nmodel.add(std::make_unique<nn::Linear>(8, 2));"
+          "code": "nn::Sequential model;\n// x₀ and x₁ in, 8 hidden neurons out\nmodel.add(std::make_unique<nn::Linear>(2, 8));\n// each neuron is off on one side of its line\nmodel.add(std::make_unique<nn::ReLU>());\n// 8 neuron outputs in, 2 scores out\nmodel.add(std::make_unique<nn::Linear>(8, 2));"
         },
         {
           "id": "losses",
           "title": "Softmax and cross-entropy",
-          "outcome": "You can turn the scores of a model into probabilities with softmax. You can explain cross-entropy as the surprise at the right class, and why it beats the squared miss for classes.",
+          "outcome": "You can turn the scores of a model into probabilities with softmax. You can explain cross-entropy as the surprise at the right class, and why it beats the mean squared error for classes.",
           "prereqs": [
             "classification"
           ],
